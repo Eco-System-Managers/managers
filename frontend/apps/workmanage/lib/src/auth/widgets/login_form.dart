@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 
-class AuthForm extends StatelessWidget {
-  const AuthForm({super.key});
+class LoginForm extends StatelessWidget {
+
+  const LoginForm({super.key});
+  // TODO: Criar atributo do tipo Function chamado callback, inicializar no construtor padrão e chamá-la no onPressed do ElevatedButton
 
   @override
   Widget build(BuildContext context) {
@@ -20,8 +22,12 @@ class AuthForm extends StatelessWidget {
         children: [
           Text('Bem-vindo de volta',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-
+          ElevatedButton(
+            onPressed: (){},
+            child: Text('Criar conta'),
+          )
         ],
+
       ),
     );
   }
