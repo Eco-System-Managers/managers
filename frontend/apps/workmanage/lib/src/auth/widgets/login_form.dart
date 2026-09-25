@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-
 class LoginForm extends StatelessWidget {
+  // Atributo que guarda a função recebida do pai (AuthScreen)
+  final VoidCallback onSwitchToRegister;
 
-  const LoginForm({super.key});
-  // TODO: Criar atributo do tipo Function chamado callback, inicializar no construtor padrão e chamá-la no onPressed do ElevatedButton
+  // "required this." liga o parâmetro ao atributo acima e torna obrigatório
+  const LoginForm({super.key, required this.onSwitchToRegister});
 
   @override
   Widget build(BuildContext context) {
@@ -13,21 +14,23 @@ class LoginForm extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.vertical(
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(32),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Bem-vindo de volta',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+          const Text(
+            'Bem-vindo de volta',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+          ),
           ElevatedButton(
-            onPressed: (){},
-            child: Text('Criar conta'),
-          )
+            // Chama a função do pai, que troca para o RegisterForm
+            onPressed: onSwitchToRegister,
+            child: const Text('Criar conta'),
+          ),
         ],
-
       ),
     );
   }
