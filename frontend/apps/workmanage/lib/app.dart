@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-//import 'package:managers/ui/auth/widgets/login_screen.dart';
-import 'package:managers/ui/register/widget/register_screen.dart';
-
+import 'package:managers/routing/app_router.dart';
 
 import 'utils/util.dart';
 import 'ui/core/theme/theme.dart';
@@ -18,14 +16,10 @@ class App extends StatelessWidget {
     TextTheme textTheme = createTextTheme(context, "Roboto", "DM Sans");
     MaterialTheme theme = MaterialTheme(textTheme);
 
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Work Manage',
       theme: brightness == Brightness.light ? theme.light() : theme.dark(),
-      initialRoute: '/',
-      routes: {
-        //'/': (context) => LoginScreen(),
-        '/': (context) => RegisterScreen(),
-      },
+      routerConfig: router,
     );
   }
 }
