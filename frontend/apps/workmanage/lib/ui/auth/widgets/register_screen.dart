@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -33,7 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 ElevatedButton(
                   // Chama a função do pai, que troca de volta para o LoginForm
-                  onPressed: () {},
+                  onPressed: () => context.go('/login'),
                   child: const Text('Fazer Login'),
                 ),
               ],
