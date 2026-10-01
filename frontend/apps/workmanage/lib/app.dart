@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:managers/src/auth/screens/auth_screen.dart';
+//import 'package:managers/ui/auth/widgets/login_screen.dart';
+import 'package:managers/ui/register/widget/register_screen.dart';
 
-import 'util.dart';
-import 'theme.dart';
+
+import 'utils/util.dart';
+import 'ui/core/theme/theme.dart';
 
 class App extends StatelessWidget {
 
@@ -21,7 +23,8 @@ class App extends StatelessWidget {
       theme: brightness == Brightness.light ? theme.light() : theme.dark(),
       initialRoute: '/',
       routes: {
-        '/': (context) => AuthScreen(),
+        //'/': (context) => LoginScreen(),
+        '/': (context) => RegisterScreen(),
       },
     );
   }
