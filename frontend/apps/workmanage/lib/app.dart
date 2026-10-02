@@ -5,8 +5,6 @@ import 'utils/util.dart';
 import 'ui/core/theme/theme.dart';
 
 class App extends StatelessWidget {
-
-
   const App({super.key});
 
   @override

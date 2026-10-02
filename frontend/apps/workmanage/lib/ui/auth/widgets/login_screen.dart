@@ -94,27 +94,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 const SizedBox(height: 24), // espaçamento
-
                 // botão de entrar
                 FilledButton(
-                  
                   onPressed: () {
                     final email = _emailController.text.trim();
                     final senha = _passwordController.text;
 
                     // TODO: enviar email e senha para o ViewModel / backend
-                    
                   },
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(
-                      52,
-                    ), 
+                    minimumSize: const Size.fromHeight(52),
                   ),
                   child: const Text('Entrar'),
                 ),
 
                 const SizedBox(height: 8), // espaçamento
-
                 // botão de cadastro
                 TextButton(
                   onPressed: () => context.go('/register'),
