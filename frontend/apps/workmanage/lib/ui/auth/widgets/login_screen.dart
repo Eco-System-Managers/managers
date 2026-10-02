@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/ui/auth/view_models/login_view_model.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.viewModel});
@@ -53,155 +54,160 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
-      // layoutbuilder informa a altura disponível da tela
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          // permite rolar quando o teclado abre ou o conteúdo não cabe
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              // garante que o conteúdo ocupe pelo menos a tela inteira
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Column(
-                  children: [
-                    // área superior (logo/ilustração)
-                    const Expanded(child: Placeholder()),
 
-                    // painel inferior arredondado que contém o formulário
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(32),
+      // fundo da tela inteira
+      body: Stack(
+        children: [
+          // FUNDO
+          Positioned.fill(
+            child: SvgPicture.asset(
+              'assets/images/backgroundPattern.svg',
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          // CONTEÚDO
+          Column(
+            children: [
+              // área superior (logo/ilustração)
+              const Expanded(child: SizedBox()),
+              // painel inferior arredondado que contém o formulário
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(32),
+                  ),
+                ),
+
+                // form agrupa os campos e controla a validação
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Bem-vindo de volta',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
 
-                      // form agrupa os campos e controla a validação
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Text(
-                              'Bem-vindo de volta',
+                      const SizedBox(height: 24),
+
+                      // e-mail
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        validator: widget.viewModel.validateEmail,
+                        decoration: const InputDecoration(
+                          labelText: 'E-mail',
+                          prefixIcon: Icon(Icons.email_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // senha
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+
+                        // enter no teclado também tenta entrar
+                        onFieldSubmitted: (_) => _submit(),
+
+                        validator: widget.viewModel.validatePassword,
+                        decoration: InputDecoration(
+                          labelText: 'Senha',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          border: const OutlineInputBorder(),
+
+                          // botão de "olhinho" no final do campo
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () {
+                              // setState avisa o flutter para redesenhar
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+
+                      // mensagem de erro do viewmodel (só aparece se houver)
+                      ListenableBuilder(
+                        listenable: widget.viewModel,
+                        builder: (context, _) {
+                          final error = widget.viewModel.errorMessage;
+
+                          if (error == null) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              error,
                               style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.error,
                               ),
                             ),
-                            const SizedBox(height: 24),
-
-                            // e-mail
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              validator: widget.viewModel.validateEmail,
-                              decoration: const InputDecoration(
-                                labelText: 'E-mail',
-                                prefixIcon: Icon(Icons.email_outlined),
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // senha
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              // enter no teclado também tenta entrar
-                              onFieldSubmitted: (_) => _submit(),
-                              validator: widget.viewModel.validatePassword,
-                              decoration: InputDecoration(
-                                labelText: 'Senha',
-                                prefixIcon: const Icon(Icons.lock_outline),
-                                border: const OutlineInputBorder(),
-                                // botão de "olhinho" no final do campo
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_outlined
-                                        : Icons.visibility_off_outlined,
-                                  ),
-                                  onPressed: () {
-                                    // setState avisa o flutter para redesenhar
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                ),
-                              ),
-                            ),
-
-                            // mensagem de erro do viewmodel (só aparece se houver)
-                            ListenableBuilder(
-                              listenable: widget.viewModel,
-                              builder: (context, _) {
-                                final error = widget.viewModel.errorMessage;
-                                if (error == null) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: Text(
-                                    error,
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.error,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            // botão de entrar: reage ao estado de loading
-                            ListenableBuilder(
-                              listenable: widget.viewModel,
-                              builder: (context, _) {
-                                final loading = widget.viewModel.isLoading;
-                                return FilledButton(
-                                  // null desabilita o botão durante o loading
-                                  onPressed: loading ? null : _submit,
-                                  style: FilledButton.styleFrom(
-                                    minimumSize: const Size.fromHeight(52),
-                                  ),
-                                  child: loading
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Text('Entrar'),
-                                );
-                              },
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            // navega para a tela de cadastro
-                            TextButton(
-                              onPressed: () => context.go('/register'),
-                              child: const Text('Criar conta'),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 24),
+
+                      // botão de entrar: reage ao estado de loading
+                      ListenableBuilder(
+                        listenable: widget.viewModel,
+                        builder: (context, _) {
+                          final loading = widget.viewModel.isLoading;
+
+                          return FilledButton(
+                            // null desabilita o botão durante o loading
+                            onPressed: loading ? null : _submit,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                            ),
+                            child: loading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Entrar'),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // navega para a tela de cadastro
+                      TextButton(
+                        onPressed: () => context.go('/register'),
+                        child: const Text('Criar conta'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            ],
+          ),
+        ],
       ),
     );
   }
