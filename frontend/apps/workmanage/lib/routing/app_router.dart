@@ -8,7 +8,7 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/',
       builder: (BuildContext context, GoRouterState state) {
-        return const Placeholder(); // TODO: Substituir pela tela inicial
+        return const LoginScreen(); // TODO: Substituir pela tela inicial
       },
     ),
     GoRoute(
