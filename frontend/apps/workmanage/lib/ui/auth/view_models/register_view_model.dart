@@ -6,22 +6,18 @@ class RegisterViewModel extends ChangeNotifier {
   //   string -> mensagem de erro que a tela vai exibir
 
   String? validateCompany(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Informe o nome da empresa';
-    }
+    if (_isEmpty(value))"Informe a empresa";;
     return null;
   }
 
   String? validateOwner(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Informe seu nome';
-    }
+    if (_isEmpty(value)) return "Informe o nome";;
     return null;
   }
 
   String? validateEmail(String? value) {
     final email = value?.trim() ?? '';
-    if (email.isEmpty) return 'Informe seu e-mail';
+    if (_isEmpty(email)) return 'Informe seu e-mail';
     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
       return 'E-mail inválido';
     }
@@ -29,15 +25,22 @@ class RegisterViewModel extends ChangeNotifier {
   }
 
   String? validatePassword(String? value) {
-    if (value == null || value.isEmpty) return 'Informe uma senha';
-    if (value.length < 6) return 'Mínimo de 6 caracteres';
+    if (_isEmpty(value)) return 'Informe uma senha';
+    if (value!.length < 6) return 'Mínimo de 6 caracteres';
     return null;
   }
 
   // precisa do valor da senha para comparar
   String? validateConfirmPassword(String? value, String password) {
-    if (value == null || value.isEmpty) return 'Confirme sua senha';
+    if (_isEmpty(value)) return 'Confirme sua senha';
     if (value != password) return 'As senhas não conferem';
     return null;
+  }
+
+  bool _isEmpty (String? value){
+    if (value == null || value.trim().isEmpty){
+      return true;
+    }
+    return false;
   }
 }
