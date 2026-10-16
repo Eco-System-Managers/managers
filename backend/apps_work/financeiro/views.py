@@ -1,0 +1,97 @@
+from datetime import date
+from decimal import Decimal
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status as http_status
+
+from core.permissions import IsProprietario
+from apps_work.clientes.models import Cliente
+from .models import Despesa, TransacaoCredito
+from .serializers import DespesaSerializer, TransacaoCreditoSerializer
+from .services import CaixaService, DespesaService
+
+
+class SaldoClienteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, cliente_id):
+        if not Cliente.objects.filter(id=cliente_id).exists():
+            return Response({'detail': 'Cliente não encontrado.'}, status=http_status.HTTP_404_NOT_FOUND)
+
+        transacoes = list(TransacaoCredito.objects.filter(cliente_id=cliente_id))
+        saldo = sum(
+            (t.valor if t.tipo == 'credito' else -t.valor) for t in transacoes
+        ) or Decimal('0')
+        return Response({
+            'saldo': str(saldo.quantize(Decimal('0.01'))),
+            'transacoes': TransacaoCreditoSerializer(transacoes, many=True).data,
+        })
+
+
+class CaixaView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        data_inicio_str = request.query_params.get('data_inicio')
+        data_fim_str = request.query_params.get('data_fim')
+        try:
+            data_inicio = date.fromisoformat(data_inicio_str) if data_inicio_str else date.today()
+            data_fim = date.fromisoformat(data_fim_str) if data_fim_str else date.today()
+        except ValueError:
+            return Response({'detail': 'Data inválida.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        colaborador_str = request.query_params.get('colaborador')
+        colaborador_id = None
+        if colaborador_str:
+            try:
+                colaborador_id = int(colaborador_str)
+            except ValueError:
+                return Response({'detail': 'Colaborador inválido.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        dados = CaixaService().obter_dados(data_inicio, data_fim, colaborador_id)
+        return Response(dados)
+
+
+class DespesaPagination(PageNumberPagination):
+    page_size = 20
+
+
+class DespesaViewSet(viewsets.ModelViewSet):
+    serializer_class = DespesaSerializer
+    pagination_class = DespesaPagination
+    permission_classes = [IsProprietario]
+
+    def get_queryset(self):
+        qs = Despesa.objects.all()
+        params = self.request.query_params
+
+        data_inicio = params.get('data_inicio')
+        data_fim = params.get('data_fim')
+        categoria = params.get('categoria')
+        try:
+            if data_inicio:
+                qs = qs.filter(data__gte=date.fromisoformat(data_inicio))
+            if data_fim:
+                qs = qs.filter(data__lte=date.fromisoformat(data_fim))
+        except ValueError:
+            return Despesa.objects.none()
+        if categoria:
+            qs = qs.filter(categoria=categoria)
+
+        return qs.order_by('-data', '-criado_em')
+
+    @action(detail=False, methods=['get'], url_path='resumo')
+    def resumo(self, request):
+        data_inicio_str = request.query_params.get('data_inicio')
+        data_fim_str = request.query_params.get('data_fim')
+        try:
+            data_inicio = date.fromisoformat(data_inicio_str) if data_inicio_str else date.today()
+            data_fim = date.fromisoformat(data_fim_str) if data_fim_str else date.today()
+        except ValueError:
+            return Response({'detail': 'Data inválida.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        return Response(DespesaService().resumo(data_inicio, data_fim))
