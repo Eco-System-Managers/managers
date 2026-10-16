@@ -1,0 +1,138 @@
+from django.conf import settings
+from django.db import connection
+from django.http import HttpResponseRedirect
+from rest_framework import status
+from rest_framework.generics import ListAPIView
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from core.permissions import IsProprietario
+from .models import Assinatura, Pagamento, Plano
+from .serializers import AssinaturaSerializer, PagamentoSerializer
+from .services import (
+    AssinaturaInvalidaError,
+    MercadoPagoService,
+    PreapprovalInvalidoError,
+    WebhookInvalidoError,
+)
+
+
+class MinhaAssinaturaView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from tenants.models import Tenant
+
+        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        try:
+            assinatura = tenant.assinatura
+        except Assinatura.DoesNotExist:
+            return Response({'detail': 'Este negócio ainda não tem assinatura.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(AssinaturaSerializer(assinatura).data)
+
+
+class IniciarAssinaturaView(APIView):
+    permission_classes = [IsAuthenticated, IsProprietario]
+
+    def post(self, request):
+        plano = Plano.objects.filter(nome='pro', ativo=True).first()
+        if plano is None:
+            return Response({'detail': 'Plano Pro não está configurado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            init_point = MercadoPagoService().obter_link_assinatura(plano)
+        except AssinaturaInvalidaError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'init_point': init_point})
+
+
+class RetornoCheckoutView(APIView):
+    """Recebe o redirect do Mercado Pago após o checkout (back_url) e repassa
+    pro frontend com a mesma query string — não interpreta nada aqui, só
+    resolve o back_url precisar ser um domínio público (https/ngrok em dev,
+    o domínio real em produção), diferente do frontend, que pode estar em
+    localhost em dev."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query = request.META.get('QUERY_STRING', '')
+        destino = f'{settings.FRONTEND_URL}/app/pagamentos' + (f'?{query}' if query else '')
+        return HttpResponseRedirect(destino)
+
+
+class ConfirmarAssinaturaView(APIView):
+    permission_classes = [IsAuthenticated, IsProprietario]
+
+    def post(self, request):
+        preapproval_id = request.data.get('preapproval_id')
+        if not preapproval_id:
+            return Response({'detail': 'preapproval_id é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from tenants.models import Tenant
+
+        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        try:
+            assinatura = MercadoPagoService().confirmar_assinatura(tenant, preapproval_id)
+        except PreapprovalInvalidoError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(AssinaturaSerializer(assinatura).data)
+
+
+class CancelarAssinaturaView(APIView):
+    permission_classes = [IsAuthenticated, IsProprietario]
+
+    def post(self, request):
+        from tenants.models import Tenant
+
+        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        try:
+            assinatura = MercadoPagoService().cancelar_assinatura(tenant)
+        except PreapprovalInvalidoError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(AssinaturaSerializer(assinatura).data)
+
+
+class PagamentoPagination(PageNumberPagination):
+    page_size = 20
+
+
+class PagamentosListView(ListAPIView):
+    serializer_class = PagamentoSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = PagamentoPagination
+
+    def get_queryset(self):
+        from tenants.models import Tenant
+
+        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        return Pagamento.objects.filter(assinatura__tenant=tenant).order_by('-data')
+
+
+class MercadoPagoWebhookView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        topico = request.query_params.get('type') or request.query_params.get('topic')
+        data_id = request.query_params.get('data.id') or request.query_params.get('id')
+        if not topico or not data_id:
+            # Notificação fora do formato esperado — confirma recebimento sem processar.
+            return Response(status=status.HTTP_200_OK)
+
+        try:
+            MercadoPagoService().processar_webhook(
+                topico=topico,
+                data_id=data_id,
+                x_signature=request.headers.get('x-signature', ''),
+                x_request_id=request.headers.get('x-request-id', ''),
+            )
+        except WebhookInvalidoError:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        return Response(status=status.HTTP_200_OK)

@@ -1,0 +1,174 @@
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework import status
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
+
+from apps_serv.consumidores.serializers import CadastroConsumidorSerializer, ConsumidorSerializer
+from apps_serv.consumidores.services import (
+    LoginConsumidorService,
+    RecuperacaoSenhaConsumidorService,
+    RegistroConsumidorService,
+)
+from .authentication import gerar_tokens, renovar_access_token
+
+REFRESH_COOKIE = 'sm_refresh_token'
+REFRESH_COOKIE_MAX_AGE = 7 * 24 * 3600
+
+
+def _set_refresh_cookie(response: Response, token_str: str) -> None:
+    from django.conf import settings
+    response.set_cookie(
+        key=REFRESH_COOKIE,
+        value=token_str,
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite='Lax',
+        max_age=REFRESH_COOKIE_MAX_AGE,
+        path='/api/sm/auth/',
+    )
+
+
+def _delete_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key=REFRESH_COOKIE, path='/api/sm/auth/')
+
+
+class CadastroConsumidorView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_cadastro'
+
+    def post(self, request):
+        serializer = CadastroConsumidorSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            consumidor = RegistroConsumidorService().registrar(
+                nome=serializer.validated_data['nome'],
+                email=serializer.validated_data['email'],
+                senha=serializer.validated_data['senha'],
+                telefone=serializer.validated_data.get('telefone', ''),
+            )
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        access, refresh = gerar_tokens(consumidor)
+        response = Response(
+            {'access': access, 'refresh': refresh, 'consumidor': ConsumidorSerializer(consumidor).data},
+            status=status.HTTP_201_CREATED,
+        )
+        _set_refresh_cookie(response, refresh)
+        return response
+
+
+class LoginConsumidorView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_login'
+
+    def post(self, request):
+        email = request.data.get('email', '')
+        senha = request.data.get('senha', '')
+
+        try:
+            consumidor = LoginConsumidorService().autenticar(email=email, senha=senha)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        access, refresh = gerar_tokens(consumidor)
+        response = Response({
+            'access': access,
+            'refresh': refresh,
+            'consumidor': ConsumidorSerializer(consumidor).data,
+        })
+        _set_refresh_cookie(response, refresh)
+        return response
+
+
+class RefreshConsumidorView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token_str = request.COOKIES.get(REFRESH_COOKIE) or request.data.get('refresh', '')
+        if not token_str:
+            return Response({'detail': 'Sessão expirada. Faça login novamente.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            access, consumidor = renovar_access_token(token_str)
+        except AuthenticationFailed as e:
+            response = Response({'detail': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            _delete_refresh_cookie(response)
+            return response
+
+        _, new_refresh = gerar_tokens(consumidor)
+        response = Response({'access': access, 'refresh': new_refresh})
+        _set_refresh_cookie(response, new_refresh)
+        return response
+
+
+class LogoutConsumidorView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        response = Response({'detail': 'Logout realizado com sucesso.'})
+        _delete_refresh_cookie(response)
+        return response
+
+
+class RecuperarSenhaConsumidorView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_recovery'
+
+    def post(self, request):
+        email = request.data.get('email', '').strip()
+        msg = RecuperacaoSenhaConsumidorService().solicitar(email)
+        return Response({'detail': msg})
+
+
+class VerificarCodigoConsumidorView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_verify'
+
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        codigo = request.data.get('codigo', '').strip()
+
+        if not RecuperacaoSenhaConsumidorService().verificar_codigo(email, codigo):
+            return Response({'detail': 'Código inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Código válido.'})
+
+
+class NovaSenhaConsumidorView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_verify'
+
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        codigo = request.data.get('codigo', '').strip()
+        nova_senha = request.data.get('nova_senha', '')
+
+        try:
+            validate_password(nova_senha)
+        except DjangoValidationError as e:
+            return Response({'detail': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            RecuperacaoSenhaConsumidorService().redefinir_senha(email, codigo, nova_senha)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Senha redefinida com sucesso.'})
