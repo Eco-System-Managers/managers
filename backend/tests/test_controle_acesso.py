@@ -150,7 +150,7 @@ class TestAcessoCruzadoEntreTenants:
         client = _cliente_com_token(user, schema_name='test_empresa')
         assert client.get('/api/colaboradores/').status_code == 401
 
-    def test_token_sem_schema_e_recusado(self, proprietario):
+    def test_token_sem_schema_e_recusado(self, patch_tenant_middleware, proprietario):
         client = _cliente_com_token(proprietario, schema_name=None)
         assert client.get('/api/colaboradores/').status_code == 401
 
