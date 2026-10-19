@@ -1,8 +1,9 @@
-import secrets
 from datetime import date, timedelta
 
+from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
@@ -10,7 +11,15 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.utils import get_md5_hash_password
 
+from core.email import enviar_email
+
 from .models import CodigoRecuperacao
+
+
+def dominio_do_schema(schema_name: str) -> str:
+    """Subdomínio do tenant. O schema usa `_`, que é inválido em nome de host
+    (o Django recusa a requisição); no domínio ele vira `-`."""
+    return f"{schema_name.replace('_', '-')}.{settings.TENANT_DOMAIN_SUFFIX}"
 
 
 class OnboardingService:
@@ -30,7 +39,7 @@ class OnboardingService:
             tenant = Tenant.objects.create(schema_name=schema_name, name=nome_empresa)
             connection.set_schema_to_public()
             Domain.objects.create(
-                domain=f'{schema_name}.localhost',
+                domain=dominio_do_schema(schema_name),
                 tenant=tenant,
                 is_primary=True,
             )
@@ -62,25 +71,62 @@ class OnboardingService:
 class RecuperacaoSenhaService:
     GENERIC_MSG = 'Se este e-mail estiver cadastrado, você receberá um código em instantes.'
 
+    def _usuario(self, email: str):
+        # O username guarda o e-mail e é único; o campo email do User não é.
+        return User.objects.filter(username=email.strip().lower()).first()
+
+    def _codigo_vigente(self, user):
+        registro = CodigoRecuperacao.objects.filter(user=user, usado=False).first()
+        if registro is None or registro.expirado or registro.bloqueado:
+            return None
+        return registro
+
+    def _conferir(self, registro, codigo: str) -> bool:
+        if registro.confere(codigo):
+            return True
+        registro.tentativas += 1
+        registro.save(update_fields=['tentativas'])
+        return False
+
     def recuperar(self, email: str) -> str:
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
+        user = self._usuario(email)
+        if user is None:
             return self.GENERIC_MSG
 
-        CodigoRecuperacao.objects.filter(user=user, usado=False).update(usado=True)
-
-        codigo = ''.join(secrets.choice('0123456789') for _ in range(8))
-        CodigoRecuperacao.objects.create(user=user, codigo=codigo)
-
-        send_mail(
-            subject='Código de recuperação — Work Manage',
-            message=f'Seu código de recuperação é: {codigo}\n\nEle expira em 15 minutos.',
-            from_email=None,
-            recipient_list=[email],
+        _, codigo = CodigoRecuperacao.emitir(user)
+        enviar_email.enqueue(
+            assunto='Código de recuperação — Work Manage',
+            mensagem=f'Seu código de recuperação é: {codigo}\n\nEle expira em 15 minutos.',
+            destinatario=user.email,
         )
-
         return self.GENERIC_MSG
+
+    def verificar_codigo(self, email: str, codigo: str) -> bool:
+        user = self._usuario(email)
+        registro = self._codigo_vigente(user) if user else None
+        return registro is not None and self._conferir(registro, codigo)
+
+    def redefinir_senha(self, email: str, codigo: str, nova_senha: str) -> None:
+        # Sem transação: a tentativa errada precisa ficar gravada mesmo com o
+        # ValueError — senão o limite de tentativas nunca seria atingido.
+        user = self._usuario(email)
+
+        # A senha é validada antes de gastar uma tentativa do código.
+        try:
+            validate_password(nova_senha, user)
+        except DjangoValidationError as e:
+            raise ValueError(' '.join(e.messages))
+
+        registro = self._codigo_vigente(user) if user else None
+        if registro is None or not self._conferir(registro, codigo):
+            raise ValueError('Código inválido ou expirado.')
+
+        user.set_password(nova_senha)
+        user.save(update_fields=['password'])
+        registro.usado = True
+        registro.save(update_fields=['usado'])
+        # Quem pediu a recuperação pode estar tirando um invasor da conta.
+        SessaoService().encerrar_todas(user)
 
 
 class SessaoInvalida(Exception):

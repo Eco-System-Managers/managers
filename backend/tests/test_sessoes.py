@@ -84,7 +84,7 @@ class TestRevogacaoB2B:
 
     def test_troca_de_senha_derruba_refresh_e_access(self, api, sessao, proprietario):
         access = str(sessao.access_token)
-        CodigoRecuperacao.objects.create(user=proprietario, codigo='12345678')
+        CodigoRecuperacao.emitir(proprietario, '12345678')
 
         response = api.post('/auth/nova-senha/', {
             'email': proprietario.email, 'codigo': '12345678', 'nova_senha': 'OutraSenha456!',
@@ -226,7 +226,7 @@ class TestSessoesB2C:
 
     def test_troca_de_senha_derruba_access_e_refresh(self, api_sm, consumidor):
         access, refresh = _login_sm(api_sm)
-        CodigoRecuperacaoConsumidor.objects.create(consumidor=consumidor, codigo='12345678')
+        CodigoRecuperacaoConsumidor.emitir(consumidor, '12345678')
 
         # O token tem resolução de segundos; a troca acontece "depois" dele.
         depois = timezone.now() + timedelta(seconds=5)

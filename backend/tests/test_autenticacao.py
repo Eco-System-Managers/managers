@@ -47,7 +47,7 @@ def user_com_tenant(db):
 
 @pytest.fixture
 def codigo_recuperacao(user_auth):
-    return CodigoRecuperacao.objects.create(user=user_auth, codigo='12345678')
+    return CodigoRecuperacao.emitir(user_auth, '12345678')[0]
 
 
 @pytest.mark.django_db
@@ -78,7 +78,8 @@ class TestCadastro:
         response = api.post('/auth/cadastro/', payload)
         assert response.status_code == 400
 
-    def test_empresa_duplicada_retorna_400(self, api, db):
+    def test_empresa_com_nome_repetido_ganha_sufixo(self, api, db):
+        # Duas empresas podem ter o mesmo nome; o schema é que precisa ser único.
         from django.db import connection
         connection.set_schema_to_public()
         Tenant.objects.create(schema_name='salao_existente', name='Salão Existente')
@@ -90,7 +91,9 @@ class TestCadastro:
             'senha': 'SenhaForte123!',
         }
         response = api.post('/auth/cadastro/', payload)
-        assert response.status_code == 400
+        assert response.status_code == 201
+        assert response.data['schema_name'] == 'salao_existente_2'
+        assert response.data['empresa'] == 'Salão Existente'
 
     def test_senha_fraca_retorna_400(self, api, db):
         payload = {
@@ -215,7 +218,7 @@ class TestLogin:
 @pytest.mark.django_db
 class TestRecuperarSenha:
     def test_email_existente_cria_codigo_e_envia_email(self, api, user_auth):
-        with patch('apps_work.autenticacao.services.send_mail') as mock_mail:
+        with patch('core.email.send_mail') as mock_mail:
             response = api.post('/auth/recuperar-senha/', {'email': 'auth@teste.com'})
         assert response.status_code == 200
         assert CodigoRecuperacao.objects.filter(user=user_auth, usado=False).exists()
@@ -227,7 +230,7 @@ class TestRecuperarSenha:
         assert 'cadastrado' in response.data['detail']
 
     def test_novo_codigo_invalida_codigos_anteriores(self, api, user_auth, codigo_recuperacao):
-        with patch('apps_work.autenticacao.services.send_mail'):
+        with patch('core.email.send_mail'):
             api.post('/auth/recuperar-senha/', {'email': 'auth@teste.com'})
         codigo_recuperacao.refresh_from_db()
         assert codigo_recuperacao.usado is True
@@ -244,7 +247,7 @@ class TestVerificarCodigo:
         assert response.status_code == 400
 
     def test_codigo_expirado_retorna_400(self, api, user_auth):
-        codigo = CodigoRecuperacao.objects.create(user=user_auth, codigo='99999999')
+        codigo = CodigoRecuperacao.emitir(user_auth, '99999999')[0]
         codigo.expira_em = timezone.now() - timedelta(minutes=1)
         codigo.save()
         response = api.post('/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '99999999'})
@@ -294,7 +297,9 @@ class TestNovaSenha:
         assert response.status_code == 400
 
     def test_codigo_ja_usado_retorna_400(self, api, user_auth):
-        CodigoRecuperacao.objects.create(user=user_auth, codigo='56789012', usado=True)
+        usado, _ = CodigoRecuperacao.emitir(user_auth, '56789012')
+        usado.usado = True
+        usado.save()
         response = api.post('/auth/nova-senha/', {
             'email': 'auth@teste.com',
             'codigo': '56789012',
@@ -303,7 +308,7 @@ class TestNovaSenha:
         assert response.status_code == 400
 
     def test_codigo_expirado_retorna_400(self, api, user_auth):
-        codigo = CodigoRecuperacao.objects.create(user=user_auth, codigo='43219876')
+        codigo = CodigoRecuperacao.emitir(user_auth, '43219876')[0]
         codigo.expira_em = timezone.now() - timedelta(minutes=1)
         codigo.save()
         response = api.post('/auth/nova-senha/', {
@@ -435,22 +440,23 @@ class TestLogout:
 class TestCodigoRecuperacaoModel:
     def test_expira_em_definido_automaticamente(self, user_auth):
         antes = timezone.now()
-        codigo = CodigoRecuperacao.objects.create(user=user_auth, codigo='11112222')
+        codigo = CodigoRecuperacao.emitir(user_auth, '11112222')[0]
         assert codigo.expira_em >= antes + timedelta(minutes=14)
         assert codigo.expira_em <= antes + timedelta(minutes=16)
 
     def test_expirado_false_quando_valido(self, user_auth):
-        codigo = CodigoRecuperacao.objects.create(user=user_auth, codigo='22223333')
+        codigo = CodigoRecuperacao.emitir(user_auth, '22223333')[0]
         assert codigo.expirado is False
 
     def test_expirado_true_quando_expirado(self, user_auth):
-        codigo = CodigoRecuperacao.objects.create(user=user_auth, codigo='33334444')
+        codigo = CodigoRecuperacao.emitir(user_auth, '33334444')[0]
         codigo.expira_em = timezone.now() - timedelta(minutes=1)
         codigo.save()
         assert codigo.expirado is True
 
     def test_str_codigo_recuperacao(self, user_auth, codigo_recuperacao):
-        assert str(codigo_recuperacao) == f'{user_auth.email} — {codigo_recuperacao.codigo}'
+        assert str(codigo_recuperacao).startswith(f'{user_auth.email} — ')
+        assert '12345678' not in str(codigo_recuperacao)
 
 
 @pytest.mark.django_db

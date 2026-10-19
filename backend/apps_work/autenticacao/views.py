@@ -1,7 +1,5 @@
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -9,7 +7,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from core.sessao import entregar_refresh, refresh_da_requisicao
 from tenants.models import UserTenant
-from .models import CodigoRecuperacao, LastActivity
+from .models import LastActivity
 from .serializers import CadastroSerializer
 
 REFRESH_COOKIE = 'refresh_token'
@@ -72,9 +70,11 @@ class LoginView(APIView):
         email = request.data.get('email', '').strip().lower()
         senha = request.data.get('senha', '')
 
-        try:
-            user = User.objects.get(username=email)
-        except User.DoesNotExist:
+        user = User.objects.filter(username=email).first()
+        if user is None:
+            # Calcula um hash mesmo assim: sem isso, e-mail inexistente responde
+            # mais rápido e o tempo de resposta revela quem tem conta.
+            User().set_password(senha)
             return Response(
                 {'detail': 'E-mail ou senha inválidos.'},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -132,19 +132,11 @@ class VerificarCodigoView(APIView):
     throttle_scope = 'auth_verify'
 
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
+        from .services import RecuperacaoSenhaService
+        email = request.data.get('email', '')
         codigo = request.data.get('codigo', '').strip()
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({'detail': 'Código inválido.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        registro = CodigoRecuperacao.objects.filter(
-            user=user, codigo=codigo, usado=False
-        ).first()
-
-        if not registro or registro.expirado:
+        if not RecuperacaoSenhaService().verificar_codigo(email, codigo):
             return Response({'detail': 'Código inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Código válido.'})
@@ -157,36 +149,15 @@ class NovaSenhaView(APIView):
     throttle_scope = 'auth_verify'
 
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
+        from .services import RecuperacaoSenhaService
+        email = request.data.get('email', '')
         codigo = request.data.get('codigo', '').strip()
         nova_senha = request.data.get('nova_senha', '')
 
         try:
-            validate_password(nova_senha)
-        except DjangoValidationError as e:
-            return Response({'detail': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({'detail': 'Código inválido.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        registro = CodigoRecuperacao.objects.filter(
-            user=user, codigo=codigo, usado=False
-        ).first()
-
-        if not registro or registro.expirado:
-            return Response({'detail': 'Código inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user.set_password(nova_senha)
-        user.save()
-
-        # Quem pediu a recuperação pode estar tirando um invasor da conta.
-        from .services import SessaoService
-        SessaoService().encerrar_todas(user)
-
-        registro.usado = True
-        registro.save()
+            RecuperacaoSenhaService().redefinir_senha(email, codigo, nova_senha)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Senha redefinida com sucesso.'})
 

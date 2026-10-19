@@ -1,3 +1,4 @@
+import re
 import pytest
 from decimal import Decimal
 from datetime import timedelta
@@ -85,38 +86,34 @@ class TestLoginConsumidorService:
 @pytest.mark.django_db
 class TestRecuperacaoSenhaConsumidorService:
     def test_solicitar_cria_codigo_de_8_digitos(self, consumidor_registrado):
-        with patch('apps_serv.consumidores.services.send_mail'):
+        with patch('core.email.send_mail') as mock_mail:
             RecuperacaoSenhaConsumidorService().solicitar(consumidor_registrado.email)
         registro = CodigoRecuperacaoConsumidor.objects.filter(
             consumidor=consumidor_registrado, usado=False
         ).first()
         assert registro is not None
-        assert len(registro.codigo) == 8
-        assert registro.codigo.isdigit()
+        codigo = re.search(r'\b(\d+)\b', mock_mail.call_args.kwargs['message']).group(1)
+        assert len(codigo) == 8
+        assert registro.confere(codigo)
+        # Só o hash fica no banco.
+        assert codigo not in registro.codigo_hash
 
     def test_solicitar_invalida_codigos_anteriores(self, consumidor_registrado):
-        CodigoRecuperacaoConsumidor.objects.create(
-            consumidor=consumidor_registrado, codigo='11111111'
-        )
-        with patch('apps_serv.consumidores.services.send_mail'):
+        antigo, _ = CodigoRecuperacaoConsumidor.emitir(consumidor_registrado, '11111111')
+        with patch('core.email.send_mail'):
             RecuperacaoSenhaConsumidorService().solicitar(consumidor_registrado.email)
-        assert not CodigoRecuperacaoConsumidor.objects.filter(
-            consumidor=consumidor_registrado, codigo='11111111', usado=False
-        ).exists()
+        antigo.refresh_from_db()
+        assert antigo.usado is True
 
     def test_verificar_codigo_correto_retorna_true(self, consumidor_registrado):
-        CodigoRecuperacaoConsumidor.objects.create(
-            consumidor=consumidor_registrado, codigo='12345678'
-        )
+        CodigoRecuperacaoConsumidor.emitir(consumidor_registrado, '12345678')[0]
         resultado = RecuperacaoSenhaConsumidorService().verificar_codigo(
             consumidor_registrado.email, '12345678'
         )
         assert resultado is True
 
     def test_verificar_codigo_errado_retorna_false_e_incrementa_tentativas(self, consumidor_registrado):
-        registro = CodigoRecuperacaoConsumidor.objects.create(
-            consumidor=consumidor_registrado, codigo='12345678'
-        )
+        registro = CodigoRecuperacaoConsumidor.emitir(consumidor_registrado, '12345678')[0]
         resultado = RecuperacaoSenhaConsumidorService().verificar_codigo(
             consumidor_registrado.email, '00000000'
         )
@@ -125,18 +122,16 @@ class TestRecuperacaoSenhaConsumidorService:
         assert registro.tentativas == 1
 
     def test_verificar_codigo_bloqueado_apos_5_tentativas(self, consumidor_registrado):
-        registro = CodigoRecuperacaoConsumidor.objects.create(
-            consumidor=consumidor_registrado, codigo='12345678', tentativas=5
-        )
+        registro, _ = CodigoRecuperacaoConsumidor.emitir(consumidor_registrado, '12345678')
+        registro.tentativas = 5
+        registro.save()
         resultado = RecuperacaoSenhaConsumidorService().verificar_codigo(
             consumidor_registrado.email, '12345678'
         )
         assert resultado is False
 
     def test_verificar_codigo_expirado_retorna_false(self, consumidor_registrado):
-        registro = CodigoRecuperacaoConsumidor.objects.create(
-            consumidor=consumidor_registrado, codigo='12345678'
-        )
+        registro = CodigoRecuperacaoConsumidor.emitir(consumidor_registrado, '12345678')[0]
         registro.expira_em = timezone.now() - timedelta(minutes=1)
         registro.save()
         resultado = RecuperacaoSenhaConsumidorService().verificar_codigo(
@@ -145,22 +140,17 @@ class TestRecuperacaoSenhaConsumidorService:
         assert resultado is False
 
     def test_redefinir_senha_atualiza_password_e_marca_codigo_usado(self, consumidor_registrado):
-        CodigoRecuperacaoConsumidor.objects.create(
-            consumidor=consumidor_registrado, codigo='12345678'
-        )
+        registro, _ = CodigoRecuperacaoConsumidor.emitir(consumidor_registrado, '12345678')
         RecuperacaoSenhaConsumidorService().redefinir_senha(
             consumidor_registrado.email, '12345678', 'NovaSenha456!'
         )
         consumidor_registrado.refresh_from_db()
         assert consumidor_registrado.check_password('NovaSenha456!')
-        assert CodigoRecuperacaoConsumidor.objects.filter(
-            consumidor=consumidor_registrado, codigo='12345678', usado=True
-        ).exists()
+        registro.refresh_from_db()
+        assert registro.usado is True
 
     def test_redefinir_senha_com_codigo_errado_levanta_value_error(self, consumidor_registrado):
-        CodigoRecuperacaoConsumidor.objects.create(
-            consumidor=consumidor_registrado, codigo='12345678'
-        )
+        CodigoRecuperacaoConsumidor.emitir(consumidor_registrado, '12345678')[0]
         with pytest.raises(ValueError, match='inválido'):
             RecuperacaoSenhaConsumidorService().redefinir_senha(
                 consumidor_registrado.email, '00000000', 'NovaSenha456!'

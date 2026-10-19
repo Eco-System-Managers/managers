@@ -59,14 +59,15 @@ Gravado ao renovar (o refresh usado) e no logout. Ver `../autenticacao/CLAUDE.md
 | Coluna | Tipo | O que é |
 |---|---|---|
 | `consumidor` | `FK → Consumidor` `CASCADE` | |
-| `codigo` | `CharField(8)` | |
+| `codigo_hash` | `CharField(128)` | Hash do código (`make_password`). O código em claro só existe no e-mail |
 | `criado_em` | `DateTime` `auto_now_add` | |
 | `expira_em` | `DateTimeField` | 15 minutos, definido no `save()` |
 | `usado` | `Boolean` = `False` | |
 | `tentativas` | `PositiveSmallInteger` = 0 | Trava em 5 (`MAX_TENTATIVAS`) |
 
 Ordenação por `-criado_em`. `expirado` e `bloqueado` são propriedades, não
-colunas.
+colunas. Crie com `CodigoRecuperacaoConsumidor.emitir(consumidor)` e confira
+com `registro.confere(codigo)`. O e-mail sai por task (`core/email.py`).
 
 ### `VinculoConsumidor` — cliente ↔ negócio
 

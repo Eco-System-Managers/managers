@@ -70,6 +70,8 @@ INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in S
 TENANT_MODEL = 'tenants.Tenant'
 TENANT_DOMAIN_MODEL = 'tenants.Domain'
 SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
+# Sufixo do subdomínio de cada empresa: <slug>.<sufixo>
+TENANT_DOMAIN_SUFFIX = os.getenv('TENANT_DOMAIN_SUFFIX', 'localhost')
 
 MIDDLEWARE = [
     'django_tenants.middleware.main.TenantMainMiddleware',
@@ -277,6 +279,12 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Trocar e colocar o seu dominio para ir para a produção
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+
+# Tasks rodam numa thread depois do commit (core/tasks.py). Trocar por um
+# backend com worker não exige mudar quem chama .enqueue().
+TASKS = {
+    'default': {'BACKEND': 'core.tasks.ThreadBackend'},
+}
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

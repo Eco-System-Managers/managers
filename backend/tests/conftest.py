@@ -47,6 +47,12 @@ def disable_throttling(settings):
     cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def tasks_imediatas(settings):
+    """Tasks rodam na hora nos testes; fora deles, numa thread (core/tasks.py)."""
+    settings.TASKS = {'default': {'BACKEND': 'django.tasks.backends.immediate.ImmediateBackend'}}
+
+
 def _drop_tenant_schema(schema_name: str) -> None:
     """Derruba o schema PostgreSQL do tenant e remove as linhas de tenant/domain."""
     connection.set_schema_to_public()

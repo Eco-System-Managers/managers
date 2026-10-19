@@ -1,3 +1,4 @@
+import secrets
 from datetime import timedelta
 
 from django.contrib.auth.hashers import check_password, make_password
@@ -53,7 +54,8 @@ class CodigoRecuperacaoConsumidor(models.Model):
     MAX_TENTATIVAS = 5
 
     consumidor = models.ForeignKey(Consumidor, on_delete=models.CASCADE, related_name='codigos_recuperacao')
-    codigo = models.CharField(max_length=8)
+    # Só o hash: com o banco vazado, o código ainda vivo não serve para nada.
+    codigo_hash = models.CharField(max_length=128)
     criado_em = models.DateTimeField(auto_now_add=True)
     expira_em = models.DateTimeField()
     usado = models.BooleanField(default=False)
@@ -77,8 +79,19 @@ class CodigoRecuperacaoConsumidor(models.Model):
     def bloqueado(self):
         return self.tentativas >= self.MAX_TENTATIVAS
 
+    @classmethod
+    def emitir(cls, consumidor, codigo: str | None = None) -> tuple['CodigoRecuperacaoConsumidor', str]:
+        """Cria um código novo e invalida os anteriores. Devolve o registro e o
+        código em claro — a única vez em que ele existe fora do e-mail."""
+        codigo = codigo or ''.join(secrets.choice('0123456789') for _ in range(8))
+        cls.objects.filter(consumidor=consumidor, usado=False).update(usado=True)
+        return cls.objects.create(consumidor=consumidor, codigo_hash=make_password(codigo)), codigo
+
+    def confere(self, codigo: str) -> bool:
+        return check_password(codigo, self.codigo_hash)
+
     def __str__(self):
-        return f'{self.consumidor.email} — {self.codigo}'
+        return f'{self.consumidor.email} — {self.criado_em:%d/%m/%Y %H:%M}'
 
 
 class RefreshRevogadoConsumidor(models.Model):

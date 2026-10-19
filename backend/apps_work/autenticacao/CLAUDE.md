@@ -29,20 +29,33 @@ dentro de um tenant; lá é um `Consumidor` no schema público.
 | Coluna | Tipo | O que é |
 |---|---|---|
 | `user` | `FK → auth.User` `CASCADE` | |
-| `codigo` | `CharField(8)` | |
+| `codigo_hash` | `CharField(128)` | Hash do código (`make_password`). O código em claro só existe no e-mail |
 | `criado_em` | `DateTime` `auto_now_add` | |
 | `expira_em` | `DateTimeField` | Definido no `save()`: 15 minutos após a criação |
 | `usado` | `Boolean` = `False` | Impede reuso do mesmo código |
+| `tentativas` | `PositiveSmallInteger` = 0 | Trava em 5 (`MAX_TENTATIVAS`) |
 
-Ordenação padrão por `-criado_em`. A propriedade `expirado` compara com o
-horário atual — não há campo booleano para isso.
+Ordenação padrão por `-criado_em`. `expirado` e `bloqueado` são propriedades,
+não colunas. Crie com `CodigoRecuperacao.emitir(user)`, que invalida os
+códigos anteriores e devolve o código em claro para o e-mail; confira com
+`registro.confere(codigo)`.
 
 ## O cadastro cria um tenant inteiro
 
-`OnboardingService.registrar_empresa` é a operação mais pesada do app: gera o
-`schema_name` a partir do nome da empresa, cria o `Tenant` (o django-tenants
-materializa o schema no Postgres e roda as migrations nele), o `Domain`, o
-`User`, o `UserTenant` e uma `Assinatura` em trial.
+`OnboardingService.registrar_empresa` é a operação mais pesada do app: cria o
+`Tenant` (o django-tenants materializa o schema no Postgres e roda as
+migrations nele), o `Domain`, o `User`, o `UserTenant` e uma `Assinatura` em
+trial.
+
+O `schema_name` sai de `gerar_schema_name` (`serializers.py`): só `[a-z0-9_]`,
+prefixo `e_` quando começaria por dígito, por `pg_` ou seria um nome reservado,
+e no máximo 56 caracteres de base. Nome repetido não bloqueia o cadastro: a
+segunda "Barbearia Central" vira `barbearia_central_2`. Nome sem nenhuma letra
+ou número aproveitável é recusado.
+
+O domínio é `dominio_do_schema`: o `_` do schema vira `-` (underscore é
+inválido em nome de host e o Django recusaria a requisição), com o sufixo de
+`TENANT_DOMAIN_SUFFIX` (`localhost` por padrão).
 
 Empresa nova sempre nasce com `onboarding_concluido=False` — é isso que faz o
 frontend mandar o usuário para o wizard em vez do painel.
@@ -50,7 +63,15 @@ frontend mandar o usuário para o wizard em vez do painel.
 ## Login por e-mail
 
 Não há username separado: o campo `username` do `User` **guarda o próprio
-e-mail**. O JWT sai com dois claims customizados, `schema_name` e `empresa`, e é
+e-mail** — e é por ele que login e recuperação buscam, porque o `username` é
+único e o campo `email` do `User` não é.
+
+O login responde no mesmo tempo com ou sem conta: quando o e-mail não existe,
+calcula um hash fictício. Sem isso o tempo de resposta revelaria quem tem conta.
+
+A recuperação nunca diz se o e-mail existe, e o e-mail sai por task
+(`core/email.py`), fora da requisição: nem o tempo do SMTP nem um erro dele
+aparecem na resposta. A lógica do código fica em `RecuperacaoSenhaService`. O JWT sai com dois claims customizados, `schema_name` e `empresa`, e é
 por eles que o `JWTTenantMiddleware` descobre em qual schema trabalhar quando o
 domínio não resolve (desenvolvimento e app mobile).
 

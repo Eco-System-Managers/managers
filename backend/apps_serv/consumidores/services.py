@@ -1,9 +1,10 @@
 import logging
-import secrets
 
-from django.core.mail import send_mail
+from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.utils import timezone
+
+from core.email import enviar_email
 
 from .models import CodigoRecuperacaoConsumidor, Consumidor
 
@@ -32,6 +33,9 @@ class LoginConsumidorService:
         try:
             consumidor = Consumidor.objects.get(email=email)
         except Consumidor.DoesNotExist:
+            # Calcula um hash mesmo assim: sem isso, e-mail inexistente responde
+            # mais rápido e o tempo de resposta revela quem tem conta.
+            make_password(senha)
             raise ValueError('E-mail ou senha inválidos.')
 
         if not consumidor.check_password(senha):
@@ -52,19 +56,29 @@ class RecuperacaoSenhaConsumidorService:
         except Consumidor.DoesNotExist:
             return self.GENERIC_MSG
 
-        CodigoRecuperacaoConsumidor.objects.filter(consumidor=consumidor, usado=False).update(usado=True)
-
-        codigo = ''.join(secrets.choice('0123456789') for _ in range(8))
-        CodigoRecuperacaoConsumidor.objects.create(consumidor=consumidor, codigo=codigo)
-
-        send_mail(
-            subject='Código de recuperação — Service Manage',
-            message=f'Seu código de recuperação é: {codigo}\n\nEle expira em 15 minutos.',
-            from_email=None,
-            recipient_list=[email],
+        _, codigo = CodigoRecuperacaoConsumidor.emitir(consumidor)
+        enviar_email.enqueue(
+            assunto='Código de recuperação — Service Manage',
+            mensagem=f'Seu código de recuperação é: {codigo}\n\nEle expira em 15 minutos.',
+            destinatario=consumidor.email,
         )
 
         return self.GENERIC_MSG
+
+    def _codigo_vigente(self, consumidor):
+        registro = CodigoRecuperacaoConsumidor.objects.filter(
+            consumidor=consumidor, usado=False
+        ).first()
+        if registro is None or registro.expirado or registro.bloqueado:
+            return None
+        return registro
+
+    def _conferir(self, registro, codigo: str) -> bool:
+        if registro.confere(codigo):
+            return True
+        registro.tentativas += 1
+        registro.save(update_fields=['tentativas'])
+        return False
 
     def verificar_codigo(self, email: str, codigo: str) -> bool:
         try:
@@ -72,19 +86,8 @@ class RecuperacaoSenhaConsumidorService:
         except Consumidor.DoesNotExist:
             return False
 
-        registro = CodigoRecuperacaoConsumidor.objects.filter(
-            consumidor=consumidor, usado=False
-        ).first()
-
-        if not registro or registro.expirado or registro.bloqueado:
-            return False
-
-        if not secrets.compare_digest(registro.codigo, codigo):
-            registro.tentativas += 1
-            registro.save(update_fields=['tentativas'])
-            return False
-
-        return True
+        registro = self._codigo_vigente(consumidor)
+        return registro is not None and self._conferir(registro, codigo)
 
     def redefinir_senha(self, email: str, codigo: str, nova_senha: str) -> None:
         try:
@@ -92,16 +95,8 @@ class RecuperacaoSenhaConsumidorService:
         except Consumidor.DoesNotExist:
             raise ValueError('Código inválido.')
 
-        registro = CodigoRecuperacaoConsumidor.objects.filter(
-            consumidor=consumidor, usado=False
-        ).first()
-
-        if not registro or registro.expirado or registro.bloqueado:
-            raise ValueError('Código inválido ou expirado.')
-
-        if not secrets.compare_digest(registro.codigo, codigo):
-            registro.tentativas += 1
-            registro.save(update_fields=['tentativas'])
+        registro = self._codigo_vigente(consumidor)
+        if registro is None or not self._conferir(registro, codigo):
             raise ValueError('Código inválido ou expirado.')
 
         consumidor.set_password(nova_senha)
