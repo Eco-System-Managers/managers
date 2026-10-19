@@ -1,0 +1,73 @@
+import uuid
+
+import django.db.models.deletion
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        ('clientes', '0005_veiculo_campos_obrigatorios'),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='ModeloContrato',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('titulo', models.CharField(max_length=255)),
+                ('corpo', models.TextField(help_text='Variáveis disponíveis: {{cliente_nome}}, {{cliente_email}}, {{cliente_cpf}}, {{data}}, {{negocio_nome}}')),
+                ('ativo', models.BooleanField(default=True)),
+                ('criado_em', models.DateTimeField(auto_now_add=True)),
+                ('atualizado_em', models.DateTimeField(auto_now=True)),
+            ],
+            options={
+                'verbose_name': 'Modelo de Contrato',
+                'verbose_name_plural': 'Modelos de Contrato',
+                'ordering': ['-criado_em'],
+            },
+        ),
+        migrations.CreateModel(
+            name='Contrato',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('titulo', models.CharField(max_length=255)),
+                ('corpo', models.TextField()),
+                ('status', models.CharField(
+                    choices=[
+                        ('pendente', 'Pendente'),
+                        ('enviado', 'Enviado'),
+                        ('assinado', 'Assinado'),
+                        ('recusado', 'Recusado'),
+                    ],
+                    default='pendente',
+                    max_length=20,
+                )),
+                ('token', models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
+                ('nome_assinante', models.CharField(blank=True, max_length=255)),
+                ('ip_assinante', models.GenericIPAddressField(blank=True, null=True)),
+                ('assinado_em', models.DateTimeField(blank=True, null=True)),
+                ('criado_em', models.DateTimeField(auto_now_add=True)),
+                ('atualizado_em', models.DateTimeField(auto_now=True)),
+                ('cliente', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE,
+                    related_name='contratos',
+                    to='clientes.cliente',
+                )),
+                ('modelo', models.ForeignKey(
+                    blank=True,
+                    null=True,
+                    on_delete=django.db.models.deletion.SET_NULL,
+                    related_name='contratos',
+                    to='contratos.modelocontrato',
+                )),
+            ],
+            options={
+                'verbose_name': 'Contrato',
+                'verbose_name_plural': 'Contratos',
+                'ordering': ['-criado_em'],
+            },
+        ),
+    ]
