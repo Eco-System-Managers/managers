@@ -6,12 +6,12 @@ class RegisterViewModel extends ChangeNotifier {
   //   string -> mensagem de erro que a tela vai exibir
 
   String? validateCompany(String? value) {
-    if (_isEmpty(value))"Informe a empresa";;
+    if (_isEmpty(value)) return "Informe a empresa";
     return null;
   }
 
   String? validateOwner(String? value) {
-    if (_isEmpty(value)) return "Informe o nome";;
+    if (_isEmpty(value)) return "Informe o nome";
     return null;
   }
 
