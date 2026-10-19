@@ -14,7 +14,10 @@ class ColaboradorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Colaborador
-        fields = '__all__'
+        fields = ['id', 'user', 'funcao', 'role', 'ativo', 'criado_em']
+        # Papel e ativação não passam pela edição comum: o papel vem do
+        # UserTenant, e ativar/desativar tem actions próprias do proprietário.
+        read_only_fields = ['role', 'ativo', 'criado_em']
 
 
 class ConviteColaboradorSerializer(serializers.ModelSerializer):

@@ -556,12 +556,12 @@ class TestRetornoCheckoutView:
 @pytest.mark.django_db
 class TestPagamentosListView:
     @pytest.fixture
-    def client_autenticado(self, patch_tenant_middleware, usuario):
+    def client_autenticado(self, patch_tenant_middleware, proprietario):
         from rest_framework.test import APIClient
 
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        client.force_authenticate(user=usuario)
+        client.force_authenticate(user=proprietario)
         return client
 
     def test_lista_apenas_pagamentos_do_proprio_tenant(self, client_autenticado, tenant):

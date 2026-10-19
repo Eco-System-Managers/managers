@@ -35,6 +35,19 @@ class UserTenant(models.Model):
     def __str__(self):
         return f'{self.user.email} → {self.tenant.name} ({self.role})'
 
+    @classmethod
+    def papel_no_schema(cls, user, schema_name: str) -> str | None:
+        """Papel do usuário no tenant do schema, ou None se ele não pertence a ele.
+
+        É a fonte única do papel: existe desde o cadastro, antes de o
+        `Colaborador` do dono ser criado no fim do onboarding.
+        """
+        return (
+            cls.objects.filter(user_id=user.pk, tenant__schema_name=schema_name)
+            .values_list('role', flat=True)
+            .first()
+        )
+
 
 class ConviteIndex(models.Model):
     """Índice público que mapeia token de convite → schema do tenant. Nunca exposto ao cliente."""

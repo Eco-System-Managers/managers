@@ -163,10 +163,10 @@ class TestSincronizacaoComOTenant:
 @pytest.mark.django_db
 class TestPainelNaoEditaCadastroDoCliente:
     @pytest.fixture
-    def painel(self, patch_tenant_middleware, usuario):
+    def painel(self, patch_tenant_middleware, proprietario):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        client.force_authenticate(user=usuario)
+        client.force_authenticate(user=proprietario)
         return client
 
     def test_painel_nao_altera_campo_sincronizado(self, painel):

@@ -17,7 +17,14 @@ class ColaboradorService:
         colaborador.user.is_active = colaborador.ativo
         colaborador.user.save(update_fields=['is_active'])
 
+    def _garantir_que_nao_e_proprietario(self, colaborador: Colaborador) -> None:
+        # Desativar ou remover o dono — inclusive ele mesmo — deixaria o tenant
+        # sem ninguém capaz de reativá-lo.
+        if UserTenant.papel_no_schema(colaborador.user, connection.schema_name) == 'proprietario':
+            raise ValueError('O proprietário não pode ser desativado nem removido.')
+
     def desativar(self, colaborador: Colaborador) -> None:
+        self._garantir_que_nao_e_proprietario(colaborador)
         colaborador.ativo = False
         colaborador.save(update_fields=['ativo'])
         self.sincronizar_is_active(colaborador)
@@ -39,6 +46,7 @@ class ColaboradorService:
     @transaction.atomic
     def remover(self, colaborador: Colaborador) -> None:
         from apps_work.agenda.models import Agendamento
+        self._garantir_que_nao_e_proprietario(colaborador)
         user = colaborador.user
         Agendamento.objects.filter(colaborador=colaborador).update(colaborador=None)
         colaborador.delete()
@@ -87,6 +95,11 @@ class ConviteService:
 class AceitarConviteService:
     @transaction.atomic
     def aceitar(self, convite, senha: str) -> dict:
+        # Trava o convite: dois aceites simultâneos passariam pela checagem de
+        # `aceito` e o segundo terminaria em IntegrityError ao criar o User.
+        convite = ConviteColaborador.objects.select_for_update().get(pk=convite.pk)
+        if convite.aceito:
+            raise ValueError('Convite já foi aceito.')
         self._validar_senha(senha)
         self._validar_expiracao(convite)
 

@@ -19,7 +19,7 @@ Quem trabalha no negócio: **colaboradores e convites**.
 |---|---|---|
 | `user` | `OneToOne → auth.User` `CASCADE` | O login em si é do Django; este modelo é o lado do domínio |
 | `funcao` | `CharField(100)` vazio | Cargo exibido (ex.: "Cabeleireiro") |
-| `role` | `CharField(20)` = `colaborador` | `proprietario` ou `colaborador`. É o que `IsProprietario` consulta |
+| `role` | `CharField(20)` = `colaborador` | `proprietario` ou `colaborador`. Espelho só de leitura do `UserTenant.role` — **não** é o que `IsProprietario` consulta. Sai na #5 |
 | `ativo` | `Boolean` = `True` | Mantido em sincronia com `User.is_active` pelo `ColaboradorService` |
 | `criado_em` | `DateTime` `auto_now_add` | |
 
@@ -36,12 +36,15 @@ Quem trabalha no negócio: **colaboradores e convites**.
 
 ## Papéis
 
-`Colaborador.role` é `proprietario` ou `colaborador`. É o que a permissão
-`IsProprietario` (em `core/permissions.py`) consulta para liberar escrita em
-serviços, etapas do kanban, configuração da empresa e billing.
+A fonte do papel é o **`UserTenant.role`**, no schema público. É o que a
+permissão `IsProprietario` (em `core/permissions.py`) consulta para liberar
+escrita em serviços, etapas do kanban, configuração da empresa, billing e na
+gestão da equipe.
 
-Usuário sem `Colaborador` ainda — durante o onboarding — é tratado como dono da
-conta, senão ninguém conseguiria configurar a empresa recém-criada.
+O `UserTenant` existe desde o cadastro, então o dono já é dono durante o
+onboarding, antes de o `Colaborador` dele ser criado. Sem `UserTenant` no tenant
+atual, a permissão nega — e a `TenantJWTAuthentication` nem deixa a requisição
+chegar até ela.
 
 ## O convite
 
@@ -53,7 +56,10 @@ Fluxo em duas pontas, porque quem aceita ainda não tem acesso ao tenant:
    `User`, o `UserTenant` e o `Colaborador`
 
 O `ConviteColaboradorViewSet` troca de autenticação e de throttle conforme a
-ação — aceitar convite é público por natureza, criar convite não.
+ação — aceitar convite é público por natureza, criar convite não. O aceite é
+**só por token** (`/convites/aceitar/<token>/`): aceitar por `pk` permitia a um
+anônimo testar IDs sequenciais. O service trava o convite com
+`select_for_update`, para dois aceites simultâneos não criarem o mesmo `User`.
 
 ## Ativar e desativar
 
@@ -62,12 +68,20 @@ São dois campos porque o primeiro é do domínio e o segundo é do Django, mas 
 nunca devem divergir: é o `is_active` que o SimpleJWT consulta para barrar o
 token em toda requisição.
 
+Ativar e desativar são actions do proprietário (`POST /colaboradores/<id>/ativar/`
+e `/desativar/`; o `DELETE` também desativa). `role` e `ativo` são somente
+leitura no serializer, então o PATCH comum só altera a `funcao`.
+
+O proprietário não pode ser desativado nem removido — nem por ele mesmo —, senão
+o tenant fica sem ninguém capaz de reativá-lo. O service recusa com
+`ValueError`.
+
 Remover verifica antes se há agendamentos pendentes — tirar alguém da equipe não
 pode deixar horário órfão.
 
 ## O que é fácil errar aqui
 
-- **Desativar pelo serializer também sincroniza.** `perform_update` chama o
-  service quando `ativo` muda; alterar o campo por outro caminho quebra o par.
+- **`ativo` não muda pelo serializer.** Só pelas actions, que chamam o
+  service; alterar o campo por outro caminho quebra o par com `is_active`.
 - **A sincronia entre `ativo` e `is_active` é por convenção**, não estrutural.
   Um caminho novo que esqueça de chamar o service cria a divergência.

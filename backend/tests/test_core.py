@@ -20,6 +20,7 @@ from core.middleware import (
     _token_do_request,
 )
 from core.permissions import IsProprietario
+from tenants.models import UserTenant
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +336,8 @@ class TestCustoPorRequisicao:
         return client
 
     @pytest.fixture
-    def cenario(self, patch_tenant_middleware, tenant, usuario):
+    def cenario(self, patch_tenant_middleware, tenant, proprietario):
+        usuario = proprietario
         plano, _ = Plano.objects.get_or_create(nome='pro', defaults={'preco_mensal': '69.90'})
         Assinatura.objects.update_or_create(
             tenant=tenant,
@@ -359,7 +361,11 @@ class TestCustoPorRequisicao:
         assert [s for s in self._queries(cenario) if 'billing_assinatura' in s] == []
 
     def test_nao_consulta_o_tenant_em_requisicao_aquecida(self, cenario):
-        assert [s for s in self._queries(cenario) if 'tenants_tenant' in s] == []
+        # A unica consulta que toca tenants_tenant e a checagem de vinculo da
+        # TenantJWTAuthentication, que junta UserTenant e Tenant numa so.
+        consultas = [s for s in self._queries(cenario) if 'tenants_tenant' in s]
+        assert len(consultas) == 1
+        assert 'tenants_usertenant' in consultas[0]
 
     def test_nao_escreve_o_relogio_de_atividade_a_cada_requisicao(self, cenario):
         updates = [s for s in self._queries(cenario) if s.lstrip().upper().startswith('UPDATE')]
@@ -370,17 +376,7 @@ class TestCustoPorRequisicao:
 # IsProprietario
 # ---------------------------------------------------------------------------
 
-class _UserColaboradorIndisponivel:
-    """Usuário cujo acessor de colaborador falha por erro de infraestrutura —
-    e não por ausência de cadastro."""
-
-    is_authenticated = True
-
-    @property
-    def colaborador(self):
-        raise DatabaseError('conexão com o banco caiu')
-
-
+@pytest.mark.django_db
 class TestIsProprietario:
     def test_retorna_false_para_usuario_nao_autenticado(self):
         perm = IsProprietario()
@@ -388,31 +384,47 @@ class TestIsProprietario:
         request.user.is_authenticated = False
         assert perm.has_permission(request, MagicMock()) is False
 
-    @pytest.mark.django_db
     def test_retorna_true_para_proprietario(self, tenant, usuario):
-        Colaborador.objects.create(user=usuario, role='proprietario')
+        UserTenant.objects.create(user=usuario, tenant=tenant, role='proprietario')
         request = MagicMock()
         request.user = usuario
         assert IsProprietario().has_permission(request, MagicMock()) is True
 
-    @pytest.mark.django_db
     def test_retorna_false_para_colaborador_comum(self, tenant, usuario):
-        Colaborador.objects.create(user=usuario, role='colaborador')
+        UserTenant.objects.create(user=usuario, tenant=tenant, role='colaborador')
         request = MagicMock()
         request.user = usuario
         assert IsProprietario().has_permission(request, MagicMock()) is False
 
-    @pytest.mark.django_db
-    def test_retorna_true_quando_colaborador_ainda_nao_existe(self, tenant, usuario):
+    def test_retorna_false_sem_vinculo_com_o_tenant(self, tenant, usuario):
+        # Antes, usuario sem Colaborador era tratado como dono — inclusive quem
+        # nem pertencia ao tenant.
         request = MagicMock()
         request.user = usuario
-        assert IsProprietario().has_permission(request, MagicMock()) is True
+        assert IsProprietario().has_permission(request, MagicMock()) is False
 
-    def test_erro_inesperado_nao_concede_permissao(self):
+    def test_papel_de_colaborador_no_model_nao_concede_nem_nega(self, tenant, usuario):
+        """O papel vem do UserTenant; o Colaborador.role nao e consultado."""
+        UserTenant.objects.create(user=usuario, tenant=tenant, role='colaborador')
+        Colaborador.objects.create(user=usuario, role='proprietario')
         request = MagicMock()
-        request.user = _UserColaboradorIndisponivel()
-        with pytest.raises(DatabaseError):
-            IsProprietario().has_permission(request, MagicMock())
+        request.user = usuario
+        assert IsProprietario().has_permission(request, MagicMock()) is False
+
+    def test_usa_o_papel_deixado_pela_autenticacao(self, tenant, usuario):
+        usuario.papel_no_tenant = 'proprietario'
+        request = MagicMock()
+        request.user = usuario
+        with patch.object(UserTenant, 'papel_no_schema') as consulta:
+            assert IsProprietario().has_permission(request, MagicMock()) is True
+        consulta.assert_not_called()
+
+    def test_erro_inesperado_nao_concede_permissao(self, tenant, usuario):
+        request = MagicMock()
+        request.user = usuario
+        with patch.object(UserTenant, 'papel_no_schema', side_effect=DatabaseError('conexão caiu')):
+            with pytest.raises(DatabaseError):
+                IsProprietario().has_permission(request, MagicMock())
 
 
 # ---------------------------------------------------------------------------

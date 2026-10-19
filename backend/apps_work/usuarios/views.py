@@ -15,8 +15,10 @@ from .services import AceitarConviteService, ColaboradorService, ConviteService
 class ColaboradorViewSet(viewsets.ModelViewSet):
     serializer_class = ColaboradorSerializer
 
+    _ACOES_DO_PROPRIETARIO = {'update', 'partial_update', 'destroy', 'remover', 'ativar', 'desativar'}
+
     def get_permissions(self):
-        if self.action in ['partial_update', 'destroy', 'remover']:
+        if self.action in self._ACOES_DO_PROPRIETARIO:
             return [IsAuthenticated(), IsProprietario()]
         return [IsAuthenticated()]
 
@@ -32,15 +34,22 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
         return qs.order_by('-role', 'user__first_name', 'user__last_name')
 
     def destroy(self, request, *args, **kwargs):
+        return self.desativar(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], url_path='desativar')
+    def desativar(self, request, pk=None):
         colaborador = self.get_object()
-        ColaboradorService().desativar(colaborador)
+        try:
+            ColaboradorService().desativar(colaborador)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def perform_update(self, serializer):
-        old_ativo = serializer.instance.ativo
-        instance = serializer.save()
-        if 'ativo' in serializer.validated_data and old_ativo != instance.ativo:
-            ColaboradorService().sincronizar_is_active(instance)
+    @action(detail=True, methods=['post'], url_path='ativar')
+    def ativar(self, request, pk=None):
+        colaborador = self.get_object()
+        ColaboradorService().reativar(colaborador)
+        return Response(ColaboradorSerializer(colaborador).data)
 
     @action(detail=True, methods=['get'], url_path='agendamentos-pendentes')
     def agendamentos_pendentes(self, request, pk=None):
@@ -51,14 +60,17 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
     def me(self, request):
         try:
             colaborador = request.user.colaborador
-        except Exception:
+        except Colaborador.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(ColaboradorSerializer(colaborador).data)
 
     @action(detail=True, methods=['delete'], url_path='remover')
     def remover(self, request, pk=None):
         colaborador = self.get_object()
-        ColaboradorService().remover(colaborador)
+        try:
+            ColaboradorService().remover(colaborador)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -71,7 +83,7 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         return super().get_authenticators()
 
     def get_permissions(self):
-        if self.action in ('aceitar_por_token', 'aceitar', 'info'):
+        if self.action in ('aceitar_por_token', 'info'):
             return [AllowAny()]
         if self.action in ('create', 'destroy'):
             return [IsAuthenticated(), IsProprietario()]
@@ -158,25 +170,6 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         if convite.aceito:
-            return Response({'detail': 'Convite já foi aceito.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        senha = request.data.get('senha', '').strip()
-        if not senha:
-            return Response({'detail': 'A senha é obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            tokens = AceitarConviteService().aceitar(convite, senha)
-            response = Response(tokens, status=status.HTTP_201_CREATED)
-            set_refresh_cookie(response, tokens['refresh'])
-            return response
-        except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=['post'], url_path='aceitar', permission_classes=[AllowAny])
-    def aceitar(self, request, pk=None):
-        convite = self.get_object()
-
-        if convite.aceito:  # pragma: no cover — get_queryset already filters aceito=False
             return Response({'detail': 'Convite já foi aceito.'}, status=status.HTTP_400_BAD_REQUEST)
 
         senha = request.data.get('senha', '').strip()

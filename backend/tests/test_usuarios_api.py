@@ -10,10 +10,10 @@ from apps_work.usuarios.services import AceitarConviteService, ConviteService
 
 
 @pytest.fixture
-def client_autenticado(patch_tenant_middleware, usuario):
+def client_autenticado(patch_tenant_middleware, proprietario):
     client = APIClient()
     client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-    client.force_authenticate(user=usuario)
+    client.force_authenticate(user=proprietario)
     return client
 
 
@@ -191,18 +191,36 @@ class TestColaboradorAPI:
         colaborador_outro.user.refresh_from_db()
         assert colaborador_outro.user.is_active is False
 
-    def test_toggle_ativo_false_desativa_user(self, client_autenticado, colaborador_outro):
-        client_autenticado.patch(f'/api/colaboradores/{colaborador_outro.id}/', {'ativo': False})
+    def test_desativar_desativa_user(self, client_autenticado, colaborador_outro):
+        response = client_autenticado.post(f'/api/colaboradores/{colaborador_outro.id}/desativar/')
+        assert response.status_code == 204
+        colaborador_outro.refresh_from_db()
         colaborador_outro.user.refresh_from_db()
+        assert colaborador_outro.ativo is False
         assert colaborador_outro.user.is_active is False
 
-    def test_toggle_ativo_true_reativa_user(self, client_autenticado, colaborador_outro):
+    def test_ativar_reativa_user(self, client_autenticado, colaborador_outro):
         colaborador_outro.ativo = False
         colaborador_outro.save()
         colaborador_outro.user.is_active = False
         colaborador_outro.user.save()
-        client_autenticado.patch(f'/api/colaboradores/{colaborador_outro.id}/', {'ativo': True})
+        response = client_autenticado.post(f'/api/colaboradores/{colaborador_outro.id}/ativar/')
+        assert response.status_code == 200
+        assert response.data['ativo'] is True
         colaborador_outro.user.refresh_from_db()
+        assert colaborador_outro.user.is_active is True
+
+    def test_patch_ignora_role_e_ativo(self, client_autenticado, colaborador_outro):
+        response = client_autenticado.patch(
+            f'/api/colaboradores/{colaborador_outro.id}/',
+            {'funcao': 'Gerente', 'role': 'proprietario', 'ativo': False},
+        )
+        assert response.status_code == 200
+        colaborador_outro.refresh_from_db()
+        colaborador_outro.user.refresh_from_db()
+        assert colaborador_outro.funcao == 'Gerente'
+        assert colaborador_outro.role == 'colaborador'
+        assert colaborador_outro.ativo is True
         assert colaborador_outro.user.is_active is True
 
     def test_agendamentos_pendentes_sem_agendamentos_retorna_false(self, client_autenticado, colaborador_outro):
@@ -486,55 +504,20 @@ class TestConviteAPI:
         response = client.get(f'/api/convites/info/{convite_expirado.token}/')
         assert response.status_code == 400
 
-    def test_aceitar_por_pk_retorna_201_com_access(self, patch_tenant_middleware, convite_valido):
-        client = APIClient()
-        client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.post(
-            f'/api/convites/{convite_valido.pk}/aceitar/',
-            {'senha': 'SenhaForte@2024!'},
-        )
-        assert response.status_code == 201
-        assert 'access' in response.data
-        assert 'refresh' in response.data
-
-    def test_aceitar_por_pk_ja_aceito_retorna_404(self, patch_tenant_middleware, convite_aceito):
-        client = APIClient()
-        client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.post(
-            f'/api/convites/{convite_aceito.pk}/aceitar/',
-            {'senha': 'SenhaForte@2024!'},
-        )
-        # get_queryset filtra aceito=False, então convite aceito resulta em 404
-        assert response.status_code == 404
-
-    def test_aceitar_por_pk_email_ja_existente_retorna_400(self, patch_tenant_middleware, convite_valido):
-        from django.contrib.auth.models import User
+    def test_aceitar_por_token_email_ja_existente_retorna_400(self, patch_tenant_middleware, convite_valido):
+        from tenants.models import ConviteIndex
         User.objects.create_user(
             username='ana@email.com', email='ana@email.com', password='SenhaTemp123!'
         )
+        ConviteIndex.objects.create(token=convite_valido.token, schema_name='test_empresa')
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         response = client.post(
-            f'/api/convites/{convite_valido.pk}/aceitar/',
+            f'/api/convites/aceitar/{convite_valido.token}/',
             {'senha': 'SenhaForte@2024!'},
         )
         assert response.status_code == 400
         assert 'vinculado' in response.data['detail']
-
-    def test_aceitar_por_pk_sem_senha_retorna_400(self, patch_tenant_middleware, convite_valido):
-        client = APIClient()
-        client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.post(f'/api/convites/{convite_valido.pk}/aceitar/', {})
-        assert response.status_code == 400
-
-    def test_aceitar_por_pk_senha_fraca_retorna_400(self, patch_tenant_middleware, convite_valido):
-        client = APIClient()
-        client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.post(
-            f'/api/convites/{convite_valido.pk}/aceitar/',
-            {'senha': '123'},
-        )
-        assert response.status_code == 400
 
     def test_get_authenticators_retorna_lista_vazia_para_acoes_publicas(self, patch_tenant_middleware):
         from apps_work.usuarios.views import ConviteColaboradorViewSet
