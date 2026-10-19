@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from django.db.models import Q
 from django.utils import timezone
-from apps_work.autenticacao.views import set_refresh_cookie
+from apps_work.autenticacao.views import responder_sessao
 from core.permissions import IsProprietario
 from .models import Colaborador, ConviteColaborador
 from .serializers import ColaboradorSerializer, ConviteColaboradorSerializer
@@ -177,9 +177,7 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'A senha é obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            tokens = AceitarConviteService().aceitar(convite, senha)
-            response = Response(tokens, status=status.HTTP_201_CREATED)
-            set_refresh_cookie(response, tokens['refresh'])
-            return response
+            refresh = AceitarConviteService().aceitar(convite, senha)
+            return responder_sessao(request, refresh, status.HTTP_201_CREATED)
         except ValueError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)

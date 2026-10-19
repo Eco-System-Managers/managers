@@ -42,6 +42,17 @@ sincronizado, nunca a fonte.
 | `foto_chave` | `CharField(255)` vazio | Caminho no S3, **não** URL — a foto é privada e a URL sai assinada, válida por uma hora |
 | `is_active` | `Boolean` = `True` | |
 | `criado_em` | `DateTime` `auto_now_add` | |
+| `sessoes_validas_desde` | `DateTimeField` nulo | Preenchido na troca de senha. Token com `iat` anterior é recusado |
+
+### `RefreshRevogadoConsumidor` — refresh que não vale mais
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| `jti` | `CharField(64)` único | O id do refresh. O `unique` barra renovação dupla simultânea |
+| `expira_em` | `DateTimeField` | Quando o token expiraria de qualquer forma. Depois disso a linha pode ser apagada |
+| `revogado_em` | `DateTime` `auto_now_add` | |
+
+Gravado ao renovar (o refresh usado) e no logout. Ver `../autenticacao/CLAUDE.md`.
 
 ### `CodigoRecuperacaoConsumidor`
 

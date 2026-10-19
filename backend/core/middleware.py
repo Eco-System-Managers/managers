@@ -15,7 +15,6 @@ _INACTIVITY_SKIP = {
     '/auth/recuperar-senha/',
     '/auth/verificar-codigo/',
     '/auth/nova-senha/',
-    '/api/token/refresh/',
     '/admin/',
     # Service Manage (B2C)
     '/api/sm/auth/cadastro/',
@@ -26,6 +25,8 @@ _INACTIVITY_SKIP = {
 
 
 _TOKEN_NO_REQUEST = '_access_token_decodificado'
+
+_PREFIXO_SERVICEMANAGE = '/api/sm/'
 
 
 def _token_do_request(request):
@@ -128,7 +129,9 @@ class JWTTenantMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if connection.schema_name == 'public':
+        # O Service Manage vive no schema público: um token do Work Manage
+        # mandado para lá não pode puxar a requisição para dentro de um tenant.
+        if connection.schema_name == 'public' and not request.path.startswith(_PREFIXO_SERVICEMANAGE):
             token = _token_do_request(request)
             if token is not None:
                 schema_name = token.get('schema_name')

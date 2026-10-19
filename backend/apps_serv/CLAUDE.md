@@ -53,6 +53,9 @@ público. Assim a dependência anda só numa direção.
   engolir exceção sem savepoint aborta a transação inteira.
 - **Autenticação de consumidor não é a do Django.** `request.user` aqui é um
   `Consumidor`, não um `User`. Permissão que assuma o contrário quebra.
+- **Rotas `/api/sm/` ficam sempre no schema público.** O `JWTTenantMiddleware`
+  as ignora: um token do Work Manage mandado para cá não troca o schema (e não
+  cai no bloqueio de assinatura do tenant).
 - **`schema_name` vindo da URL é entrada de usuário.** As views da vitrine
   validam o formato antes de usar (`_schema_valido`), porque ele acaba virando
   troca de schema.

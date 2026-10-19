@@ -13,7 +13,9 @@ from apps_serv.consumidores.services import (
     RecuperacaoSenhaConsumidorService,
     RegistroConsumidorService,
 )
-from .authentication import gerar_tokens, renovar_access_token
+from core.sessao import entregar_refresh, refresh_da_requisicao
+
+from .authentication import gerar_tokens, renovar_tokens, revogar_refresh
 
 REFRESH_COOKIE = 'sm_refresh_token'
 REFRESH_COOKIE_MAX_AGE = 7 * 24 * 3600
@@ -58,10 +60,10 @@ class CadastroConsumidorView(APIView):
 
         access, refresh = gerar_tokens(consumidor)
         response = Response(
-            {'access': access, 'refresh': refresh, 'consumidor': ConsumidorSerializer(consumidor).data},
+            {'access': access, 'consumidor': ConsumidorSerializer(consumidor).data},
             status=status.HTTP_201_CREATED,
         )
-        _set_refresh_cookie(response, refresh)
+        entregar_refresh(request, response, refresh, _set_refresh_cookie)
         return response
 
 
@@ -83,10 +85,9 @@ class LoginConsumidorView(APIView):
         access, refresh = gerar_tokens(consumidor)
         response = Response({
             'access': access,
-            'refresh': refresh,
             'consumidor': ConsumidorSerializer(consumidor).data,
         })
-        _set_refresh_cookie(response, refresh)
+        entregar_refresh(request, response, refresh, _set_refresh_cookie)
         return response
 
 
@@ -95,20 +96,19 @@ class RefreshConsumidorView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        token_str = request.COOKIES.get(REFRESH_COOKIE) or request.data.get('refresh', '')
+        token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
         if not token_str:
             return Response({'detail': 'Sessão expirada. Faça login novamente.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            access, consumidor = renovar_access_token(token_str)
+            access, refresh, _ = renovar_tokens(token_str)
         except AuthenticationFailed as e:
-            response = Response({'detail': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            response = Response({'detail': str(e.detail)}, status=status.HTTP_401_UNAUTHORIZED)
             _delete_refresh_cookie(response)
             return response
 
-        _, new_refresh = gerar_tokens(consumidor)
-        response = Response({'access': access, 'refresh': new_refresh})
-        _set_refresh_cookie(response, new_refresh)
+        response = Response({'access': access})
+        entregar_refresh(request, response, refresh, _set_refresh_cookie)
         return response
 
 
@@ -117,6 +117,9 @@ class LogoutConsumidorView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
+        if token_str:
+            revogar_refresh(token_str)
         response = Response({'detail': 'Logout realizado com sucesso.'})
         _delete_refresh_cookie(response)
         return response

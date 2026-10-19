@@ -6,7 +6,6 @@ from django.core.mail import send_mail
 from django.db import connection, transaction
 from django.utils import timezone
 from datetime import timedelta
-from rest_framework_simplejwt.tokens import RefreshToken
 from tenants.models import Tenant, UserTenant
 from apps_work.autenticacao.models import LastActivity
 from .models import Colaborador, ConviteColaborador
@@ -29,6 +28,9 @@ class ColaboradorService:
         colaborador.save(update_fields=['ativo'])
         self.sincronizar_is_active(colaborador)
         colaborador.servicos.clear()
+        # Sem isso, reativar devolveria a validade aos refresh antigos.
+        from apps_work.autenticacao.services import SessaoService
+        SessaoService().encerrar_todas(colaborador.user)
 
     def reativar(self, colaborador: Colaborador) -> None:
         colaborador.ativo = True
@@ -94,7 +96,7 @@ class ConviteService:
 
 class AceitarConviteService:
     @transaction.atomic
-    def aceitar(self, convite, senha: str) -> dict:
+    def aceitar(self, convite, senha: str):
         # Trava o convite: dois aceites simultâneos passariam pela checagem de
         # `aceito` e o segundo terminaria em IntegrityError ao criar o User.
         convite = ConviteColaborador.objects.select_for_update().get(pk=convite.pk)
@@ -147,13 +149,6 @@ class AceitarConviteService:
         if convite.expira_em < timezone.now():
             raise ValueError('Este convite expirou.')
 
-    def _gerar_tokens(self, user, tenant) -> dict:
-        refresh = RefreshToken.for_user(user)
-        refresh['schema_name'] = tenant.schema_name
-        refresh['empresa'] = tenant.name
-        return {
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'schema_name': tenant.schema_name,
-            'empresa': tenant.name,
-        }
+    def _gerar_tokens(self, user, tenant):
+        from apps_work.autenticacao.services import SessaoService
+        return SessaoService().emitir(user, tenant)

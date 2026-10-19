@@ -444,7 +444,7 @@ class TestConviteAPI:
         )
         assert response.status_code == 201
         assert 'access' in response.data
-        assert 'refresh' in response.data
+        assert 'refresh' not in response.data
         assert response.cookies.get('refresh_token') is not None
 
     def test_aceitar_por_token_senha_fraca_retorna_400(self, patch_tenant_middleware, convite_valido):

@@ -3,6 +3,7 @@ import secrets
 
 from django.core.mail import send_mail
 from django.db import transaction
+from django.utils import timezone
 
 from .models import CodigoRecuperacaoConsumidor, Consumidor
 
@@ -104,7 +105,10 @@ class RecuperacaoSenhaConsumidorService:
             raise ValueError('Código inválido ou expirado.')
 
         consumidor.set_password(nova_senha)
-        consumidor.save(update_fields=['password'])
+        # Derruba todas as sessões abertas: quem pediu a recuperação pode
+        # estar tirando um invasor da conta.
+        consumidor.sessoes_validas_desde = timezone.now()
+        consumidor.save(update_fields=['password', 'sessoes_validas_desde'])
         registro.usado = True
         registro.save(update_fields=['usado'])
 

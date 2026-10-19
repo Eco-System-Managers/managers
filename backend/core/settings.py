@@ -1,13 +1,33 @@
 from pathlib import Path
 from datetime import timedelta
+import hashlib
+import hmac
 import os
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-w^g)aqem=g%bqyxf)-u*%&7d!1!mhb*!7-h(#!ty3(#j5ujsxz')
+# Sem valor padrão: com uma chave conhecida no código, qualquer pessoa forjaria
+# tokens dos dois produtos — inclusive com schema_name arbitrário.
+SECRET_KEY = os.getenv('SECRET_KEY', '')
+if not SECRET_KEY:
+    raise ImproperlyConfigured('Defina SECRET_KEY no ambiente (veja .env.example).')
+
+
+def _chave_jwt(produto: str) -> str:
+    """Chave de assinatura JWT de um produto.
+
+    Cada produto assina com a própria chave, para um token de um nunca ser
+    aceito pelo outro e para a SECRET_KEY não ser usada direto como chave de
+    token. Sem a variável JWT_SIGNING_KEY_<PRODUTO>, a chave é derivada da
+    SECRET_KEY — definir a variável permite trocá-la sem mexer na SECRET_KEY.
+    """
+    return os.getenv(f'JWT_SIGNING_KEY_{produto}') or hmac.new(
+        SECRET_KEY.encode(), f'jwt:{produto}'.encode(), hashlib.sha256,
+    ).hexdigest()
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
@@ -24,6 +44,7 @@ SHARED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'apps_work.billing',
     'apps_work.autenticacao',
@@ -205,9 +226,27 @@ REST_FRAMEWORK = {
     },
 }
 
+# Work Manage (B2B)
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'SIGNING_KEY': _chave_jwt('B2B'),
+    'AUDIENCE': 'workmanage',
+    'ISSUER': 'workmanage',
+    # Cada refresh vale uma vez: renovar devolve um novo e revoga o anterior.
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    # Grava um hash da senha no token: trocar a senha derruba access e refresh.
+    'CHECK_REVOKE_TOKEN': True,
+}
+
+# Service Manage (B2C) — tokens próprios em apps_serv/autenticacao/authentication.py
+SERVICEMANAGE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'SIGNING_KEY': _chave_jwt('B2C'),
+    'AUDIENCE': 'servicemanage',
+    'ISSUER': 'servicemanage',
 }
 
 INACTIVITY_TIMEOUT_MINUTES = 30

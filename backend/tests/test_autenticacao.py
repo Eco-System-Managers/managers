@@ -62,7 +62,8 @@ class TestCadastro:
         response = api.post('/auth/cadastro/', payload)
         assert response.status_code == 201
         assert 'access' in response.data
-        assert 'refresh' in response.data
+        # Web: o refresh vai só no cookie httpOnly, nunca no corpo.
+        assert 'refresh' not in response.data
         assert 'schema_name' in response.data
         assert response.data['empresa'] == 'Salão Teste'
         assert response.cookies.get('refresh_token') is not None
@@ -168,10 +169,20 @@ class TestLogin:
         response = api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
         assert response.status_code == 200
         assert 'access' in response.data
-        assert 'refresh' in response.data
+        assert 'refresh' not in response.data
         assert response.data['schema_name'] == tenant.schema_name
         assert response.data['empresa'] == tenant.name
         assert response.cookies.get('refresh_token') is not None
+
+    def test_mobile_recebe_refresh_no_corpo_e_sem_cookie(self, api, user_com_tenant):
+        response = api.post(
+            '/auth/login/',
+            {'email': 'login@teste.com', 'senha': 'SenhaForte123!'},
+            HTTP_X_CLIENT_PLATFORM='mobile',
+        )
+        assert response.status_code == 200
+        assert 'refresh' in response.data
+        assert response.cookies.get('refresh_token') is None
 
     def test_credenciais_invalidas_retorna_401(self, api, user_com_tenant):
         response = api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'errada'})
@@ -368,35 +379,48 @@ class TestInatividade:
         assert (timezone.now() - last.ultimo_acesso).seconds < 5
 
 
+def _sessao(user, tenant):
+    from apps_work.autenticacao.services import SessaoService
+    return SessaoService().emitir(user, tenant)
+
+
 @pytest.mark.django_db
 class TestCookieTokenRefresh:
     def test_refresh_sem_cookie_retorna_401(self, api):
         response = api.post('/auth/token-refresh/')
         assert response.status_code == 401
 
-    def test_refresh_com_cookie_valido_retorna_200_e_novo_cookie(self, api, usuario):
-        from rest_framework_simplejwt.tokens import RefreshToken
-        refresh = RefreshToken.for_user(usuario)
+    def test_refresh_com_cookie_valido_retorna_200_e_novo_cookie(self, api, proprietario, tenant):
+        refresh = _sessao(proprietario, tenant)
         api.cookies['refresh_token'] = str(refresh)
         response = api.post('/auth/token-refresh/')
         assert response.status_code == 200
         assert 'access' in response.data
-        assert response.cookies.get('refresh_token') is not None
+        assert 'refresh' not in response.data
+        novo = response.cookies.get('refresh_token').value
+        assert novo and novo != str(refresh)
 
     def test_refresh_com_cookie_invalido_retorna_401(self, api):
         api.cookies['refresh_token'] = 'token_invalido_qualquer'
         response = api.post('/auth/token-refresh/')
         assert response.status_code == 401
 
-    def test_refresh_via_body_sem_cookie_retorna_200(self, api, usuario):
-        # Cliente mobile não gerencia cookies como um navegador — precisa
-        # conseguir renovar o token mandando o refresh no corpo da requisição.
-        from rest_framework_simplejwt.tokens import RefreshToken
-        refresh = RefreshToken.for_user(usuario)
-        response = api.post('/auth/token-refresh/', {'refresh': str(refresh)})
+    def test_mobile_renova_via_body(self, api, proprietario, tenant):
+        # Cliente mobile não gerencia cookies como um navegador — se identifica
+        # pelo cabeçalho e manda o refresh no corpo.
+        refresh = _sessao(proprietario, tenant)
+        response = api.post(
+            '/auth/token-refresh/', {'refresh': str(refresh)}, HTTP_X_CLIENT_PLATFORM='mobile',
+        )
         assert response.status_code == 200
         assert 'access' in response.data
         assert 'refresh' in response.data
+
+    def test_web_nao_renova_via_body(self, api, proprietario, tenant):
+        """Sem o cabeçalho de mobile, o refresh só é lido do cookie."""
+        refresh = _sessao(proprietario, tenant)
+        response = api.post('/auth/token-refresh/', {'refresh': str(refresh)})
+        assert response.status_code == 401
 
 
 @pytest.mark.django_db
@@ -461,11 +485,11 @@ class TestEndpointsPublicosIgnoramAuthorizationHeader:
         response = api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
         assert response.status_code == 200
 
-    def test_token_refresh_com_bearer_invalido_no_header_ainda_renova(self, api, usuario):
-        from rest_framework_simplejwt.tokens import RefreshToken
-        refresh = RefreshToken.for_user(usuario)
+    def test_token_refresh_com_bearer_invalido_no_header_ainda_renova(self, api, proprietario, tenant):
+        refresh = _sessao(proprietario, tenant)
         api.credentials(HTTP_AUTHORIZATION=BEARER_INVALIDO)
-        response = api.post('/auth/token-refresh/', {'refresh': str(refresh)})
+        api.cookies['refresh_token'] = str(refresh)
+        response = api.post('/auth/token-refresh/')
         assert response.status_code == 200
 
     def test_recuperar_senha_com_bearer_invalido_no_header_responde_200(self, api, db):

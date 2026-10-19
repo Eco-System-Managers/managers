@@ -26,6 +26,9 @@ class Consumidor(models.Model):
     foto_chave = models.CharField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
+    # Tokens emitidos antes deste instante deixam de valer — é como a troca de
+    # senha derruba todas as sessões, inclusive os access ainda não expirados.
+    sessoes_validas_desde = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Consumidor'
@@ -76,6 +79,19 @@ class CodigoRecuperacaoConsumidor(models.Model):
 
     def __str__(self):
         return f'{self.consumidor.email} — {self.codigo}'
+
+
+class RefreshRevogadoConsumidor(models.Model):
+    """Refresh do Service Manage que não vale mais: usado numa renovação ou
+    encerrado no logout. Guarda só o `jti`; depois de `expira_em` o token já
+    seria recusado pela expiração, e a linha pode ser apagada."""
+
+    jti = models.CharField(max_length=64, unique=True)
+    expira_em = models.DateTimeField()
+    revogado_em = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.jti
 
 
 class VinculoConsumidor(models.Model):

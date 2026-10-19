@@ -9,7 +9,7 @@ dentro de um tenant; lá é um `Consumidor` no schema público.
 
 | Arquivo | O que faz |
 |---|---|
-| `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário e assinatura de trial numa tacada. E `RecuperacaoSenhaService` |
+| `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário e assinatura de trial numa tacada. `RecuperacaoSenhaService`. E `SessaoService`, que emite, renova e revoga sessões |
 | `views.py` | Cadastro, login, refresh por cookie, logout e as três etapas de recuperação de senha |
 | `models.py` | `LastActivity` (relógio de inatividade) e `CodigoRecuperacao` |
 | `serializers.py` | Validação do cadastro, incluindo o slug do schema a partir do nome da empresa |
@@ -54,8 +54,26 @@ e-mail**. O JWT sai com dois claims customizados, `schema_name` e `empresa`, e �
 por eles que o `JWTTenantMiddleware` descobre em qual schema trabalhar quando o
 domínio não resolve (desenvolvimento e app mobile).
 
-O refresh sai em cookie httpOnly **e** no corpo — o corpo existe para o app
-mobile, que não gerencia cookie como navegador.
+## Sessões
+
+Toda sessão nasce no `SessaoService.emitir` — login, cadastro e aceite de
+convite. Os tokens são assinados com chave própria do Work Manage
+(`SIMPLE_JWT['SIGNING_KEY']`, derivada da `SECRET_KEY` ou definida em
+`JWT_SIGNING_KEY_B2B`) e levam `aud`/`iss` `workmanage`.
+
+- **Cada refresh vale uma vez.** `renovar` revoga o anterior (blacklist do
+  SimpleJWT) e emite outro; reusar um refresh já usado dá 401. Renovar também
+  confere usuário ativo, senha inalterada e vínculo com o tenant do token.
+- **Logout revoga o refresh**, não só apaga o cookie.
+- **Troca de senha derruba tudo.** `CHECK_REVOKE_TOKEN` grava um hash da senha
+  no token, então access e refresh antigos param de valer na hora; o
+  `encerrar_todas` ainda revoga os refresh pendentes. Desativar colaborador
+  também chama o `encerrar_todas`.
+
+O refresh vai **ou** no cookie httpOnly (web) **ou** no corpo (mobile), nunca
+nos dois. O app mobile se identifica com `X-Client-Platform: mobile` e manda o
+refresh no corpo; sem o cabeçalho, o refresh só é lido do cookie
+(`core/sessao.py`). Só existe uma rota de refresh: `/auth/token-refresh/`.
 
 ## `LastActivity`
 

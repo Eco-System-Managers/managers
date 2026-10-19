@@ -1,13 +1,11 @@
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps_work.contratos.urls import publico_urlpatterns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('auth/', include('apps_work.autenticacao.urls')),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include('apps_work.clientes.urls')),
     path('api/', include('apps_work.servicos.urls')),
     path('api/', include('apps_work.agenda.urls')),

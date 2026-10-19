@@ -15,8 +15,9 @@ diferentes: lá o usuário é um `User` do Django dentro de um tenant; aqui é u
 | `urls.py` | Rotas sob `/api/sm/auth/` |
 | `apps.py` | Registro do app. Sem sinais |
 
-**Não tem `models.py`.** O `Consumidor` e o código de recuperação moram em
-`consumidores/models.py` — este app cuida do *fluxo*, não do dado.
+**Não tem `models.py`.** O `Consumidor`, o código de recuperação e o
+`RefreshRevogadoConsumidor` moram em `consumidores/models.py` — este app cuida
+do *fluxo*, não do dado.
 
 ## Tabelas
 
@@ -26,18 +27,30 @@ o `CodigoRecuperacaoConsumidor` estão documentados em
 
 ## Como o token funciona
 
-Dois tokens, ambos assinados com a mesma `SECRET_KEY` do projeto, distinguidos
-por um campo `type`:
+Dois tokens, distinguidos por um campo `type`, assinados com a chave própria
+do Service Manage (`SERVICEMANAGE_JWT['SIGNING_KEY']`, derivada da `SECRET_KEY`
+ou definida em `JWT_SIGNING_KEY_B2C`) e com `aud`/`iss` `servicemanage`:
 
 - `consumidor_access` — 60 minutos, vai no header `Authorization: Bearer`
-- `consumidor_refresh` — 7 dias, trocado por um access novo
+- `consumidor_refresh` — 7 dias, trocado por um par novo
 
-O `type` é o que impede um token do B2B de abrir porta no B2C e vice-versa,
-já que a chave de assinatura é a mesma.
+Chave, emissor e audiência diferentes são o que impede um token do B2B de
+abrir porta no B2C e vice-versa. Todo token tem `jti`.
 
-O refresh sai **tanto em cookie httpOnly quanto no corpo da resposta**: o
-navegador usa o cookie, e o app mobile usa o corpo, porque não gerencia cookie
-como um browser.
+**Revogação.** Não dá para usar o blacklist do SimpleJWT aqui (ele é amarrado
+ao `auth.User`), então o app tem a sua:
+
+- cada refresh vale uma vez: `renovar_tokens` grava o `jti` usado em
+  `RefreshRevogadoConsumidor` e emite um par novo. O `unique` do `jti` impede
+  que duas renovações simultâneas do mesmo refresh passem
+- logout grava o `jti` do refresh como revogado
+- a troca de senha preenche `Consumidor.sessoes_validas_desde`; todo token com
+  `iat` anterior é recusado, inclusive access
+
+O refresh vai **ou** no cookie httpOnly (web) **ou** no corpo (mobile), nunca
+nos dois. O app mobile se identifica com `X-Client-Platform: mobile` e manda o
+refresh no corpo; sem o cabeçalho, o refresh só é lido do cookie
+(`core/sessao.py`).
 
 ## O que é fácil errar aqui
 

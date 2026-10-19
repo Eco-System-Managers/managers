@@ -46,6 +46,20 @@ class TestJWTTenantMiddleware:
             middleware(request)
             mock_conn.set_schema.assert_called_once_with('empresa_abc')
 
+    def test_nao_age_nas_rotas_do_service_manage(self, usuario):
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        token = AccessToken.for_user(usuario)
+        token['schema_name'] = 'empresa_abc'
+
+        request = RequestFactory().get('/api/sm/me/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
+        middleware = JWTTenantMiddleware(MagicMock(return_value=MagicMock()))
+
+        with patch('core.middleware.connection') as mock_conn:
+            mock_conn.schema_name = 'public'
+            middleware(request)
+            mock_conn.set_schema.assert_not_called()
+
     def test_nao_age_quando_schema_ja_e_tenant(self, usuario):
         from rest_framework_simplejwt.tokens import AccessToken
 

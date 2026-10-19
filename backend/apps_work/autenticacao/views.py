@@ -7,8 +7,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
+from core.sessao import entregar_refresh, refresh_da_requisicao
 from tenants.models import UserTenant
 from .models import CodigoRecuperacao, LastActivity
 from .serializers import CadastroSerializer
@@ -33,6 +32,17 @@ def delete_refresh_cookie(response: Response) -> None:
     response.delete_cookie(key=REFRESH_COOKIE, path='/auth/')
 
 
+def responder_sessao(request, refresh, status_code=status.HTTP_200_OK) -> Response:
+    """Resposta de login, cadastro, renovação e aceite de convite."""
+    response = Response({
+        'access': str(refresh.access_token),
+        'schema_name': refresh['schema_name'],
+        'empresa': refresh['empresa'],
+    }, status=status_code)
+    entregar_refresh(request, response, str(refresh), set_refresh_cookie)
+    return response
+
+
 class CadastroView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -47,18 +57,9 @@ class CadastroView(APIView):
         from django.utils import timezone
         LastActivity.objects.create(user=user, ultimo_acesso=timezone.now())
 
-        refresh = RefreshToken.for_user(user)
-        refresh['schema_name'] = tenant.schema_name
-        refresh['empresa'] = tenant.name
-
-        response = Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'schema_name': tenant.schema_name,
-            'empresa': tenant.name,
-        }, status=status.HTTP_201_CREATED)
-        set_refresh_cookie(response, str(refresh))
-        return response
+        from .services import SessaoService
+        refresh = SessaoService().emitir(user, tenant)
+        return responder_sessao(request, refresh, status.HTTP_201_CREATED)
 
 
 class LoginView(APIView):
@@ -106,18 +107,9 @@ class LoginView(APIView):
         from django.utils import timezone
         LastActivity.objects.update_or_create(user=user, defaults={'ultimo_acesso': timezone.now()})
 
-        refresh = RefreshToken.for_user(user)
-        refresh['schema_name'] = tenant.schema_name
-        refresh['empresa'] = tenant.name
-
-        response = Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'schema_name': tenant.schema_name,
-            'empresa': tenant.name,
-        })
-        set_refresh_cookie(response, str(refresh))
-        return response
+        from .services import SessaoService
+        refresh = SessaoService().emitir(user, tenant)
+        return responder_sessao(request, refresh)
 
 
 class RecuperarSenhaView(APIView):
@@ -189,6 +181,10 @@ class NovaSenhaView(APIView):
         user.set_password(nova_senha)
         user.save()
 
+        # Quem pediu a recuperação pode estar tirando um invasor da conta.
+        from .services import SessaoService
+        SessaoService().encerrar_todas(user)
+
         registro.usado = True
         registro.save()
 
@@ -200,29 +196,21 @@ class CookieTokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        token_str = request.COOKIES.get(REFRESH_COOKIE) or request.data.get('refresh', '')
-        if not token_str:
-            return Response(
-                {'detail': 'Sessão expirada. Faça login novamente.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        from .services import SessaoInvalida, SessaoService
+
+        token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
         try:
-            refresh = RefreshToken(token_str)
-            response = Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'schema_name': refresh.payload.get('schema_name', ''),
-                'empresa': refresh.payload.get('empresa', ''),
-            })
-            set_refresh_cookie(response, str(refresh))
-            return response
-        except TokenError:
+            if not token_str:
+                raise SessaoInvalida()
+            refresh = SessaoService().renovar(token_str)
+        except SessaoInvalida:
             response = Response(
                 {'detail': 'Sessão expirada. Faça login novamente.'},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
             delete_refresh_cookie(response)
             return response
+        return responder_sessao(request, refresh)
 
 
 class LogoutView(APIView):
@@ -230,6 +218,11 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        from .services import SessaoService
+
+        token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
+        if token_str:
+            SessaoService().encerrar(token_str)
         response = Response({'detail': 'Logout realizado com sucesso.'})
         delete_refresh_cookie(response)
         return response
