@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps_serv.autenticacao.authentication import ConsumidorJWTAuthentication
-from apps_serv.consumidores.serializers import AgendamentoConsumidorSerializer
+from apps_serv.consumidores.serializers import AgendamentoConsumidorSerializer, VinculoNegocioSerializer
 from .models import NegocioPublico
 from .serializers import (
     CriarAgendamentoSerializer,
@@ -23,7 +23,6 @@ from .serializers import (
 )
 from .services import AgendamentoTenantService, CrossTenantQueryService, VincularNegocioService
 from core.excecoes import ErroDeNegocio, erro
-from core.openapi import MensagemSerializer
 from core.paginacao import Paginacao, resposta_paginada
 from core.schemas import schema_valido
 
@@ -284,17 +283,21 @@ class VincularNegocioView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(request=None, responses={201: MensagemSerializer}, summary='Vincular-me ao negócio')
+    @extend_schema(request=None, responses={201: VinculoNegocioSerializer}, summary='Vincular-me ao negócio')
     def post(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
-        if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
+        negocio = NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).first()
+        if negocio is None:
             return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
         try:
-            VincularNegocioService().vincular(schema_name, request.user)
+            vinculo = VincularNegocioService().vincular(schema_name, request.user)
         except ValueError as e:
             return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
-        return Response({'detail': 'Vinculado com sucesso.'}, status=status.HTTP_201_CREATED)
+        # Mesmo formato de um item de /vinculos/: o app já insere na lista.
+        dados = NegocioPublicoSerializer(negocio).data
+        dados['vinculado_em'] = vinculo.criado_em
+        return Response(dados, status=status.HTTP_201_CREATED)
 
     @extend_schema(request=None, responses={204: None}, summary='Desfazer o vínculo com o negócio')
     def delete(self, request, schema_name):

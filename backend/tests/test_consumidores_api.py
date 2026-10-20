@@ -498,3 +498,22 @@ class TestMeusVinculos:
         assert len(resposta.data['results']) == 3
         consultas = [q for q in ctx.captured_queries if 'vitrine_negociopublico' in q['sql']]
         assert len(consultas) == 1
+
+
+@pytest.mark.django_db
+class TestVincularNegocioAPI:
+    def test_responde_com_o_negocio_no_formato_de_meus_negocios(self, tenant, api_autenticado):
+        connection.set_schema_to_public()
+        NegocioPublico.objects.create(
+            schema_name=tenant.schema_name, nome='Empresa Teste', nicho='Barbearia',
+            latitude='-23.550000', longitude='-46.633000', ativo=True,
+        )
+        client, _ = api_autenticado
+
+        criado = client.post(f'/api/sm/v1/negocios/{tenant.schema_name}/vincular/')
+        lista = client.get('/api/sm/v1/vinculos/')
+
+        assert criado.status_code == 201
+        assert criado.data['schema_name'] == tenant.schema_name
+        assert 'vinculado_em' in criado.data
+        assert set(criado.data) == set(lista.data['results'][0])

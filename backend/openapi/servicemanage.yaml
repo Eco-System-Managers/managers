@@ -1238,7 +1238,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Mensagem'
+                $ref: '#/components/schemas/VinculoNegocio'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
