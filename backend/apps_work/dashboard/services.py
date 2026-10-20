@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.db.models import Sum, Count
 from django.db.models.functions import TruncDate
+from django.utils import timezone
 
 
 def _var(atual, anterior) -> int | None:
@@ -84,7 +85,7 @@ class DashboardService:
         # ── Ticket médio ────────────────────────────────────────────
         ticket_medio = (
             (faturamento_mes / atendimentos_mes).quantize(Decimal('0.01'))
-            if atendimentos_mes else Decimal('0')
+            if atendimentos_mes else Decimal('0.00')
         )
 
         # ── Clientes novos ──────────────────────────────────────────
@@ -134,7 +135,7 @@ class DashboardService:
                 hora = (
                     at.horario_entrada.strftime('%H:%M')
                     if at.horario_entrada
-                    else at.criado_em.strftime('%H:%M')
+                    else timezone.localtime(at.criado_em).strftime('%H:%M')
                 )
                 agendamentos_hoje.append({
                     'id': at.id,
@@ -157,7 +158,8 @@ class DashboardService:
                     'id': ag.id,
                     'cliente_nome': ag.cliente.nome,
                     'servico_nome': primeiro.servico.nome if primeiro else '',
-                    'hora': ag.data_hora.strftime('%H:%M'),
+                    # data_hora é UTC no banco; a hora mostrada é a local.
+                    'hora': timezone.localtime(ag.data_hora).strftime('%H:%M'),
                     'status': ag.status,
                 })
 

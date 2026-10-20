@@ -1,3 +1,4 @@
+from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema_field
 from rest_framework import serializers
 from .models import Cliente, ObjetoCliente, Pet, Veiculo
 from .validators import validar_cpf, validar_telefone_br, validar_placa_br
@@ -28,6 +29,11 @@ class ObjetoClienteSerializer(serializers.ModelSerializer):
         fields = ['id', 'tipo', 'criado_em', 'detalhe']
         read_only_fields = ['id', 'tipo', 'criado_em']
 
+    @extend_schema_field(PolymorphicProxySerializer(
+        component_name='DetalheObjetoCliente',
+        serializers=[VeiculoSerializer, PetSerializer],
+        resource_type_field_name=None,
+    ))
     def get_detalhe(self, obj):
         if obj.tipo == 'veiculo':
             return VeiculoSerializer(obj.veiculo).data
@@ -96,11 +102,13 @@ class ClienteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Telefone é obrigatório.')
         return validar_telefone_br(value)
 
+    @extend_schema_field(VeiculoSerializer(many=True))
     def get_veiculos(self, obj):
         # obj.objetos uses prefetch cache when set in viewset get_queryset
         veiculos = [o.veiculo for o in obj.objetos.all() if o.tipo == 'veiculo']
         return VeiculoSerializer(veiculos, many=True).data
 
+    @extend_schema_field(PetSerializer(many=True))
     def get_pets(self, obj):
         pets = [o.pet for o in obj.objetos.all() if o.tipo == 'pet']
         return PetSerializer(pets, many=True).data

@@ -3,6 +3,8 @@ from datetime import datetime
 
 from django.db.models import Q
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -11,10 +13,18 @@ from rest_framework.views import APIView
 from apps_serv.autenticacao.authentication import ConsumidorJWTAuthentication
 from apps_serv.consumidores.serializers import AgendamentoConsumidorSerializer
 from .models import NegocioPublico
-from .serializers import NegocioPublicoSerializer
+from .serializers import (
+    CriarAgendamentoSerializer,
+    DisponibilidadeSerializer,
+    HorarioNegocioSerializer,
+    MembroEquipeSerializer,
+    NegocioPublicoSerializer,
+    ServicoVitrineSerializer,
+)
 from .services import AgendamentoTenantService, CrossTenantQueryService, VincularNegocioService
 from core.excecoes import ErroDeNegocio, erro
-from core.paginacao import resposta_paginada
+from core.openapi import MensagemSerializer
+from core.paginacao import Paginacao, resposta_paginada
 from core.schemas import schema_valido
 
 def _schema_valido(schema_name: str) -> bool:
@@ -66,7 +76,21 @@ def _filtrar_por_area(qs, params):
 class NegociosPublicosView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    pagination_class = Paginacao
 
+    @extend_schema(
+        operation_id='negocios_list',
+        responses=NegocioPublicoSerializer(many=True),
+        parameters=[
+            OpenApiParameter('nicho', str),
+            OpenApiParameter('cidade', str),
+            OpenApiParameter('search', str, description='Busca em nome, cidade e nicho.'),
+            OpenApiParameter('lat', float),
+            OpenApiParameter('lng', float),
+            OpenApiParameter('raio_km', float, description='Padrão 50 km; só vale com lat e lng.'),
+        ],
+        summary='Vitrine de negócios',
+    )
     def get(self, request):
         qs = NegocioPublico.objects.filter(ativo=True)
         nicho = request.query_params.get('nicho')
@@ -98,6 +122,7 @@ class CidadesView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(responses=list[str], summary='Cidades com negócio na vitrine')
     def get(self, request):
         cidades = (
             NegocioPublico.objects
@@ -120,6 +145,7 @@ class NegocioPublicoDetailView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(operation_id='negocios_retrieve', responses=NegocioPublicoSerializer, summary='Um negócio da vitrine')
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
@@ -137,6 +163,11 @@ class NichosView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        responses=list[str],
+        parameters=[OpenApiParameter('cidade', str)],
+        summary='Nichos presentes na vitrine',
+    )
     def get(self, request):
         qs = NegocioPublico.objects.filter(ativo=True)
         cidade = request.query_params.get('cidade')
@@ -155,7 +186,9 @@ class NichosView(APIView):
 class ServicosNegocioView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    pagination_class = Paginacao
 
+    @extend_schema(responses=ServicoVitrineSerializer(many=True), summary='Serviços ativos do negócio')
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
@@ -170,7 +203,9 @@ class ServicosNegocioView(APIView):
 class EquipeNegocioView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    pagination_class = Paginacao
 
+    @extend_schema(responses=MembroEquipeSerializer(many=True), summary='Equipe ativa do negócio')
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
@@ -184,6 +219,7 @@ class HorariosNegocioView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(responses=HorarioNegocioSerializer(many=True), summary='Horários da semana (sempre 7 dias)')
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
@@ -197,6 +233,15 @@ class DisponibilidadeView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        responses=DisponibilidadeSerializer,
+        parameters=[
+            OpenApiParameter('data', OpenApiTypes.DATE, required=True, description='YYYY-MM-DD, hoje ou futuro.'),
+            OpenApiParameter('servico_id', int, required=True, many=True, explode=True),
+            OpenApiParameter('colaborador_id', int),
+        ],
+        summary='Horários livres num dia',
+    )
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
@@ -239,6 +284,7 @@ class VincularNegocioView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=None, responses={201: MensagemSerializer}, summary='Vincular-me ao negócio')
     def post(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
@@ -250,6 +296,7 @@ class VincularNegocioView(APIView):
             return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
         return Response({'detail': 'Vinculado com sucesso.'}, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=None, responses={204: None}, summary='Desfazer o vínculo com o negócio')
     def delete(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
@@ -264,6 +311,10 @@ class CriarAgendamentoView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=CriarAgendamentoSerializer, responses={201: AgendamentoConsumidorSerializer},
+        summary='Agendar no negócio',
+    )
     def post(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)

@@ -1,5 +1,9 @@
 """Rotas do Work Manage (B2B), montadas sob core.rotas.WORK."""
+from django.conf import settings
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+from core.openapi import CONFIG_WORK
 
 from apps_work.contratos.urls import publico_urlpatterns
 
@@ -19,3 +23,12 @@ urlpatterns = [
     path('contratos/', include(publico_urlpatterns)),
     path('contratos/', include('apps_work.contratos.urls')),
 ]
+
+# Schema OpenAPI do produto (core/openapi.py). Swagger UI só em DEBUG.
+urlpatterns += [
+    path('schema/', SpectacularAPIView.as_view(custom_settings=CONFIG_WORK), name='schema-work'),
+]
+if settings.DEBUG:
+    urlpatterns += [
+        path('schema/docs/', SpectacularSwaggerView.as_view(url_name='schema-work'), name='docs-work'),
+    ]

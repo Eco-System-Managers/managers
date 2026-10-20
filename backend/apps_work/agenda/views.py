@@ -4,8 +4,11 @@ from rest_framework import viewsets, status as drf_status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.plumbing import build_array_type, build_basic_type
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from .models import Agendamento
-from .serializers import AgendamentoSerializer
+from .serializers import AgendamentoSerializer, PendenciaCobrancaSerializer, SlotSerializer
 from .services import (
     AgendamentoService,
     DiasComRegistroService,
@@ -16,11 +19,23 @@ from core.excecoes import erro
 
 
 class PendenciasCobrancaView(APIView):
+    @extend_schema(
+        responses=PendenciaCobrancaSerializer(many=True),
+        summary='Atendimentos passados ainda não cobrados (agenda e kanban)',
+    )
     def get(self, request):
         return Response(PendenciasCobrancaService().listar())
 
 
 class SlotsAgendaView(APIView):
+    @extend_schema(
+        responses=SlotSerializer(many=True), summary='Horários do dia de um colaborador para um serviço',
+        parameters=[
+            OpenApiParameter('data', OpenApiTypes.DATE, required=True),
+            OpenApiParameter('servico', OpenApiTypes.INT, required=True),
+            OpenApiParameter('colaborador', OpenApiTypes.INT, required=True),
+        ],
+    )
     def get(self, request):
         try:
             data = date_type.fromisoformat(request.query_params['data'])
@@ -34,6 +49,14 @@ class SlotsAgendaView(APIView):
 
 
 class DiasComRegistroView(APIView):
+    @extend_schema(
+        responses={200: build_array_type(build_basic_type(OpenApiTypes.DATE))},
+        summary='Dias do mês com algum agendamento',
+        parameters=[
+            OpenApiParameter('ano', OpenApiTypes.INT, required=True),
+            OpenApiParameter('mes', OpenApiTypes.INT, required=True, description='1 a 12'),
+        ],
+    )
     def get(self, request):
         try:
             ano = int(request.query_params['ano'])

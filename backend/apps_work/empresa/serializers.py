@@ -94,3 +94,25 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
         if value is not None and value < 1:
             raise serializers.ValidationError('A capacidade deve ser de pelo menos 1 atendimento por dia.')
         return value
+
+
+# ---------------------------------------------------------------------------
+# Formatos de entrada e saída (documentação OpenAPI das APIViews)
+# ---------------------------------------------------------------------------
+
+class CoordenadaSerializer(serializers.Serializer):
+    latitude = serializers.FloatField(allow_null=True, help_text='null quando não foi possível geocodificar.')
+    longitude = serializers.FloatField(allow_null=True)
+
+
+class RuaNoPontoSerializer(serializers.Serializer):
+    rua = serializers.CharField(allow_null=True, help_text='null quando a via não foi identificada.')
+
+
+class UploadLogoSerializer(serializers.Serializer):
+    logo = serializers.ImageField()
+
+
+class LogoSerializer(serializers.Serializer):
+    logo_url = serializers.URLField()
+

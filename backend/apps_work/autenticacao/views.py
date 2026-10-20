@@ -5,13 +5,19 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
+
 from core import rotas
+from core.openapi import PLATAFORMA, MensagemSerializer
 from core.limites import MuitasTentativas, login_work
 from core.sessao import entregar_refresh, refresh_da_requisicao
 from core.throttling import RecuperacaoPorEmailThrottle
 from tenants.models import UserTenant
 from .models import LastActivity
-from .serializers import CadastroSerializer
+from .serializers import (
+    CadastroSerializer, EmailSerializer, LoginSerializer, NovaSenhaSerializer, RefreshSerializer,
+    SessaoSerializer, VerificarCodigoSerializer,
+)
 from core.excecoes import erro
 
 REFRESH_COOKIE = 'refresh_token'
@@ -51,6 +57,10 @@ class CadastroView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_cadastro'
 
+    @extend_schema(
+        request=CadastroSerializer, responses={201: SessaoSerializer}, parameters=[PLATAFORMA],
+        summary='Cadastrar empresa e dono',
+    )
     def post(self, request):
         serializer = CadastroSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -70,6 +80,10 @@ class LoginView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_login'
 
+    @extend_schema(
+        request=LoginSerializer, responses=SessaoSerializer, parameters=[PLATAFORMA],
+        summary='Entrar com e-mail e senha',
+    )
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
         senha = request.data.get('senha', '')
@@ -112,6 +126,11 @@ class RecuperarSenhaView(APIView):
     throttle_classes = [ScopedRateThrottle, RecuperacaoPorEmailThrottle]
     throttle_scope = 'auth_recovery'
 
+    @extend_schema(
+        request=EmailSerializer, responses=MensagemSerializer,
+        summary='Pedir código de recuperação de senha',
+        description='Responde sempre a mesma mensagem, exista ou não a conta.',
+    )
     def post(self, request):
         from .services import RecuperacaoSenhaService
         email = request.data.get('email', '').strip()
@@ -125,6 +144,10 @@ class VerificarCodigoView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_verify'
 
+    @extend_schema(
+        request=VerificarCodigoSerializer, responses=MensagemSerializer,
+        summary='Conferir código de recuperação',
+    )
     def post(self, request):
         from .services import RecuperacaoSenhaService
         email = request.data.get('email', '')
@@ -142,6 +165,10 @@ class NovaSenhaView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_verify'
 
+    @extend_schema(
+        request=NovaSenhaSerializer, responses=MensagemSerializer,
+        summary='Redefinir senha com o código',
+    )
     def post(self, request):
         from .services import RecuperacaoSenhaService
         email = request.data.get('email', '')
@@ -160,6 +187,11 @@ class CookieTokenRefreshView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RefreshSerializer, responses=SessaoSerializer, parameters=[PLATAFORMA],
+        summary='Renovar a sessão',
+        description='Cada refresh vale uma vez: a resposta traz um novo (cookie no web, corpo no mobile).',
+    )
     def post(self, request):
         from .services import SessaoInvalida, SessaoService
 
@@ -179,6 +211,10 @@ class LogoutView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RefreshSerializer, responses=MensagemSerializer, parameters=[PLATAFORMA],
+        summary='Sair (revoga o refresh)',
+    )
     def post(self, request):
         from .services import SessaoService
 

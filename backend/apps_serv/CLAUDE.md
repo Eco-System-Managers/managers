@@ -47,6 +47,14 @@ público. Assim a dependência anda só numa direção.
 
 ## O que é fácil errar aqui
 
+- **O contrato da API está em `openapi/README.md`.** Erro sempre
+  `{detail, code, fields?}`: levante `ErroDeNegocio(msg, code)` no service, ou use
+  `erro()` (`core/excecoes.py`) quando a view precisar montar a resposta. Coleção
+  de recurso sai paginada (`core/paginacao.py`); dinheiro sai como string.
+- **APIView nova precisa de `@extend_schema`** (entrada e saída), senão fica fora
+  do schema e do client Dart. Depois de mudar view ou serializer, rode
+  `manage.py gerar_openapi` e versione `openapi/` — `tests/test_openapi.py` falha
+  se os `.yaml` estiverem desatualizados.
 - **Operação que grava nos dois lados precisa ser atômica.** Criar agendamento
   escreve no tenant e no público. Efeito colateral que pode falhar sem derrubar
   o agendamento (sincronizar perfil, notificar) roda em savepoint próprio —

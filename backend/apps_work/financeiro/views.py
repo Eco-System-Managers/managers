@@ -6,11 +6,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status as http_status
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from core.permissions import IsProprietario
 from apps_work.clientes.models import Cliente
 from .models import Despesa, TransacaoCredito
-from .serializers import DespesaSerializer, TransacaoCreditoSerializer
+from .serializers import (
+    CaixaSerializer, DespesaSerializer, ResumoDespesasSerializer, SaldoClienteSerializer,
+    TransacaoCreditoSerializer,
+)
 from .services import CaixaService, DespesaService
 from core.excecoes import ErroDeNegocio, erro
 
@@ -18,6 +23,7 @@ from core.excecoes import ErroDeNegocio, erro
 class SaldoClienteView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses=SaldoClienteSerializer, summary='Saldo de crédito e extrato do cliente')
     def get(self, request, cliente_id):
         if not Cliente.objects.filter(id=cliente_id).exists():
             return erro('Cliente não encontrado.', status_code=http_status.HTTP_404_NOT_FOUND)
@@ -35,6 +41,14 @@ class SaldoClienteView(APIView):
 class CaixaView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=CaixaSerializer, summary='Fechamento de caixa do período',
+        parameters=[
+            OpenApiParameter('data_inicio', OpenApiTypes.DATE, description='Padrão: hoje.'),
+            OpenApiParameter('data_fim', OpenApiTypes.DATE, description='Padrão: hoje.'),
+            OpenApiParameter('colaborador', OpenApiTypes.INT, description='Filtra pelo colaborador (exclui o kanban).'),
+        ],
+    )
     def get(self, request):
         data_inicio_str = request.query_params.get('data_inicio')
         data_fim_str = request.query_params.get('data_fim')
@@ -80,6 +94,13 @@ class DespesaViewSet(viewsets.ModelViewSet):
 
         return qs.order_by('-data', '-criado_em')
 
+    @extend_schema(
+        responses=ResumoDespesasSerializer, summary='Total de despesas por categoria',
+        parameters=[
+            OpenApiParameter('data_inicio', OpenApiTypes.DATE, description='Padrão: hoje.'),
+            OpenApiParameter('data_fim', OpenApiTypes.DATE, description='Padrão: hoje.'),
+        ],
+    )
     @action(detail=False, methods=['get'], url_path='resumo')
     def resumo(self, request):
         data_inicio_str = request.query_params.get('data_inicio')

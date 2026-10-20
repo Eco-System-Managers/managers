@@ -94,3 +94,75 @@ class TestContratoPublico:
 ])
 def test_schema_valido(schema, valido):
     assert schema_valido(schema) is valido
+
+
+# ---------------------------------------------------------------------------
+# Correções apontadas na revisão do schema
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def api_dono(api, proprietario):
+    api.force_authenticate(user=proprietario)
+    return api
+
+
+@pytest.mark.django_db
+class TestDinheiroSempreComDuasCasas:
+    def test_ticket_medio_do_caixa_sem_atendimentos(self, api_dono):
+        hoje = date.today().isoformat()
+        corpo = api_dono.get(f'/api/v1/financeiro/caixa/?data_inicio={hoje}&data_fim={hoje}').json()
+        assert corpo['kpis']['ticket_medio'] == '0.00'
+
+    def test_ticket_medio_do_dashboard_sem_atendimentos(self, api_dono):
+        corpo = api_dono.get('/api/v1/dashboard/resumo/').json()
+        assert corpo['kpis']['ticket_medio'] == '0.00'
+
+
+@pytest.mark.django_db
+def test_hora_do_dashboard_e_a_local(api_dono):
+    from datetime import datetime, time
+    from django.utils import timezone
+    from apps_work.agenda.models import Agendamento
+
+    cliente = Cliente.objects.create(nome='Ana', telefone='11999990000')
+    # 10:30 em São Paulo = 13:30 em UTC, que é como fica no banco.
+    local = timezone.make_aware(datetime.combine(timezone.localdate(), time(10, 30)))
+    Agendamento.objects.create(cliente=cliente, data_hora=local, status='agendado')
+
+    corpo = api_dono.get('/api/v1/dashboard/resumo/').json()
+    assert [a['hora'] for a in corpo['agendamentos_hoje']] == ['10:30']
+
+
+@pytest.mark.django_db
+def test_ip_da_assinatura_ignora_x_forwarded_for(api, tenant):
+    cliente = Cliente.objects.create(nome='Ana', telefone='11999990000', email='ana@x.com')
+    contrato = Contrato.objects.create(
+        cliente=cliente, titulo='Contrato', corpo='Corpo.', status=Contrato.STATUS_ENVIADO,
+    )
+    resposta = api.post(
+        f'/api/v1/contratos/publico/{tenant.schema_name}/{contrato.token}/',
+        {'acao': 'assinar', 'nome_assinante': 'Ana'},
+        REMOTE_ADDR='10.1.2.3', HTTP_X_FORWARDED_FOR='6.6.6.6',
+    )
+    assert resposta.status_code == 200
+    contrato.refresh_from_db()
+    assert contrato.ip_assinante == '10.1.2.3'
+
+
+@pytest.mark.django_db
+def test_nova_senha_do_b2c_parecida_com_o_email_e_recusada():
+    from apps_serv.consumidores.models import CodigoRecuperacaoConsumidor
+    from apps_serv.consumidores.services import RecuperacaoSenhaConsumidorService, RegistroConsumidorService
+    from core.excecoes import ErroDeNegocio
+
+    consumidor = RegistroConsumidorService().registrar(
+        nome='Carla', email='carla.souza@sm.com', senha='SenhaForte123!', telefone='11999990000',
+    )
+    registro, _ = CodigoRecuperacaoConsumidor.emitir(consumidor, '12345678')
+
+    with pytest.raises(ErroDeNegocio) as info:
+        RecuperacaoSenhaConsumidorService().redefinir_senha('carla.souza@sm.com', '12345678', 'carla.souza@sm.com')
+
+    assert info.value.code == 'senha_fraca'
+    registro.refresh_from_db()
+    assert registro.tentativas == 0

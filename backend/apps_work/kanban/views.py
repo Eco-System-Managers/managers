@@ -5,6 +5,9 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.plumbing import build_array_type, build_basic_type
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from core.permissions import IsProprietario
 from .models import AtendimentoKanban, EtapaKanban
 from .serializers import AtendimentoKanbanSerializer, EtapaKanbanSerializer
@@ -117,6 +120,11 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
 class SlotsView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: build_array_type(build_basic_type(OpenApiTypes.TIME))},
+        summary='Horários de entrada livres no dia (kanban)',
+        parameters=[OpenApiParameter('data', OpenApiTypes.DATE, required=True)],
+    )
     def get(self, request):
         data_str = request.query_params.get('data')
         if not data_str:

@@ -4,9 +4,14 @@ from rest_framework import generics, viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from core.permissions import IsProprietario
 from .models import EmpresaConfig, HorarioFuncionamento
-from .serializers import EmpresaConfigSerializer, HorarioFuncionamentoSerializer
+from .serializers import (
+    CoordenadaSerializer, EmpresaConfigSerializer, HorarioFuncionamentoSerializer, LogoSerializer,
+    RuaNoPontoSerializer, UploadLogoSerializer,
+)
 from .signals import empresa_config_atualizada
 from apps_work.usuarios.models import Colaborador
 from core.excecoes import erro
@@ -23,6 +28,15 @@ class GeocodificarView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=CoordenadaSerializer, summary='Palpite de coordenada para um endereço',
+        parameters=[
+            OpenApiParameter('endereco', OpenApiTypes.STR),
+            OpenApiParameter('cidade', OpenApiTypes.STR),
+            OpenApiParameter('uf', OpenApiTypes.STR),
+        ],
+        description='Informe ao menos endereco ou cidade.',
+    )
     def get(self, request):
         endereco = request.query_params.get('endereco', '').strip()
         cidade = request.query_params.get('cidade', '').strip()
@@ -49,6 +63,13 @@ class RuaNoPontoView(APIView):
     """Nome da via onde o pino está, para o dono conferir que acertou a rua."""
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=RuaNoPontoSerializer, summary='Nome da via num ponto do mapa',
+        parameters=[
+            OpenApiParameter('lat', OpenApiTypes.FLOAT, required=True),
+            OpenApiParameter('lng', OpenApiTypes.FLOAT, required=True),
+        ],
+    )
     def get(self, request):
         try:
             latitude = float(request.query_params.get('lat', ''))
@@ -140,6 +161,10 @@ class EmpresaConfigView(generics.RetrieveUpdateAPIView):
 class UploadLogoView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
+    @extend_schema(
+        request={'multipart/form-data': UploadLogoSerializer}, responses=LogoSerializer,
+        summary='Enviar a logo do negócio',
+    )
     def post(self, request):
         from django.db import connection
         from .services import ArmazenamentoImagemService, ImagemInvalidaError

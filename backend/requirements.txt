@@ -13,3 +13,4 @@ Pillow>=10.0
 mercadopago>=2.3
 requests>=2.31
 redis>=5.0
+drf-spectacular>=0.28

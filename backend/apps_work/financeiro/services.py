@@ -130,7 +130,7 @@ class CaixaService:
 
         total = sum(Decimal(p['valor']) for p in pagamentos) if pagamentos else Decimal('0')
         total_sessoes = len(sessoes)
-        ticket_medio = (total / total_sessoes).quantize(Decimal('0.01')) if total_sessoes else Decimal('0')
+        ticket_medio = (total / total_sessoes).quantize(Decimal('0.01')) if total_sessoes else Decimal('0.00')
 
         forma_totais: dict[str, Decimal] = {}
         for p in pagamentos:

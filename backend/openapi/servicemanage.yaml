@@ -1,0 +1,2399 @@
+openapi: 3.0.3
+info:
+  title: Service Manage API
+  version: 1.0.0
+  description: API do app do cliente final (B2C).
+paths:
+  /api/sm/v1/agendamentos/:
+    get:
+      operationId: agendamentos_list
+      summary: Minha agenda, em todos os negócios
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filtra pelo status do agendamento.
+      tags:
+      - agendamentos
+      security:
+      - servicemanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAgendamentoConsumidorList'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/agendamentos/{agendamento_id}/cancelar/:
+    post:
+      operationId: agendamentos_cancelar_create
+      summary: Cancelar agendamento (fora do prazo gera taxa)
+      parameters:
+      - in: path
+        name: agendamento_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - agendamentos
+      security:
+      - servicemanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelamentoAgendamento'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/auth/cadastro/:
+    post:
+      operationId: auth_cadastro_create
+      summary: Criar conta de cliente
+      parameters:
+      - in: header
+        name: X-Client-Platform
+        schema:
+          type: string
+          enum:
+          - mobile
+        description: 'Envie `mobile` no app: o refresh vem e vai no corpo. Sem o cabeçalho
+          (web), o refresh fica só no cookie httpOnly.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CadastroConsumidorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CadastroConsumidorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CadastroConsumidorRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessaoConsumidor'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      summary: Entrar com e-mail e senha
+      parameters:
+      - in: header
+        name: X-Client-Platform
+        schema:
+          type: string
+          enum:
+          - mobile
+        description: 'Envie `mobile` no app: o refresh vem e vai no corpo. Sem o cabeçalho
+          (web), o refresh fica só no cookie httpOnly.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginConsumidorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginConsumidorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginConsumidorRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessaoConsumidor'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      summary: Sair (revoga o refresh)
+      parameters:
+      - in: header
+        name: X-Client-Platform
+        schema:
+          type: string
+          enum:
+          - mobile
+        description: 'Envie `mobile` no app: o refresh vem e vai no corpo. Sem o cabeçalho
+          (web), o refresh fica só no cookie httpOnly.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshConsumidorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshConsumidorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshConsumidorRequest'
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/auth/nova-senha/:
+    post:
+      operationId: auth_nova_senha_create
+      summary: Definir nova senha com o código (derruba as sessões abertas)
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovaSenhaConsumidorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NovaSenhaConsumidorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NovaSenhaConsumidorRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/auth/recuperar-senha/:
+    post:
+      operationId: auth_recuperar_senha_create
+      description: Responde a mesma mensagem exista ou não a conta.
+      summary: Pedir código de recuperação de senha
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecuperarSenhaConsumidorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecuperarSenhaConsumidorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecuperarSenhaConsumidorRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      summary: Renovar a sessão (o refresh usado deixa de valer)
+      parameters:
+      - in: header
+        name: X-Client-Platform
+        schema:
+          type: string
+          enum:
+          - mobile
+        description: 'Envie `mobile` no app: o refresh vem e vai no corpo. Sem o cabeçalho
+          (web), o refresh fica só no cookie httpOnly.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshConsumidorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshConsumidorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshConsumidorRequest'
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenovacaoConsumidor'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/auth/verificar-codigo/:
+    post:
+      operationId: auth_verificar_codigo_create
+      summary: Conferir o código de recuperação
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificarCodigoConsumidorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerificarCodigoConsumidorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerificarCodigoConsumidorRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/me/:
+    get:
+      operationId: me_retrieve
+      summary: Meu cadastro
+      tags:
+      - me
+      security:
+      - servicemanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consumidor'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    patch:
+      operationId: me_partial_update
+      summary: Editar meu cadastro (e-mail não muda por aqui)
+      tags:
+      - me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedConsumidorUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedConsumidorUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedConsumidorUpdateRequest'
+      security:
+      - servicemanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consumidor'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/me/foto/:
+    post:
+      operationId: me_foto_create
+      description: |-
+        Foto do consumidor: envio e remoção.
+
+        A imagem vai para o prefixo privado do bucket — a URL de leitura é assinada
+        e expira. Diferente da logo do negócio, que é pública porque aparece no mapa
+        para qualquer pessoa, o rosto do cliente só é visto por quem tem o endereço
+        assinado no momento.
+      summary: Enviar foto de perfil
+      tags:
+      - me
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FotoPerfilUploadRequest'
+        required: true
+      security:
+      - servicemanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consumidor'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    delete:
+      operationId: me_foto_destroy
+      description: |-
+        Foto do consumidor: envio e remoção.
+
+        A imagem vai para o prefixo privado do bucket — a URL de leitura é assinada
+        e expira. Diferente da logo do negócio, que é pública porque aparece no mapa
+        para qualquer pessoa, o rosto do cliente só é visto por quem tem o endereço
+        assinado no momento.
+      summary: Remover foto de perfil
+      tags:
+      - me
+      security:
+      - servicemanageJWT: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/:
+    get:
+      operationId: negocios_list
+      summary: Vitrine de negócios
+      parameters:
+      - in: query
+        name: cidade
+        schema:
+          type: string
+      - in: query
+        name: lat
+        schema:
+          type: number
+          format: double
+      - in: query
+        name: lng
+        schema:
+          type: number
+          format: double
+      - in: query
+        name: nicho
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      - in: query
+        name: raio_km
+        schema:
+          type: number
+          format: double
+        description: Padrão 50 km; só vale com lat e lng.
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Busca em nome, cidade e nicho.
+      tags:
+      - negocios
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNegocioPublicoList'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/{schema_name}/:
+    get:
+      operationId: negocios_retrieve
+      description: |-
+        Um negocio pelo schema.
+
+        Existe para a tela de perfil nao precisar baixar a vitrine inteira so para
+        achar um registro — era isso que o app fazia, e o custo crescia junto com a
+        plataforma.
+      summary: Um negócio da vitrine
+      parameters:
+      - in: path
+        name: schema_name
+        schema:
+          type: string
+        required: true
+      tags:
+      - negocios
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NegocioPublico'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/{schema_name}/agendamentos/:
+    post:
+      operationId: negocios_agendamentos_create
+      summary: Agendar no negócio
+      parameters:
+      - in: path
+        name: schema_name
+        schema:
+          type: string
+        required: true
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarAgendamentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CriarAgendamentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CriarAgendamentoRequest'
+        required: true
+      security:
+      - servicemanageJWT: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendamentoConsumidor'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/{schema_name}/disponibilidade/:
+    get:
+      operationId: negocios_disponibilidade_retrieve
+      summary: Horários livres num dia
+      parameters:
+      - in: query
+        name: colaborador_id
+        schema:
+          type: integer
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        description: YYYY-MM-DD, hoje ou futuro.
+        required: true
+      - in: path
+        name: schema_name
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: servico_id
+        schema:
+          type: array
+          items:
+            type: integer
+        required: true
+        explode: true
+      tags:
+      - negocios
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Disponibilidade'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/{schema_name}/equipe/:
+    get:
+      operationId: negocios_equipe_list
+      summary: Equipe ativa do negócio
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      - in: path
+        name: schema_name
+        schema:
+          type: string
+        required: true
+      tags:
+      - negocios
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMembroEquipeList'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/{schema_name}/horarios/:
+    get:
+      operationId: negocios_horarios_list
+      summary: Horários da semana (sempre 7 dias)
+      parameters:
+      - in: path
+        name: schema_name
+        schema:
+          type: string
+        required: true
+      tags:
+      - negocios
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HorarioNegocio'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/{schema_name}/servicos/:
+    get:
+      operationId: negocios_servicos_list
+      summary: Serviços ativos do negócio
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      - in: path
+        name: schema_name
+        schema:
+          type: string
+        required: true
+      tags:
+      - negocios
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedServicoVitrineList'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/{schema_name}/vincular/:
+    post:
+      operationId: negocios_vincular_create
+      summary: Vincular-me ao negócio
+      parameters:
+      - in: path
+        name: schema_name
+        schema:
+          type: string
+        required: true
+      tags:
+      - negocios
+      security:
+      - servicemanageJWT: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    delete:
+      operationId: negocios_vincular_destroy
+      summary: Desfazer o vínculo com o negócio
+      parameters:
+      - in: path
+        name: schema_name
+        schema:
+          type: string
+        required: true
+      tags:
+      - negocios
+      security:
+      - servicemanageJWT: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/cidades/:
+    get:
+      operationId: negocios_cidades_retrieve
+      summary: Cidades com negócio na vitrine
+      tags:
+      - negocios
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/negocios/nichos/:
+    get:
+      operationId: negocios_nichos_retrieve
+      description: |-
+        Nichos presentes na vitrine. Espelha CidadesView: serve para montar os
+        filtros sem o app precisar baixar todos os negocios para deduzir a lista.
+      summary: Nichos presentes na vitrine
+      parameters:
+      - in: query
+        name: cidade
+        schema:
+          type: string
+      tags:
+      - negocios
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/objetos/:
+    get:
+      operationId: objetos_list
+      summary: Meus pets e veículos
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      - in: query
+        name: tipo
+        schema:
+          type: string
+          enum:
+          - pet
+          - veiculo
+      tags:
+      - objetos
+      security:
+      - servicemanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedObjetoConsumidorList'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    post:
+      operationId: objetos_create
+      description: '`dados` é livre, mas exige por tipo: veiculo → placa, marca, modelo;
+        pet → nome, especie, porte.'
+      summary: Cadastrar pet ou veículo
+      tags:
+      - objetos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjetoConsumidorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ObjetoConsumidorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ObjetoConsumidorRequest'
+        required: true
+      security:
+      - servicemanageJWT: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjetoConsumidor'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/objetos/{objeto_id}/:
+    delete:
+      operationId: objetos_destroy
+      summary: Remover pet ou veículo
+      parameters:
+      - in: path
+        name: objeto_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - objetos
+      security:
+      - servicemanageJWT: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/sm/v1/vinculos/:
+    get:
+      operationId: vinculos_list
+      description: |-
+        Devolve os negocios vinculados ja resolvidos.
+
+        Antes saia so o schema_name, e o app baixava a vitrine inteira para
+        descobrir de que negocio cada vinculo era. Um vinculo cujo negocio saiu
+        da vitrine fica de fora: nao ha o que exibir, e o app ja o descartava
+        do lado dele.
+      summary: Negócios a que estou vinculado
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      tags:
+      - vinculos
+      security:
+      - servicemanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVinculoNegocioList'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+components:
+  schemas:
+    AgendamentoConsumidor:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        schema_name:
+          type: string
+          maxLength: 63
+        agendamento_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        origem:
+          $ref: '#/components/schemas/OrigemAtendimentoEnum'
+        negocio_nome:
+          type: string
+          maxLength: 255
+        nicho:
+          type: string
+          maxLength: 50
+        servicos: {}
+        profissional_nome:
+          type: string
+          maxLength: 255
+        objeto_dados:
+          nullable: true
+        data_hora:
+          type: string
+          format: date-time
+        duracao_total:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: Duração total em minutos
+        valor_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        valor_taxa_cancelamento:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        status:
+          $ref: '#/components/schemas/StatusAgendamentoEnum'
+        status_kanban:
+          type: string
+          nullable: true
+          readOnly: true
+        etapa_nome:
+          type: string
+          nullable: true
+          readOnly: true
+        logo_url:
+          type: string
+          nullable: true
+          readOnly: true
+        criado_em:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - agendamento_id
+      - criado_em
+      - data_hora
+      - duracao_total
+      - etapa_nome
+      - id
+      - logo_url
+      - negocio_nome
+      - schema_name
+      - status_kanban
+      - valor_total
+    BlankEnum:
+      enum:
+      - ''
+    CadastroConsumidorRequest:
+      type: object
+      properties:
+        nome:
+          type: string
+          minLength: 1
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          minLength: 1
+        senha:
+          type: string
+          writeOnly: true
+          minLength: 8
+        telefone:
+          type: string
+          minLength: 1
+          maxLength: 20
+      required:
+      - email
+      - nome
+      - senha
+      - telefone
+    CancelamentoAgendamento:
+      type: object
+      properties:
+        detail:
+          type: string
+        taxa:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: Taxa de cancelamento cobrada (0.00 dentro do prazo).
+      required:
+      - detail
+      - taxa
+    Consumidor:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        telefone:
+          type: string
+          maxLength: 20
+        foto:
+          type: string
+          readOnly: true
+        criado_em:
+          type: string
+          format: date-time
+          readOnly: true
+        cpf:
+          type: string
+          maxLength: 14
+        data_nascimento:
+          type: string
+          format: date
+          nullable: true
+        cep:
+          type: string
+          maxLength: 9
+        endereco:
+          type: string
+          maxLength: 255
+        numero_endereco:
+          type: string
+          maxLength: 10
+      required:
+      - criado_em
+      - email
+      - foto
+      - id
+      - nome
+      - telefone
+    CriarAgendamentoRequest:
+      type: object
+      properties:
+        servico_ids:
+          type: array
+          items:
+            type: integer
+        data_hora:
+          type: string
+          format: date-time
+          description: ISO 8601; precisa ser no futuro.
+        colaborador_id:
+          type: integer
+          nullable: true
+        objeto_id:
+          type: integer
+          nullable: true
+          description: Pet ou veículo do consumidor (obrigatório em agenda por esteira).
+      required:
+      - data_hora
+      - servico_ids
+    Disponibilidade:
+      type: object
+      properties:
+        data:
+          type: string
+          format: date
+        slots:
+          type: array
+          items:
+            type: string
+            format: date-time
+          description: Inícios livres, em ISO 8601 com fuso.
+      required:
+      - data
+      - slots
+    FotoPerfilUploadRequest:
+      type: object
+      properties:
+        foto:
+          type: string
+          format: binary
+      required:
+      - foto
+    HorarioNegocio:
+      type: object
+      properties:
+        dia:
+          type: integer
+          maximum: 6
+          minimum: 0
+          description: 0 = segunda ... 6 = domingo.
+        ativo:
+          type: boolean
+        abertura:
+          type: string
+          nullable: true
+          description: HH:MM
+        fechamento:
+          type: string
+          nullable: true
+          description: HH:MM
+      required:
+      - abertura
+      - ativo
+      - dia
+      - fechamento
+    LoginConsumidorRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        senha:
+          type: string
+          minLength: 1
+      required:
+      - email
+      - senha
+    MembroEquipe:
+      type: object
+      properties:
+        id:
+          type: integer
+        nome:
+          type: string
+        funcao:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+      required:
+      - funcao
+      - id
+      - nome
+      - role
+    Mensagem:
+      type: object
+      description: 'Resposta de sucesso que só confirma a ação: {"detail": "..."}.'
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    NegocioPublico:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        schema_name:
+          type: string
+          maxLength: 63
+        nome:
+          type: string
+          maxLength: 255
+        nicho:
+          type: string
+          maxLength: 50
+        tipo_agenda:
+          $ref: '#/components/schemas/TipoAgendaEnum'
+        tipo_objeto:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/TipoObjetoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        cidade:
+          type: string
+          maxLength: 100
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        logo_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        descricao:
+          type: string
+      required:
+      - id
+      - latitude
+      - longitude
+      - nicho
+      - nome
+      - schema_name
+    NovaSenhaConsumidorRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        codigo:
+          type: string
+          minLength: 1
+        nova_senha:
+          type: string
+          minLength: 1
+      required:
+      - codigo
+      - email
+      - nova_senha
+    NullEnum:
+      enum:
+      - null
+    ObjetoConsumidor:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        tipo:
+          $ref: '#/components/schemas/TipoObjetoEnum'
+        dados: {}
+        nome_exibicao:
+          type: string
+          readOnly: true
+        criado_em:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - criado_em
+      - dados
+      - id
+      - nome_exibicao
+      - tipo
+    ObjetoConsumidorRequest:
+      type: object
+      properties:
+        tipo:
+          $ref: '#/components/schemas/TipoObjetoEnum'
+        dados: {}
+      required:
+      - dados
+      - tipo
+    OrigemAtendimentoEnum:
+      enum:
+      - agenda
+      - kanban
+      type: string
+      description: |-
+        * `agenda` - Agenda
+        * `kanban` - Kanban
+    PaginatedAgendamentoConsumidorList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgendamentoConsumidor'
+    PaginatedMembroEquipeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MembroEquipe'
+    PaginatedNegocioPublicoList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/NegocioPublico'
+    PaginatedObjetoConsumidorList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObjetoConsumidor'
+    PaginatedServicoVitrineList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServicoVitrine'
+    PaginatedVinculoNegocioList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VinculoNegocio'
+    PatchedConsumidorUpdateRequest:
+      type: object
+      description: |-
+        Edicao do proprio cadastro pelo app.
+
+        E-mail continua de fora, mas o motivo mudou. Nao e mais a chave que liga o
+        consumidor ao Cliente de cada tenant — quem faz isso agora e
+        `Cliente.consumidor_id`, que nao depende de dado que a pessoa possa trocar.
+
+        O que sobra e que o e-mail e a credencial de login: muda-lo exige validar
+        unicidade e confirmar a posse do endereco novo. Isso e um fluxo proprio, e
+        nao um efeito colateral de salvar o perfil.
+      properties:
+        nome:
+          type: string
+          minLength: 1
+          maxLength: 255
+        telefone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        cpf:
+          type: string
+          maxLength: 14
+        data_nascimento:
+          type: string
+          format: date
+          nullable: true
+        cep:
+          type: string
+          maxLength: 9
+        endereco:
+          type: string
+          maxLength: 255
+        numero_endereco:
+          type: string
+          maxLength: 10
+    RecuperarSenhaConsumidorRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    RefreshConsumidorRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+          description: 'Só no mobile (X-Client-Platform: mobile); no web o refresh
+            vai no cookie httpOnly.'
+    RenovacaoConsumidor:
+      type: object
+      description: 'Resposta da renovação: um access novo (e o refresh novo, no mobile).'
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+          description: 'Só para o app mobile (cabeçalho X-Client-Platform: mobile).'
+      required:
+      - access
+    RoleEnum:
+      enum:
+      - proprietario
+      - colaborador
+      type: string
+      description: |-
+        * `proprietario` - proprietario
+        * `colaborador` - colaborador
+    ServicoVitrine:
+      type: object
+      properties:
+        id:
+          type: integer
+        nome:
+          type: string
+        descricao:
+          type: string
+        duracao:
+          type: integer
+          description: Minutos.
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        taxa_cancelamento:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - descricao
+      - duracao
+      - id
+      - nome
+      - preco
+      - taxa_cancelamento
+    SessaoConsumidor:
+      type: object
+      description: Resposta de cadastro e login do Service Manage.
+      properties:
+        access:
+          type: string
+        consumidor:
+          $ref: '#/components/schemas/Consumidor'
+        refresh:
+          type: string
+          description: 'Só para o app mobile (cabeçalho X-Client-Platform: mobile).'
+      required:
+      - access
+      - consumidor
+    StatusAgendamentoEnum:
+      enum:
+      - agendado
+      - confirmado
+      - concluido
+      - cancelado
+      - faltou
+      type: string
+      description: |-
+        * `agendado` - Agendado
+        * `confirmado` - Confirmado
+        * `concluido` - Concluído
+        * `cancelado` - Cancelado
+        * `faltou` - Faltou
+    TipoAgendaEnum:
+      enum:
+      - horario
+      - kanban
+      type: string
+      description: |-
+        * `horario` - Por horário
+        * `kanban` - Esteira / Kanban
+    TipoObjetoEnum:
+      enum:
+      - veiculo
+      - pet
+      type: string
+      description: |-
+        * `veiculo` - Veículo
+        * `pet` - Pet
+    VerificarCodigoConsumidorRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        codigo:
+          type: string
+          minLength: 1
+      required:
+      - codigo
+      - email
+    VinculoNegocio:
+      type: object
+      description: 'Negócio vinculado: os campos do NegocioPublico mais a data do
+        vínculo.'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        schema_name:
+          type: string
+          maxLength: 63
+        nome:
+          type: string
+          maxLength: 255
+        nicho:
+          type: string
+          maxLength: 50
+        tipo_agenda:
+          $ref: '#/components/schemas/TipoAgendaEnum'
+        tipo_objeto:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/TipoObjetoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        cidade:
+          type: string
+          maxLength: 100
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        logo_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        descricao:
+          type: string
+        vinculado_em:
+          type: string
+          format: date-time
+      required:
+      - id
+      - latitude
+      - longitude
+      - nicho
+      - nome
+      - schema_name
+      - vinculado_em
+    Erro:
+      type: object
+      description: Contrato único de erro da API (core/excecoes.py).
+      properties:
+        detail:
+          type: string
+          description: Mensagem para o usuário.
+        code:
+          type: string
+          description: Identificador estável do erro.
+        fields:
+          type: object
+          description: 'Só em erro de validação: {campo: [mensagens]}.'
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required:
+      - detail
+      - code
+  securitySchemes:
+    servicemanageJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

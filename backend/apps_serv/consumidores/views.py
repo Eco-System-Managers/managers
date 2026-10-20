@@ -6,15 +6,19 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from apps_serv.autenticacao.authentication import ConsumidorJWTAuthentication
 from .models import AgendamentoConsumidor, ObjetoConsumidor, VinculoConsumidor
 from .services import SincronizarClienteService
 from .serializers import (
     AgendamentoConsumidorSerializer,
+    CancelamentoAgendamentoSerializer,
     ConsumidorSerializer,
     ConsumidorUpdateSerializer,
+    FotoPerfilUploadSerializer,
     ObjetoConsumidorSerializer,
+    VinculoNegocioSerializer,
 )
 from core.excecoes import erro
 from core.paginacao import Paginacao, resposta_paginada
@@ -26,9 +30,14 @@ class MeuPerfilView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses=ConsumidorSerializer, summary='Meu cadastro')
     def get(self, request):
         return Response(ConsumidorSerializer(request.user).data)
 
+    @extend_schema(
+        request=ConsumidorUpdateSerializer, responses=ConsumidorSerializer,
+        summary='Editar meu cadastro (e-mail não muda por aqui)',
+    )
     def patch(self, request):
         serializer = ConsumidorUpdateSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -53,6 +62,10 @@ class FotoPerfilView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request={'multipart/form-data': FotoPerfilUploadSerializer}, responses=ConsumidorSerializer,
+        summary='Enviar foto de perfil',
+    )
     def post(self, request):
         from apps_work.empresa.services import ArmazenamentoImagemService, ImagemInvalidaError
 
@@ -92,6 +105,7 @@ class FotoPerfilView(APIView):
 
         return Response(ConsumidorSerializer(consumidor).data)
 
+    @extend_schema(request=None, responses=ConsumidorSerializer, summary='Remover foto de perfil')
     def delete(self, request):
         from apps_work.empresa.services import ArmazenamentoImagemService
 
@@ -120,7 +134,13 @@ class FotoPerfilView(APIView):
 class MeusAgendamentosView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
+    pagination_class = Paginacao
 
+    @extend_schema(
+        responses=AgendamentoConsumidorSerializer(many=True),
+        parameters=[OpenApiParameter('status', str, description='Filtra pelo status do agendamento.')],
+        summary='Minha agenda, em todos os negócios',
+    )
     def get(self, request):
         status_filtro = request.query_params.get('status')
         qs = AgendamentoConsumidor.objects.filter(consumidor=request.user).order_by('-data_hora')
@@ -149,7 +169,9 @@ class MeusAgendamentosView(APIView):
 class MeusVinculosView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
+    pagination_class = Paginacao
 
+    @extend_schema(responses=VinculoNegocioSerializer(many=True), summary='Negócios a que estou vinculado')
     def get(self, request):
         """Devolve os negocios vinculados ja resolvidos.
 
@@ -208,7 +230,13 @@ _NOME_EXIBICAO = {
 class ObjetosConsumidorView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
+    pagination_class = Paginacao
 
+    @extend_schema(
+        responses=ObjetoConsumidorSerializer(many=True),
+        parameters=[OpenApiParameter('tipo', str, enum=['veiculo', 'pet'])],
+        summary='Meus pets e veículos',
+    )
     def get(self, request):
         tipo = request.query_params.get('tipo')
         qs = ObjetoConsumidor.objects.filter(consumidor=request.user)
@@ -218,6 +246,14 @@ class ObjetosConsumidorView(APIView):
             request, qs, self, lambda pagina: ObjetoConsumidorSerializer(pagina, many=True).data,
         )
 
+    @extend_schema(
+        request=ObjetoConsumidorSerializer, responses={201: ObjetoConsumidorSerializer},
+        summary='Cadastrar pet ou veículo',
+        description=(
+            '`dados` é livre, mas exige por tipo: veiculo → placa, marca, modelo; '
+            'pet → nome, especie, porte.'
+        ),
+    )
     def post(self, request):
         tipo = request.data.get('tipo')
         dados = request.data.get('dados', {})
@@ -243,6 +279,7 @@ class ObjetoConsumidorDetailView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=None, responses={204: None}, summary='Remover pet ou veículo')
     def delete(self, request, objeto_id):
         try:
             obj = ObjetoConsumidor.objects.get(id=objeto_id, consumidor=request.user)
@@ -256,6 +293,10 @@ class CancelarAgendamentoView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None, responses=CancelamentoAgendamentoSerializer,
+        summary='Cancelar agendamento (fora do prazo gera taxa)',
+    )
     def post(self, request, agendamento_id):
         try:
             agendamento = AgendamentoConsumidor.objects.get(id=agendamento_id, consumidor=request.user)

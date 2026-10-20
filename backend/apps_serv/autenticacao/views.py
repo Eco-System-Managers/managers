@@ -1,11 +1,10 @@
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from apps_serv.consumidores.serializers import CadastroConsumidorSerializer, ConsumidorSerializer
 from apps_serv.consumidores.services import (
@@ -15,10 +14,20 @@ from apps_serv.consumidores.services import (
 )
 from core import rotas
 from core.limites import MuitasTentativas
+from core.openapi import PLATAFORMA, MensagemSerializer
 from core.sessao import entregar_refresh, refresh_da_requisicao
 from core.throttling import RecuperacaoConsumidorPorEmailThrottle
 
 from .authentication import gerar_tokens, renovar_tokens, revogar_refresh
+from .serializers import (
+    LoginConsumidorSerializer,
+    NovaSenhaConsumidorSerializer,
+    RecuperarSenhaConsumidorSerializer,
+    RefreshConsumidorSerializer,
+    RenovacaoConsumidorSerializer,
+    SessaoConsumidorSerializer,
+    VerificarCodigoConsumidorSerializer,
+)
 from core.excecoes import erro
 
 REFRESH_COOKIE = 'sm_refresh_token'
@@ -48,6 +57,12 @@ class CadastroConsumidorView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'sm_auth_cadastro'
 
+    @extend_schema(
+        request=CadastroConsumidorSerializer,
+        responses={201: SessaoConsumidorSerializer},
+        parameters=[PLATAFORMA],
+        summary='Criar conta de cliente',
+    )
     def post(self, request):
         serializer = CadastroConsumidorSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -77,6 +92,10 @@ class LoginConsumidorView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'sm_auth_login'
 
+    @extend_schema(
+        request=LoginConsumidorSerializer, responses=SessaoConsumidorSerializer, parameters=[PLATAFORMA],
+        summary='Entrar com e-mail e senha',
+    )
     def post(self, request):
         email = request.data.get('email', '')
         senha = request.data.get('senha', '')
@@ -101,6 +120,10 @@ class RefreshConsumidorView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RefreshConsumidorSerializer, responses=RenovacaoConsumidorSerializer, parameters=[PLATAFORMA],
+        summary='Renovar a sessão (o refresh usado deixa de valer)',
+    )
     def post(self, request):
         token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
         if not token_str:
@@ -122,6 +145,10 @@ class LogoutConsumidorView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RefreshConsumidorSerializer, responses=MensagemSerializer, parameters=[PLATAFORMA],
+        summary='Sair (revoga o refresh)',
+    )
     def post(self, request):
         token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
         if token_str:
@@ -137,6 +164,11 @@ class RecuperarSenhaConsumidorView(APIView):
     throttle_classes = [ScopedRateThrottle, RecuperacaoConsumidorPorEmailThrottle]
     throttle_scope = 'sm_auth_recovery'
 
+    @extend_schema(
+        request=RecuperarSenhaConsumidorSerializer, responses=MensagemSerializer,
+        summary='Pedir código de recuperação de senha',
+        description='Responde a mesma mensagem exista ou não a conta.',
+    )
     def post(self, request):
         email = request.data.get('email', '').strip()
         msg = RecuperacaoSenhaConsumidorService().solicitar(email)
@@ -149,6 +181,10 @@ class VerificarCodigoConsumidorView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'sm_auth_verify'
 
+    @extend_schema(
+        request=VerificarCodigoConsumidorSerializer, responses=MensagemSerializer,
+        summary='Conferir o código de recuperação',
+    )
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
         codigo = request.data.get('codigo', '').strip()
@@ -165,15 +201,14 @@ class NovaSenhaConsumidorView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'sm_auth_verify'
 
+    @extend_schema(
+        request=NovaSenhaConsumidorSerializer, responses=MensagemSerializer,
+        summary='Definir nova senha com o código (derruba as sessões abertas)',
+    )
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
         codigo = request.data.get('codigo', '').strip()
         nova_senha = request.data.get('nova_senha', '')
-
-        try:
-            validate_password(nova_senha)
-        except DjangoValidationError as e:
-            return erro(' '.join(e.messages), status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
             RecuperacaoSenhaConsumidorService().redefinir_senha(email, codigo, nova_senha)

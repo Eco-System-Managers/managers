@@ -7,10 +7,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from core.permissions import IsProprietario
 from .models import Assinatura, Pagamento, Plano
-from .serializers import AssinaturaSerializer, PagamentoSerializer
+from .serializers import (
+    AssinaturaSerializer, ConfirmarAssinaturaSerializer, LinkAssinaturaSerializer, PagamentoSerializer,
+)
 from .services import (
     AssinaturaInvalidaError,
     MercadoPagoService,
@@ -23,6 +26,7 @@ from core.excecoes import erro
 class MinhaAssinaturaView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses=AssinaturaSerializer, summary='Assinatura do negócio')
     def get(self, request):
         from tenants.models import Tenant
 
@@ -38,6 +42,7 @@ class MinhaAssinaturaView(APIView):
 class IniciarAssinaturaView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
+    @extend_schema(request=None, responses=LinkAssinaturaSerializer, summary='Link do checkout do plano Pro')
     def post(self, request):
         plano = Plano.objects.filter(nome='pro', ativo=True).first()
         if plano is None:
@@ -60,6 +65,9 @@ class RetornoCheckoutView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        exclude=True,  # back_url do Mercado Pago: quem chama é o navegador, não o app
+    )
     def get(self, request):
         query = request.META.get('QUERY_STRING', '')
         destino = f'{settings.FRONTEND_URL}/app/pagamentos' + (f'?{query}' if query else '')
@@ -69,6 +77,10 @@ class RetornoCheckoutView(APIView):
 class ConfirmarAssinaturaView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
+    @extend_schema(
+        request=ConfirmarAssinaturaSerializer, responses=AssinaturaSerializer,
+        summary='Vincular a assinatura do Mercado Pago ao negócio',
+    )
     def post(self, request):
         preapproval_id = request.data.get('preapproval_id')
         if not preapproval_id:
@@ -88,6 +100,7 @@ class ConfirmarAssinaturaView(APIView):
 class CancelarAssinaturaView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
+    @extend_schema(request=None, responses=AssinaturaSerializer, summary='Cancelar a assinatura')
     def post(self, request):
         from tenants.models import Tenant
 
@@ -117,6 +130,7 @@ class MercadoPagoWebhookView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'webhook'
 
+    @extend_schema(exclude=True)  # chamado pelo Mercado Pago, não pelo app
     def post(self, request):
         topico = request.query_params.get('type') or request.query_params.get('topic')
         data_id = request.query_params.get('data.id') or request.query_params.get('id')

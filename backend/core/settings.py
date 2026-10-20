@@ -46,6 +46,8 @@ SHARED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    'drf_spectacular',
+    'core',
     'apps_work.billing',
     'apps_work.autenticacao',
     'apps_serv.autenticacao',
@@ -243,6 +245,8 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'core.excecoes.tratar_excecao',
     # Toda coleção de recurso sai paginada: {count, next, previous, results}.
     'DEFAULT_PAGINATION_CLASS': 'core.paginacao.Paginacao',
+    # Schema OpenAPI, um por produto (core/openapi.py).
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     # Valem para toda view que não declara throttle_classes própria. O
     # ScopedRateThrottle só age onde a view define throttle_scope.
     'DEFAULT_THROTTLE_CLASSES': (
@@ -347,4 +351,38 @@ MERCADOPAGO_WEBHOOK_SECRET = os.getenv('MERCADOPAGO_WEBHOOK_SECRET', '')
 # O Mercado Pago exige uma URL https válida pro back_url (redirecionamento pós-checkout) —
 # não aceita http://localhost, então não dá pra reaproveitar FRONTEND_URL em dev.
 MERCADOPAGO_BACK_URL = os.getenv('MERCADOPAGO_BACK_URL', 'https://workmanage.com.br')
+
+# OpenAPI (drf-spectacular). Título e filtro de rotas vêm de cada produto
+# (core/openapi.py); aqui fica o que vale para os dois.
+SPECTACULAR_SETTINGS = {
+    'VERSION': '1.0.0',
+    # Componentes de request e response separados (campos read-only não viram
+    # obrigatórios na escrita), o que os geradores de client Dart esperam.
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SERVE_INCLUDE_SCHEMA': False,
+    # Nomes estáveis para os enums: sem isso o drf-spectacular gera nomes como
+    # "Status939Enum" quando dois models têm um campo de mesmo nome, e o client
+    # Dart muda de tipo a cada regeração.
+    'ENUM_NAME_OVERRIDES': {
+        # Mesmo conjunto no B2B (Agendamento) e no B2C (AgendamentoConsumidor).
+        'StatusAgendamentoEnum': 'apps_work.agenda.models.Agendamento.STATUS_CHOICES',
+        'StatusContratoEnum': 'apps_work.contratos.models.Contrato.STATUS_CHOICES',
+        'StatusAssinaturaEnum': 'apps_work.billing.models.Assinatura.STATUS_CHOICES',
+        'StatusPagamentoAssinaturaEnum': 'apps_work.billing.models.Pagamento.STATUS_CHOICES',
+        'OrigemClienteEnum': 'apps_work.clientes.models.Cliente.ORIGEM_CHOICES',
+        'OrigemTransacaoCreditoEnum': 'apps_work.financeiro.models.TransacaoCredito.ORIGEM_CHOICES',
+        # agenda | kanban: de qual modo de agenda veio o atendimento.
+        'OrigemAtendimentoEnum': 'apps_serv.consumidores.models.AgendamentoConsumidor.ORIGEM_CHOICES',
+        'TipoTransacaoCreditoEnum': 'apps_work.financeiro.models.TransacaoCredito.TIPO_CHOICES',
+        'TipoNotificacaoEnum': 'apps_work.notificacoes.models.Notificacao.TIPO_CHOICES',
+        'TipoAgendaEnum': 'apps_work.empresa.models.EmpresaConfig.TIPO_AGENDA_CHOICES',
+        'TipoPlanoEnum': 'apps_work.billing.models.Plano.TIPO_CHOICES',
+        # pet | veiculo: mesmo conjunto no B2B (ObjetoCliente) e no B2C.
+        'TipoObjetoEnum': 'apps_serv.consumidores.models.ObjetoConsumidor.TIPO_CHOICES',
+    },
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'core.openapi.adicionar_erros',
+    ],
+}
 

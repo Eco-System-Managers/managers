@@ -69,3 +69,45 @@ class CadastroSerializer(serializers.Serializer):
             email=validated_data['email'],
             senha=validated_data['senha'],
         )
+
+
+# ---------------------------------------------------------------------------
+# Formatos de entrada e saída (documentação OpenAPI das APIViews)
+# ---------------------------------------------------------------------------
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    senha = serializers.CharField()
+
+
+class SessaoSerializer(serializers.Serializer):
+    """Resposta de login, cadastro, renovação e aceite de convite."""
+    access = serializers.CharField()
+    schema_name = serializers.CharField()
+    empresa = serializers.CharField()
+    refresh = serializers.CharField(
+        required=False, help_text='Só para o app mobile (cabeçalho X-Client-Platform: mobile).',
+    )
+
+
+class EmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class VerificarCodigoSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    codigo = serializers.CharField()
+
+
+class NovaSenhaSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    codigo = serializers.CharField()
+    nova_senha = serializers.CharField()
+
+
+class RefreshSerializer(serializers.Serializer):
+    refresh = serializers.CharField(
+        required=False,
+        help_text='Só no app mobile (cabeçalho X-Client-Platform: mobile); no web o refresh vai no cookie.',
+    )
+

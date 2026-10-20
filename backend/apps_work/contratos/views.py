@@ -4,10 +4,13 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from .models import Contrato, ModeloContrato
 from .serializers import (
+    AcaoContratoPublicoSerializer,
     AssinarContratoSerializer,
     ContratoPublicoSerializer,
     ContratoSerializer,
@@ -92,6 +95,7 @@ class ContratoPublicoView(APIView):
         except Contrato.DoesNotExist:
             return None
 
+    @extend_schema(responses=ContratoPublicoSerializer, summary='Contrato aberto pelo link do e-mail')
     def get(self, request, schema_name: str, token: str):
         contrato = self._get_contrato(schema_name, token)
         if not contrato:
@@ -100,6 +104,10 @@ class ContratoPublicoView(APIView):
             data = ContratoPublicoSerializer(contrato).data
         return Response(data)
 
+    @extend_schema(
+        request=AcaoContratoPublicoSerializer, responses=ContratoPublicoSerializer,
+        summary='Assinar ou recusar o contrato',
+    )
     def post(self, request, schema_name: str, token: str):
         acao = request.data.get('acao')
         if acao not in ('assinar', 'recusar'):
@@ -116,10 +124,10 @@ class ContratoPublicoView(APIView):
                 if acao == 'assinar':
                     serializer = AssinarContratoSerializer(data=request.data)
                     serializer.is_valid(raise_exception=True)
-                    ip = (
-                        request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-                        or request.META.get('REMOTE_ADDR', '')
-                    )
+                    # Mesma identificação do rate limiting (NUM_PROXIES): o
+                    # X-Forwarded-For cru é escrito pelo cliente e forjaria o IP
+                    # registrado na assinatura.
+                    ip = BaseThrottle().get_ident(request)
                     contrato = service.assinar(
                         contrato,
                         nome_assinante=serializer.validated_data['nome_assinante'],

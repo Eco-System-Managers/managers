@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 from apps_work.clientes.validators import validar_cpf, validar_telefone_br
 
+from apps_serv.vitrine.serializers import NegocioPublicoSerializer
+
 from .models import AgendamentoConsumidor, Consumidor, ObjetoConsumidor
 
 
@@ -109,3 +111,27 @@ class AgendamentoConsumidorSerializer(serializers.ModelSerializer):
 
     def get_logo_url(self, obj) -> str | None:
         return (self.context.get('logos') or {}).get(obj.schema_name) or None
+
+
+# ---------------------------------------------------------------------------
+# Formatos de entrada e saída (documentação OpenAPI das APIViews)
+# ---------------------------------------------------------------------------
+
+class FotoPerfilUploadSerializer(serializers.Serializer):
+    foto = serializers.ImageField()
+
+
+class VinculoNegocioSerializer(NegocioPublicoSerializer):
+    """Negócio vinculado: os campos do NegocioPublico mais a data do vínculo."""
+    vinculado_em = serializers.DateTimeField()
+
+    class Meta(NegocioPublicoSerializer.Meta):
+        fields = NegocioPublicoSerializer.Meta.fields + ['vinculado_em']
+
+
+class CancelamentoAgendamentoSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    taxa = serializers.DecimalField(
+        max_digits=10, decimal_places=2, help_text='Taxa de cancelamento cobrada (0.00 dentro do prazo).',
+    )
+

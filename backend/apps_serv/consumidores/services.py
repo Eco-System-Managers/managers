@@ -1,6 +1,8 @@
 import logging
 
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -97,6 +99,13 @@ class RecuperacaoSenhaConsumidorService:
             consumidor = Consumidor.objects.get(email=email.strip().lower())
         except Consumidor.DoesNotExist:
             raise ErroDeNegocio('Código inválido.', 'codigo_invalido')
+
+        # Com a conta, para a regra de "senha parecida com o e-mail" valer; e
+        # antes do código, para senha fraca não gastar uma tentativa.
+        try:
+            validate_password(nova_senha, consumidor)
+        except DjangoValidationError as e:
+            raise ErroDeNegocio(' '.join(e.messages), 'senha_fraca')
 
         registro = self._codigo_vigente(consumidor)
         if registro is None or not self._conferir(registro, codigo):
