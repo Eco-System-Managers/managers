@@ -19,3 +19,33 @@
   2. Espere o desenvolvedor revisar e aprovar pelo chat.
   3. Só depois da aprovação, faça o commit. Esta é a única exceção à regra "Nunca edite nada".
   4. **Nunca faça push.** O push é sempre feito pelo desenvolvedor.
+
+## Arquitetura (Clean Architecture)
+
+Toda feature nova segue as camadas abaixo, dentro da estrutura de pastas existente.
+
+### Camadas e pastas
+
+- `lib/data/services/` — clientes técnicos genéricos (HTTP, storage). Sem regra de negócio, sem conhecer features.
+- `lib/data/datasources/<feature>/` — acesso aos dados de uma feature (remoto/local), usando os services. Retorna models de `data/model/`.
+- `lib/data/model/` — DTOs da API/armazenamento, com `fromJson`/`toJson`.
+- `lib/data/repositories/` — implementação dos repositórios: usa datasources e converte DTO → entidade de domínio.
+- `lib/domain/models/` — entidades de domínio, Dart puro.
+- `lib/domain/repositories/` — contratos (classes abstratas) dos repositórios.
+- `lib/domain/use_cases/<feature>/` — um caso de uso por ação (`LoginUseCase`, `SendRecoveryCodeUseCase`), com um único método `call`.
+- `lib/ui/<feature>/view_models/` — estado da tela; chama **apenas** use cases.
+- `lib/ui/<feature>/providers/` — injeção de dependências com Riverpod.
+
+### Regra de dependência
+
+- `ui` → `domain` ← `data`. O `domain` não importa Flutter, `data` nem `ui`.
+- ViewModels nunca usam repositories, datasources ou services diretamente.
+- Widgets nunca acessam nada além do seu ViewModel.
+
+### Nomenclatura
+
+- Arquivos em `snake_case`, com sufixo da camada: `auth_remote_datasource.dart`, `auth_repository.dart` (contrato), `auth_repository_impl.dart`, `login_use_case.dart`.
+
+### Ao mentorar
+
+- Ao revisar ou orientar, aponte quando o código violar estas camadas e explique qual seria o lugar correto.

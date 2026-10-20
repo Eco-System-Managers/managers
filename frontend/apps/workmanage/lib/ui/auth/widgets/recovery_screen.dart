@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/ui/auth/view_models/recovery_view_model.dart';
+import 'package:managers/ui/auth/widgets/auth_logo.dart';
+import 'package:managers/ui/auth/widgets/auth_panel.dart';
 import 'package:managers/ui/core/ui/success_view.dart';
 import 'package:pinput/pinput.dart';
 
@@ -79,17 +81,10 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
               alignment: Alignment.centerLeft,
               child: BackButton(color: Theme.of(context).colorScheme.onPrimary),
             ),
-            const Expanded(child: SizedBox()),
+            // área superior: logo completo (símbolo + texto)
+            const Expanded(child: AuthLogo()),
             // painel inferior arredondado, igual ao do login
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(32),
-                ),
-              ),
+            AuthPanel(
               child: Form(
                 key: _formKey,
                 // redesenha o painel sempre que o viewmodel avisar
