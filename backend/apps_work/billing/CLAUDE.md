@@ -35,6 +35,10 @@ toda a API. Rodar uma vez, após `migrate_schemas --shared`:
 `python manage.py loaddata planos` (fixture em `billing/fixtures/planos.json`,
 idempotente).
 
+Em desenvolvimento, `python manage.py popular_dev` faz tudo de uma vez: garante
+o plano padrão e cria uma empresa de exemplo com o dono e o onboarding concluído
+(`dono@demo.com` / `SenhaForte123!`). Só roda com `DEBUG=True`.
+
 ### `Assinatura` — o vínculo do negócio com a plataforma
 
 | Coluna | Tipo | O que é |

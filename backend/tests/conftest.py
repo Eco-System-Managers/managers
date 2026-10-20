@@ -62,12 +62,6 @@ def _drop_tenant_schema(schema_name: str) -> None:
         # "cannot execute DROP TABLE because of pending trigger events"
         cursor.execute('SET CONSTRAINTS ALL IMMEDIATE')
         cursor.execute(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE')
-        # Remove a ghost table do schema PUBLIC criada quando o app label era
-        # 'autenticacao' (antes de 'autenticacao_work'). Ela bloqueia o
-        # TRUNCATE de auth_user no flush pós-teste transacional.
-        # Nome schema-qualificado evita ambiguidade com search_path.
-        cursor.execute('DROP TABLE IF EXISTS public."autenticacao_codigorecuperacao" CASCADE')
-        cursor.execute('DROP TABLE IF EXISTS public."autenticacao_lastactivity" CASCADE')
     Tenant.objects.filter(schema_name=schema_name).delete()
 
 
