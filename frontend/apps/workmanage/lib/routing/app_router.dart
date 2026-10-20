@@ -6,9 +6,19 @@ import 'package:managers/ui/auth/view_models/login_view_model.dart';
 import 'package:managers/ui/auth/widgets/login_screen.dart';
 import 'package:managers/ui/auth/widgets/recovery_screen.dart';
 import 'package:managers/ui/auth/widgets/register_screen.dart';
+import 'package:managers/ui/splash/view_models/splash_view_model.dart';
+import 'package:managers/ui/splash/widgets/splash_screen.dart';
 
 final GoRouter router = GoRouter(
+  // o app sempre abre pela splash, que decide para onde ir
+  initialLocation: '/splash',
   routes: <RouteBase>[
+    GoRoute(
+      path: '/splash',
+      builder: (BuildContext context, GoRouterState state) {
+        return SplashScreen(viewModel: SplashViewModel());
+      },
+    ),
     GoRoute(
       path: '/',
       builder: (BuildContext context, GoRouterState state) {
