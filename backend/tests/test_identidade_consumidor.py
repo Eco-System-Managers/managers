@@ -1,15 +1,12 @@
-from importlib import import_module
-from types import SimpleNamespace
 
 import pytest
-from django.apps import apps as registro_de_apps
 from unittest.mock import patch
 
 from apps_serv.consumidores.models import VinculoConsumidor
 from apps_serv.consumidores.services import RegistroConsumidorService, SincronizarClienteService
 from apps_serv.identidade import cliente_do_consumidor
 from apps_serv.vitrine.services import VincularNegocioService
-from apps_work.clientes.models import Cliente
+from apps_work.clientes.models import Cliente, OrigemCliente
 
 
 @pytest.fixture
@@ -138,90 +135,3 @@ class TestCriacaoGravaAIdentidade:
 
         assert Cliente.objects.filter(consumidor_id=consumidor.id).count() == 1
         assert VinculoConsumidor.objects.filter(consumidor=consumidor, ativo=True).count() == 1
-
-
-# ---------------------------------------------------------------------------
-# Backfill da migration
-# ---------------------------------------------------------------------------
-
-_MIGRATION = import_module('apps_work.clientes.migrations.0011_cliente_consumidor_id')
-
-
-def _rodar_backfill(schema_name):
-    """Chama a funcao da migration direto.
-
-    A migration em si roda no setup do banco de teste, quando nao ha dado
-    nenhum — entao o backfill nunca seria exercitado de verdade por ali.
-    """
-    editor = SimpleNamespace(connection=SimpleNamespace(schema_name=schema_name))
-    _MIGRATION.ligar_pelo_email(registro_de_apps, editor)
-
-
-@pytest.mark.django_db
-class TestBackfillDaMigration:
-    def _cliente(self, email, origem=Cliente.ORIGEM_SERVICEMANAGE, nome='Carlos'):
-        return Cliente.objects.create(
-            nome=nome, email=email, telefone='11999990000', origem=origem,
-        )
-
-    def test_liga_cadastro_vindo_do_app(self, patch_tenant_middleware, consumidor, tenant):
-        cliente = self._cliente(consumidor.email)
-
-        _rodar_backfill(tenant.schema_name)
-
-        cliente.refresh_from_db()
-        assert cliente.consumidor_id == consumidor.id
-
-    def test_nao_toca_cadastro_feito_pelo_negocio(
-        self, patch_tenant_middleware, consumidor, tenant,
-    ):
-        """Homonimo cadastrado na mao nao vira o consumidor por coincidencia
-        de e-mail."""
-        cliente = self._cliente(consumidor.email, origem=Cliente.ORIGEM_MANUAL)
-
-        _rodar_backfill(tenant.schema_name)
-
-        cliente.refresh_from_db()
-        assert cliente.consumidor_id is None
-
-    def test_ignora_cadastro_sem_email(self, patch_tenant_middleware, consumidor, tenant):
-        cliente = self._cliente('')
-
-        _rodar_backfill(tenant.schema_name)
-
-        cliente.refresh_from_db()
-        assert cliente.consumidor_id is None
-
-    def test_liga_apenas_o_primeiro_quando_ha_dois_com_o_mesmo_email(
-        self, patch_tenant_middleware, consumidor, tenant,
-    ):
-        """`email` nao e unico no Cliente. Ligar os dois violaria a unicidade de
-        consumidor_id e abortaria a migration do tenant inteiro."""
-        primeiro = self._cliente(consumidor.email, nome='Primeiro')
-        segundo = self._cliente(consumidor.email, nome='Segundo')
-
-        _rodar_backfill(tenant.schema_name)
-
-        primeiro.refresh_from_db()
-        segundo.refresh_from_db()
-        assert primeiro.consumidor_id == consumidor.id
-        assert segundo.consumidor_id is None
-
-    def test_nao_faz_nada_no_schema_publico(self, patch_tenant_middleware, consumidor, tenant):
-        """Apps de tenant tambem sao criadas no publico, onde nao ha cliente de
-        negocio para ligar."""
-        cliente = self._cliente(consumidor.email)
-
-        _rodar_backfill('public')
-
-        cliente.refresh_from_db()
-        assert cliente.consumidor_id is None
-
-    def test_e_idempotente(self, patch_tenant_middleware, consumidor, tenant):
-        cliente = self._cliente(consumidor.email)
-
-        _rodar_backfill(tenant.schema_name)
-        _rodar_backfill(tenant.schema_name)
-
-        cliente.refresh_from_db()
-        assert cliente.consumidor_id == consumidor.id

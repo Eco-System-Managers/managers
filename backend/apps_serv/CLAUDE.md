@@ -47,12 +47,23 @@ público. Assim a dependência anda só numa direção.
 
 ## O que é fácil errar aqui
 
+- **O contrato da API está em `openapi/README.md`.** Erro sempre
+  `{detail, code, fields?}`: levante `ErroDeNegocio(msg, code)` no service, ou use
+  `erro()` (`core/excecoes.py`) quando a view precisar montar a resposta. Coleção
+  de recurso sai paginada (`core/paginacao.py`); dinheiro sai como string.
+- **APIView nova precisa de `@extend_schema`** (entrada e saída), senão fica fora
+  do schema e do client Dart. Depois de mudar view ou serializer, rode
+  `manage.py gerar_openapi` e versione `openapi/` — `tests/test_openapi.py` falha
+  se os `.yaml` estiverem desatualizados.
 - **Operação que grava nos dois lados precisa ser atômica.** Criar agendamento
   escreve no tenant e no público. Efeito colateral que pode falhar sem derrubar
   o agendamento (sincronizar perfil, notificar) roda em savepoint próprio —
   engolir exceção sem savepoint aborta a transação inteira.
 - **Autenticação de consumidor não é a do Django.** `request.user` aqui é um
   `Consumidor`, não um `User`. Permissão que assuma o contrário quebra.
+- **Rotas `/api/sm/v1/` ficam sempre no schema público.** O `JWTTenantMiddleware`
+  as ignora: um token do Work Manage mandado para cá não troca o schema (e não
+  cai no bloqueio de assinatura do tenant).
 - **`schema_name` vindo da URL é entrada de usuário.** As views da vitrine
   validam o formato antes de usar (`_schema_valido`), porque ele acaba virando
   troca de schema.

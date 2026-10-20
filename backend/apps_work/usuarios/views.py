@@ -1,22 +1,34 @@
 from rest_framework import viewsets, status
+from rest_framework import serializers
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from django.db import connection
 from django.db.models import Q
 from django.utils import timezone
-from apps_work.autenticacao.views import set_refresh_cookie
+from apps_work.autenticacao.serializers import SessaoSerializer
+from apps_work.autenticacao.views import responder_sessao
+from core.openapi import PLATAFORMA
 from core.permissions import IsProprietario
+from tenants.models import Membro
+
 from .models import Colaborador, ConviteColaborador
-from .serializers import ColaboradorSerializer, ConviteColaboradorSerializer
+from .serializers import (
+    AceitarConviteSerializer, ColaboradorSerializer, ConviteColaboradorSerializer, ConviteInfoSerializer,
+)
 from .services import AceitarConviteService, ColaboradorService, ConviteService
+from core.excecoes import erro
 
 
 class ColaboradorViewSet(viewsets.ModelViewSet):
     serializer_class = ColaboradorSerializer
 
+    _ACOES_DO_PROPRIETARIO = {'update', 'partial_update', 'destroy', 'remover', 'ativar', 'desativar'}
+
     def get_permissions(self):
-        if self.action in ['partial_update', 'destroy', 'remover']:
+        if self.action in self._ACOES_DO_PROPRIETARIO:
             return [IsAuthenticated(), IsProprietario()]
         return [IsAuthenticated()]
 
@@ -29,36 +41,58 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search)
             )
-        return qs.order_by('-role', 'user__first_name', 'user__last_name')
+        # O papel vem do Membro (schema público), anotado na mesma consulta.
+        qs = qs.annotate(papel=Membro.papel_subquery(connection.schema_name))
+        return qs.order_by('-papel', 'user__first_name', 'user__last_name')
 
     def destroy(self, request, *args, **kwargs):
+        return self.desativar(request, *args, **kwargs)
+
+    @extend_schema(request=None, responses={204: None}, summary='Desativar colaborador')
+    @action(detail=True, methods=['post'], url_path='desativar')
+    def desativar(self, request, pk=None):
         colaborador = self.get_object()
-        ColaboradorService().desativar(colaborador)
+        try:
+            ColaboradorService().desativar(colaborador)
+        except ValueError as e:
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def perform_update(self, serializer):
-        old_ativo = serializer.instance.ativo
-        instance = serializer.save()
-        if 'ativo' in serializer.validated_data and old_ativo != instance.ativo:
-            ColaboradorService().sincronizar_is_active(instance)
+    @extend_schema(request=None, responses={200: ColaboradorSerializer}, summary='Reativar colaborador')
+    @action(detail=True, methods=['post'], url_path='ativar')
+    def ativar(self, request, pk=None):
+        colaborador = self.get_object()
+        ColaboradorService().reativar(colaborador)
+        return Response(ColaboradorSerializer(colaborador).data)
 
+    @extend_schema(
+        responses={200: inline_serializer('AgendamentosPendentes', {
+            'tem_pendentes': serializers.BooleanField(), 'total': serializers.IntegerField(),
+        })},
+        summary='Agendamentos futuros do colaborador (antes de remover)',
+    )
     @action(detail=True, methods=['get'], url_path='agendamentos-pendentes')
     def agendamentos_pendentes(self, request, pk=None):
         colaborador = self.get_object()
         return Response(ColaboradorService().tem_agendamentos_pendentes(colaborador))
 
+    @extend_schema(responses={200: ColaboradorSerializer}, summary='Colaborador do usuário logado')
     @action(detail=False, methods=['get'], url_path='me')
     def me(self, request):
         try:
             colaborador = request.user.colaborador
-        except Exception:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        except Colaborador.DoesNotExist:
+            return erro('Usuário sem perfil de colaborador.', 'sem_colaborador', status.HTTP_404_NOT_FOUND)
         return Response(ColaboradorSerializer(colaborador).data)
 
+    @extend_schema(responses={204: None}, summary='Remover colaborador')
     @action(detail=True, methods=['delete'], url_path='remover')
     def remover(self, request, pk=None):
         colaborador = self.get_object()
-        ColaboradorService().remover(colaborador)
+        try:
+            ColaboradorService().remover(colaborador)
+        except ValueError as e:
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -71,7 +105,7 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         return super().get_authenticators()
 
     def get_permissions(self):
-        if self.action in ('aceitar_por_token', 'aceitar', 'info'):
+        if self.action in ('aceitar_por_token', 'info'):
             return [AllowAny()]
         if self.action in ('create', 'destroy'):
             return [IsAuthenticated(), IsProprietario()]
@@ -86,107 +120,38 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         return super().get_throttles()
 
     def get_queryset(self):
-        return ConviteColaborador.objects.filter(aceito=False, expira_em__gt=timezone.now())
+        return ConviteColaborador.objects.filter(
+            aceito=False, expira_em__gt=timezone.now(),
+        ).order_by('-criado_em')
 
     def perform_destroy(self, instance):
-        from tenants.models import ConviteIndex
-        ConviteIndex.objects.filter(token=instance.token).delete()
-        instance.delete()
+        ConviteService().cancelar(instance)
 
     def perform_create(self, serializer):
         from django.db import connection
-        from rest_framework.exceptions import ValidationError
         from tenants.models import Tenant
         tenant = Tenant.objects.get(schema_name=connection.schema_name)
-        try:
-            convite = ConviteService().criar_e_enviar(
-                nome=serializer.validated_data.get('nome', ''),
-                email=serializer.validated_data['email'],
-                tenant_nome=tenant.name,
-            )
-        except ValueError as e:
-            raise ValidationError({'detail': str(e)})
-        serializer.instance = convite
+        # Regra violada levanta ErroDeNegocio, que o handler transforma em 400.
+        serializer.instance = ConviteService().criar_e_enviar(
+            nome=serializer.validated_data.get('nome', ''),
+            email=serializer.validated_data['email'],
+            tenant_nome=tenant.nome,
+        )
 
+    @extend_schema(
+        auth=[], responses={200: ConviteInfoSerializer},
+        summary='Dados do convite para a tela de aceite',
+    )
     @action(detail=False, methods=['get'], url_path=r'info/(?P<token>[^/.]+)', permission_classes=[AllowAny])
     def info(self, request, token=None):
-        from django.db import connection
-        from tenants.models import ConviteIndex, Tenant
+        # Convite inexistente, já usado ou expirado levanta ErroDeNegocio.
+        return Response(ConviteService().info(token))
 
-        try:
-            index = ConviteIndex.objects.get(token=token)
-        except ConviteIndex.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            tenant = Tenant.objects.get(schema_name=index.schema_name)
-        except Tenant.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
-        connection.set_tenant(tenant)
-
-        try:
-            convite = ConviteColaborador.objects.get(token=token, aceito=False)
-        except ConviteColaborador.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado ou já utilizado.'}, status=status.HTTP_404_NOT_FOUND)
-
-        if convite.expira_em < timezone.now():
-            return Response({'detail': 'Este convite expirou.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response({'nome': convite.nome, 'email': convite.email, 'expira_em': convite.expira_em})
-
+    @extend_schema(
+        auth=[], request=AceitarConviteSerializer, responses={201: SessaoSerializer}, parameters=[PLATAFORMA],
+        summary='Aceitar convite definindo a senha (já devolve a sessão)',
+    )
     @action(detail=False, methods=['post'], url_path=r'aceitar/(?P<token>[^/.]+)', permission_classes=[AllowAny])
     def aceitar_por_token(self, request, token=None):
-        from django.db import connection
-        from tenants.models import ConviteIndex, Tenant
-
-        try:
-            index = ConviteIndex.objects.get(token=token)
-        except ConviteIndex.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            tenant = Tenant.objects.get(schema_name=index.schema_name)
-        except Tenant.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
-        connection.set_tenant(tenant)
-
-        try:
-            convite = ConviteColaborador.objects.get(token=token)
-        except ConviteColaborador.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
-        if convite.aceito:
-            return Response({'detail': 'Convite já foi aceito.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        senha = request.data.get('senha', '').strip()
-        if not senha:
-            return Response({'detail': 'A senha é obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            tokens = AceitarConviteService().aceitar(convite, senha)
-            response = Response(tokens, status=status.HTTP_201_CREATED)
-            set_refresh_cookie(response, tokens['refresh'])
-            return response
-        except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=['post'], url_path='aceitar', permission_classes=[AllowAny])
-    def aceitar(self, request, pk=None):
-        convite = self.get_object()
-
-        if convite.aceito:  # pragma: no cover — get_queryset already filters aceito=False
-            return Response({'detail': 'Convite já foi aceito.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        senha = request.data.get('senha', '').strip()
-        if not senha:
-            return Response({'detail': 'A senha é obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            tokens = AceitarConviteService().aceitar(convite, senha)
-            response = Response(tokens, status=status.HTTP_201_CREATED)
-            set_refresh_cookie(response, tokens['refresh'])
-            return response
-        except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        refresh = AceitarConviteService().aceitar(token, request.data.get('senha', ''))
+        return responder_sessao(request, refresh, status.HTTP_201_CREATED)

@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 from apps_serv.autenticacao.authentication import gerar_tokens
 from apps_serv.consumidores.models import VinculoConsumidor
 from apps_serv.consumidores.services import RegistroConsumidorService
-from apps_work.clientes.models import Cliente
+from apps_work.clientes.models import Cliente, OrigemCliente
 
 EMAIL = 'carlos@sm.com'
 
@@ -48,7 +48,7 @@ def cliente_do_negocio(tenant, consumidor):
     with schema_context(tenant.schema_name):
         cliente = Cliente.objects.create(
             nome='Carlos', email=EMAIL, telefone='11888880000',
-            origem=Cliente.ORIGEM_SERVICEMANAGE,
+            origem=OrigemCliente.SERVICEMANAGE,
         )
     connection.set_schema_to_public()
     return cliente
@@ -70,12 +70,12 @@ def _reler(tenant, cliente) -> Cliente:
 @pytest.mark.django_db
 class TestAtualizarPerfil:
     def test_patch_salva_o_nome(self, app_consumidor, consumidor):
-        app_consumidor.patch('/api/sm/me/', {'nome': 'Carlos Silva'}, format='json')
+        app_consumidor.patch('/api/sm/v1/me/', {'nome': 'Carlos Silva'}, format='json')
         consumidor.refresh_from_db()
         assert consumidor.nome == 'Carlos Silva'
 
     def test_patch_salva_a_ficha_completa(self, app_consumidor, consumidor):
-        app_consumidor.patch('/api/sm/me/', {
+        app_consumidor.patch('/api/sm/v1/me/', {
             'cpf': '123.456.789-01', 'data_nascimento': '1990-01-01',
             'cep': '13000-000', 'endereco': 'Rua A', 'numero_endereco': '618',
         }, format='json')
@@ -83,39 +83,39 @@ class TestAtualizarPerfil:
         assert consumidor.cpf == '12345678901'
 
     def test_email_nao_e_alteravel(self, app_consumidor, consumidor):
-        app_consumidor.patch('/api/sm/me/', {'email': 'outro@sm.com'}, format='json')
+        app_consumidor.patch('/api/sm/v1/me/', {'email': 'outro@sm.com'}, format='json')
         consumidor.refresh_from_db()
         assert consumidor.email == EMAIL
 
     def test_telefone_invalido_retorna_400(self, app_consumidor):
-        response = app_consumidor.patch('/api/sm/me/', {'telefone': '119'}, format='json')
+        response = app_consumidor.patch('/api/sm/v1/me/', {'telefone': '119'}, format='json')
         assert response.status_code == 400
 
     def test_telefone_vazio_retorna_400(self, app_consumidor):
-        response = app_consumidor.patch('/api/sm/me/', {'telefone': ''}, format='json')
+        response = app_consumidor.patch('/api/sm/v1/me/', {'telefone': ''}, format='json')
         assert response.status_code == 400
 
     def test_cpf_invalido_retorna_400(self, app_consumidor):
-        response = app_consumidor.patch('/api/sm/me/', {'cpf': '123'}, format='json')
+        response = app_consumidor.patch('/api/sm/v1/me/', {'cpf': '123'}, format='json')
         assert response.status_code == 400
 
     def test_sem_autenticacao_retorna_401(self, patch_public_middleware):
-        response = APIClient().patch('/api/sm/me/', {'nome': 'X'}, format='json')
+        response = APIClient().patch('/api/sm/v1/me/', {'nome': 'X'}, format='json')
         assert response.status_code == 401
 
 
 @pytest.mark.django_db
 class TestSincronizacaoComOTenant:
     def test_nome_chega_no_cliente_do_negocio(self, app_consumidor, tenant, vinculado):
-        app_consumidor.patch('/api/sm/me/', {'nome': 'Carlos Silva'}, format='json')
+        app_consumidor.patch('/api/sm/v1/me/', {'nome': 'Carlos Silva'}, format='json')
         assert _reler(tenant, vinculado).nome == 'Carlos Silva'
 
     def test_telefone_chega_no_cliente_do_negocio(self, app_consumidor, tenant, vinculado):
-        app_consumidor.patch('/api/sm/me/', {'telefone': '11977770000'}, format='json')
+        app_consumidor.patch('/api/sm/v1/me/', {'telefone': '11977770000'}, format='json')
         assert _reler(tenant, vinculado).telefone == '11977770000'
 
     def test_ficha_completa_chega_no_negocio(self, app_consumidor, tenant, vinculado):
-        app_consumidor.patch('/api/sm/me/', {
+        app_consumidor.patch('/api/sm/v1/me/', {
             'cpf': '12345678901', 'endereco': 'Rua A', 'numero_endereco': '618',
         }, format='json')
         assert _reler(tenant, vinculado).cpf == '12345678901'
@@ -128,7 +128,7 @@ class TestSincronizacaoComOTenant:
         with _patch('apps_work.empresa.services.ArmazenamentoImagemService.salvar',
                     return_value='consumidores/abc.webp'),              _patch('apps_work.empresa.services.ArmazenamentoImagemService.url', return_value=''):
             app_consumidor.post(
-                '/api/sm/me/foto/',
+                '/api/sm/v1/me/foto/',
                 {'foto': SimpleUploadedFile('f.png', b'x' * 512, content_type='image/png')},
                 format='multipart',
             )
@@ -141,21 +141,21 @@ class TestSincronizacaoComOTenant:
         from unittest.mock import patch as _patch
 
         with _patch('apps_work.empresa.services.ArmazenamentoImagemService.apagar'),              _patch('apps_work.empresa.services.ArmazenamentoImagemService.url', return_value=''):
-            app_consumidor.delete('/api/sm/me/foto/')
+            app_consumidor.delete('/api/sm/v1/me/foto/')
 
         assert _reler(tenant, vinculado).foto_chave == ''
 
     def test_vinculo_inativo_nao_recebe(self, app_consumidor, consumidor, tenant, vinculado):
         VinculoConsumidor.objects.filter(consumidor=consumidor).update(ativo=False)
 
-        app_consumidor.patch('/api/sm/me/', {'nome': 'Carlos Silva'}, format='json')
+        app_consumidor.patch('/api/sm/v1/me/', {'nome': 'Carlos Silva'}, format='json')
 
         assert _reler(tenant, vinculado).nome == 'Carlos'
 
     def test_tenant_fora_do_ar_nao_derruba_o_salvamento(self, app_consumidor, tenant, vinculado):
         alvo = 'django_tenants.utils.schema_context'
         with patch(alvo, side_effect=Exception('schema fora do ar')):
-            response = app_consumidor.patch('/api/sm/me/', {'nome': 'Carlos Silva'}, format='json')
+            response = app_consumidor.patch('/api/sm/v1/me/', {'nome': 'Carlos Silva'}, format='json')
 
         assert response.status_code == 200
 
@@ -163,19 +163,19 @@ class TestSincronizacaoComOTenant:
 @pytest.mark.django_db
 class TestPainelNaoEditaCadastroDoCliente:
     @pytest.fixture
-    def painel(self, patch_tenant_middleware, usuario):
+    def painel(self, patch_tenant_middleware, proprietario):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        client.force_authenticate(user=usuario)
+        client.force_authenticate(user=proprietario)
         return client
 
     def test_painel_nao_altera_campo_sincronizado(self, painel):
         cliente = Cliente.objects.create(
             nome='Do app', email=EMAIL, telefone='11999990000',
-            origem=Cliente.ORIGEM_SERVICEMANAGE,
+            origem=OrigemCliente.SERVICEMANAGE,
         )
 
-        painel.patch(f'/api/clientes/{cliente.pk}/', {'nome': 'Editado'}, format='json')
+        painel.patch(f'/api/v1/clientes/{cliente.pk}/', {'nome': 'Editado'}, format='json')
 
         cliente.refresh_from_db()
         assert cliente.nome == 'Do app'
@@ -183,11 +183,11 @@ class TestPainelNaoEditaCadastroDoCliente:
     def test_painel_ainda_edita_observacao_do_cliente_do_app(self, painel):
         cliente = Cliente.objects.create(
             nome='Do app', email=EMAIL, telefone='11999990000',
-            origem=Cliente.ORIGEM_SERVICEMANAGE,
+            origem=OrigemCliente.SERVICEMANAGE,
         )
 
         painel.patch(
-            f'/api/clientes/{cliente.pk}/',
+            f'/api/v1/clientes/{cliente.pk}/',
             {'nome': 'Editado', 'observacao': 'Prefere manha'},
             format='json',
         )
@@ -198,6 +198,6 @@ class TestPainelNaoEditaCadastroDoCliente:
     def test_painel_edita_cliente_do_balcao_normalmente(self, painel):
         cliente = Cliente.objects.create(nome='Do balcao', telefone='11999990000')
 
-        response = painel.patch(f'/api/clientes/{cliente.pk}/', {'nome': 'Editado'}, format='json')
+        response = painel.patch(f'/api/v1/clientes/{cliente.pk}/', {'nome': 'Editado'}, format='json')
 
         assert response.status_code == 200

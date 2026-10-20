@@ -3,25 +3,32 @@ from django.db import connection
 from django.http import HttpResponseRedirect
 from rest_framework import status
 from rest_framework.generics import ListAPIView
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from core.permissions import IsProprietario
-from .models import Assinatura, Pagamento, Plano
-from .serializers import AssinaturaSerializer, PagamentoSerializer
+from .models import Assinatura, PagamentoAssinatura, Plano
+from .serializers import (
+    AssinaturaSerializer, ConfirmarAssinaturaSerializer, LinkAssinaturaSerializer, PagamentoAssinaturaSerializer,
+)
 from .services import (
+    AssinaturaGatewayError,
     AssinaturaInvalidaError,
-    MercadoPagoService,
-    PreapprovalInvalidoError,
+    gateway_de_pagamento,
+    MercadoPagoGateway,
     WebhookInvalidoError,
 )
+from core.excecoes import erro
+from core.links import link_retorno_pagamento
 
 
 class MinhaAssinaturaView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses=AssinaturaSerializer, summary='Assinatura do negócio')
     def get(self, request):
         from tenants.models import Tenant
 
@@ -29,7 +36,7 @@ class MinhaAssinaturaView(APIView):
         try:
             assinatura = tenant.assinatura
         except Assinatura.DoesNotExist:
-            return Response({'detail': 'Este negócio ainda não tem assinatura.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Este negócio ainda não tem assinatura.', status_code=status.HTTP_404_NOT_FOUND)
 
         return Response(AssinaturaSerializer(assinatura).data)
 
@@ -37,17 +44,18 @@ class MinhaAssinaturaView(APIView):
 class IniciarAssinaturaView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
+    @extend_schema(request=None, responses=LinkAssinaturaSerializer, summary='Link do checkout do plano padrão')
     def post(self, request):
-        plano = Plano.objects.filter(nome='pro', ativo=True).first()
+        plano = Plano.objects.filter(nome=settings.PLANO_PADRAO, ativo=True).first()
         if plano is None:
-            return Response({'detail': 'Plano Pro não está configurado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('O plano de assinatura não está configurado.', 'plano_nao_configurado')
 
         try:
-            init_point = MercadoPagoService().obter_link_assinatura(plano)
+            link = gateway_de_pagamento().obter_link_assinatura(plano)
         except AssinaturaInvalidaError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), 'plano_nao_configurado')
 
-        return Response({'init_point': init_point})
+        return Response({'link_checkout': link})
 
 
 class RetornoCheckoutView(APIView):
@@ -59,27 +67,33 @@ class RetornoCheckoutView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        exclude=True,  # back_url do Mercado Pago: quem chama é o navegador, não o app
+    )
     def get(self, request):
         query = request.META.get('QUERY_STRING', '')
-        destino = f'{settings.FRONTEND_URL}/app/pagamentos' + (f'?{query}' if query else '')
-        return HttpResponseRedirect(destino)
+        return HttpResponseRedirect(link_retorno_pagamento(query))
 
 
 class ConfirmarAssinaturaView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
+    @extend_schema(
+        request=ConfirmarAssinaturaSerializer, responses=AssinaturaSerializer,
+        summary='Vincular ao negócio a assinatura feita no checkout do gateway',
+    )
     def post(self, request):
-        preapproval_id = request.data.get('preapproval_id')
-        if not preapproval_id:
-            return Response({'detail': 'preapproval_id é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+        id_externo = request.data.get('id_externo')
+        if not id_externo:
+            return erro('id_externo é obrigatório.', 'parametros_invalidos')
 
         from tenants.models import Tenant
 
         tenant = Tenant.objects.get(schema_name=connection.schema_name)
         try:
-            assinatura = MercadoPagoService().confirmar_assinatura(tenant, preapproval_id)
-        except PreapprovalInvalidoError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            assinatura = gateway_de_pagamento().confirmar_assinatura(tenant, id_externo)
+        except AssinaturaGatewayError as e:
+            return erro(str(e), 'assinatura_recusada')
 
         return Response(AssinaturaSerializer(assinatura).data)
 
@@ -87,37 +101,37 @@ class ConfirmarAssinaturaView(APIView):
 class CancelarAssinaturaView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
+    @extend_schema(request=None, responses=AssinaturaSerializer, summary='Cancelar a assinatura')
     def post(self, request):
         from tenants.models import Tenant
 
         tenant = Tenant.objects.get(schema_name=connection.schema_name)
         try:
-            assinatura = MercadoPagoService().cancelar_assinatura(tenant)
-        except PreapprovalInvalidoError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            assinatura = gateway_de_pagamento().cancelar_assinatura(tenant)
+        except AssinaturaGatewayError as e:
+            return erro(str(e), 'assinatura_recusada')
 
         return Response(AssinaturaSerializer(assinatura).data)
 
 
-class PagamentoPagination(PageNumberPagination):
-    page_size = 20
-
-
 class PagamentosListView(ListAPIView):
-    serializer_class = PagamentoSerializer
+    serializer_class = PagamentoAssinaturaSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PagamentoPagination
-
     def get_queryset(self):
         from tenants.models import Tenant
 
         tenant = Tenant.objects.get(schema_name=connection.schema_name)
-        return Pagamento.objects.filter(assinatura__tenant=tenant).order_by('-data')
+        return PagamentoAssinatura.objects.filter(assinatura__tenant=tenant).order_by('-data')
 
 
 class MercadoPagoWebhookView(APIView):
     permission_classes = [AllowAny]
+    # Escopo próprio: o Mercado Pago chega de poucos IPs, e o limite de
+    # anônimo comum poderia barrar uma rajada legítima de notificações.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'webhook'
 
+    @extend_schema(exclude=True)  # chamado pelo Mercado Pago, não pelo app
     def post(self, request):
         topico = request.query_params.get('type') or request.query_params.get('topic')
         data_id = request.query_params.get('data.id') or request.query_params.get('id')
@@ -126,13 +140,13 @@ class MercadoPagoWebhookView(APIView):
             return Response(status=status.HTTP_200_OK)
 
         try:
-            MercadoPagoService().processar_webhook(
+            MercadoPagoGateway().processar_webhook(
                 topico=topico,
                 data_id=data_id,
                 x_signature=request.headers.get('x-signature', ''),
                 x_request_id=request.headers.get('x-request-id', ''),
             )
         except WebhookInvalidoError:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+            return erro('Assinatura do webhook inválida.', 'assinatura_invalida', status.HTTP_401_UNAUTHORIZED)
 
         return Response(status=status.HTTP_200_OK)

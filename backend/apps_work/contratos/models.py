@@ -24,19 +24,14 @@ class ModeloContrato(models.Model):
         return self.titulo
 
 
+class StatusContrato(models.TextChoices):
+    PENDENTE = 'pendente', 'Pendente'
+    ENVIADO = 'enviado', 'Enviado'
+    ASSINADO = 'assinado', 'Assinado'
+    RECUSADO = 'recusado', 'Recusado'
+
+
 class Contrato(models.Model):
-    STATUS_PENDENTE = 'pendente'
-    STATUS_ENVIADO = 'enviado'
-    STATUS_ASSINADO = 'assinado'
-    STATUS_RECUSADO = 'recusado'
-
-    STATUS_CHOICES = [
-        (STATUS_PENDENTE, 'Pendente'),
-        (STATUS_ENVIADO, 'Enviado'),
-        (STATUS_ASSINADO, 'Assinado'),
-        (STATUS_RECUSADO, 'Recusado'),
-    ]
-
     modelo = models.ForeignKey(
         ModeloContrato,
         on_delete=models.SET_NULL,
@@ -51,7 +46,7 @@ class Contrato(models.Model):
     )
     titulo = models.CharField(max_length=255)
     corpo = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
+    status = models.CharField(max_length=20, choices=StatusContrato.choices, default=StatusContrato.PENDENTE)
     token = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
 
     # Registro de assinatura

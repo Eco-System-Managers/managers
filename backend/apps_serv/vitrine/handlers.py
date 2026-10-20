@@ -6,19 +6,20 @@ from apps_work.agenda.signals import agendamento_status_alterado
 from apps_work.clientes.signals import cliente_servicemanage_removido
 from apps_work.empresa.signals import empresa_config_atualizada
 from apps_work.kanban.signals import atendimento_kanban_falta_alterada
+from apps_work.agenda.models import OrigemAtendimento, StatusAgendamento
 
 logger = logging.getLogger(__name__)
 
 
 def _on_empresa_config_atualizada(sender, schema_name, instance, **kwargs):
-    try:
-        from .services import SincronizarVitrineService
-        SincronizarVitrineService().sincronizar(schema_name, instance)
-    except Exception:
-        pass
+    # Sem capturar: quem emite (ConfiguracaoEmpresaService.publicar) roda num
+    # savepoint e registra a falha — engolir aqui escondia o erro e, sem
+    # savepoint, deixaria a transação abortada.
+    from .services import SincronizarVitrineService
+    SincronizarVitrineService().sincronizar(schema_name, instance)
 
 
-def _on_cliente_servicemanage_removido(sender, schema_name, email, **kwargs):
+def _on_cliente_servicemanage_removido(sender, schema_name, consumidor_id, **kwargs):
     """O negócio removeu do painel um cliente que veio do app: desfaz o vínculo
     para o negócio sair de "Seus negócios" e o cadastro não ressurgir na lista
     no próximo agendamento."""
@@ -27,7 +28,9 @@ def _on_cliente_servicemanage_removido(sender, schema_name, email, **kwargs):
     try:
         VinculoConsumidor.objects.filter(
             schema_name=schema_name,
-            consumidor__email=email,
+            # Pelo consumidor_id, não pelo e-mail: o e-mail do Cliente pode ter
+            # sido editado no painel, e a remoção não acharia o vínculo.
+            consumidor_id=consumidor_id,
             ativo=True,
         ).update(ativo=False, desvinculado_em=timezone.now())
     except Exception:
@@ -51,7 +54,7 @@ def _on_agendamento_status_alterado(sender, schema_name, agendamento_id, status,
         AgendamentoConsumidor.objects.filter(
             schema_name=schema_name,
             agendamento_id=agendamento_id,
-            origem='agenda',
+            origem=OrigemAtendimento.AGENDA,
         ).update(status=status)
     except Exception:
         logger.warning(
@@ -75,8 +78,8 @@ def _on_atendimento_kanban_falta_alterada(sender, schema_name, atendimento_id, f
         AgendamentoConsumidor.objects.filter(
             schema_name=schema_name,
             agendamento_id=atendimento_id,
-            origem='kanban',
-        ).update(status='faltou' if faltou else 'agendado')
+            origem=OrigemAtendimento.KANBAN,
+        ).update(status=StatusAgendamento.FALTOU if faltou else StatusAgendamento.AGENDADO)
     except Exception:
         logger.warning(
             'Falha ao espelhar falta do atendimento no schema público',

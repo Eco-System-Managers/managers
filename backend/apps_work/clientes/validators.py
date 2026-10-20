@@ -63,3 +63,14 @@ def validar_placa_br(valor: str) -> str:
             'Placa inválida. Use o formato ABC-1234 (antigo) ou ABC1D23 (Mercosul).'
         )
     return normalizada
+
+
+def normalizar_porte(valor: str) -> str:
+    """Porte do pet como o valor do enum PortePet ('medio'), aceitando o rótulo
+    ('Médio') que o app mandava antes. Devolve '' quando não reconhece."""
+    from unicodedata import combining, normalize
+
+    from .models import PortePet
+
+    texto = ''.join(c for c in normalize('NFD', (valor or '').strip().lower()) if not combining(c))
+    return texto if texto in PortePet.values else ''

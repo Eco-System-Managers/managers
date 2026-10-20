@@ -170,3 +170,87 @@ class ArmazenamentoImagemService:
         buffer = BytesIO()
         imagem.save(buffer, format=self.FORMATO, quality=self.QUALIDADE, method=6)
         return buffer.getvalue()
+
+
+class ConfiguracaoEmpresaService:
+    """O que acontece quando o negócio salva a configuração ou troca a logo.
+
+    Nenhum desses efeitos pode desfazer o salvamento: cada um roda num
+    savepoint próprio e, se falhar, fica registrado no log — antes eram
+    `except Exception: pass` dentro da view, e a falha sumia sem rastro.
+    """
+
+    def apos_salvar(self, config, user, endereco_anterior: tuple) -> None:
+        from apps_work.empresa.models import TipoAgenda
+
+        if self._precisa_geocodificar(config, endereco_anterior):
+            self._sem_derrubar('geocodificar o endereço', self._geocodificar, config)
+
+        self.publicar(config)
+
+        if config.onboarding_concluido:
+            from apps_work.usuarios.models import Colaborador
+            self._sem_derrubar(
+                'criar o colaborador do dono',
+                Colaborador.objects.get_or_create, user=user, defaults={'ativo': True},
+            )
+            if config.tipo_agenda == TipoAgenda.KANBAN:
+                from apps_work.kanban.services import EtapaService
+                self._sem_derrubar('criar as etapas padrão do kanban', EtapaService().criar_etapas_padrao)
+
+    def trocar_logo(self, arquivo) -> str:
+        """Valida, envia e grava a logo. Devolve a URL pública.
+
+        Levanta ImagemInvalidaError para arquivo recusado; falha do provedor de
+        armazenamento sobe como está (a view responde 500 sem detalhe).
+        """
+        from django.db import connection
+        from apps_work.empresa.models import EmpresaConfig
+
+        armazenamento = ArmazenamentoImagemService()
+        armazenamento.validar(arquivo)
+        caminho = armazenamento.salvar(
+            arquivo, prefixo=ArmazenamentoImagemService.PREFIXO_LOGOS, chave=connection.schema_name,
+        )
+        # A logo é pública e a URL não expira, então dá para guardá-la pronta.
+        # Imagem de pessoa não — ali guarda-se o caminho.
+        url = armazenamento.url(caminho)
+
+        config, _ = EmpresaConfig.objects.get_or_create(pk=1)
+        config.logo_url = url
+        config.save(update_fields=['logo_url'])
+        self.publicar(config)
+        return url
+
+    def publicar(self, config) -> None:
+        """Avisa quem espelha a configuração fora do tenant (a vitrine)."""
+        from django.db import connection
+        from apps_work.empresa.models import EmpresaConfig
+        from apps_work.empresa.signals import empresa_config_atualizada
+
+        self._sem_derrubar(
+            'publicar a configuração na vitrine',
+            empresa_config_atualizada.send,
+            sender=EmpresaConfig, schema_name=connection.schema_name, instance=config,
+        )
+
+    def _precisa_geocodificar(self, config, endereco_anterior: tuple) -> bool:
+        # Quem confirmou o ponto no mapa fica de fora: o palpite automático não
+        # pode apagar uma coordenada que o dono apontou à mão.
+        mudou = (config.endereco, config.cidade, config.uf) != endereco_anterior
+        return mudou and bool(config.endereco or config.cidade) and not config.localizacao_confirmada
+
+    def _geocodificar(self, config) -> None:
+        coords = GeocodificacaoService().geocodificar(config.endereco, config.cidade, config.uf)
+        if coords:
+            config.latitude, config.longitude = coords
+            config.save(update_fields=['latitude', 'longitude'])
+
+    def _sem_derrubar(self, acao: str, funcao, *args, **kwargs):
+        from django.db import connection, transaction
+        try:
+            with transaction.atomic():
+                return funcao(*args, **kwargs)
+        except Exception:
+            logger.exception('Falha ao %s', acao, extra={'schema_name': connection.schema_name})
+            return None

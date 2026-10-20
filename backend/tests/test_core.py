@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from apps_work.billing.models import Assinatura, Plano
 from apps_work.usuarios.models import Colaborador
-from apps_work.autenticacao.models import LastActivity
+from apps_work.autenticacao.models import UltimaAtividade
 from core.middleware import (
     AssinaturaBloqueadaMiddleware,
     InactivityMiddleware,
@@ -20,6 +20,7 @@ from core.middleware import (
     _token_do_request,
 )
 from core.permissions import IsProprietario
+from tenants.models import Membro
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +45,20 @@ class TestJWTTenantMiddleware:
             mock_conn.schema_name = 'public'
             middleware(request)
             mock_conn.set_schema.assert_called_once_with('empresa_abc')
+
+    def test_nao_age_nas_rotas_do_service_manage(self, usuario):
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        token = AccessToken.for_user(usuario)
+        token['schema_name'] = 'empresa_abc'
+
+        request = RequestFactory().get('/api/sm/v1/me/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
+        middleware = JWTTenantMiddleware(MagicMock(return_value=MagicMock()))
+
+        with patch('core.middleware.connection') as mock_conn:
+            mock_conn.schema_name = 'public'
+            middleware(request)
+            mock_conn.set_schema.assert_not_called()
 
     def test_nao_age_quando_schema_ja_e_tenant(self, usuario):
         from rest_framework_simplejwt.tokens import AccessToken
@@ -82,32 +97,32 @@ class TestAssinaturaBloqueadaMiddleware:
         return resposta, get_response
 
     def test_nao_age_no_schema_public(self, tenant):
-        resposta, get_response = self._chamar('/api/servicos/', 'public')
+        resposta, get_response = self._chamar('/api/v1/servicos/', 'public')
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_nao_age_fora_do_prefixo_api(self, tenant):
-        resposta, get_response = self._chamar('/auth/login/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/auth/login/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_nao_age_em_rotas_de_billing(self, tenant):
-        resposta, get_response = self._chamar('/api/billing/assinatura/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/billing/assinatura/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_nao_age_em_colaboradores_me(self, tenant):
-        resposta, get_response = self._chamar('/api/colaboradores/me/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/colaboradores/me/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_nao_age_em_empresa_config(self, tenant):
-        resposta, get_response = self._chamar('/api/empresa/config/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/empresa/config/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_bloqueia_quando_sem_nenhuma_assinatura(self, tenant):
-        resposta, get_response = self._chamar('/api/servicos/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/servicos/', tenant.schema_name)
         assert resposta.status_code == 402
         get_response.assert_not_called()
 
@@ -118,7 +133,7 @@ class TestAssinaturaBloqueadaMiddleware:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
             trial_fim=datetime.date.today() - datetime.timedelta(days=1),
         )
-        resposta, get_response = self._chamar('/api/servicos/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/servicos/', tenant.schema_name)
         assert resposta.status_code == 402
         get_response.assert_not_called()
 
@@ -128,7 +143,7 @@ class TestAssinaturaBloqueadaMiddleware:
             tenant=tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
         )
-        resposta, get_response = self._chamar('/api/servicos/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/servicos/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
@@ -139,7 +154,7 @@ class TestAssinaturaBloqueadaMiddleware:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
             trial_fim=datetime.date.today() + datetime.timedelta(days=1),
         )
-        resposta, get_response = self._chamar('/api/servicos/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/servicos/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
@@ -148,7 +163,7 @@ class TestAssinaturaBloqueadaMiddleware:
 # Decodificacao compartilhada do token
 # ---------------------------------------------------------------------------
 
-def _request_com_token(token_str, path='/api/servicos/'):
+def _request_com_token(token_str, path='/api/v1/servicos/'):
     return RequestFactory().get(path, HTTP_AUTHORIZATION=f'Bearer {token_str}')
 
 
@@ -172,7 +187,7 @@ class TestTokenDoRequest:
         assert _token_do_request(_request_com_token('nao-e-um-jwt')) is None
 
     def test_sem_authorization_devolve_none(self):
-        assert _token_do_request(RequestFactory().get('/api/servicos/')) is None
+        assert _token_do_request(RequestFactory().get('/api/v1/servicos/')) is None
 
     def test_none_tambem_fica_memorizado(self):
         """Requisicao anonima nao pode tentar decodificar duas vezes."""
@@ -199,13 +214,13 @@ class TestInactivityMiddleware:
     def test_primeiro_acesso_cria_o_registro(self, usuario):
         resposta, _ = self._chamar(usuario)
         assert resposta == 'ok'
-        assert LastActivity.objects.filter(user=usuario).exists()
+        assert UltimaAtividade.objects.filter(user=usuario).exists()
 
     def test_nao_grava_de_novo_dentro_da_janela(self, usuario, settings):
         """A escrita amortizada e o ganho principal: era um UPDATE por
         requisicao so para adiantar o relogio em milissegundos."""
         settings.INACTIVITY_WRITE_WINDOW_SECONDS = 60
-        LastActivity.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(seconds=5))
+        UltimaAtividade.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(seconds=5))
 
         with CaptureQueriesContext(connection) as ctx:
             self._chamar(usuario)
@@ -216,15 +231,15 @@ class TestInactivityMiddleware:
     def test_grava_quando_passa_da_janela(self, usuario, settings):
         settings.INACTIVITY_WRITE_WINDOW_SECONDS = 60
         anterior = timezone.now() - timedelta(seconds=120)
-        LastActivity.objects.create(user=usuario, ultimo_acesso=anterior)
+        UltimaAtividade.objects.create(user=usuario, ultimo_acesso=anterior)
 
         self._chamar(usuario)
 
-        assert LastActivity.objects.get(user=usuario).ultimo_acesso > anterior
+        assert UltimaAtividade.objects.get(user=usuario).ultimo_acesso > anterior
 
     def test_expira_a_sessao_depois_do_timeout(self, usuario, settings):
         settings.INACTIVITY_TIMEOUT_MINUTES = 30
-        LastActivity.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(minutes=31))
+        UltimaAtividade.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(minutes=31))
 
         resposta, get_response = self._chamar(usuario)
 
@@ -236,7 +251,7 @@ class TestInactivityMiddleware:
         escrita nao pode ser confundida com o limite de inatividade."""
         settings.INACTIVITY_TIMEOUT_MINUTES = 30
         settings.INACTIVITY_WRITE_WINDOW_SECONDS = 60
-        LastActivity.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(minutes=20))
+        UltimaAtividade.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(minutes=20))
 
         resposta, get_response = self._chamar(usuario)
 
@@ -260,7 +275,7 @@ class TestCacheDaAssinatura:
     def _chamar(self, schema_name):
         get_response = MagicMock(return_value='ok')
         middleware = AssinaturaBloqueadaMiddleware(get_response)
-        request = RequestFactory().get('/api/servicos/')
+        request = RequestFactory().get('/api/v1/servicos/')
         with patch('core.middleware.connection') as mock_conn:
             mock_conn.schema_name = schema_name
             return middleware(request), get_response
@@ -327,7 +342,7 @@ class TestCustoPorRequisicao:
 
         refresh = RefreshToken.for_user(usuario)
         refresh['schema_name'] = tenant.schema_name
-        refresh['empresa'] = tenant.name
+        refresh['empresa'] = tenant.nome
 
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
@@ -335,7 +350,8 @@ class TestCustoPorRequisicao:
         return client
 
     @pytest.fixture
-    def cenario(self, patch_tenant_middleware, tenant, usuario):
+    def cenario(self, patch_tenant_middleware, tenant, proprietario):
+        usuario = proprietario
         plano, _ = Plano.objects.get_or_create(nome='pro', defaults={'preco_mensal': '69.90'})
         Assinatura.objects.update_or_create(
             tenant=tenant,
@@ -345,13 +361,13 @@ class TestCustoPorRequisicao:
             },
         )
         client = self._cliente_autenticado(tenant, usuario)
-        # Aquece: primeira chamada cria o LastActivity e memoriza a assinatura.
-        client.get('/api/servicos/')
+        # Aquece: primeira chamada cria o UltimaAtividade e memoriza a assinatura.
+        client.get('/api/v1/servicos/')
         return client
 
     def _queries(self, client):
         with CaptureQueriesContext(connection) as ctx:
-            resposta = client.get('/api/servicos/')
+            resposta = client.get('/api/v1/servicos/')
         assert resposta.status_code == 200
         return [q['sql'] for q in ctx.captured_queries]
 
@@ -359,7 +375,11 @@ class TestCustoPorRequisicao:
         assert [s for s in self._queries(cenario) if 'billing_assinatura' in s] == []
 
     def test_nao_consulta_o_tenant_em_requisicao_aquecida(self, cenario):
-        assert [s for s in self._queries(cenario) if 'tenants_tenant' in s] == []
+        # A unica consulta que toca tenants_tenant e a checagem de vinculo da
+        # TenantJWTAuthentication, que junta Membro e Tenant numa so.
+        consultas = [s for s in self._queries(cenario) if 'tenants_tenant' in s]
+        assert len(consultas) == 1
+        assert 'tenants_membro' in consultas[0]
 
     def test_nao_escreve_o_relogio_de_atividade_a_cada_requisicao(self, cenario):
         updates = [s for s in self._queries(cenario) if s.lstrip().upper().startswith('UPDATE')]
@@ -370,17 +390,7 @@ class TestCustoPorRequisicao:
 # IsProprietario
 # ---------------------------------------------------------------------------
 
-class _UserColaboradorIndisponivel:
-    """Usuário cujo acessor de colaborador falha por erro de infraestrutura —
-    e não por ausência de cadastro."""
-
-    is_authenticated = True
-
-    @property
-    def colaborador(self):
-        raise DatabaseError('conexão com o banco caiu')
-
-
+@pytest.mark.django_db
 class TestIsProprietario:
     def test_retorna_false_para_usuario_nao_autenticado(self):
         perm = IsProprietario()
@@ -388,31 +398,47 @@ class TestIsProprietario:
         request.user.is_authenticated = False
         assert perm.has_permission(request, MagicMock()) is False
 
-    @pytest.mark.django_db
     def test_retorna_true_para_proprietario(self, tenant, usuario):
-        Colaborador.objects.create(user=usuario, role='proprietario')
+        Membro.objects.create(user=usuario, tenant=tenant, papel='proprietario')
         request = MagicMock()
         request.user = usuario
         assert IsProprietario().has_permission(request, MagicMock()) is True
 
-    @pytest.mark.django_db
     def test_retorna_false_para_colaborador_comum(self, tenant, usuario):
-        Colaborador.objects.create(user=usuario, role='colaborador')
+        Membro.objects.create(user=usuario, tenant=tenant, papel='colaborador')
         request = MagicMock()
         request.user = usuario
         assert IsProprietario().has_permission(request, MagicMock()) is False
 
-    @pytest.mark.django_db
-    def test_retorna_true_quando_colaborador_ainda_nao_existe(self, tenant, usuario):
+    def test_retorna_false_sem_vinculo_com_o_tenant(self, tenant, usuario):
+        # Antes, usuario sem Colaborador era tratado como dono — inclusive quem
+        # nem pertencia ao tenant.
         request = MagicMock()
         request.user = usuario
-        assert IsProprietario().has_permission(request, MagicMock()) is True
+        assert IsProprietario().has_permission(request, MagicMock()) is False
 
-    def test_erro_inesperado_nao_concede_permissao(self):
+    def test_papel_de_colaborador_no_model_nao_concede_nem_nega(self, tenant, usuario):
+        """O papel vem só do Membro: ter um Colaborador não muda nada."""
+        Membro.objects.create(user=usuario, tenant=tenant, papel='colaborador')
+        Colaborador.objects.create(user=usuario)
         request = MagicMock()
-        request.user = _UserColaboradorIndisponivel()
-        with pytest.raises(DatabaseError):
-            IsProprietario().has_permission(request, MagicMock())
+        request.user = usuario
+        assert IsProprietario().has_permission(request, MagicMock()) is False
+
+    def test_usa_o_papel_deixado_pela_autenticacao(self, tenant, usuario):
+        usuario.papel_no_tenant = 'proprietario'
+        request = MagicMock()
+        request.user = usuario
+        with patch.object(Membro, 'papel_no_schema') as consulta:
+            assert IsProprietario().has_permission(request, MagicMock()) is True
+        consulta.assert_not_called()
+
+    def test_erro_inesperado_nao_concede_permissao(self, tenant, usuario):
+        request = MagicMock()
+        request.user = usuario
+        with patch.object(Membro, 'papel_no_schema', side_effect=DatabaseError('conexão caiu')):
+            with pytest.raises(DatabaseError):
+                IsProprietario().has_permission(request, MagicMock())
 
 
 # ---------------------------------------------------------------------------
@@ -422,15 +448,15 @@ class TestIsProprietario:
 @pytest.mark.django_db
 class TestTenantModelStr:
     def test_str_user_tenant(self, usuario):
-        from tenants.models import ConviteIndex, UserTenant
+        from tenants.models import ConviteIndex, Membro
         from tenants.models import Tenant
 
         tenant = Tenant.objects.filter(schema_name='public').first()
         if not tenant:
             pytest.skip('tenant público não existe neste ambiente')
 
-        ut = UserTenant(user=usuario, tenant=tenant, role='colaborador')
-        assert str(ut) == f'{usuario.email} → {tenant.name} (colaborador)'
+        ut = Membro(user=usuario, tenant=tenant, papel='colaborador')
+        assert str(ut) == f'{usuario.email} → {tenant.nome} (colaborador)'
 
     def test_str_convite_index(self, db):
         from tenants.models import ConviteIndex

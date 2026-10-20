@@ -10,12 +10,12 @@ do profissional": existe uma fila de etapas, e o atendimento anda por ela.
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `EtapaKanban` (as colunas do quadro), `AtendimentoKanban` (o card) e `PagamentoKanban` |
+| `models.py` | `EtapaKanban` (as colunas do quadro), `AtendimentoKanban` (o card) e `PagamentoAtendimento` |
 | `services.py` | Traduz posição no quadro em status, cria etapas padrão, reordena colunas e cria o atendimento com checagem de horário |
 | `views.py` | Os dois ViewSets, mais as ações `mover`, `cobrar`, `desfazer_cobranca` e `marcar_falta` |
 | `serializers.py` | Representação do quadro |
 | `signals.py` | Declara `atendimento_kanban_falta_alterada`, escutado pela vitrine |
-| `urls.py` | Rotas sob `/api/kanban/` |
+| `urls.py` | Rotas sob `/api/v1/kanban/` |
 
 ## Tabelas
 
@@ -49,7 +49,7 @@ Ordenação padrão por `ordem`.
 dois estão preenchidos. É o que impede dois atendimentos no mesmo horário sem
 proibir o atendimento sem hora marcada.
 
-### `PagamentoKanban`
+### `PagamentoAtendimento`
 
 | Coluna | Tipo | O que é |
 |---|---|---|
@@ -76,8 +76,9 @@ Ao desfazer, volta para `agendado` — e o ponto do quadro volta a valer.
 
 ## O que é fácil errar aqui
 
-- **Paginação condicional, mesma razão da agenda.** Com `?data=` o quadro sai
-  inteiro; sem ela, pagina. Página 2 que não chega faria card sumir da coluna.
+- **O quadro do dia também vem paginado**, como a agenda: o front pede
+  `?data=...&page_size=100` e segue o `next`. Página que não chega faria card
+  sumir da coluna sem erro.
 - **Cobrar gera troco como crédito.** O excedente vira `TransacaoCredito` na
   comanda do cliente (app `financeiro`), não dinheiro devolvido.
 - **Não dá para marcar falta em atendimento já pago** — a regra está em

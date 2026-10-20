@@ -7,6 +7,8 @@ pelo e-mail, o que espalhava a mesma fragilidade por quatro lugares.
 
 import logging
 
+from django.db import transaction
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,10 @@ def cliente_do_consumidor(consumidor):
 
     cliente.consumidor_id = consumidor.id
     try:
-        cliente.save(update_fields=['consumidor_id'])
+        # Savepoint: quem chama costuma estar dentro da transação do
+        # agendamento, e um IntegrityError sem ele a deixaria abortada.
+        with transaction.atomic():
+            cliente.save(update_fields=['consumidor_id'])
     except Exception:
         # `consumidor_id` e unico: se outro Cliente do mesmo tenant ja ficou com
         # este id, gravar aqui falharia. O cadastro encontrado ainda serve para

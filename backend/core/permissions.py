@@ -1,20 +1,21 @@
+from django.db import connection
 from rest_framework.permissions import BasePermission
 
-from apps_work.usuarios.models import Colaborador
+from tenants.models import Papel, Membro
 
 
 class IsProprietario(BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        try:
-            return request.user.colaborador.role == 'proprietario'
-        except Colaborador.DoesNotExist:
-            # Sem Colaborador ainda (onboarding) — usuário é o dono da conta.
-            #
-            # A exceção capturada é a específica de propósito. Enquanto isto era
-            # `except Exception`, qualquer falha inesperada na resolução do
-            # colaborador (erro de banco, schema errado, request.user que não é
-            # User) caía neste mesmo return e concedia permissão de proprietário
-            # — uma permissão que falha abrindo a porta em vez de fechando.
-            return True
+        # O papel vem do Membro, a fonte única. A TenantJWTAuthentication já
+        # o deixa no usuário; a consulta cobre quem chega por outro caminho.
+        #
+        # Sem vínculo com o tenant atual, nega. Antes, usuário sem Colaborador
+        # era tratado como dono (onboarding) — e isso valia também para quem
+        # nem pertencia ao tenant.
+        if hasattr(request.user, 'papel_no_tenant'):
+            papel = request.user.papel_no_tenant
+        else:
+            papel = Membro.papel_no_schema(request.user, connection.schema_name)
+        return papel == Papel.PROPRIETARIO

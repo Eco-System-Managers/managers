@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import Agendamento, Pagamento
+from .models import Agendamento, OrigemAtendimento, PagamentoAgendamento, StatusAgendamento
 
 DURACAO_PADRAO_MINUTOS = 30
 
@@ -25,7 +25,7 @@ class DiasComRegistroService:
         datas = set(
             Agendamento.objects
             .filter(data_hora__year=ano, data_hora__month=mes)
-            .exclude(status='cancelado')
+            .exclude(status=StatusAgendamento.CANCELADO)
             .values_list('data_hora__date', flat=True)
         )
         datas.update(
@@ -40,7 +40,7 @@ class PendenciasCobrancaService:
     """Atendimentos que já passaram da data e nunca foram cobrados.
 
     A agenda mostra um dia por vez e o caixa é montado a partir das linhas de
-    Pagamento: sem essa lista, o que ficou para trás não aparece em lugar
+    PagamentoAgendamento: sem essa lista, o que ficou para trás não aparece em lugar
     nenhum, e o faturamento fica menor do que o que de fato entrou.
 
     Junta as duas origens como o CaixaService faz — quem consome não precisa
@@ -55,14 +55,14 @@ class PendenciasCobrancaService:
 
         agendamentos = (
             Agendamento.objects
-            .filter(data_hora__date__lt=hoje, status__in=['agendado', 'confirmado'])
+            .filter(data_hora__date__lt=hoje, status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO])
             .select_related('cliente')
             .prefetch_related('servicos__servico')
         )
         for ag in agendamentos:
             servicos = list(ag.servicos.all())
             pendencias.append({
-                'origem': 'agenda',
+                'origem': OrigemAtendimento.AGENDA,
                 'id': ag.pk,
                 'data': ag.data_hora.astimezone().date().isoformat(),
                 'cliente_id': ag.cliente_id,
@@ -72,7 +72,7 @@ class PendenciasCobrancaService:
                 # No formato que o CobrancaModal consome, pra cobrar direto da
                 # lista sem precisar abrir a agenda naquele dia.
                 'servicos': [
-                    {'id': s.pk, 'nome': s.servico.nome, 'preco': str(s.preco_cobrado)}
+                    {'servico_id': s.servico_id, 'nome': s.servico.nome, 'preco': str(s.preco_cobrado)}
                     for s in servicos
                 ],
             })
@@ -84,7 +84,7 @@ class PendenciasCobrancaService:
         )
         for at in atendimentos:
             pendencias.append({
-                'origem': 'kanban',
+                'origem': OrigemAtendimento.KANBAN,
                 'id': at.pk,
                 'data': at.data.isoformat(),
                 'cliente_id': at.objeto.cliente_id,
@@ -92,7 +92,7 @@ class PendenciasCobrancaService:
                 'servico_nome': at.servico.nome,
                 'valor': str(at.servico.preco - at.desconto),
                 'servicos': [
-                    {'id': at.servico_id, 'nome': at.servico.nome, 'preco': str(at.servico.preco)}
+                    {'servico_id': at.servico_id, 'nome': at.servico.nome, 'preco': str(at.servico.preco)}
                 ],
             })
 
@@ -150,7 +150,7 @@ class SlotsAgendaService:
             .filter(
                 data_hora__date=data,
                 colaborador_id=colaborador_id,
-                status__in=['agendado', 'confirmado'],
+                status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO],
             )
             .prefetch_related('servicos__servico')
         )
@@ -202,7 +202,7 @@ class AgendamentoService:
         candidatos = (
             Agendamento.objects
             .filter(colaborador=colaborador, data_hora__date=data_hora.date())
-            .exclude(status='cancelado')
+            .exclude(status=StatusAgendamento.CANCELADO)
             .prefetch_related('servicos__servico')
         )
         if excluir_id:
@@ -244,13 +244,13 @@ class AgendamentoService:
 
         status_anterior = agendamento.status
         agendamento.desconto = desconto
-        agendamento.status = 'concluido'
+        agendamento.status = StatusAgendamento.CONCLUIDO
         agendamento.save(update_fields=['desconto', 'status'])
         self.notificar_mudanca_de_status(agendamento, status_anterior)
 
         agendamento.pagamentos.all().delete()
-        Pagamento.objects.bulk_create([
-            Pagamento(agendamento=agendamento, forma=p['forma'], valor=p['valor'])
+        PagamentoAgendamento.objects.bulk_create([
+            PagamentoAgendamento(agendamento=agendamento, forma=p['forma'], valor=p['valor'])
             for p in pagamentos
         ])
 

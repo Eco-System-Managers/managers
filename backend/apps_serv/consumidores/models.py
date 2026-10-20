@@ -1,8 +1,9 @@
-from datetime import timedelta
-
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
-from django.utils import timezone
+
+from core.models import CodigoRecuperacaoBase
+from apps_work.agenda.models import OrigemAtendimento, StatusAgendamento
+from apps_work.clientes.models import TipoObjeto
 
 
 class Consumidor(models.Model):
@@ -24,8 +25,11 @@ class Consumidor(models.Model):
     # endereço vem assinado com validade curta — guardar a URL faria a imagem
     # parar de abrir sozinha depois de alguns minutos.
     foto_chave = models.CharField(max_length=255, blank=True)
-    is_active = models.BooleanField(default=True)
+    ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
+    # Tokens emitidos antes deste instante deixam de valer — é como a troca de
+    # senha derruba todas as sessões, inclusive os access ainda não expirados.
+    sessoes_validas_desde = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Consumidor'
@@ -46,36 +50,27 @@ class Consumidor(models.Model):
         return check_password(raw_password, self.password)
 
 
-class CodigoRecuperacaoConsumidor(models.Model):
-    MAX_TENTATIVAS = 5
+class CodigoRecuperacaoConsumidor(CodigoRecuperacaoBase):
+    CAMPO_DONO = 'consumidor'
 
     consumidor = models.ForeignKey(Consumidor, on_delete=models.CASCADE, related_name='codigos_recuperacao')
-    codigo = models.CharField(max_length=8)
-    criado_em = models.DateTimeField(auto_now_add=True)
-    expira_em = models.DateTimeField()
-    usado = models.BooleanField(default=False)
-    tentativas = models.PositiveSmallIntegerField(default=0)
 
-    class Meta:
+    class Meta(CodigoRecuperacaoBase.Meta):
         verbose_name = 'Código de Recuperação'
         verbose_name_plural = 'Códigos de Recuperação'
-        ordering = ['-criado_em']
 
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            self.expira_em = timezone.now() + timedelta(minutes=15)
-        super().save(*args, **kwargs)
 
-    @property
-    def expirado(self):
-        return timezone.now() > self.expira_em
+class RefreshRevogadoConsumidor(models.Model):
+    """Refresh do Service Manage que não vale mais: usado numa renovação ou
+    encerrado no logout. Guarda só o `jti`; depois de `expira_em` o token já
+    seria recusado pela expiração, e a linha pode ser apagada."""
 
-    @property
-    def bloqueado(self):
-        return self.tentativas >= self.MAX_TENTATIVAS
+    jti = models.CharField(max_length=64, unique=True)
+    expira_em = models.DateTimeField()
+    revogado_em = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'{self.consumidor.email} — {self.codigo}'
+        return self.jti
 
 
 class VinculoConsumidor(models.Model):
@@ -95,10 +90,8 @@ class VinculoConsumidor(models.Model):
 
 
 class ObjetoConsumidor(models.Model):
-    TIPO_CHOICES = [('veiculo', 'Veículo'), ('pet', 'Pet')]
-
     consumidor = models.ForeignKey(Consumidor, on_delete=models.CASCADE, related_name='objetos')
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    tipo = models.CharField(max_length=20, choices=TipoObjeto.choices)
     dados = models.JSONField()
     nome_exibicao = models.CharField(max_length=255)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -113,25 +106,10 @@ class ObjetoConsumidor(models.Model):
 
 
 class AgendamentoConsumidor(models.Model):
-    STATUS_CHOICES = [
-        ('agendado', 'Agendado'),
-        ('confirmado', 'Confirmado'),
-        ('concluido', 'Concluído'),
-        ('cancelado', 'Cancelado'),
-        # Marcado pelo negócio no painel e espelhado aqui: o cliente precisa
-        # saber que constou como falta, não só o negócio.
-        ('faltou', 'Faltou'),
-    ]
-
-    ORIGEM_CHOICES = [
-        ('agenda', 'Agenda'),
-        ('kanban', 'Kanban'),
-    ]
-
     consumidor = models.ForeignKey(Consumidor, on_delete=models.CASCADE, related_name='agendamentos')
     schema_name = models.CharField(max_length=63)
     agendamento_id = models.PositiveIntegerField()
-    origem = models.CharField(max_length=10, choices=ORIGEM_CHOICES, default='agenda')
+    origem = models.CharField(max_length=10, choices=OrigemAtendimento.choices, default=OrigemAtendimento.AGENDA)
     negocio_nome = models.CharField(max_length=255)
     nicho = models.CharField(max_length=50, blank=True)
     servicos = models.JSONField(default=list)
@@ -140,7 +118,9 @@ class AgendamentoConsumidor(models.Model):
     duracao_total = models.PositiveIntegerField(help_text='Duração total em minutos')
     valor_total = models.DecimalField(max_digits=10, decimal_places=2)
     valor_taxa_cancelamento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='agendado')
+    # Espelha o status do agendamento no negócio — inclusive "faltou", que o
+    # negócio marca no painel: o cliente precisa saber que constou como falta.
+    status = models.CharField(max_length=20, choices=StatusAgendamento.choices, default=StatusAgendamento.AGENDADO)
     objeto_dados = models.JSONField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 

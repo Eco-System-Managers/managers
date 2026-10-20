@@ -11,10 +11,11 @@ urlpatterns = [
     path('', include(router.urls)),
 ]
 
-# Rotas públicas (sem autenticação) — fora do router pois não passam pelo tenant middleware
+# Rota pública (sem autenticação) do contrato que o cliente abre pelo link do
+# e-mail: <WORK>contratos/publico/<schema>/<token>/
 publico_urlpatterns = [
     path(
-        'contratos/<str:schema_name>/<uuid:token>/',
+        'publico/<str:schema_name>/<uuid:token>/',
         ContratoPublicoView.as_view(),
         name='contrato-publico',
     ),

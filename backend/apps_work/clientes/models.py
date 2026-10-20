@@ -1,14 +1,25 @@
 from django.db import models
 
 
-class Cliente(models.Model):
-    ORIGEM_MANUAL = 'manual'
-    ORIGEM_SERVICEMANAGE = 'servicemanage'
-    ORIGEM_CHOICES = [
-        (ORIGEM_MANUAL, 'Cadastrado pelo negócio'),
-        (ORIGEM_SERVICEMANAGE, 'Veio do Service Manage'),
-    ]
+class OrigemCliente(models.TextChoices):
+    MANUAL = 'manual', 'Cadastrado pelo negócio'
+    SERVICEMANAGE = 'servicemanage', 'Veio do Service Manage'
 
+
+class TipoObjeto(models.TextChoices):
+    """O que o negócio atende no modo kanban. Mesmo conjunto no B2C."""
+    VEICULO = 'veiculo', 'Veículo'
+    PET = 'pet', 'Pet'
+
+
+class PortePet(models.TextChoices):
+    PEQUENO = 'pequeno', 'Pequeno'
+    MEDIO = 'medio', 'Médio'
+    GRANDE = 'grande', 'Grande'
+    GIGANTE = 'gigante', 'Gigante'
+
+
+class Cliente(models.Model):
     nome = models.CharField(max_length=255)
     # Obrigatório: é por ele que o negócio fala com o cliente (WhatsApp,
     # confirmação, cobrança). blank=False vale para formulário e serializer —
@@ -33,8 +44,8 @@ class Cliente(models.Model):
     # Saúde
     convenio = models.CharField(max_length=100, blank=True)
     carteirinha = models.CharField(max_length=50, blank=True)
-    plano = models.CharField(max_length=100, blank=True)
-    validade_plano = models.DateField(null=True, blank=True)
+    plano_saude = models.CharField(max_length=100, blank=True)
+    validade_plano_saude = models.DateField(null=True, blank=True)
 
     # Controla se o cliente aparece na listagem -- fica False quando o
     # consumidor (Service Manage) se desvincula do negócio. O registro nunca
@@ -45,7 +56,7 @@ class Cliente(models.Model):
     # apagado pelo painel sem desfazer o vínculo do consumidor no schema
     # público — senão o negócio continua em "Seus negócios" e o cliente
     # ressurge na lista no próximo agendamento.
-    origem = models.CharField(max_length=20, choices=ORIGEM_CHOICES, default=ORIGEM_MANUAL)
+    origem = models.CharField(max_length=20, choices=OrigemCliente.choices, default=OrigemCliente.MANUAL)
 
     # Quem e esta pessoa no schema publico. E a identidade estavel do par
     # consumidor-cliente: antes disso o par era encontrado pelo e-mail, o que
@@ -56,24 +67,43 @@ class Cliente(models.Model):
     # migration de cada tenant a tabela publica. Mesmo padrao que
     # AgendamentoConsumidor.agendamento_id usa na direcao contraria.
     #
-    # Nulo em dois casos legitimos: cadastro feito na mao pelo negocio, e
-    # registro anterior ao backfill que ainda nao foi acessado.
+    # Nulo no cadastro feito na mao pelo negocio. Se o mesmo e-mail depois se
+    # vincula pelo app, o cadastro passa a ser do consumidor (ver
+    # apps_serv/identidade.py).
     consumidor_id = models.PositiveIntegerField(null=True, blank=True, unique=True, db_index=True)
 
     criado_em = models.DateTimeField(auto_now_add=True)
 
+    # Cliente vindo do Service Manage espelha estes campos do Consumidor: a
+    # ficha vive no schema publico e o negocio recebe uma copia. Lista unica —
+    # vincular, sincronizar o perfil e travar a edicao no painel leem daqui.
+    CAMPOS_ESPELHADOS = [
+        'nome', 'telefone', 'cpf', 'data_nascimento',
+        'cep', 'endereco', 'numero_endereco', 'foto_chave',
+    ]
+    # Dados pessoais que saem quando o vinculo e desfeito (pelo app ou pelo
+    # painel). Ficam nome, telefone e o historico de atendimentos.
+    CAMPOS_PESSOAIS = ['cpf', 'data_nascimento', 'cep', 'endereco', 'numero_endereco', 'foto_chave']
+
     def __str__(self):
         return self.nome
 
+    def espelhar(self, consumidor) -> list[str]:
+        """Copia a ficha do consumidor. Devolve os campos para o update_fields."""
+        for campo in self.CAMPOS_ESPELHADOS:
+            setattr(self, campo, getattr(consumidor, campo))
+        return list(self.CAMPOS_ESPELHADOS)
+
+    def apagar_dados_pessoais(self) -> list[str]:
+        """Limpa os dados pessoais. Devolve os campos para o update_fields."""
+        for campo in self.CAMPOS_PESSOAIS:
+            setattr(self, campo, None if self._meta.get_field(campo).null else '')
+        return list(self.CAMPOS_PESSOAIS)
+
 
 class ObjetoCliente(models.Model):
-    TIPO_CHOICES = [
-        ('veiculo', 'Veículo'),
-        ('pet', 'Pet'),
-    ]
-
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='objetos')
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    tipo = models.CharField(max_length=20, choices=TipoObjeto.choices)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -94,17 +124,10 @@ class Veiculo(ObjetoCliente):
 
 
 class Pet(ObjetoCliente):
-    PORTE_CHOICES = [
-        ('pequeno', 'Pequeno'),
-        ('medio', 'Médio'),
-        ('grande', 'Grande'),
-        ('gigante', 'Gigante'),
-    ]
-
     nome = models.CharField(max_length=100)
     especie = models.CharField(max_length=50, blank=True)
     raca = models.CharField(max_length=100, blank=True)
-    porte = models.CharField(max_length=10, choices=PORTE_CHOICES, blank=True)
+    porte = models.CharField(max_length=10, choices=PortePet.choices, blank=True)
     data_nascimento = models.DateField(null=True, blank=True)
 
     def __str__(self):

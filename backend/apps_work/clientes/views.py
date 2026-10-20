@@ -1,21 +1,15 @@
 from rest_framework import viewsets
-from rest_framework.pagination import PageNumberPagination
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Prefetch
-from .models import Cliente, ObjetoCliente, Pet, Veiculo
+from .models import Cliente, ObjetoCliente, Pet, TipoObjeto, Veiculo
 from .serializers import ClienteSerializer, ObjetoClienteSerializer, PetSerializer, VeiculoSerializer
 from .services import RemocaoClienteService
 
 
-class ClientePagination(PageNumberPagination):
-    page_size = 20
-
-
 class ClienteViewSet(viewsets.ModelViewSet):
     serializer_class = ClienteSerializer
-    pagination_class = ClientePagination
-
     def perform_destroy(self, instance):
         RemocaoClienteService().remover(instance)
 
@@ -32,6 +26,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
             )
         return qs.order_by('nome')
 
+    @extend_schema(responses={200: ObjetoClienteSerializer(many=True)}, summary='Pets/veículos do cliente')
     @action(detail=True, methods=['get'], url_path='objetos')
     def objetos(self, request, pk=None):
         cliente = self.get_object()
@@ -51,7 +46,7 @@ class VeiculoViewSet(viewsets.ModelViewSet):
         return qs.order_by('modelo')
 
     def perform_create(self, serializer):
-        serializer.save(tipo='veiculo')
+        serializer.save(tipo=TipoObjeto.VEICULO)
 
 
 class PetViewSet(viewsets.ModelViewSet):
@@ -65,4 +60,4 @@ class PetViewSet(viewsets.ModelViewSet):
         return qs.order_by('nome')
 
     def perform_create(self, serializer):
-        serializer.save(tipo='pet')
+        serializer.save(tipo=TipoObjeto.PET)

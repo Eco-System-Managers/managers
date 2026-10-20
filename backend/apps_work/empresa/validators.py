@@ -2,10 +2,9 @@ import re
 
 from rest_framework import serializers
 
-TIPO_CPF = 'cpf'
-TIPO_CNPJ = 'cnpj'
+from .models import TipoDocumento
 
-_TAMANHO_POR_TIPO = {TIPO_CPF: 11, TIPO_CNPJ: 14}
+_TAMANHO_POR_TIPO = {TipoDocumento.CPF: 11, TipoDocumento.CNPJ: 14}
 
 
 def _digito(digitos: str, pesos: list[int]) -> int:
@@ -49,7 +48,7 @@ def validar_documento(numero: str, tipo: str) -> str:
             'code': 'documento_invalido',
         })
 
-    valido = _cpf_valido(digitos) if tipo == TIPO_CPF else _cnpj_valido(digitos)
+    valido = _cpf_valido(digitos) if tipo == TipoDocumento.CPF else _cnpj_valido(digitos)
     if not valido:
         raise serializers.ValidationError({
             'detail': f'{rotulo} inválido. Confira os números digitados.',

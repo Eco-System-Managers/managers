@@ -15,17 +15,17 @@ passa por aqui.
 | `views.py` | Endpoints públicos (mapa, busca, perfil do negócio) e autenticados (vincular, agendar). Inclui o recorte geográfico `_filtrar_por_area` |
 | `handlers.py` | A ponte de volta: escuta sinais do lado do negócio e reflete no público |
 | `serializers.py` | Representação do `NegocioPublico` |
-| `urls.py` | Rotas sob `/api/sm/negocios/` |
+| `urls.py` | Rotas sob `/api/sm/v1/negocios/` |
 
-## As quatro classes de `services.py`
+## As seis classes de `services.py`
 
 | Classe | Responsabilidade |
 |---|---|
-| `CrossTenantQueryService` | Lê dados **dentro** do tenant: serviços, equipe, horários, disponibilidade. É o único lugar que entra no schema do negócio para consultar |
+| `CrossTenantQueryService` | Lê dados **dentro** do tenant: serviços, equipe, horários, disponibilidade. Só leitura — agendar, cancelar e vincular também entram no schema do negócio, cada um no próprio service, sempre por `schema_context` |
 | `StatusKanbanAgendamentosService` | Descobre em que coluna do quadro cada atendimento está. Agrupa por schema para trocar de schema uma vez por negócio, não uma por agendamento |
 | `AgendamentoTenantService` | Cria o agendamento nos dois lados. O método mais delicado do backend |
 | `CancelarAgendamentoService` | Cancela e, fora do prazo, lança a taxa como pendência na comanda do cliente dentro do tenant |
-| `VincularNegocioService` | Cria, reativa e desfaz o vínculo, e espelha o perfil do cliente no `Cliente` do tenant |
+| `VincularNegocioService` | Cria, reativa e desfaz o vínculo. Ao vincular, copia a ficha inteira (`Cliente.CAMPOS_ESPELHADOS`); ao desfazer, apaga os dados pessoais (`Cliente.CAMPOS_PESSOAIS`) e mantém nome, telefone e histórico |
 | `SincronizarVitrineService` | Publica ou despublica o negócio na vitrine a partir do `EmpresaConfig` |
 
 ## Tabela

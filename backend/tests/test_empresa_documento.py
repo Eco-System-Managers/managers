@@ -12,10 +12,10 @@ CPF_FORMATADO = '529.982.247-25'
 
 
 @pytest.fixture
-def client_autenticado(patch_tenant_middleware, usuario):
+def client_autenticado(patch_tenant_middleware, proprietario):
     client = APIClient()
     client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-    client.force_authenticate(user=usuario)
+    client.force_authenticate(user=proprietario)
     return client
 
 
@@ -69,7 +69,7 @@ class TestValidarDocumento:
 class TestDocumentoNaConfigAPI:
     def test_salvar_cnpj_valido_retorna_200(self, client_autenticado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'documento': CNPJ_FORMATADO, 'tipo_documento': 'cnpj'},
             format='json',
         )
@@ -77,7 +77,7 @@ class TestDocumentoNaConfigAPI:
 
     def test_documento_salvo_sem_mascara(self, client_autenticado):
         client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'documento': CNPJ_FORMATADO, 'tipo_documento': 'cnpj'},
             format='json',
         )
@@ -85,7 +85,7 @@ class TestDocumentoNaConfigAPI:
 
     def test_salvar_cpf_valido_retorna_200(self, client_autenticado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'documento': CPF_FORMATADO, 'tipo_documento': 'cpf'},
             format='json',
         )
@@ -93,7 +93,7 @@ class TestDocumentoNaConfigAPI:
 
     def test_documento_invalido_retorna_400(self, client_autenticado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'documento': '12345678901', 'tipo_documento': 'cpf'},
             format='json',
         )
@@ -101,7 +101,7 @@ class TestDocumentoNaConfigAPI:
 
     def test_documento_sem_tipo_retorna_400(self, client_autenticado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'documento': CPF_VALIDO},
             format='json',
         )
@@ -109,7 +109,7 @@ class TestDocumentoNaConfigAPI:
 
     def test_tipo_sem_documento_retorna_400(self, client_autenticado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'tipo_documento': 'cpf'},
             format='json',
         )
@@ -117,7 +117,7 @@ class TestDocumentoNaConfigAPI:
 
     def test_concluir_onboarding_sem_documento_retorna_400(self, client_autenticado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'onboarding_concluido': True},
             format='json',
         )
@@ -125,17 +125,17 @@ class TestDocumentoNaConfigAPI:
 
     def test_concluir_onboarding_sem_documento_informa_codigo(self, client_autenticado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'onboarding_concluido': True},
             format='json',
         )
         # O DRF embrulha cada valor do dict de erro numa lista — mesmo formato
         # que o resto da API já devolve (ver AgendamentoService.cobrar).
-        assert response.data['code'][0] == 'documento_obrigatorio'
+        assert response.data['code'] == 'documento_obrigatorio'
 
     def test_concluir_onboarding_com_documento_retorna_200(self, client_autenticado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'onboarding_concluido': True, 'documento': CPF_VALIDO, 'tipo_documento': 'cpf'},
             format='json',
         )
@@ -146,31 +146,31 @@ class TestDocumentoNaConfigAPI:
         mas a próxima alteração exige o documento."""
         EmpresaConfig.objects.create(pk=1, nome='Antigo', onboarding_concluido=True)
         response = client_autenticado.patch(
-            '/api/empresa/config/', {'nome': 'Antigo Editado'}, format='json'
+            '/api/v1/empresa/config/', {'nome': 'Antigo Editado'}, format='json'
         )
         assert response.status_code == 400
 
     def test_negocio_ja_concluido_sem_documento_ainda_pode_ser_lido(self, client_autenticado):
         EmpresaConfig.objects.create(pk=1, nome='Antigo', onboarding_concluido=True)
-        response = client_autenticado.get('/api/empresa/config/')
+        response = client_autenticado.get('/api/v1/empresa/config/')
         assert response.status_code == 200
 
     def test_documento_aparece_na_resposta(self, client_autenticado):
         client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'documento': CPF_VALIDO, 'tipo_documento': 'cpf'},
             format='json',
         )
-        response = client_autenticado.get('/api/empresa/config/')
+        response = client_autenticado.get('/api/v1/empresa/config/')
         assert response.data['documento'] == CPF_VALIDO
 
     def test_tipo_documento_aparece_na_resposta(self, client_autenticado):
         client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'documento': CPF_VALIDO, 'tipo_documento': 'cpf'},
             format='json',
         )
-        response = client_autenticado.get('/api/empresa/config/')
+        response = client_autenticado.get('/api/v1/empresa/config/')
         assert response.data['tipo_documento'] == 'cpf'
 
 
@@ -193,7 +193,7 @@ class TestNegocioConcluidoSemDocumento:
     def test_endereco_continua_exigindo_documento(self, client_autenticado, legado):
         """A cobrança do documento segue valendo para o resto do cadastro."""
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'cidade': 'Araras', 'endereco': 'Avenida Fábio da Silva Prado, 386', 'uf': 'SP'},
             format='json',
         )
@@ -202,7 +202,7 @@ class TestNegocioConcluidoSemDocumento:
     def test_salva_coordenada_sem_documento(self, client_autenticado, legado):
         """Única escrita isenta: o pino é o que leva o cliente até o negócio."""
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'latitude': '-22.350592', 'longitude': '-47.377324'},
             format='json',
         )
@@ -212,7 +212,7 @@ class TestNegocioConcluidoSemDocumento:
         """A isenção vale só para a coordenada sozinha — senão bastaria anexar
         uma latitude a qualquer payload para furar a regra do documento."""
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'latitude': '-22.350592', 'longitude': '-47.377324', 'nome': 'Outro'},
             format='json',
         )
@@ -220,8 +220,8 @@ class TestNegocioConcluidoSemDocumento:
 
     def test_continua_exigindo_documento_ao_informa_lo(self, client_autenticado, legado):
         response = client_autenticado.patch(
-            '/api/empresa/config/',
+            '/api/v1/empresa/config/',
             {'documento': '', 'tipo_documento': ''},
             format='json',
         )
-        assert response.data['code'][0] == 'documento_obrigatorio'
+        assert response.data['code'] == 'documento_obrigatorio'

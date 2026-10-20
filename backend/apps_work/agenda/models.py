@@ -3,28 +3,36 @@ from apps_work.clientes.models import Cliente
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
 
-FORMAS_PAGAMENTO = [
-    ('dinheiro', 'Dinheiro'),
-    ('pix', 'PIX'),
-    ('credito', 'Crédito'),
-    ('debito', 'Débito'),
-    ('qr_code', 'QR Code'),
-]
+
+class FormaPagamento(models.TextChoices):
+    """Como o cliente pagou o atendimento (agenda e kanban)."""
+    DINHEIRO = 'dinheiro', 'Dinheiro'
+    PIX = 'pix', 'PIX'
+    CREDITO = 'credito', 'Crédito'
+    DEBITO = 'debito', 'Débito'
+    QR_CODE = 'qr_code', 'QR Code'
+
+
+class StatusAgendamento(models.TextChoices):
+    """Status do agendamento. O AgendamentoConsumidor (B2C) espelha o mesmo."""
+    AGENDADO = 'agendado', 'Agendado'
+    CONFIRMADO = 'confirmado', 'Confirmado'
+    CONCLUIDO = 'concluido', 'Concluído'
+    CANCELADO = 'cancelado', 'Cancelado'
+    FALTOU = 'faltou', 'Faltou'
+
+
+class OrigemAtendimento(models.TextChoices):
+    """De qual modo de agenda veio o atendimento."""
+    AGENDA = 'agenda', 'Agenda'
+    KANBAN = 'kanban', 'Kanban'
 
 
 class Agendamento(models.Model):
-    STATUS_CHOICES = [
-        ('agendado', 'Agendado'),
-        ('confirmado', 'Confirmado'),
-        ('concluido', 'Concluído'),
-        ('cancelado', 'Cancelado'),
-        ('faltou', 'Faltou'),
-    ]
-
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='agendamentos')
     colaborador = models.ForeignKey(Colaborador, on_delete=models.PROTECT, related_name='agendamentos', null=True, blank=True)
     data_hora = models.DateTimeField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='agendado')
+    status = models.CharField(max_length=20, choices=StatusAgendamento.choices, default=StatusAgendamento.AGENDADO)
     desconto = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     observacoes = models.TextField(blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -43,9 +51,9 @@ class AgendamentoServico(models.Model):
         return f'{self.agendamento} — {self.servico}'
 
 
-class Pagamento(models.Model):
+class PagamentoAgendamento(models.Model):
     agendamento = models.ForeignKey(Agendamento, on_delete=models.CASCADE, related_name='pagamentos')
-    forma = models.CharField(max_length=20, choices=FORMAS_PAGAMENTO)
+    forma = models.CharField(max_length=20, choices=FormaPagamento.choices)
     valor = models.DecimalField(max_digits=8, decimal_places=2)
     criado_em = models.DateTimeField(auto_now_add=True)
 

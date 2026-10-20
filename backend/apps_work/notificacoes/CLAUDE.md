@@ -42,5 +42,5 @@ agora é seu cliente" toda vez que um cliente antigo agendasse.
   outro app — não há endpoint de escrita, e é proposital.
 - **`nao-lidas` devolve só a contagem**, não a lista. É o badge do sino, chamado
   com frequência; devolver os objetos seria desperdício.
-- **A listagem já era paginada** antes de o resto do sistema ser — é o padrão
-  que os outros endpoints seguiram depois.
+- **A listagem é paginada** pela paginação padrão do projeto
+  (`core/paginacao.py`), como toda coleção de recurso.

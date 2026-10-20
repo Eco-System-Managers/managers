@@ -1,25 +1,33 @@
 import math
-import re
 from datetime import datetime
 
 from django.db.models import Q
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps_serv.autenticacao.authentication import ConsumidorJWTAuthentication
-from apps_serv.consumidores.serializers import AgendamentoConsumidorSerializer
+from apps_serv.consumidores.serializers import AgendamentoConsumidorSerializer, VinculoNegocioSerializer
 from .models import NegocioPublico
-from .serializers import NegocioPublicoSerializer
+from .serializers import (
+    CriarAgendamentoSerializer,
+    DisponibilidadeSerializer,
+    HorarioNegocioSerializer,
+    MembroEquipeSerializer,
+    NegocioPublicoSerializer,
+    ServicoVitrineSerializer,
+)
 from .services import AgendamentoTenantService, CrossTenantQueryService, VincularNegocioService
-
-_SCHEMA_NAME_RE = re.compile(r'^[a-z0-9_]+$')
-
+from core.excecoes import ErroDeNegocio, erro
+from core.paginacao import Paginacao, resposta_paginada
+from core.schemas import schema_valido
 
 def _schema_valido(schema_name: str) -> bool:
-    return bool(_SCHEMA_NAME_RE.match(schema_name))
+    return schema_valido(schema_name)
 
 
 _RAIO_PADRAO_KM = 50.0
@@ -46,10 +54,10 @@ def _filtrar_por_area(qs, params):
         lng = float(lng)
         raio = float(params.get('raio_km') or _RAIO_PADRAO_KM)
     except (TypeError, ValueError):
-        raise ValueError('Coordenadas ou raio inválidos.')
+        raise ErroDeNegocio('Coordenadas ou raio inválidos.', 'coordenadas_invalidas')
 
     if not (-90 <= lat <= 90) or not (-180 <= lng <= 180) or raio <= 0:
-        raise ValueError('Coordenadas ou raio inválidos.')
+        raise ErroDeNegocio('Coordenadas ou raio inválidos.', 'coordenadas_invalidas')
 
     delta_lat = raio / _KM_POR_GRAU_LAT
     # Um grau de longitude encurta conforme se afasta do equador. Perto dos
@@ -67,7 +75,21 @@ def _filtrar_por_area(qs, params):
 class NegociosPublicosView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    pagination_class = Paginacao
 
+    @extend_schema(
+        operation_id='negocios_list',
+        responses=NegocioPublicoSerializer(many=True),
+        parameters=[
+            OpenApiParameter('nicho', str),
+            OpenApiParameter('cidade', str),
+            OpenApiParameter('search', str, description='Busca em nome, cidade e nicho.'),
+            OpenApiParameter('lat', float),
+            OpenApiParameter('lng', float),
+            OpenApiParameter('raio_km', float, description='Padrão 50 km; só vale com lat e lng.'),
+        ],
+        summary='Vitrine de negócios',
+    )
     def get(self, request):
         qs = NegocioPublico.objects.filter(ativo=True)
         nicho = request.query_params.get('nicho')
@@ -87,18 +109,19 @@ class NegociosPublicosView(APIView):
                 | Q(nicho__icontains=busca)
             )
 
-        try:
-            qs = _filtrar_por_area(qs, request.query_params)
-        except ValueError as erro:
-            return Response({'detail': str(erro)}, status=status.HTTP_400_BAD_REQUEST)
+        # Coordenada ou raio inválido levanta ErroDeNegocio → 400 pelo handler.
+        qs = _filtrar_por_area(qs, request.query_params)
 
-        return Response(NegocioPublicoSerializer(qs, many=True).data)
+        return resposta_paginada(
+            request, qs, self, lambda pagina: NegocioPublicoSerializer(pagina, many=True).data,
+        )
 
 
 class CidadesView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(responses=list[str], summary='Cidades com negócio na vitrine')
     def get(self, request):
         cidades = (
             NegocioPublico.objects
@@ -121,13 +144,14 @@ class NegocioPublicoDetailView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(operation_id='negocios_retrieve', responses=NegocioPublicoSerializer, summary='Um negócio da vitrine')
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
-            return Response({'detail': 'Identificador de negócio inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
 
         negocio = NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).first()
         if negocio is None:
-            return Response({'detail': 'Negócio não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         return Response(NegocioPublicoSerializer(negocio).data)
 
@@ -138,6 +162,11 @@ class NichosView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        responses=list[str],
+        parameters=[OpenApiParameter('cidade', str)],
+        summary='Nichos presentes na vitrine',
+    )
     def get(self, request):
         qs = NegocioPublico.objects.filter(ativo=True)
         cidade = request.query_params.get('cidade')
@@ -156,40 +185,45 @@ class NichosView(APIView):
 class ServicosNegocioView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    pagination_class = Paginacao
 
+    @extend_schema(responses=ServicoVitrineSerializer(many=True), summary='Serviços ativos do negócio')
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
-            return Response({'detail': 'Identificador de negócio inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
 
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
-            return Response({'detail': 'Negócio não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         servicos = CrossTenantQueryService().listar_servicos(schema_name)
-        return Response(servicos)
+        return resposta_paginada(request, servicos, self)
 
 
 class EquipeNegocioView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    pagination_class = Paginacao
 
+    @extend_schema(responses=MembroEquipeSerializer(many=True), summary='Equipe ativa do negócio')
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
-            return Response({'detail': 'Identificador de negócio inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
-            return Response({'detail': 'Negócio não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
         equipe = CrossTenantQueryService().listar_colaboradores(schema_name)
-        return Response(equipe)
+        return resposta_paginada(request, equipe, self)
 
 
 class HorariosNegocioView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(responses=HorarioNegocioSerializer(many=True), summary='Horários da semana (sempre 7 dias)')
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
-            return Response({'detail': 'Identificador de negócio inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
-            return Response({'detail': 'Negócio não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
         horarios = CrossTenantQueryService().listar_horarios(schema_name)
         return Response(horarios)
 
@@ -198,36 +232,49 @@ class DisponibilidadeView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        responses=DisponibilidadeSerializer,
+        parameters=[
+            OpenApiParameter('data', OpenApiTypes.DATE, required=True, description='YYYY-MM-DD, hoje ou futuro.'),
+            OpenApiParameter('servico_id', int, required=True, many=True, explode=True),
+            OpenApiParameter('colaborador_id', int),
+        ],
+        summary='Horários livres num dia',
+    )
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
-            return Response({'detail': 'Identificador de negócio inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
 
         data_str = request.query_params.get('data')
-        servico_ids = request.query_params.getlist('servico_id') or request.query_params.getlist('servico_id[]')
+        servico_ids = request.query_params.getlist('servico_id')
         colaborador_id = request.query_params.get('colaborador_id')
 
         if not data_str or not servico_ids:
-            return Response(
-                {'detail': 'Parâmetros obrigatórios: data (YYYY-MM-DD) e servico_id.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Parâmetros obrigatórios: data (YYYY-MM-DD) e servico_id.', status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
             data = datetime.strptime(data_str, '%Y-%m-%d').date()
         except ValueError:
-            return Response({'detail': 'Formato de data inválido. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Formato de data inválido. Use YYYY-MM-DD.', status_code=status.HTTP_400_BAD_REQUEST)
 
         if data < timezone.now().date():
-            return Response({'detail': 'Data não pode ser no passado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Data não pode ser no passado.', status_code=status.HTTP_400_BAD_REQUEST)
 
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
-            return Response({'detail': 'Negócio não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
+
+        try:
+            servico_ids = [int(i) for i in servico_ids]
+            colaborador_id = int(colaborador_id) if colaborador_id else None
+        except ValueError:
+            # Rota pública: valor não numérico dava 500.
+            return erro('servico_id e colaborador_id devem ser números.', 'parametros_invalidos')
 
         slots = CrossTenantQueryService().listar_disponibilidade(
             schema_name=schema_name,
             data=data,
-            servico_ids=[int(i) for i in servico_ids],
-            colaborador_id=int(colaborador_id) if colaborador_id else None,
+            servico_ids=servico_ids,
+            colaborador_id=colaborador_id,
         )
         return Response({'data': data_str, 'slots': slots})
 
@@ -236,24 +283,30 @@ class VincularNegocioView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=None, responses={201: VinculoNegocioSerializer}, summary='Vincular-me ao negócio')
     def post(self, request, schema_name):
         if not _schema_valido(schema_name):
-            return Response({'detail': 'Identificador de negócio inválido.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
-            return Response({'detail': 'Negócio não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
+        negocio = NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).first()
+        if negocio is None:
+            return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
         try:
-            VincularNegocioService().vincular(schema_name, request.user)
+            vinculo = VincularNegocioService().vincular(schema_name, request.user)
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({'detail': 'Vinculado com sucesso.'}, status=status.HTTP_201_CREATED)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
+        # Mesmo formato de um item de /vinculos/: o app já insere na lista.
+        dados = NegocioPublicoSerializer(negocio).data
+        dados['vinculado_em'] = vinculo.criado_em
+        return Response(dados, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=None, responses={204: None}, summary='Desfazer o vínculo com o negócio')
     def delete(self, request, schema_name):
         if not _schema_valido(schema_name):
-            return Response({'detail': 'Identificador de negócio inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
         try:
             VincularNegocioService().desvincular(schema_name, request.user)
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -261,14 +314,18 @@ class CriarAgendamentoView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=CriarAgendamentoSerializer, responses={201: AgendamentoConsumidorSerializer},
+        summary='Agendar no negócio',
+    )
     def post(self, request, schema_name):
         if not _schema_valido(schema_name):
-            return Response({'detail': 'Identificador de negócio inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
 
         consumidor = request.user
 
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
-            return Response({'detail': 'Negócio não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         servico_ids = request.data.get('servico_ids', [])
         data_hora_str = request.data.get('data_hora')
@@ -276,20 +333,17 @@ class CriarAgendamentoView(APIView):
         objeto_id = request.data.get('objeto_id')
 
         if not servico_ids or not data_hora_str:
-            return Response(
-                {'detail': 'Campos obrigatórios: servico_ids e data_hora.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Campos obrigatórios: servico_ids e data_hora.', status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
             data_hora = datetime.fromisoformat(data_hora_str)
             if timezone.is_naive(data_hora):
                 data_hora = timezone.make_aware(data_hora)
         except ValueError:
-            return Response({'detail': 'Formato de data_hora inválido. Use ISO 8601.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Formato de data_hora inválido. Use ISO 8601.', status_code=status.HTTP_400_BAD_REQUEST)
 
         if data_hora <= timezone.now():
-            return Response({'detail': 'O agendamento deve ser para uma data futura.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('O agendamento deve ser para uma data futura.', status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
             agendamento = AgendamentoTenantService().criar(
@@ -301,6 +355,6 @@ class CriarAgendamentoView(APIView):
                 objeto_id=objeto_id,
             )
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         return Response(AgendamentoConsumidorSerializer(agendamento).data, status=status.HTTP_201_CREATED)

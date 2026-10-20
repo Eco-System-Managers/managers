@@ -54,9 +54,9 @@ ordenada do maior gasto para o menor. O resultado do período
 (receita − despesa) é calculado no cliente, cruzando este total com o
 `CaixaService`.
 
-CRUD em `/api/financeiro/despesas/` (`DespesaViewSet`, paginado, `page_size=20`),
+CRUD em `/api/v1/financeiro/despesas/` (`DespesaViewSet`, paginado pela paginação padrão),
 com filtros de query `data_inicio`/`data_fim`/`categoria`; o resumo em
-`/api/financeiro/despesas/resumo/`. Escrita exige `IsProprietario`.
+`/api/v1/financeiro/despesas/resumo/`. Escrita exige `IsProprietario`.
 
 ## Como o saldo funciona
 
@@ -75,7 +75,7 @@ dessincroniza do histórico.
 ## O caixa
 
 `CaixaService.obter_dados` junta pagamentos dos **dois modos** de agenda
-(`Pagamento` da agenda e `PagamentoKanban` da esteira) num período.
+(`PagamentoAgendamento` da agenda e `PagamentoAtendimento` da esteira) num período.
 
 Detalhe que já causou confusão: atendimento de esteira não tem colaborador
 vinculado. Filtrar o caixa por colaborador exclui esses registros por completo —

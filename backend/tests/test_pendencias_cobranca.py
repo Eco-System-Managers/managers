@@ -14,10 +14,10 @@ HOJE = date(2026, 6, 15)
 
 
 @pytest.fixture
-def client_autenticado(patch_tenant_middleware, usuario):
+def client_autenticado(patch_tenant_middleware, proprietario):
     client = APIClient()
     client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-    client.force_authenticate(user=usuario)
+    client.force_authenticate(user=proprietario)
     return client
 
 
@@ -136,7 +136,7 @@ class TestPendenciasCombinadas:
 @pytest.mark.django_db
 class TestPendenciasAPI:
     def test_retorna_200(self, client_autenticado):
-        response = client_autenticado.get('/api/agenda/pendencias/')
+        response = client_autenticado.get('/api/v1/agenda/pendencias/')
         assert response.status_code == 200
 
     def test_lista_pendencia_criada(self, client_autenticado, servico):
@@ -145,7 +145,7 @@ class TestPendenciasAPI:
         ag = Agendamento.objects.create(cliente=cliente, data_hora=ontem, status='agendado')
         AgendamentoServico.objects.create(agendamento=ag, servico=servico, preco_cobrado='50.00')
 
-        response = client_autenticado.get('/api/agenda/pendencias/')
+        response = client_autenticado.get('/api/v1/agenda/pendencias/')
 
         assert [p['id'] for p in response.data] == [ag.pk]
 
@@ -154,14 +154,14 @@ class TestPendenciasAPI:
         ag = Agendamento.objects.create(cliente=cliente, data_hora=timezone.now(), status='agendado')
         AgendamentoServico.objects.create(agendamento=ag, servico=servico, preco_cobrado='50.00')
 
-        response = client_autenticado.get('/api/agenda/pendencias/')
+        response = client_autenticado.get('/api/v1/agenda/pendencias/')
 
         assert response.data == []
 
     def test_sem_autenticacao_retorna_401(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get('/api/agenda/pendencias/')
+        response = client.get('/api/v1/agenda/pendencias/')
         assert response.status_code == 401
 
 
@@ -195,7 +195,7 @@ class TestDescartePendenciaComConflito:
         self._com_colaborador(colaborador, servico, 'Choque', quando)
 
         response = client_autenticado.patch(
-            f'/api/agendamentos/{alvo.pk}/', {'status': 'faltou'}, format='json',
+            f'/api/v1/agendamentos/{alvo.pk}/', {'status': 'faltou'}, format='json',
         )
 
         assert response.status_code == 200
@@ -210,9 +210,21 @@ class TestDescartePendenciaComConflito:
         self._com_colaborador(colaborador, servico, 'Ocupa', ocupado)
 
         response = client_autenticado.patch(
-            f'/api/agendamentos/{alvo.pk}/',
+            f'/api/v1/agendamentos/{alvo.pk}/',
             {'data_hora': ocupado.isoformat()},
             format='json',
         )
 
         assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_servicos_trazem_o_id_do_servico_na_agenda_e_no_kanban(patch_tenant_middleware, servico):
+    """Antes o `id` era o do AgendamentoServico na agenda e o do Servico no kanban."""
+    _agendamento(10, servico=servico)
+    _atendimento(11, servico=servico)
+    pendencias = PendenciasCobrancaService().listar(HOJE)
+    assert {p['origem'] for p in pendencias} == {'agenda', 'kanban'}
+    for p in pendencias:
+        assert [s['servico_id'] for s in p['servicos']] == [servico.pk]
+        assert 'id' not in p['servicos'][0]

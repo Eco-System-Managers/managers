@@ -37,7 +37,7 @@ def negocio_publico(db, tenant):
     NegocioPublico.objects.filter(schema_name=tenant.schema_name).delete()
     return NegocioPublico.objects.create(
         schema_name=tenant.schema_name,
-        nome=tenant.name,
+        nome=tenant.nome,
         nicho='Barbearia',
         latitude='-23.550000',
         longitude='-46.633000',
@@ -72,7 +72,7 @@ def negocio_publico_kanban(db, tenant):
     NegocioPublico.objects.filter(schema_name=tenant.schema_name).delete()
     return NegocioPublico.objects.create(
         schema_name=tenant.schema_name,
-        nome=tenant.name,
+        nome=tenant.nome,
         nicho='Banho e tosa',
         latitude='-23.550000',
         longitude='-46.633000',
@@ -206,7 +206,7 @@ class TestAgendamentoTenantServiceCriar:
         )
 
         assert ag.valor_taxa_cancelamento == Decimal('20.00')
-        assert ag.servicos[0]['taxa_cancelamento'] == 20.0
+        assert ag.servicos[0]['taxa_cancelamento'] == '20.00'
 
     def test_servico_invalido_levanta_value_error(
         self, tenant, consumidor_registrado, negocio_publico
@@ -423,7 +423,7 @@ class TestCancelarPrazoDinamico:
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
-        assert resultado['taxa'] == 0.0
+        assert resultado['taxa'] == '0.00'
 
     def test_duracao_ate_90min_prazo_12h(self, db):
         consumidor = self._consumidor_registrado('prazo12h@teste.com')
@@ -435,7 +435,7 @@ class TestCancelarPrazoDinamico:
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
-        assert resultado['taxa'] == 0.0
+        assert resultado['taxa'] == '0.00'
 
     def test_duracao_acima_90min_prazo_24h(self, db):
         consumidor = self._consumidor_registrado('prazo24h@teste.com')
@@ -447,7 +447,7 @@ class TestCancelarPrazoDinamico:
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
-        assert resultado['taxa'] == 0.0
+        assert resultado['taxa'] == '0.00'
 
     def test_cancelamento_fora_do_prazo_sem_taxa_configurada_nao_gera_pendencia(self, db):
         consumidor = self._consumidor_registrado('taxa@teste.com')
@@ -460,7 +460,7 @@ class TestCancelarPrazoDinamico:
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
-        assert resultado['taxa'] == 0.0
+        assert resultado['taxa'] == '0.00'
 
     def test_cancelamento_outro_consumidor_levanta_permission_error(self, db):
         c1 = self._consumidor_registrado('c1@teste.com')
@@ -502,7 +502,7 @@ class TestCancelarComTaxaConfigurada:
 
         resultado = CancelarAgendamentoService().cancelar(ag, consumidor_registrado)
 
-        assert resultado['taxa'] == 20.0
+        assert resultado['taxa'] == '20.00'
 
         with schema_context(tenant.schema_name):
             from apps_work.financeiro.models import TransacaoCredito

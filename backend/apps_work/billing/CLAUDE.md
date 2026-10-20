@@ -9,8 +9,8 @@ negócio e os clientes dele. Este é o dinheiro entre o negócio e **nós**.
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `Plano`, `Assinatura` (com a propriedade `bloqueada`) e `Pagamento` |
-| `services.py` | `MercadoPagoService` — criar plano no gateway, gerar link, confirmar, cancelar e processar webhook |
+| `models.py` | `Plano`, `Assinatura` (com a propriedade `bloqueada`) e `PagamentoAssinatura` |
+| `services.py` | `GatewayPagamento` (a interface do provedor) e `MercadoPagoGateway`, a implementação: criar plano no gateway, gerar link, confirmar, cancelar e processar webhook. `gateway_de_pagamento()` devolve o configurado em `BILLING_GATEWAY` |
 | `views.py` | Assinatura atual, iniciar, confirmar, cancelar, histórico paginado e o endpoint de webhook |
 | `serializers.py` | Representação |
 
@@ -24,15 +24,20 @@ negócio e os clientes dele. Este é o dinheiro entre o negócio e **nós**.
 | `preco_mensal` | `Decimal(8,2)` | |
 | `limite_colaboradores` | `IntegerField` nulo | Nulo = sem limite |
 | `ativo` | `Boolean` = `True` | |
-| `mercadopago_plan_id` | `CharField(100)` vazio | O id do plano no gateway, preenchido na primeira criação |
-| `mercadopago_init_point` | `URLField(500)` vazio | O link de checkout. Reaproveitado pela web e pelo app |
+| `gateway` | `CharField(20)` = `mercadopago` | Provedor de pagamento (`Gateway`) |
+| `id_externo` | `CharField(100)` vazio | O id do plano no gateway, preenchido na primeira criação |
+| `link_checkout` | `URLField(500)` vazio | O link de checkout hospedado pelo gateway. Reaproveitado pela web e pelo app |
 
 **Ambiente novo precisa do plano `pro` semeado.** `OnboardingService` só cria a
-`Assinatura` de trial se existir um `Plano(nome='pro', ativo=True)` — sem ele o
+`Assinatura` de trial se existir o plano de `PLANO_PADRAO` (`pro` por padrão) ativo — sem ele o
 tenant nasce sem assinatura e o `AssinaturaBloqueadaMiddleware` responde 402 em
 toda a API. Rodar uma vez, após `migrate_schemas --shared`:
 `python manage.py loaddata planos` (fixture em `billing/fixtures/planos.json`,
 idempotente).
+
+Em desenvolvimento, `python manage.py popular_dev` faz tudo de uma vez: garante
+o plano padrão e cria uma empresa de exemplo com o dono e o onboarding concluído
+(`dono@demo.com` / `SenhaForte123!`). Só roda com `DEBUG=True`.
 
 ### `Assinatura` — o vínculo do negócio com a plataforma
 
@@ -44,12 +49,13 @@ idempotente).
 | `inicio` | `DateField` | |
 | `proximo_vencimento` | `DateField` | Usado para decidir até quando uma assinatura cancelada ainda vale |
 | `trial_fim` | `DateField` nulo | Fim do período de teste |
-| `mercadopago_preapproval_id` | `CharField(100)` **único**, nulo | O id da recorrência no gateway. É por ele que o webhook encontra a assinatura |
+| `gateway` | `CharField(20)` = `mercadopago` | |
+| `id_externo` | `CharField(100)` nulo | O id da recorrência no gateway (no Mercado Pago, o preapproval). Único junto com `gateway`. É por ele que o webhook encontra a assinatura |
 
 **Não há coluna `bloqueada`** — é propriedade calculada a partir de `status` e
 das datas, e o resultado é memorizado em cache por 60s.
 
-### `Pagamento` — o histórico de cobranças
+### `PagamentoAssinatura` — o histórico de cobranças
 
 | Coluna | Tipo | O que é |
 |---|---|---|
@@ -57,8 +63,8 @@ das datas, e o resultado é memorizado em cache por 60s.
 | `valor` | `Decimal(8,2)` | |
 | `status` | `CharField(20)` = `pendente` | `pago`, `pendente`, `falhou` |
 | `data` | `DateField` | |
-| `referencia_externa` | `CharField(255)` vazio | |
-| `mercadopago_payment_id` | `CharField(100)` **único**, nulo | O único é o que torna o webhook idempotente |
+| `gateway` | `CharField(20)` = `mercadopago` | |
+| `id_externo` | `CharField(100)` nulo | O id do pagamento no gateway. O único com o `gateway` é o que torna o webhook idempotente |
 
 ## É app compartilhado, não de tenant
 
@@ -91,9 +97,13 @@ driblar.
 ## O que é fácil errar aqui
 
 - **O webhook valida assinatura HMAC** (`x-signature`) antes de processar. É
-  endpoint público: sem essa checagem, qualquer um ativa assinatura.
+  endpoint público: sem essa checagem, qualquer um ativa assinatura. O `ts` da
+  assinatura precisa estar a no máximo 10 minutos do relógio
+  (`TOLERANCIA_WEBHOOK_SEGUNDOS`, em segundos ou milissegundos), senão uma
+  notificação capturada poderia ser reenviada depois. Tem throttle próprio
+  (`webhook`), separado do de anônimo.
 - **Rotas de billing são isentas do bloqueio**, junto com `/colaboradores/me/` e
   `/empresa/config/` — senão o tenant bloqueado não alcança a tela que resolve.
 - **O `back_url` do preapproval é fixado na criação do plano** e aponta para o
-  `FRONTEND_URL`. Por isso o checkout do app mobile retorna pela web, com um
+  `LINKS_BASE_URL` (`core/links.py`). Por isso o checkout do app mobile retorna pela web, com um
   botão que abre o app de volta.

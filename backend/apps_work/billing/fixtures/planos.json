@@ -7,8 +7,9 @@
       "preco_mensal": "69.90",
       "limite_colaboradores": null,
       "ativo": true,
-      "mercadopago_plan_id": "",
-      "mercadopago_init_point": ""
+      "gateway": "mercadopago",
+      "id_externo": "",
+      "link_checkout": ""
     }
   }
 ]

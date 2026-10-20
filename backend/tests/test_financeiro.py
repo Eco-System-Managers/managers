@@ -4,11 +4,11 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 
-from apps_work.agenda.models import Agendamento, AgendamentoServico, Pagamento as PagamentoAgenda
+from apps_work.agenda.models import Agendamento, AgendamentoServico, PagamentoAgendamento as PagamentoAgenda
 from apps_work.clientes.models import Cliente, ObjetoCliente, Pet
 from apps_work.financeiro.models import Despesa, TransacaoCredito
 from apps_work.financeiro.services import CaixaService, DespesaService, SaldoService
-from apps_work.kanban.models import AtendimentoKanban, EtapaKanban, PagamentoKanban
+from apps_work.kanban.models import AtendimentoKanban, EtapaKanban, PagamentoAtendimento
 from apps_work.kanban.services import AtendimentoKanbanService
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
@@ -18,10 +18,10 @@ from rest_framework.exceptions import ValidationError
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 @pytest.fixture
-def client_autenticado(patch_tenant_middleware, usuario):
+def client_autenticado(patch_tenant_middleware, proprietario):
     client = APIClient()
     client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-    client.force_authenticate(user=usuario)
+    client.force_authenticate(user=proprietario)
     return client
 
 
@@ -155,7 +155,7 @@ class TestAtendimentoKanbanServiceCredito:
 @pytest.mark.django_db
 class TestSaldoClienteView:
     def test_get_saldo_retorna_200_e_saldo_zero(self, client_autenticado, cliente):
-        response = client_autenticado.get(f'/api/financeiro/clientes/{cliente.pk}/saldo/')
+        response = client_autenticado.get(f'/api/v1/financeiro/clientes/{cliente.pk}/saldo/')
         assert response.status_code == 200
         assert response.data['saldo'] == '0.00'
         assert response.data['transacoes'] == []
@@ -164,7 +164,7 @@ class TestSaldoClienteView:
         TransacaoCredito.objects.create(
             cliente=cliente, tipo='credito', valor='25.00', origem='troco'
         )
-        response = client_autenticado.get(f'/api/financeiro/clientes/{cliente.pk}/saldo/')
+        response = client_autenticado.get(f'/api/v1/financeiro/clientes/{cliente.pk}/saldo/')
         assert response.status_code == 200
         assert response.data['saldo'] == '25.00'
         assert len(response.data['transacoes']) == 1
@@ -172,7 +172,7 @@ class TestSaldoClienteView:
     def test_get_saldo_nao_autenticado_retorna_401(self, patch_tenant_middleware, cliente):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get(f'/api/financeiro/clientes/{cliente.pk}/saldo/')
+        response = client.get(f'/api/v1/financeiro/clientes/{cliente.pk}/saldo/')
         assert response.status_code == 401
 
 
@@ -184,7 +184,7 @@ def colaborador(patch_tenant_middleware):
         username='colab@email.com', email='colab@email.com', password='senha123',
         first_name='Pedro', last_name='Costa',
     )
-    return Colaborador.objects.create(user=user, role='colaborador')
+    return Colaborador.objects.create(user=user)
 
 
 @pytest.fixture
@@ -230,7 +230,7 @@ class TestCaixaServiceColaborador:
 
     def test_filtro_por_outro_colaborador_nao_retorna_nada(self, agendamento_com_colaborador):
         outro_user = User.objects.create_user(username='outro@email.com', email='outro@email.com', password='senha123')
-        outro = Colaborador.objects.create(user=outro_user, role='colaborador')
+        outro = Colaborador.objects.create(user=outro_user)
         dados = CaixaService().obter_dados(date(2024, 6, 10), date(2024, 6, 10), colaborador_id=outro.pk)
         assert dados['pagamentos'] == []
 
@@ -238,11 +238,11 @@ class TestCaixaServiceColaborador:
 @pytest.mark.django_db
 class TestCaixaViewColaborador:
     def test_filtro_colaborador_invalido_retorna_400(self, client_autenticado):
-        response = client_autenticado.get('/api/financeiro/caixa/?colaborador=abc')
+        response = client_autenticado.get('/api/v1/financeiro/caixa/?colaborador=abc')
         assert response.status_code == 400
 
     def test_filtro_colaborador_valido_retorna_200(self, client_autenticado, colaborador):
-        response = client_autenticado.get(f'/api/financeiro/caixa/?colaborador={colaborador.pk}')
+        response = client_autenticado.get(f'/api/v1/financeiro/caixa/?colaborador={colaborador.pk}')
         assert response.status_code == 200
 
 
@@ -293,63 +293,63 @@ class TestDespesaService:
 class TestDespesaAPI:
     def test_criar_despesa(self, client_autenticado):
         payload = {'descricao': 'Aluguel', 'valor': '1200.00', 'categoria': 'aluguel', 'data': '2024-06-10'}
-        response = client_autenticado.post('/api/financeiro/despesas/', payload)
+        response = client_autenticado.post('/api/v1/financeiro/despesas/', payload)
         assert response.status_code == 201
         assert response.data['descricao'] == 'Aluguel'
 
     def test_listar_despesas_paginado(self, client_autenticado):
         _despesa()
-        response = client_autenticado.get('/api/financeiro/despesas/')
+        response = client_autenticado.get('/api/v1/financeiro/despesas/')
         assert response.status_code == 200
         assert response.data['count'] == 1
         assert len(response.data['results']) == 1
 
     def test_atualizar_despesa(self, client_autenticado):
         despesa = _despesa()
-        response = client_autenticado.patch(f'/api/financeiro/despesas/{despesa.pk}/', {'valor': '1500.00'})
+        response = client_autenticado.patch(f'/api/v1/financeiro/despesas/{despesa.pk}/', {'valor': '1500.00'})
         assert response.status_code == 200
         assert response.data['valor'] == '1500.00'
 
     def test_excluir_despesa(self, client_autenticado):
         despesa = _despesa()
-        response = client_autenticado.delete(f'/api/financeiro/despesas/{despesa.pk}/')
+        response = client_autenticado.delete(f'/api/v1/financeiro/despesas/{despesa.pk}/')
         assert response.status_code == 204
         assert not Despesa.objects.filter(pk=despesa.pk).exists()
 
     def test_filtro_por_periodo_exclui_fora_do_range(self, client_autenticado):
         _despesa(descricao='Dentro', data=date(2024, 6, 10))
         _despesa(descricao='Fora', data=date(2024, 7, 1))
-        response = client_autenticado.get('/api/financeiro/despesas/?data_inicio=2024-06-01&data_fim=2024-06-30')
+        response = client_autenticado.get('/api/v1/financeiro/despesas/?data_inicio=2024-06-01&data_fim=2024-06-30')
         assert response.data['count'] == 1
         assert response.data['results'][0]['descricao'] == 'Dentro'
 
     def test_filtro_por_categoria(self, client_autenticado):
         _despesa(categoria='aluguel')
         _despesa(categoria='marketing')
-        response = client_autenticado.get('/api/financeiro/despesas/?categoria=marketing')
+        response = client_autenticado.get('/api/v1/financeiro/despesas/?categoria=marketing')
         assert response.data['count'] == 1
         assert response.data['results'][0]['categoria'] == 'marketing'
 
     def test_resumo_endpoint_retorna_total_e_quebra(self, client_autenticado):
         _despesa(valor='700.00', categoria='aluguel', data=date(2024, 6, 5))
         _despesa(valor='300.00', categoria='produtos', data=date(2024, 6, 6))
-        response = client_autenticado.get('/api/financeiro/despesas/resumo/?data_inicio=2024-06-01&data_fim=2024-06-30')
+        response = client_autenticado.get('/api/v1/financeiro/despesas/resumo/?data_inicio=2024-06-01&data_fim=2024-06-30')
         assert response.status_code == 200
         assert response.data['total'] == '1000.00'
         assert len(response.data['por_categoria']) == 2
 
     def test_criar_com_valor_zero_retorna_400(self, client_autenticado):
         payload = {'descricao': 'Erro', 'valor': '0.00', 'categoria': 'outros', 'data': '2024-06-10'}
-        response = client_autenticado.post('/api/financeiro/despesas/', payload)
+        response = client_autenticado.post('/api/v1/financeiro/despesas/', payload)
         assert response.status_code == 400
 
     def test_colaborador_comum_nao_pode_criar_despesa(self, client_colaborador):
         payload = {'descricao': 'Aluguel', 'valor': '1200.00', 'categoria': 'aluguel', 'data': '2024-06-10'}
-        response = client_colaborador.post('/api/financeiro/despesas/', payload)
+        response = client_colaborador.post('/api/v1/financeiro/despesas/', payload)
         assert response.status_code == 403
 
     def test_nao_autenticado_retorna_401(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get('/api/financeiro/despesas/')
+        response = client.get('/api/v1/financeiro/despesas/')
         assert response.status_code == 401

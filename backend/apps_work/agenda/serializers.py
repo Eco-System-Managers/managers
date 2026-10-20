@@ -1,5 +1,6 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from .models import Agendamento, AgendamentoServico, Pagamento
+from .models import Agendamento, AgendamentoServico, OrigemAtendimento, PagamentoAgendamento
 
 
 class AgendamentoServicoSerializer(serializers.ModelSerializer):
@@ -11,20 +12,21 @@ class AgendamentoServicoSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class PagamentoSerializer(serializers.ModelSerializer):
+class PagamentoAgendamentoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Pagamento
+        model = PagamentoAgendamento
         fields = ['id', 'forma', 'valor']
 
 
 class AgendamentoSerializer(serializers.ModelSerializer):
     servicos = AgendamentoServicoSerializer(many=True, read_only=True)
-    pagamentos = PagamentoSerializer(many=True, read_only=True)
+    pagamentos = PagamentoAgendamentoSerializer(many=True, read_only=True)
     cliente_nome = serializers.ReadOnlyField(source='cliente.nome')
     cliente_telefone = serializers.ReadOnlyField(source='cliente.telefone')
     colaborador_nome = serializers.SerializerMethodField()
     servico_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_colaborador_nome(self, obj):
         if obj.colaborador:
             nome = obj.colaborador.user.get_full_name().strip()
@@ -51,3 +53,30 @@ class AgendamentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Agendamento
         fields = '__all__'
+
+
+# ---------------------------------------------------------------------------
+# Formatos de entrada e saída (documentação OpenAPI das APIViews)
+# ---------------------------------------------------------------------------
+
+class PendenciaServicoSerializer(serializers.Serializer):
+    servico_id = serializers.IntegerField(help_text='Id do Servico, na agenda e no kanban.')
+    nome = serializers.CharField()
+    preco = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class PendenciaCobrancaSerializer(serializers.Serializer):
+    origem = serializers.ChoiceField(choices=OrigemAtendimento.choices)
+    id = serializers.IntegerField(help_text='Id do agendamento ou do atendimento do kanban.')
+    data = serializers.DateField()
+    cliente_id = serializers.IntegerField()
+    cliente_nome = serializers.CharField()
+    servico_nome = serializers.CharField()
+    valor = serializers.DecimalField(max_digits=10, decimal_places=2)
+    servicos = PendenciaServicoSerializer(many=True)
+
+
+class SlotSerializer(serializers.Serializer):
+    horario = serializers.CharField(help_text='HH:MM')
+    disponivel = serializers.BooleanField()
+

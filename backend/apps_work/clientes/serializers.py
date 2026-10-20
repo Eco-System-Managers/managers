@@ -1,5 +1,6 @@
+from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema_field
 from rest_framework import serializers
-from .models import Cliente, ObjetoCliente, Pet, Veiculo
+from .models import Cliente, ObjetoCliente, OrigemCliente, Pet, TipoObjeto, Veiculo
 from .validators import validar_cpf, validar_telefone_br, validar_placa_br
 
 
@@ -28,12 +29,17 @@ class ObjetoClienteSerializer(serializers.ModelSerializer):
         fields = ['id', 'tipo', 'criado_em', 'detalhe']
         read_only_fields = ['id', 'tipo', 'criado_em']
 
+    @extend_schema_field(PolymorphicProxySerializer(
+        component_name='DetalheObjetoCliente',
+        serializers=[VeiculoSerializer, PetSerializer],
+        resource_type_field_name=None,
+    ))
     def get_detalhe(self, obj):
-        if obj.tipo == 'veiculo':
+        if obj.tipo == TipoObjeto.VEICULO:
             return VeiculoSerializer(obj.veiculo).data
-        if obj.tipo == 'pet':
+        if obj.tipo == TipoObjeto.PET:
             return PetSerializer(obj.pet).data
-        return None  # pragma: no cover — tipo é sempre 'veiculo' ou 'pet' (TIPO_CHOICES)
+        return None  # pragma: no cover — tipo é sempre um TipoObjeto
 
 
 class ClienteSerializer(serializers.ModelSerializer):
@@ -51,7 +57,7 @@ class ClienteSerializer(serializers.ModelSerializer):
             'cep', 'endereco', 'numero_endereco',
             'observacao',
             'alergia',
-            'convenio', 'carteirinha', 'plano', 'validade_plano',
+            'convenio', 'carteirinha', 'plano_saude', 'validade_plano_saude',
             'criado_em', 'origem',
             'veiculos', 'pets', 'foto',
         ]
@@ -61,10 +67,7 @@ class ClienteSerializer(serializers.ModelSerializer):
     # Campos cuja fonte é o cadastro do consumidor no schema público. Para
     # cliente vindo do Service Manage eles são espelho: aceitar edição pelo
     # painel só criaria um valor que a próxima sincronização apaga sem aviso.
-    CAMPOS_SINCRONIZADOS = [
-        'nome', 'telefone', 'cpf', 'data_nascimento',
-        'cep', 'endereco', 'numero_endereco',
-    ]
+    CAMPOS_SINCRONIZADOS = [c for c in Cliente.CAMPOS_ESPELHADOS if c != 'foto_chave']
 
     def get_foto(self, obj) -> str:
         from apps_work.empresa.services import ArmazenamentoImagemService
@@ -73,7 +76,7 @@ class ClienteSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        if instance is not None and getattr(instance, 'origem', None) == Cliente.ORIGEM_SERVICEMANAGE:
+        if instance is not None and getattr(instance, 'origem', None) == OrigemCliente.SERVICEMANAGE:
             # read_only em vez de recusar o request: o painel manda o formulário
             # inteiro em cada PATCH, então rejeitar travaria também a edição de
             # observação e alergia, que continuam sendo do negócio.
@@ -96,11 +99,13 @@ class ClienteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Telefone é obrigatório.')
         return validar_telefone_br(value)
 
+    @extend_schema_field(VeiculoSerializer(many=True))
     def get_veiculos(self, obj):
         # obj.objetos uses prefetch cache when set in viewset get_queryset
-        veiculos = [o.veiculo for o in obj.objetos.all() if o.tipo == 'veiculo']
+        veiculos = [o.veiculo for o in obj.objetos.all() if o.tipo == TipoObjeto.VEICULO]
         return VeiculoSerializer(veiculos, many=True).data
 
+    @extend_schema_field(PetSerializer(many=True))
     def get_pets(self, obj):
-        pets = [o.pet for o in obj.objetos.all() if o.tipo == 'pet']
+        pets = [o.pet for o in obj.objetos.all() if o.tipo == TipoObjeto.PET]
         return PetSerializer(pets, many=True).data

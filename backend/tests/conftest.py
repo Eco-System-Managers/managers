@@ -6,7 +6,7 @@ from django.core.management import call_command
 from django.db import connection
 from django.test import TransactionTestCase, override_settings
 from django_tenants.middleware.main import TenantMainMiddleware
-from tenants.models import Tenant, Domain
+from tenants.models import Tenant, Domain, Membro
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -37,14 +37,21 @@ def _patch_transactional_flush():
 
 
 @pytest.fixture(autouse=True)
-def disable_throttling(settings):
-    """Desabilita throttling para que testes não recebam 429 por rate limit."""
+def limpar_rate_limit():
+    """Zera os contadores de rate limit (e o resto do cache) entre testes.
+
+    Os throttles não são desligados: o DRF fixa `throttle_classes` quando
+    `rest_framework.views` é importado, e desligar por settings fazia o
+    resultado depender de qual teste importava as views primeiro.
+    """
     from django.core.cache import cache
-    settings.REST_FRAMEWORK = {
-        **settings.REST_FRAMEWORK,
-        'DEFAULT_THROTTLE_CLASSES': [],
-    }
     cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def tasks_imediatas(settings):
+    """Tasks rodam na hora nos testes; fora deles, numa thread (core/tasks.py)."""
+    settings.TASKS = {'default': {'BACKEND': 'django.tasks.backends.immediate.ImmediateBackend'}}
 
 
 def _drop_tenant_schema(schema_name: str) -> None:
@@ -55,12 +62,6 @@ def _drop_tenant_schema(schema_name: str) -> None:
         # "cannot execute DROP TABLE because of pending trigger events"
         cursor.execute('SET CONSTRAINTS ALL IMMEDIATE')
         cursor.execute(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE')
-        # Remove a ghost table do schema PUBLIC criada quando o app label era
-        # 'autenticacao' (antes de 'autenticacao_work'). Ela bloqueia o
-        # TRUNCATE de auth_user no flush pós-teste transacional.
-        # Nome schema-qualificado evita ambiguidade com search_path.
-        cursor.execute('DROP TABLE IF EXISTS public."autenticacao_codigorecuperacao" CASCADE')
-        cursor.execute('DROP TABLE IF EXISTS public."autenticacao_lastactivity" CASCADE')
     Tenant.objects.filter(schema_name=schema_name).delete()
 
 
@@ -75,7 +76,7 @@ def tenant(db):
 
     tenant = Tenant.objects.create(
         schema_name='test_empresa',
-        name='Empresa Teste',
+        nome='Empresa Teste',
     )
     connection.set_schema_to_public()
     Domain.objects.get_or_create(
@@ -135,3 +136,13 @@ def usuario(db):
         first_name='João',
         last_name='Silva',
     )
+
+
+@pytest.fixture
+def proprietario(tenant, usuario):
+    """O `usuario` como dono do tenant de teste — o vínculo que o cadastro cria.
+
+    O papel vem do Membro; sem ele o IsProprietario nega.
+    """
+    Membro.objects.create(user=usuario, tenant=tenant, papel='proprietario')
+    return usuario

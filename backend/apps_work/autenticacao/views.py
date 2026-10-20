@@ -1,36 +1,28 @@
-from django.conf import settings
-from django.contrib.auth.models import User
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
-from tenants.models import UserTenant
-from .models import CodigoRecuperacao, LastActivity
-from .serializers import CadastroSerializer
+from drf_spectacular.utils import extend_schema
 
-REFRESH_COOKIE = 'refresh_token'
-REFRESH_COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 dias
+from core.openapi import PLATAFORMA, MensagemSerializer
+from core.sessao import COOKIE_WORK
+from core.throttling import RecuperacaoPorEmailThrottle
+from .serializers import (
+    CadastroSerializer, EmailSerializer, LoginSerializer, NovaSenhaSerializer, RefreshSerializer,
+    SessaoSerializer, VerificarCodigoSerializer,
+)
+from core.excecoes import erro
 
-
-def set_refresh_cookie(response: Response, token_str: str) -> None:
-    response.set_cookie(
-        key=REFRESH_COOKIE,
-        value=token_str,
-        httponly=True,
-        secure=not settings.DEBUG,
-        samesite='Lax',
-        max_age=REFRESH_COOKIE_MAX_AGE,
-        path='/auth/',
-    )
-
-
-def delete_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key=REFRESH_COOKIE, path='/auth/')
+def responder_sessao(request, refresh, status_code=status.HTTP_200_OK) -> Response:
+    """Resposta de login, cadastro, renovação e aceite de convite."""
+    response = Response({
+        'access': str(refresh.access_token),
+        'schema_name': refresh['schema_name'],
+        'empresa': refresh['empresa'],
+    }, status=status_code)
+    COOKIE_WORK.entregar(request, response, str(refresh))
+    return response
 
 
 class CadastroView(APIView):
@@ -39,26 +31,18 @@ class CadastroView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_cadastro'
 
+    @extend_schema(
+        request=CadastroSerializer, responses={201: SessaoSerializer}, parameters=[PLATAFORMA],
+        summary='Cadastrar empresa e dono',
+    )
     def post(self, request):
         serializer = CadastroSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user, tenant = serializer.save()
 
-        from django.utils import timezone
-        LastActivity.objects.create(user=user, ultimo_acesso=timezone.now())
-
-        refresh = RefreshToken.for_user(user)
-        refresh['schema_name'] = tenant.schema_name
-        refresh['empresa'] = tenant.name
-
-        response = Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'schema_name': tenant.schema_name,
-            'empresa': tenant.name,
-        }, status=status.HTTP_201_CREATED)
-        set_refresh_cookie(response, str(refresh))
-        return response
+        from .services import SessaoService
+        refresh = SessaoService().emitir(user, tenant)
+        return responder_sessao(request, refresh, status.HTTP_201_CREATED)
 
 
 class LoginView(APIView):
@@ -67,69 +51,35 @@ class LoginView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_login'
 
+    @extend_schema(
+        request=LoginSerializer, responses=SessaoSerializer, parameters=[PLATAFORMA],
+        summary='Entrar com e-mail e senha',
+    )
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
-        senha = request.data.get('senha', '')
-
-        try:
-            user = User.objects.get(username=email)
-        except User.DoesNotExist:
-            return Response(
-                {'detail': 'E-mail ou senha inválidos.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        if not user.check_password(senha):
-            return Response(
-                {'detail': 'E-mail ou senha inválidos.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        if not user.is_active:
-            return Response(
-                {
-                    'detail': 'Você está inativo. Entre em contato com o proprietário do sistema.',
-                    'code': 'user_inactive',
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        user_tenant = UserTenant.objects.filter(user=user).select_related('tenant').first()
-        if not user_tenant:
-            return Response(
-                {'detail': 'Usuário não vinculado a nenhuma empresa.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        tenant = user_tenant.tenant
-
-        from django.utils import timezone
-        LastActivity.objects.update_or_create(user=user, defaults={'ultimo_acesso': timezone.now()})
-
-        refresh = RefreshToken.for_user(user)
-        refresh['schema_name'] = tenant.schema_name
-        refresh['empresa'] = tenant.name
-
-        response = Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'schema_name': tenant.schema_name,
-            'empresa': tenant.name,
-        })
-        set_refresh_cookie(response, str(refresh))
-        return response
+        from .services import LoginService, SessaoService
+        # Credencial errada, usuário inativo, sem empresa e limite de falhas
+        # levantam ErroDeNegocio com o status certo; o handler monta a resposta.
+        user, tenant = LoginService().autenticar(
+            request.data.get('email', ''), request.data.get('senha', ''),
+        )
+        return responder_sessao(request, SessaoService().emitir(user, tenant))
 
 
 class RecuperarSenhaView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [ScopedRateThrottle, RecuperacaoPorEmailThrottle]
     throttle_scope = 'auth_recovery'
 
+    @extend_schema(
+        request=EmailSerializer, responses=MensagemSerializer,
+        summary='Pedir código de recuperação de senha',
+        description='Responde sempre a mesma mensagem, exista ou não a conta.',
+    )
     def post(self, request):
         from .services import RecuperacaoSenhaService
         email = request.data.get('email', '').strip()
-        msg = RecuperacaoSenhaService().recuperar(email)
+        msg = RecuperacaoSenhaService().solicitar(email)
         return Response({'detail': msg})
 
 
@@ -139,21 +89,17 @@ class VerificarCodigoView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_verify'
 
+    @extend_schema(
+        request=VerificarCodigoSerializer, responses=MensagemSerializer,
+        summary='Conferir código de recuperação',
+    )
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
+        from .services import RecuperacaoSenhaService
+        email = request.data.get('email', '')
         codigo = request.data.get('codigo', '').strip()
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({'detail': 'Código inválido.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        registro = CodigoRecuperacao.objects.filter(
-            user=user, codigo=codigo, usado=False
-        ).first()
-
-        if not registro or registro.expirado:
-            return Response({'detail': 'Código inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not RecuperacaoSenhaService().verificar_codigo(email, codigo):
+            return erro('Código inválido ou expirado.', status_code=status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Código válido.'})
 
@@ -164,33 +110,20 @@ class NovaSenhaView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_verify'
 
+    @extend_schema(
+        request=NovaSenhaSerializer, responses=MensagemSerializer,
+        summary='Redefinir senha com o código',
+    )
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
+        from .services import RecuperacaoSenhaService
+        email = request.data.get('email', '')
         codigo = request.data.get('codigo', '').strip()
         nova_senha = request.data.get('nova_senha', '')
 
         try:
-            validate_password(nova_senha)
-        except DjangoValidationError as e:
-            return Response({'detail': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({'detail': 'Código inválido.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        registro = CodigoRecuperacao.objects.filter(
-            user=user, codigo=codigo, usado=False
-        ).first()
-
-        if not registro or registro.expirado:
-            return Response({'detail': 'Código inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user.set_password(nova_senha)
-        user.save()
-
-        registro.usado = True
-        registro.save()
+            RecuperacaoSenhaService().redefinir_senha(email, codigo, nova_senha)
+        except ValueError as e:
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Senha redefinida com sucesso.'})
 
@@ -199,37 +132,40 @@ class CookieTokenRefreshView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RefreshSerializer, responses=SessaoSerializer, parameters=[PLATAFORMA],
+        summary='Renovar a sessão',
+        description='Cada refresh vale uma vez: a resposta traz um novo (cookie no web, corpo no mobile).',
+    )
     def post(self, request):
-        token_str = request.COOKIES.get(REFRESH_COOKIE) or request.data.get('refresh', '')
-        if not token_str:
-            return Response(
-                {'detail': 'Sessão expirada. Faça login novamente.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        from .services import SessaoInvalida, SessaoService
+
+        token_str = COOKIE_WORK.refresh_da_requisicao(request)
         try:
-            refresh = RefreshToken(token_str)
-            response = Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'schema_name': refresh.payload.get('schema_name', ''),
-                'empresa': refresh.payload.get('empresa', ''),
-            })
-            set_refresh_cookie(response, str(refresh))
+            if not token_str:
+                raise SessaoInvalida()
+            refresh = SessaoService().renovar(token_str)
+        except SessaoInvalida:
+            response = erro('Sessão expirada. Faça login novamente.', status_code=status.HTTP_401_UNAUTHORIZED)
+            COOKIE_WORK.apagar(response)
             return response
-        except TokenError:
-            response = Response(
-                {'detail': 'Sessão expirada. Faça login novamente.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-            delete_refresh_cookie(response)
-            return response
+        return responder_sessao(request, refresh)
 
 
 class LogoutView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RefreshSerializer, responses=MensagemSerializer, parameters=[PLATAFORMA],
+        summary='Sair (revoga o refresh)',
+    )
     def post(self, request):
+        from .services import SessaoService
+
+        token_str = COOKIE_WORK.refresh_da_requisicao(request)
+        if token_str:
+            SessaoService().encerrar(token_str)
         response = Response({'detail': 'Logout realizado com sucesso.'})
-        delete_refresh_cookie(response)
+        COOKIE_WORK.apagar(response)
         return response

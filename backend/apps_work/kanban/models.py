@@ -1,15 +1,8 @@
 from django.db import models
 from django.db.models import Q, UniqueConstraint
+from apps_work.agenda.models import FormaPagamento
 from apps_work.clientes.models import ObjetoCliente
 from apps_work.servicos.models import Servico
-
-FORMAS_PAGAMENTO = [
-    ('dinheiro', 'Dinheiro'),
-    ('pix', 'PIX'),
-    ('credito', 'Crédito'),
-    ('debito', 'Débito'),
-    ('qr_code', 'QR Code'),
-]
 
 
 class EtapaKanban(models.Model):
@@ -60,9 +53,9 @@ class AtendimentoKanban(models.Model):
         return f'{self.objeto} — {self.etapa}'
 
 
-class PagamentoKanban(models.Model):
+class PagamentoAtendimento(models.Model):
     atendimento = models.ForeignKey(AtendimentoKanban, on_delete=models.CASCADE, related_name='pagamentos')
-    forma = models.CharField(max_length=20, choices=FORMAS_PAGAMENTO)
+    forma = models.CharField(max_length=20, choices=FormaPagamento.choices)
     valor = models.DecimalField(max_digits=8, decimal_places=2)
     criado_em = models.DateTimeField(auto_now_add=True)
 

@@ -11,12 +11,12 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `Agendamento`, `AgendamentoServico` (o N:N com preço congelado) e `Pagamento` |
+| `models.py` | `Agendamento`, `AgendamentoServico` (o N:N com preço congelado) e `PagamentoAgendamento` |
 | `services.py` | Quatro serviços: dias com registro, pendências de cobrança, grade de horários livres e a regra de conflito |
 | `views.py` | `AgendamentoViewSet` mais três views de leitura (slots, dias do mês, pendências) |
 | `serializers.py` | Representação; o `create` monta agendamento e serviços juntos |
 | `signals.py` | Declara `agendamento_status_alterado`, que a vitrine escuta |
-| `urls.py` | Rotas sob `/api/agendamentos/` e afins |
+| `urls.py` | Rotas sob `/api/v1/agendamentos/` e afins |
 
 ## Os três modelos
 
@@ -24,7 +24,7 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 |---|---|
 | `Agendamento` | O compromisso: cliente, colaborador, data/hora, status |
 | `AgendamentoServico` | Quais serviços, com `preco_cobrado` **congelado** no momento do agendamento — mudar a tabela de preços depois não reescreve o passado |
-| `Pagamento` | Como foi pago (dinheiro, PIX, crédito, débito, QR Code). Um agendamento pode ter mais de um |
+| `PagamentoAgendamento` | Como foi pago (dinheiro, PIX, crédito, débito, QR Code). Um agendamento pode ter mais de um |
 
 ## Tabelas
 
@@ -49,7 +49,7 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 | `preco_cobrado` | `Decimal(8,2)` | **Congelado** no agendamento. Mudar a tabela de preços não reescreve o passado |
 | `desconto` | `Decimal(8,2)` = 0 | Desconto neste item |
 
-### `Pagamento` — como foi pago
+### `PagamentoAgendamento` — como foi pago
 
 | Coluna | Tipo | O que é |
 |---|---|---|
@@ -67,12 +67,13 @@ apenas o horário de início.
 Quem não tem colaborador definido não entra na checagem: sem profissional, não
 há recurso disputado.
 
-## Paginação condicional
+## Paginação
 
-`paginate_queryset` devolve `None` quando vem `?data=`. É proposital: a grade do
-dia monta a linha do tempo com todos os agendamentos daquela data, e uma página
-2 que não chega faria horário sumir da tela sem erro nenhum. O dia já é limite
-natural. Sem `data` — histórico por cliente — pagina normalmente.
+A listagem é sempre paginada (`core/paginacao.py`), inclusive com `?data=` —
+antes o dia saía como array e a mesma rota tinha dois formatos. A grade do dia
+monta a linha do tempo com todos os agendamentos daquela data, então o front
+pede `?page_size=100` e **segue o `next`** se ele vier: uma página que não chega
+faria horário sumir da tela sem erro nenhum.
 
 ## O que é fácil errar aqui
 

@@ -1,6 +1,6 @@
 from django.db import connection
 
-from .models import Cliente
+from .models import Cliente, OrigemCliente
 from .signals import cliente_servicemanage_removido
 
 
@@ -16,15 +16,16 @@ class RemocaoClienteService:
     """
 
     def remover(self, cliente: Cliente) -> None:
-        if cliente.origem != Cliente.ORIGEM_SERVICEMANAGE:
+        if cliente.origem != OrigemCliente.SERVICEMANAGE:
             cliente.delete()
             return
 
+        # Mesma regra do desvínculo feito pelo app: os dados pessoais saem.
         cliente.visivel = False
-        cliente.save(update_fields=['visivel'])
+        cliente.save(update_fields=['visivel', *cliente.apagar_dados_pessoais()])
 
         cliente_servicemanage_removido.send(
             sender=Cliente,
             schema_name=connection.schema_name,
-            email=cliente.email,
+            consumidor_id=cliente.consumidor_id,
         )

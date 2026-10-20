@@ -2,13 +2,15 @@ from django.db import connection
 from django_tenants.utils import schema_context
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from .models import Contrato, ModeloContrato
 from .serializers import (
+    AcaoContratoPublicoSerializer,
     AssinarContratoSerializer,
     ContratoPublicoSerializer,
     ContratoSerializer,
@@ -16,6 +18,8 @@ from .serializers import (
     ModeloContratoSerializer,
 )
 from .services import ContratoService
+from core.excecoes import erro
+from core.schemas import schema_valido
 
 
 class ModeloContratoViewSet(viewsets.ModelViewSet):
@@ -26,15 +30,9 @@ class ModeloContratoViewSet(viewsets.ModelViewSet):
         return ModeloContrato.objects.all()
 
 
-class ContratoPagination(PageNumberPagination):
-    page_size = 20
-
-
 class ContratoViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = ContratoPagination
-
     def get_queryset(self):
         qs = Contrato.objects.select_related('cliente', 'modelo')
         cliente_id = self.request.query_params.get('cliente')
@@ -47,6 +45,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
         # duas paginas e omitir outro.
         return qs.order_by('-criado_em', '-id')
 
+    @extend_schema(request=GerarContratoSerializer, responses={201: ContratoSerializer}, summary='Gerar contrato a partir de um modelo')
     @action(detail=False, methods=['post'])
     def gerar(self, request):
         serializer = GerarContratoSerializer(data=request.data)
@@ -55,23 +54,18 @@ class ContratoViewSet(viewsets.ModelViewSet):
         try:
             modelo = ModeloContrato.objects.get(pk=serializer.validated_data['modelo_id'])
         except ModeloContrato.DoesNotExist:
-            return Response(
-                {'detail': 'Modelo não encontrado.', 'code': 'modelo_nao_encontrado'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return erro('Modelo não encontrado.', 'modelo_nao_encontrado', status.HTTP_404_NOT_FOUND)
 
         from apps_work.clientes.models import Cliente
         try:
             cliente = Cliente.objects.get(pk=serializer.validated_data['cliente_id'])
         except Cliente.DoesNotExist:
-            return Response(
-                {'detail': 'Cliente não encontrado.', 'code': 'cliente_nao_encontrado'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return erro('Cliente não encontrado.', 'cliente_nao_encontrado', status.HTTP_404_NOT_FOUND)
 
         contrato = ContratoService().gerar(modelo, cliente)
         return Response(ContratoSerializer(contrato).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=None, responses={200: ContratoSerializer}, summary='Enviar contrato por e-mail ao cliente')
     @action(detail=True, methods=['post'])
     def enviar(self, request, pk=None):
         contrato = self.get_object()
@@ -79,10 +73,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
         try:
             ContratoService().enviar(contrato, schema_name)
         except ValueError as e:
-            return Response(
-                {'detail': str(e), 'code': 'envio_invalido'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return erro(str(e), getattr(e, 'code', 'envio_invalido'), status.HTTP_400_BAD_REQUEST)
         return Response(ContratoSerializer(contrato).data)
 
 
@@ -95,37 +86,38 @@ class ContratoPublicoView(APIView):
     permission_classes = [AllowAny]
 
     def _get_contrato(self, schema_name: str, token: str):
+        # schema_name vem da URL pública: sem checar, schema inexistente dava
+        # 500 e o público era alcançável.
+        from tenants.models import Tenant
+        if not schema_valido(schema_name) or not Tenant.objects.filter(schema_name=schema_name).exists():
+            return None
         try:
             with schema_context(schema_name):
                 return Contrato.objects.select_related('cliente').get(token=token)
         except Contrato.DoesNotExist:
             return None
 
+    @extend_schema(responses=ContratoPublicoSerializer, summary='Contrato aberto pelo link do e-mail')
     def get(self, request, schema_name: str, token: str):
         contrato = self._get_contrato(schema_name, token)
         if not contrato:
-            return Response(
-                {'detail': 'Contrato não encontrado.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return erro('Contrato não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
         with schema_context(schema_name):
             data = ContratoPublicoSerializer(contrato).data
         return Response(data)
 
+    @extend_schema(
+        request=AcaoContratoPublicoSerializer, responses=ContratoPublicoSerializer,
+        summary='Assinar ou recusar o contrato',
+    )
     def post(self, request, schema_name: str, token: str):
         acao = request.data.get('acao')
         if acao not in ('assinar', 'recusar'):
-            return Response(
-                {'detail': 'Ação inválida. Use "assinar" ou "recusar".'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Ação inválida. Use "assinar" ou "recusar".', status_code=status.HTTP_400_BAD_REQUEST)
 
         contrato = self._get_contrato(schema_name, token)
         if not contrato:
-            return Response(
-                {'detail': 'Contrato não encontrado.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return erro('Contrato não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         service = ContratoService()
 
@@ -134,10 +126,10 @@ class ContratoPublicoView(APIView):
                 if acao == 'assinar':
                     serializer = AssinarContratoSerializer(data=request.data)
                     serializer.is_valid(raise_exception=True)
-                    ip = (
-                        request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-                        or request.META.get('REMOTE_ADDR', '')
-                    )
+                    # Mesma identificação do rate limiting (NUM_PROXIES): o
+                    # X-Forwarded-For cru é escrito pelo cliente e forjaria o IP
+                    # registrado na assinatura.
+                    ip = BaseThrottle().get_ident(request)
                     contrato = service.assinar(
                         contrato,
                         nome_assinante=serializer.validated_data['nome_assinante'],
@@ -146,9 +138,6 @@ class ContratoPublicoView(APIView):
                 else:
                     contrato = service.recusar(contrato)
             except ValueError as e:
-                return Response(
-                    {'detail': str(e), 'code': 'acao_invalida'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return erro(str(e), getattr(e, 'code', 'acao_invalida'), status.HTTP_400_BAD_REQUEST)
 
         return Response(ContratoPublicoSerializer(contrato).data)

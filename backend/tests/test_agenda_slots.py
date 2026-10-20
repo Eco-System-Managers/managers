@@ -16,10 +16,10 @@ DIA = date(2026, 6, 10)
 
 
 @pytest.fixture
-def client_autenticado(patch_tenant_middleware, usuario):
+def client_autenticado(patch_tenant_middleware, proprietario):
     client = APIClient()
     client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-    client.force_authenticate(user=usuario)
+    client.force_authenticate(user=proprietario)
     return client
 
 
@@ -98,18 +98,18 @@ class TestGradeDeSlots:
 class TestSlotsAPI:
     def test_retorna_a_grade(self, client_autenticado, expediente, servico, colaborador):
         response = client_autenticado.get(
-            f'/api/agenda/slots/?data={DIA.isoformat()}&servico={servico.pk}&colaborador={colaborador.pk}'
+            f'/api/v1/agenda/slots/?data={DIA.isoformat()}&servico={servico.pk}&colaborador={colaborador.pk}'
         )
         assert response.status_code == 200
 
     def test_sem_colaborador_recusa(self, client_autenticado, expediente, servico):
         response = client_autenticado.get(
-            f'/api/agenda/slots/?data={DIA.isoformat()}&servico={servico.pk}'
+            f'/api/v1/agenda/slots/?data={DIA.isoformat()}&servico={servico.pk}'
         )
         assert response.status_code == 400
 
     def test_sem_autenticacao_retorna_401(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get('/api/agenda/slots/')
+        response = client.get('/api/v1/agenda/slots/')
         assert response.status_code == 401

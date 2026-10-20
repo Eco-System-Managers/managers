@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -7,25 +8,29 @@ from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 
+from core import rotas
 from core.cache import TTL_ASSINATURA_SEGUNDOS, chave_assinatura_bloqueada
 
+logger = logging.getLogger(__name__)
+
 _INACTIVITY_SKIP = {
-    '/auth/login/',
-    '/auth/cadastro/',
-    '/auth/recuperar-senha/',
-    '/auth/verificar-codigo/',
-    '/auth/nova-senha/',
-    '/api/token/refresh/',
+    f'{rotas.WORK_AUTH}login/',
+    f'{rotas.WORK_AUTH}cadastro/',
+    f'{rotas.WORK_AUTH}recuperar-senha/',
+    f'{rotas.WORK_AUTH}verificar-codigo/',
+    f'{rotas.WORK_AUTH}nova-senha/',
     '/admin/',
     # Service Manage (B2C)
-    '/api/sm/auth/cadastro/',
-    '/api/sm/auth/login/',
-    '/api/sm/auth/refresh/',
-    '/api/sm/auth/logout/',
+    f'{rotas.SERVICEMANAGE_AUTH}cadastro/',
+    f'{rotas.SERVICEMANAGE_AUTH}login/',
+    f'{rotas.SERVICEMANAGE_AUTH}refresh/',
+    f'{rotas.SERVICEMANAGE_AUTH}logout/',
 }
 
 
 _TOKEN_NO_REQUEST = '_access_token_decodificado'
+
+_PREFIXO_SERVICEMANAGE = rotas.SERVICEMANAGE
 
 
 def _token_do_request(request):
@@ -76,12 +81,12 @@ class InactivityMiddleware:
         controle de inatividade e conveniencia, nao autenticacao.
         """
         try:
-            from apps_work.autenticacao.models import LastActivity
+            from apps_work.autenticacao.models import UltimaAtividade
 
             agora = timezone.now()
             timeout = timedelta(minutes=getattr(settings, 'INACTIVITY_TIMEOUT_MINUTES', 30))
 
-            registro, criado = LastActivity.objects.get_or_create(
+            registro, criado = UltimaAtividade.objects.get_or_create(
                 user_id=token['user_id'],
                 defaults={'ultimo_acesso': agora},
             )
@@ -111,6 +116,7 @@ class InactivityMiddleware:
 
             return None
         except Exception:
+            logger.warning('Falha no controle de inatividade', exc_info=True)
             return None
 
 
@@ -128,7 +134,9 @@ class JWTTenantMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if connection.schema_name == 'public':
+        # O Service Manage vive no schema público: um token do Work Manage
+        # mandado para lá não pode puxar a requisição para dentro de um tenant.
+        if connection.schema_name == 'public' and not request.path.startswith(_PREFIXO_SERVICEMANAGE):
             token = _token_do_request(request)
             if token is not None:
                 schema_name = token.get('schema_name')
@@ -139,16 +147,23 @@ class JWTTenantMiddleware:
 
 
 _BLOQUEIO_ISENTOS = (
-    '/api/billing/',
+    # Login, cadastro, refresh e recuperação: estavam em /auth/, fora de /api/,
+    # e continuam isentos — o dono de um tenant bloqueado precisa entrar para
+    # pagar.
+    rotas.WORK_AUTH,
+    # O cliente que assina pelo link do e-mail não tem nada a ver com a
+    # assinatura do negócio (antes a rota ficava fora de /api/).
+    f'{rotas.WORK}contratos/publico/',
+    f'{rotas.WORK}billing/',
     # /me/ identifica o usuário logado e decide se ele pode ver o botão de
     # assinar (só o proprietário pode) — precisa funcionar mesmo bloqueado,
     # senão ninguém consegue sair do estado bloqueado.
-    '/api/colaboradores/me/',
+    f'{rotas.WORK}colaboradores/me/',
     # PrivateRoute (frontend) consulta isso pra saber se o onboarding foi
     # concluído antes mesmo de decidir pra onde navegar — sem essa isenção,
     # todo tenant bloqueado é jogado de volta pro login em vez de continuar
     # logado e cair na tela de Pagamentos.
-    '/api/empresa/config/',
+    f'{rotas.WORK}empresa/config/',
 )
 
 
@@ -166,13 +181,13 @@ class AssinaturaBloqueadaMiddleware:
     def __call__(self, request):
         if (
             connection.schema_name != 'public'
-            and request.path.startswith('/api/')
+            and request.path.startswith(rotas.WORK)
             and not any(request.path.startswith(p) for p in _BLOQUEIO_ISENTOS)
         ):
             if self._bloqueada(connection.schema_name):
                 return JsonResponse(
                     {
-                        'detail': 'Assinatura inativa. Assine o plano Pro para continuar.',
+                        'detail': 'Assinatura inativa. Assine um plano para continuar.',
                         'code': 'assinatura_bloqueada',
                     },
                     status=402,

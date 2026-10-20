@@ -52,3 +52,13 @@ class ContratoPublicoSerializer(serializers.ModelSerializer):
             return config.nome if config else ''
         except Exception:
             return ''
+
+
+# ---------------------------------------------------------------------------
+# Formatos de entrada e saída (documentação OpenAPI das APIViews)
+# ---------------------------------------------------------------------------
+
+class AcaoContratoPublicoSerializer(serializers.Serializer):
+    acao = serializers.ChoiceField(choices=['assinar', 'recusar'])
+    nome_assinante = serializers.CharField(required=False, help_text='Obrigatório quando acao=assinar.')
+

@@ -1,10 +1,17 @@
 import logging
-import secrets
+import uuid
 
-from django.core.mail import send_mail
+from django.contrib.auth.hashers import make_password
 from django.db import transaction
+from django.utils import timezone
 
-from .models import CodigoRecuperacaoConsumidor, Consumidor
+from core.recuperacao import RecuperacaoSenhaBase
+from core.limites import login_servicemanage
+
+from apps_work.clientes.models import TipoObjeto
+
+from .models import CodigoRecuperacaoConsumidor, Consumidor, ObjetoConsumidor
+from core.excecoes import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +21,7 @@ class RegistroConsumidorService:
         email = email.strip().lower()
 
         if Consumidor.objects.filter(email=email).exists():
-            raise ValueError('Já existe uma conta com este e-mail.')
+            raise ErroDeNegocio('Já existe uma conta com este e-mail.', 'email_ja_cadastrado')
 
         with transaction.atomic():
             consumidor = Consumidor(nome=nome, email=email, telefone=telefone)
@@ -27,86 +34,124 @@ class RegistroConsumidorService:
 class LoginConsumidorService:
     def autenticar(self, email: str, senha: str) -> Consumidor:
         email = email.strip().lower()
+        # Levanta MuitasTentativas com 10 falhas em 15 minutos para o e-mail.
+        login_servicemanage.verificar(email)
 
-        try:
-            consumidor = Consumidor.objects.get(email=email)
-        except Consumidor.DoesNotExist:
-            raise ValueError('E-mail ou senha inválidos.')
+        consumidor = Consumidor.objects.filter(email=email).first()
+        if consumidor is None:
+            # Calcula um hash mesmo assim: sem isso, e-mail inexistente responde
+            # mais rápido e o tempo de resposta revela quem tem conta.
+            make_password(senha)
+        if consumidor is None or not consumidor.check_password(senha):
+            login_servicemanage.registrar_falha(email)
+            raise ErroDeNegocio('E-mail ou senha inválidos.', 'credenciais_invalidas', 401)
+        login_servicemanage.limpar(email)
 
-        if not consumidor.check_password(senha):
-            raise ValueError('E-mail ou senha inválidos.')
-
-        if not consumidor.is_active:
-            raise ValueError('Conta inativa. Entre em contato com o suporte.')
+        if not consumidor.ativo:
+            raise ErroDeNegocio('Conta inativa. Entre em contato com o suporte.', 'conta_inativa', 403)
 
         return consumidor
 
 
-class RecuperacaoSenhaConsumidorService:
-    GENERIC_MSG = 'Se este e-mail estiver cadastrado, você receberá um código em instantes.'
+class RecuperacaoSenhaConsumidorService(RecuperacaoSenhaBase):
+    modelo_codigo = CodigoRecuperacaoConsumidor
+    nome_produto = 'Service Manage'
 
-    def solicitar(self, email: str) -> str:
-        try:
-            consumidor = Consumidor.objects.get(email=email.strip().lower(), is_active=True)
-        except Consumidor.DoesNotExist:
-            return self.GENERIC_MSG
+    def _dono(self, email: str):
+        return Consumidor.objects.filter(email=email.strip().lower()).first()
 
-        CodigoRecuperacaoConsumidor.objects.filter(consumidor=consumidor, usado=False).update(usado=True)
+    def _dono_para_envio(self, email: str):
+        # Conta desativada não recebe código.
+        return Consumidor.objects.filter(email=email.strip().lower(), ativo=True).first()
 
-        codigo = ''.join(secrets.choice('0123456789') for _ in range(8))
-        CodigoRecuperacaoConsumidor.objects.create(consumidor=consumidor, codigo=codigo)
+    def _encerrar_sessoes(self, consumidor) -> None:
+        # Todo token emitido antes de agora deixa de valer, inclusive access.
+        consumidor.sessoes_validas_desde = timezone.now()
+        consumidor.save(update_fields=['sessoes_validas_desde'])
 
-        send_mail(
-            subject='Código de recuperação — Service Manage',
-            message=f'Seu código de recuperação é: {codigo}\n\nEle expira em 15 minutos.',
-            from_email=None,
-            recipient_list=[email],
+
+class ObjetoConsumidorService:
+    """Pets e veículos do consumidor: o que cada tipo exige e como aparece."""
+
+    def cadastrar(self, consumidor, tipo: str, dados: dict) -> ObjetoConsumidor:
+        from .serializers import DadosPetSerializer, DadosVeiculoSerializer
+
+        por_tipo = {TipoObjeto.VEICULO: DadosVeiculoSerializer, TipoObjeto.PET: DadosPetSerializer}
+        if tipo not in por_tipo:
+            raise ErroDeNegocio('Tipo inválido.', 'tipo_invalido')
+        if not isinstance(dados, dict):
+            raise ErroDeNegocio('dados deve ser um objeto.', 'dados_invalidos')
+
+        # Formato fixo por tipo: campos desconhecidos ficam de fora, e a placa
+        # passa pela mesma validação do veículo cadastrado pelo negócio.
+        entrada = por_tipo[tipo](data=dados)
+        if not entrada.is_valid():
+            erros = entrada.errors
+            ausentes = [c for c, msgs in erros.items() if any(m.code in ('required', 'blank') for m in msgs)]
+            if ausentes:
+                raise ErroDeNegocio(f"Campos obrigatórios: {', '.join(ausentes)}.", 'campos_obrigatorios')
+            if 'placa' in erros:
+                raise ErroDeNegocio(str(erros['placa'][0]), 'placa_invalida')
+            if 'porte' in erros:
+                raise ErroDeNegocio('Porte inválido.', 'porte_invalido')
+            campo, msgs = next(iter(erros.items()))
+            raise ErroDeNegocio(f'{campo}: {msgs[0]}', 'dados_invalidos')
+        dados = dict(entrada.validated_data)
+
+        return ObjetoConsumidor.objects.create(
+            consumidor=consumidor, tipo=tipo, dados=dados, nome_exibicao=self._nome_exibicao(tipo, dados),
         )
 
-        return self.GENERIC_MSG
+    def _nome_exibicao(self, tipo: str, dados: dict) -> str:
+        if tipo == TipoObjeto.VEICULO:
+            return f"{dados['marca']} {dados['modelo']} · {dados['placa']}"
+        return f"{dados['nome']} ({dados['especie']})"
 
-    def verificar_codigo(self, email: str, codigo: str) -> bool:
+
+class FotoConsumidorService:
+    """Foto de perfil do consumidor: troca e remoção.
+
+    A imagem vai para o prefixo privado do bucket — a URL de leitura é assinada
+    e expira. A logo do negócio é pública; o rosto do cliente, não.
+    """
+
+    def trocar(self, consumidor, arquivo) -> None:
+        """Levanta ImagemInvalidaError para arquivo recusado; falha do provedor
+        de armazenamento sobe como está (a view responde 500 sem detalhe)."""
+        from apps_work.empresa.services import ArmazenamentoImagemService
+
+        armazenamento = ArmazenamentoImagemService()
+        armazenamento.validar(arquivo)
+        anterior = consumidor.foto_chave
+        # Chave nova a cada envio, e sempre um UUID: id sequencial no endereço
+        # permitiria varrer as fotos de todo mundo por tentativa.
+        consumidor.foto_chave = armazenamento.salvar(
+            arquivo, prefixo=armazenamento.PREFIXO_CONSUMIDORES, chave=str(uuid.uuid4()),
+        )
+        consumidor.save(update_fields=['foto_chave'])
+        # Só depois de gravar a nova: se o envio falhasse no meio, a antiga
+        # ainda seria a válida.
+        self._apagar(armazenamento, anterior)
+        SincronizarClienteService().sincronizar(consumidor)
+
+    def remover(self, consumidor) -> None:
+        from apps_work.empresa.services import ArmazenamentoImagemService
+
+        anterior = consumidor.foto_chave
+        consumidor.foto_chave = ''
+        consumidor.save(update_fields=['foto_chave'])
+        self._apagar(ArmazenamentoImagemService(), anterior)
+        SincronizarClienteService().sincronizar(consumidor)
+
+    def _apagar(self, armazenamento, caminho: str) -> None:
+        """Arquivo órfão no bucket é lixo, não falha: o cadastro já está certo,
+        e não vale derrubar a requisição por isso."""
+        if not caminho:
+            return
         try:
-            consumidor = Consumidor.objects.get(email=email.strip().lower())
-        except Consumidor.DoesNotExist:
-            return False
-
-        registro = CodigoRecuperacaoConsumidor.objects.filter(
-            consumidor=consumidor, usado=False
-        ).first()
-
-        if not registro or registro.expirado or registro.bloqueado:
-            return False
-
-        if not secrets.compare_digest(registro.codigo, codigo):
-            registro.tentativas += 1
-            registro.save(update_fields=['tentativas'])
-            return False
-
-        return True
-
-    def redefinir_senha(self, email: str, codigo: str, nova_senha: str) -> None:
-        try:
-            consumidor = Consumidor.objects.get(email=email.strip().lower())
-        except Consumidor.DoesNotExist:
-            raise ValueError('Código inválido.')
-
-        registro = CodigoRecuperacaoConsumidor.objects.filter(
-            consumidor=consumidor, usado=False
-        ).first()
-
-        if not registro or registro.expirado or registro.bloqueado:
-            raise ValueError('Código inválido ou expirado.')
-
-        if not secrets.compare_digest(registro.codigo, codigo):
-            registro.tentativas += 1
-            registro.save(update_fields=['tentativas'])
-            raise ValueError('Código inválido ou expirado.')
-
-        consumidor.set_password(nova_senha)
-        consumidor.save(update_fields=['password'])
-        registro.usado = True
-        registro.save(update_fields=['usado'])
+            armazenamento.apagar(caminho)
+        except Exception:
+            logger.warning('Nao foi possivel apagar a foto anterior', exc_info=True)
 
 
 class SincronizarClienteService:
@@ -120,13 +165,6 @@ class SincronizarClienteService:
     engolida: o salvamento do perfil não pode depender de todos os tenants
     estarem de pé.
     """
-
-    # `foto_chave` entra aqui e não como caso especial: para o negócio, a foto é
-    # mais um dado da ficha do cliente. Some junto quando o vínculo é desfeito.
-    CAMPOS = [
-        'nome', 'telefone', 'cpf', 'data_nascimento',
-        'cep', 'endereco', 'numero_endereco', 'foto_chave',
-    ]
 
     def sincronizar(self, consumidor: Consumidor) -> int:
         from .models import VinculoConsumidor
@@ -152,9 +190,7 @@ class SincronizarClienteService:
                 if cliente is None:
                     return False
 
-                for campo in self.CAMPOS:
-                    setattr(cliente, campo, getattr(consumidor, campo))
-                cliente.save(update_fields=self.CAMPOS)
+                cliente.save(update_fields=cliente.espelhar(consumidor))
                 return True
         except Exception:
             logger.warning(

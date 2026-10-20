@@ -59,7 +59,7 @@ def agendamento_ativo(consumidor):
         schema_name='barbearia_teste',
         agendamento_id=99,
         negocio_nome='Barbearia Teste',
-        servicos=[{'nome': 'Corte', 'duracao': 30, 'preco': 50.0}],
+        servicos=[{'nome': 'Corte', 'duracao': 30, 'preco': 50.0, 'taxa_cancelamento': 0.0}],
         data_hora=timezone.now() + timedelta(hours=12),
         duracao_total=30,
         valor_total=Decimal('50.00'),
@@ -74,7 +74,7 @@ def agendamento_ativo(consumidor):
 @pytest.mark.django_db
 class TestCadastroConsumidor:
     def test_cadastro_valido_retorna_201_e_access_token(self, api_anonimo):
-        response = api_anonimo.post('/api/sm/auth/cadastro/', {
+        response = api_anonimo.post('/api/sm/v1/auth/cadastro/', {
             'nome': 'Ana Lima',
             'email': 'ana@sm.com',
             'senha': 'SenhaForte123!',
@@ -84,7 +84,7 @@ class TestCadastroConsumidor:
         assert 'access' in response.data
 
     def test_cadastro_valido_seta_cookie_sm_refresh_token(self, api_anonimo):
-        response = api_anonimo.post('/api/sm/auth/cadastro/', {
+        response = api_anonimo.post('/api/sm/v1/auth/cadastro/', {
             'nome': 'Ana Lima',
             'email': 'ana@sm.com',
             'senha': 'SenhaForte123!',
@@ -93,7 +93,7 @@ class TestCadastroConsumidor:
         assert response.cookies.get('sm_refresh_token') is not None
 
     def test_cadastro_sem_telefone_retorna_400(self, api_anonimo):
-        response = api_anonimo.post('/api/sm/auth/cadastro/', {
+        response = api_anonimo.post('/api/sm/v1/auth/cadastro/', {
             'nome': 'Ana Lima',
             'email': 'ana@sm.com',
             'senha': 'SenhaForte123!',
@@ -101,7 +101,7 @@ class TestCadastroConsumidor:
         assert response.status_code == 400
 
     def test_cadastro_email_duplicado_retorna_400(self, api_anonimo, consumidor):
-        response = api_anonimo.post('/api/sm/auth/cadastro/', {
+        response = api_anonimo.post('/api/sm/v1/auth/cadastro/', {
             'nome': 'Outro',
             'email': 'joao@sm.com',
             'senha': 'SenhaForte123!',
@@ -109,7 +109,7 @@ class TestCadastroConsumidor:
         assert response.status_code == 400
 
     def test_cadastro_senha_curta_retorna_400(self, api_anonimo):
-        response = api_anonimo.post('/api/sm/auth/cadastro/', {
+        response = api_anonimo.post('/api/sm/v1/auth/cadastro/', {
             'nome': 'Fraco',
             'email': 'fraco@sm.com',
             'senha': '123',
@@ -117,7 +117,7 @@ class TestCadastroConsumidor:
         assert response.status_code == 400
 
     def test_cadastro_email_invalido_retorna_400(self, api_anonimo):
-        response = api_anonimo.post('/api/sm/auth/cadastro/', {
+        response = api_anonimo.post('/api/sm/v1/auth/cadastro/', {
             'nome': 'Inv',
             'email': 'nao-e-email',
             'senha': 'SenhaForte123!',
@@ -128,7 +128,7 @@ class TestCadastroConsumidor:
 @pytest.mark.django_db
 class TestLoginConsumidor:
     def test_login_correto_retorna_200_e_access_token(self, api_anonimo, consumidor):
-        response = api_anonimo.post('/api/sm/auth/login/', {
+        response = api_anonimo.post('/api/sm/v1/auth/login/', {
             'email': 'joao@sm.com',
             'senha': 'SenhaForte123!',
         })
@@ -137,14 +137,14 @@ class TestLoginConsumidor:
         assert response.cookies.get('sm_refresh_token') is not None
 
     def test_login_senha_errada_retorna_401(self, api_anonimo, consumidor):
-        response = api_anonimo.post('/api/sm/auth/login/', {
+        response = api_anonimo.post('/api/sm/v1/auth/login/', {
             'email': 'joao@sm.com',
             'senha': 'errada',
         })
         assert response.status_code == 401
 
     def test_login_email_inexistente_retorna_401(self, api_anonimo):
-        response = api_anonimo.post('/api/sm/auth/login/', {
+        response = api_anonimo.post('/api/sm/v1/auth/login/', {
             'email': 'nao@existe.com',
             'senha': 'SenhaForte123!',
         })
@@ -154,16 +154,16 @@ class TestLoginConsumidor:
 @pytest.mark.django_db
 class TestRefreshLogoutConsumidor:
     def test_refresh_sem_cookie_retorna_401(self, api_anonimo):
-        response = api_anonimo.post('/api/sm/auth/refresh/')
+        response = api_anonimo.post('/api/sm/v1/auth/refresh/')
         assert response.status_code == 401
 
     def test_refresh_com_cookie_invalido_retorna_401(self, api_anonimo):
         api_anonimo.cookies['sm_refresh_token'] = 'token_invalido'
-        response = api_anonimo.post('/api/sm/auth/refresh/')
+        response = api_anonimo.post('/api/sm/v1/auth/refresh/')
         assert response.status_code == 401
 
     def test_logout_retorna_200_e_deleta_cookie(self, api_anonimo):
-        response = api_anonimo.post('/api/sm/auth/logout/')
+        response = api_anonimo.post('/api/sm/v1/auth/logout/')
         assert response.status_code == 200
         assert 'sm_refresh_token' in response.cookies
 
@@ -175,12 +175,12 @@ class TestRefreshLogoutConsumidor:
 @pytest.mark.django_db
 class TestMeuPerfil:
     def test_me_sem_auth_retorna_401(self, api_anonimo):
-        response = api_anonimo.get('/api/sm/me/')
+        response = api_anonimo.get('/api/sm/v1/me/')
         assert response.status_code == 401
 
     def test_me_retorna_dados_do_consumidor(self, api_autenticado):
         client, consumidor = api_autenticado
-        response = client.get('/api/sm/me/')
+        response = client.get('/api/sm/v1/me/')
         assert response.status_code == 200
         assert response.data['nome'] == consumidor.nome
         assert response.data['email'] == consumidor.email
@@ -194,10 +194,17 @@ class TestMeuPerfil:
 class TestMeusAgendamentos:
     def test_lista_agendamentos_proprios(self, api_autenticado, agendamento_ativo):
         client, _ = api_autenticado
-        response = client.get('/api/sm/agendamentos/')
+        response = client.get('/api/sm/v1/agendamentos/')
         assert response.status_code == 200
         assert response.data['count'] == 1
         assert response.data['results'][0]['negocio_nome'] == 'Barbearia Teste'
+
+    def test_preco_guardado_como_float_sai_como_string(self, api_autenticado, agendamento_ativo):
+        """Agendamentos anteriores à #6 guardaram float no JSON."""
+        client, _ = api_autenticado
+        servico = client.get('/api/sm/v1/agendamentos/').data['results'][0]['servicos'][0]
+        assert servico['preco'] == '50.00'
+        assert servico['taxa_cancelamento'] == '0.00'
 
     def test_logo_url_vem_do_negocio_publico(self, api_autenticado, agendamento_ativo):
         client, _ = api_autenticado
@@ -205,7 +212,7 @@ class TestMeusAgendamentos:
             schema_name=agendamento_ativo.schema_name, nome='Barbearia Teste', nicho='Barbearia',
             latitude='-23.5', longitude='-46.6', logo_url='https://cdn/logo.png', ativo=True,
         )
-        response = client.get('/api/sm/agendamentos/')
+        response = client.get('/api/sm/v1/agendamentos/')
         assert response.data['results'][0]['logo_url'] == 'https://cdn/logo.png'
 
     def test_logo_url_nulo_quando_negocio_nao_tem_logo(self, api_autenticado, agendamento_ativo):
@@ -214,14 +221,14 @@ class TestMeusAgendamentos:
             schema_name=agendamento_ativo.schema_name, nome='Barbearia Teste', nicho='Barbearia',
             latitude='-23.5', longitude='-46.6', logo_url='', ativo=True,
         )
-        response = client.get('/api/sm/agendamentos/')
+        response = client.get('/api/sm/v1/agendamentos/')
         assert response.data['results'][0]['logo_url'] is None
 
     def test_logo_url_nulo_quando_negocio_saiu_da_vitrine(self, api_autenticado, agendamento_ativo):
         """O agendamento sobrevive ao negocio deixar a vitrine — a tela nao pode
         quebrar por causa da logo faltando."""
         client, _ = api_autenticado
-        response = client.get('/api/sm/agendamentos/')
+        response = client.get('/api/sm/v1/agendamentos/')
         assert response.data['results'][0]['logo_url'] is None
 
     def test_logo_resolvida_em_uma_consulta_para_a_pagina_inteira(self, api_autenticado, consumidor):
@@ -241,7 +248,7 @@ class TestMeusAgendamentos:
             )
 
         with CaptureQueriesContext(connection) as ctx:
-            response = client.get('/api/sm/agendamentos/')
+            response = client.get('/api/sm/v1/agendamentos/')
 
         assert response.data['count'] == 3
         consultas_logo = [q for q in ctx.captured_queries if 'vitrine_negociopublico' in q['sql']]
@@ -263,7 +270,7 @@ class TestMeusAgendamentos:
             valor_total=Decimal('50.00'),
             status='agendado',
         )
-        response = client.get('/api/sm/agendamentos/')
+        response = client.get('/api/sm/v1/agendamentos/')
         assert response.status_code == 200
         assert response.data['count'] == 0
 
@@ -291,13 +298,13 @@ class TestMeusAgendamentos:
             valor_total=Decimal('50.00'),
             status='cancelado',
         )
-        response = client.get('/api/sm/agendamentos/?status=agendado')
+        response = client.get('/api/sm/v1/agendamentos/?status=agendado')
         assert response.status_code == 200
         assert response.data['count'] == 1
         assert response.data['results'][0]['status'] == 'agendado'
 
     def test_agendamentos_sem_auth_retorna_401(self, api_anonimo):
-        response = api_anonimo.get('/api/sm/agendamentos/')
+        response = api_anonimo.get('/api/sm/v1/agendamentos/')
         assert response.status_code == 401
 
 
@@ -308,18 +315,18 @@ class TestCancelarAgendamento:
         client, consumidor = api_autenticado
         # Patch no módulo de origem pois a view faz import local dentro do método
         with patch('apps_serv.vitrine.services.CancelarAgendamentoService') as MockSvc:
-            MockSvc.return_value.cancelar.return_value = {'taxa': 0.0}
-            response = client.post(f'/api/sm/agendamentos/{agendamento_ativo.id}/cancelar/')
+            MockSvc.return_value.cancelar.return_value = {'taxa': '0.00'}
+            response = client.post(f'/api/sm/v1/agendamentos/{agendamento_ativo.id}/cancelar/')
         assert response.status_code == 200
-        assert response.data['taxa'] == 0.0
+        assert response.data['taxa'] == '0.00'
 
     def test_cancelar_agendamento_inexistente_retorna_404(self, api_autenticado):
         client, _ = api_autenticado
-        response = client.post('/api/sm/agendamentos/9999/cancelar/')
+        response = client.post('/api/sm/v1/agendamentos/9999/cancelar/')
         assert response.status_code == 404
 
     def test_cancelar_sem_auth_retorna_401(self, api_anonimo, agendamento_ativo):
-        response = api_anonimo.post(f'/api/sm/agendamentos/{agendamento_ativo.id}/cancelar/')
+        response = api_anonimo.post(f'/api/sm/v1/agendamentos/{agendamento_ativo.id}/cancelar/')
         assert response.status_code == 401
 
 
@@ -337,7 +344,7 @@ def _arquivo_imagem(nome='foto.png', tipo='image/png', tamanho=2048):
 
 @pytest.mark.django_db
 class TestFotoPerfilAPI:
-    URL = '/api/sm/me/foto/'
+    URL = '/api/sm/v1/me/foto/'
 
     def test_exige_autenticacao(self, api_anonimo):
         resposta = api_anonimo.post(self.URL, {'foto': _arquivo_imagem()}, format='multipart')
@@ -351,6 +358,14 @@ class TestFotoPerfilAPI:
         client, _ = api_autenticado
         pdf = _arquivo_imagem(nome='doc.pdf', tipo='application/pdf')
         assert client.post(self.URL, {'foto': pdf}, format='multipart').status_code == 400
+
+    def test_falha_no_armazenamento_responde_503(self, api_autenticado):
+        client, _ = api_autenticado
+        with patch(SALVAR_FOTO, side_effect=RuntimeError('aws api_key=123')):
+            resposta = client.post(self.URL, {'foto': _arquivo_imagem()}, format='multipart')
+        assert resposta.status_code == 503
+        assert resposta.data['code'] == 'armazenamento_indisponivel'
+        assert 'api_key' not in str(resposta.data)
 
     def test_upload_guarda_a_chave_e_nao_a_url(self, api_autenticado):
         """Guardar a URL faria a foto parar de abrir quando a assinatura vence."""
@@ -414,7 +429,7 @@ def _negocio(schema_name: str, nome: str, **extra) -> NegocioPublico:
 
 @pytest.mark.django_db
 class TestMeusVinculos:
-    URL = '/api/sm/vinculos/'
+    URL = '/api/sm/v1/vinculos/'
 
     def test_retorna_o_negocio_resolvido(self, api_autenticado, consumidor):
         client, _ = api_autenticado
@@ -424,9 +439,9 @@ class TestMeusVinculos:
         resposta = client.get(self.URL)
 
         assert resposta.status_code == 200
-        assert len(resposta.data) == 1
-        assert resposta.data[0]['nome'] == 'Barbearia A'
-        assert resposta.data[0]['logo_url'] == 'https://cdn/a.png'
+        assert len(resposta.data['results']) == 1
+        assert resposta.data['results'][0]['nome'] == 'Barbearia A'
+        assert resposta.data['results'][0]['logo_url'] == 'https://cdn/a.png'
 
     def test_mantem_schema_name_na_resposta(self, api_autenticado, consumidor):
         """A tela de perfil usa schema_name para saber se ja esta vinculada."""
@@ -436,7 +451,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data[0]['schema_name'] == 'barbearia_a'
+        assert resposta.data['results'][0]['schema_name'] == 'barbearia_a'
 
     def test_informa_quando_o_vinculo_foi_criado(self, api_autenticado, consumidor):
         client, _ = api_autenticado
@@ -445,7 +460,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data[0]['vinculado_em'] is not None
+        assert resposta.data['results'][0]['vinculado_em'] is not None
 
     def test_ignora_vinculo_cujo_negocio_saiu_da_vitrine(self, api_autenticado, consumidor):
         client, _ = api_autenticado
@@ -453,7 +468,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data == []
+        assert resposta.data['results'] == []
 
     def test_nao_retorna_vinculo_inativo(self, api_autenticado, consumidor):
         client, _ = api_autenticado
@@ -462,7 +477,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data == []
+        assert resposta.data['results'] == []
 
     def test_nao_retorna_vinculo_de_outro_consumidor(self, api_autenticado, db):
         client, _ = api_autenticado
@@ -474,7 +489,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data == []
+        assert resposta.data['results'] == []
 
     def test_resolve_em_uma_consulta_independente_da_quantidade(self, api_autenticado, consumidor):
         """Guarda contra N+1: a consulta de negocios nao pode crescer com o
@@ -487,6 +502,25 @@ class TestMeusVinculos:
         with CaptureQueriesContext(connection) as ctx:
             resposta = client.get(self.URL)
 
-        assert len(resposta.data) == 3
+        assert len(resposta.data['results']) == 3
         consultas = [q for q in ctx.captured_queries if 'vitrine_negociopublico' in q['sql']]
         assert len(consultas) == 1
+
+
+@pytest.mark.django_db
+class TestVincularNegocioAPI:
+    def test_responde_com_o_negocio_no_formato_de_meus_negocios(self, tenant, api_autenticado):
+        connection.set_schema_to_public()
+        NegocioPublico.objects.create(
+            schema_name=tenant.schema_name, nome='Empresa Teste', nicho='Barbearia',
+            latitude='-23.550000', longitude='-46.633000', ativo=True,
+        )
+        client, _ = api_autenticado
+
+        criado = client.post(f'/api/sm/v1/negocios/{tenant.schema_name}/vincular/')
+        lista = client.get('/api/sm/v1/vinculos/')
+
+        assert criado.status_code == 201
+        assert criado.data['schema_name'] == tenant.schema_name
+        assert 'vinculado_em' in criado.data
+        assert set(criado.data) == set(lista.data['results'][0])

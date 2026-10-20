@@ -1,6 +1,10 @@
+from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema_field
 from rest_framework import serializers
 
-from apps_work.clientes.validators import validar_cpf, validar_telefone_br
+from apps_work.clientes.models import PortePet
+from apps_work.clientes.validators import normalizar_porte, validar_cpf, validar_placa_br, validar_telefone_br
+
+from apps_serv.vitrine.serializers import NegocioPublicoSerializer
 
 from .models import AgendamentoConsumidor, Consumidor, ObjetoConsumidor
 
@@ -70,14 +74,78 @@ class ConsumidorUpdateSerializer(serializers.ModelSerializer):
         return cpf_limpo
 
 
+class DadosVeiculoSerializer(serializers.Serializer):
+    placa = serializers.CharField(max_length=10)
+    marca = serializers.CharField(max_length=50)
+    modelo = serializers.CharField(max_length=100)
+    cor = serializers.CharField(max_length=50, required=False, allow_blank=True, default='')
+
+    def validate_placa(self, valor):
+        return validar_placa_br(valor)
+
+
+class DadosPetSerializer(serializers.Serializer):
+    nome = serializers.CharField(max_length=100)
+    especie = serializers.CharField(max_length=50)
+    porte = serializers.ChoiceField(choices=PortePet.choices)
+    raca = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
+
+    def to_internal_value(self, data):
+        # Aceita o rótulo ('Médio') que o app mandava antes do enum.
+        if isinstance(data, dict) and 'porte' in data:
+            data = {**data, 'porte': normalizar_porte(data['porte']) or data['porte']}
+        return super().to_internal_value(data)
+
+
+_DADOS_OBJETO = PolymorphicProxySerializer(
+    component_name='DadosObjeto',
+    serializers=[DadosPetSerializer, DadosVeiculoSerializer],
+    resource_type_field_name=None,
+)
+
+
+@extend_schema_field(_DADOS_OBJETO)
+class DadosObjetoField(serializers.JSONField):
+    """`dados` de um pet ou veículo: DadosPet ou DadosVeiculo, conforme o `tipo`."""
+
+
 class ObjetoConsumidorSerializer(serializers.ModelSerializer):
+    dados = DadosObjetoField()
+
     class Meta:
         model = ObjetoConsumidor
         fields = ['id', 'tipo', 'dados', 'nome_exibicao', 'criado_em']
         read_only_fields = ['nome_exibicao', 'criado_em']
 
 
+class ServicoAgendadoSerializer(serializers.Serializer):
+    """Foto do serviço no momento do agendamento (não muda se o negócio mudar o preço)."""
+    nome = serializers.CharField()
+    duracao = serializers.IntegerField(help_text='Minutos.')
+    preco = serializers.DecimalField(max_digits=10, decimal_places=2)
+    taxa_cancelamento = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class ObjetoAgendadoSerializer(serializers.Serializer):
+    """Pet ou veículo levado ao atendimento: tipo, nome de exibição e os dados do tipo."""
+    tipo = serializers.CharField()
+    nome_exibicao = serializers.CharField()
+    placa = serializers.CharField(required=False)
+    marca = serializers.CharField(required=False)
+    modelo = serializers.CharField(required=False)
+    cor = serializers.CharField(required=False)
+    nome = serializers.CharField(required=False)
+    especie = serializers.CharField(required=False)
+    porte = serializers.CharField(required=False)
+    raca = serializers.CharField(required=False)
+
+
 class AgendamentoConsumidorSerializer(serializers.ModelSerializer):
+    # Preço como string em todo agendamento: os anteriores à #6 guardaram
+    # float no JSON, e o DecimalField normaliza na saída.
+    servicos = ServicoAgendadoSerializer(many=True, read_only=True)
+    objeto_dados = ObjetoAgendadoSerializer(read_only=True, allow_null=True)
+
     # Preenchidos só na listagem da agenda, a partir do context — exigem uma
     # leitura no schema do negócio, cara demais para fazer por item. Ficam
     # nulos em qualquer outro uso do serializer (ex.: resposta do agendamento
@@ -109,3 +177,27 @@ class AgendamentoConsumidorSerializer(serializers.ModelSerializer):
 
     def get_logo_url(self, obj) -> str | None:
         return (self.context.get('logos') or {}).get(obj.schema_name) or None
+
+
+# ---------------------------------------------------------------------------
+# Formatos de entrada e saída (documentação OpenAPI das APIViews)
+# ---------------------------------------------------------------------------
+
+class FotoPerfilUploadSerializer(serializers.Serializer):
+    foto = serializers.ImageField()
+
+
+class VinculoNegocioSerializer(NegocioPublicoSerializer):
+    """Negócio vinculado: os campos do NegocioPublico mais a data do vínculo."""
+    vinculado_em = serializers.DateTimeField()
+
+    class Meta(NegocioPublicoSerializer.Meta):
+        fields = NegocioPublicoSerializer.Meta.fields + ['vinculado_em']
+
+
+class CancelamentoAgendamentoSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    taxa = serializers.DecimalField(
+        max_digits=10, decimal_places=2, help_text='Taxa de cancelamento cobrada (0.00 dentro do prazo).',
+    )
+

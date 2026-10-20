@@ -1,12 +1,12 @@
 import re
 
 from rest_framework import serializers
-from .models import EmpresaConfig, HorarioFuncionamento
+from .models import EmpresaConfig, HorarioFuncionamento, TipoAgenda
 from .validators import validar_documento
 
 NICHO_TIPO = {
-    'lava_rapido': 'kanban',
-    'banho_tosa': 'kanban',
+    'lava_rapido': TipoAgenda.KANBAN,
+    'banho_tosa': TipoAgenda.KANBAN,
 }
 
 
@@ -72,7 +72,7 @@ class EmpresaConfigSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         nicho = validated_data.get('nicho', instance.nicho)
-        validated_data['tipo_agenda'] = NICHO_TIPO.get(nicho, 'horario')
+        validated_data['tipo_agenda'] = NICHO_TIPO.get(nicho, TipoAgenda.HORARIO)
 
         # Coordenada enviada pela interface significa que o dono apontou o ponto
         # no mapa. É o único gesto que confirma a localização — e ele desliga o
@@ -94,3 +94,29 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
         if value is not None and value < 1:
             raise serializers.ValidationError('A capacidade deve ser de pelo menos 1 atendimento por dia.')
         return value
+
+
+# ---------------------------------------------------------------------------
+# Formatos de entrada e saída (documentação OpenAPI das APIViews)
+# ---------------------------------------------------------------------------
+
+class CoordenadaSerializer(serializers.Serializer):
+    # Mesmo formato do EmpresaConfig (decimal com 6 casas, como string): o
+    # palpite vai direto para o PATCH da config, sem conversão no app.
+    latitude = serializers.DecimalField(
+        max_digits=9, decimal_places=6, allow_null=True, help_text='null quando não foi possível geocodificar.',
+    )
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, allow_null=True)
+
+
+class RuaNoPontoSerializer(serializers.Serializer):
+    rua = serializers.CharField(allow_null=True, help_text='null quando a via não foi identificada.')
+
+
+class UploadLogoSerializer(serializers.Serializer):
+    logo = serializers.ImageField()
+
+
+class LogoSerializer(serializers.Serializer):
+    logo_url = serializers.URLField()
+

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps_work.clientes.serializers import ObjetoClienteSerializer
-from .models import AtendimentoKanban, EtapaKanban, PagamentoKanban
+from .models import AtendimentoKanban, EtapaKanban, PagamentoAtendimento
 
 
 class EtapaKanbanSerializer(serializers.ModelSerializer):
@@ -9,9 +9,9 @@ class EtapaKanbanSerializer(serializers.ModelSerializer):
         fields = ['id', 'nome', 'ordem', 'cor']
 
 
-class PagamentoKanbanSerializer(serializers.ModelSerializer):
+class PagamentoAtendimentoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PagamentoKanban
+        model = PagamentoAtendimento
         fields = ['id', 'forma', 'valor']
 
 
@@ -23,7 +23,7 @@ class AtendimentoKanbanSerializer(serializers.ModelSerializer):
     servico_nome = serializers.CharField(source='servico.nome', read_only=True)
     servico_preco = serializers.DecimalField(source='servico.preco', max_digits=8, decimal_places=2, read_only=True)
     servico_duracao = serializers.IntegerField(source='servico.duracao', read_only=True)
-    pagamentos = PagamentoKanbanSerializer(many=True, read_only=True)
+    pagamentos = PagamentoAtendimentoSerializer(many=True, read_only=True)
 
     class Meta:
         model = AtendimentoKanban

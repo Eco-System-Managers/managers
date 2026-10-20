@@ -5,15 +5,15 @@ from rest_framework.test import APIClient
 
 from apps_serv.consumidores.models import VinculoConsumidor
 from apps_serv.consumidores.services import RegistroConsumidorService
-from apps_work.clientes.models import Cliente
+from apps_work.clientes.models import Cliente, OrigemCliente
 from apps_work.clientes.services import RemocaoClienteService
 
 
 @pytest.fixture
-def client_autenticado(patch_tenant_middleware, usuario):
+def client_autenticado(patch_tenant_middleware, proprietario):
     client = APIClient()
     client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-    client.force_authenticate(user=usuario)
+    client.force_authenticate(user=proprietario)
     return client
 
 
@@ -30,11 +30,11 @@ def consumidor(db):
 class TestOrigemPadrao:
     def test_cliente_novo_nasce_manual(self, patch_tenant_middleware):
         cliente = Cliente.objects.create(nome='Maria', telefone='11999999999')
-        assert cliente.origem == Cliente.ORIGEM_MANUAL
+        assert cliente.origem == OrigemCliente.MANUAL
 
     def test_cadastro_pela_api_nasce_manual(self, client_autenticado):
         response = client_autenticado.post(
-            '/api/clientes/', {'nome': 'Joana', 'telefone': '11988887777'}, format='json'
+            '/api/v1/clientes/', {'nome': 'Joana', 'telefone': '11988887777'}, format='json'
         )
         assert response.status_code == 201
         assert response.data['origem'] == 'manual'
@@ -42,7 +42,7 @@ class TestOrigemPadrao:
     def test_origem_nao_pode_ser_definida_pela_api(self, client_autenticado):
         """Só quem cria o cadastro decide a origem — nunca o cliente da API."""
         response = client_autenticado.post(
-            '/api/clientes/',
+            '/api/v1/clientes/',
             {'nome': 'Joana', 'telefone': '11988887777', 'origem': 'servicemanage'},
             format='json',
         )
@@ -52,37 +52,37 @@ class TestOrigemPadrao:
 @pytest.mark.django_db
 class TestRemocaoCliente:
     def test_cliente_manual_e_apagado(self, patch_tenant_middleware):
-        cliente = Cliente.objects.create(nome='Maria', origem=Cliente.ORIGEM_MANUAL)
+        cliente = Cliente.objects.create(nome='Maria', origem=OrigemCliente.MANUAL)
         RemocaoClienteService().remover(cliente)
         assert not Cliente.objects.filter(pk=cliente.pk).exists()
 
     def test_cliente_do_servicemanage_nao_e_apagado(self, patch_tenant_middleware):
-        cliente = Cliente.objects.create(nome='Carlos', origem=Cliente.ORIGEM_SERVICEMANAGE)
+        cliente = Cliente.objects.create(nome='Carlos', origem=OrigemCliente.SERVICEMANAGE)
         RemocaoClienteService().remover(cliente)
         assert Cliente.objects.filter(pk=cliente.pk).exists()
 
     def test_cliente_do_servicemanage_e_arquivado(self, patch_tenant_middleware):
-        cliente = Cliente.objects.create(nome='Carlos', origem=Cliente.ORIGEM_SERVICEMANAGE)
+        cliente = Cliente.objects.create(nome='Carlos', origem=OrigemCliente.SERVICEMANAGE)
         RemocaoClienteService().remover(cliente)
         cliente.refresh_from_db()
         assert cliente.visivel is False
 
     def test_cliente_arquivado_some_da_listagem(self, client_autenticado):
-        cliente = Cliente.objects.create(nome='Carlos', origem=Cliente.ORIGEM_SERVICEMANAGE)
-        client_autenticado.delete(f'/api/clientes/{cliente.pk}/')
-        response = client_autenticado.get('/api/clientes/')
+        cliente = Cliente.objects.create(nome='Carlos', origem=OrigemCliente.SERVICEMANAGE)
+        client_autenticado.delete(f'/api/v1/clientes/{cliente.pk}/')
+        response = client_autenticado.get('/api/v1/clientes/')
         assert all(c['id'] != cliente.pk for c in response.data['results'])
 
     def test_remocao_do_servicemanage_emite_sinal(self, patch_tenant_middleware):
         cliente = Cliente.objects.create(
-            nome='Carlos', email='carlos@sm.com', origem=Cliente.ORIGEM_SERVICEMANAGE
+            nome='Carlos', email='carlos@sm.com', origem=OrigemCliente.SERVICEMANAGE
         )
         with patch('apps_work.clientes.services.cliente_servicemanage_removido') as sinal:
             RemocaoClienteService().remover(cliente)
         assert sinal.send.called
 
     def test_remocao_manual_nao_emite_sinal(self, patch_tenant_middleware):
-        cliente = Cliente.objects.create(nome='Maria', origem=Cliente.ORIGEM_MANUAL)
+        cliente = Cliente.objects.create(nome='Maria', origem=OrigemCliente.MANUAL)
         with patch('apps_work.clientes.services.cliente_servicemanage_removido') as sinal:
             RemocaoClienteService().remover(cliente)
         assert not sinal.send.called
@@ -93,7 +93,8 @@ class TestVinculoDesfeitoNaRemocao:
     def test_vinculo_fica_inativo(self, patch_tenant_middleware, consumidor, tenant):
         VinculoConsumidor.objects.create(consumidor=consumidor, schema_name=tenant.schema_name)
         cliente = Cliente.objects.create(
-            nome='Carlos', email=consumidor.email, origem=Cliente.ORIGEM_SERVICEMANAGE
+            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id,
         )
 
         RemocaoClienteService().remover(cliente)
@@ -104,7 +105,8 @@ class TestVinculoDesfeitoNaRemocao:
     def test_vinculo_registra_data_da_desvinculacao(self, patch_tenant_middleware, consumidor, tenant):
         VinculoConsumidor.objects.create(consumidor=consumidor, schema_name=tenant.schema_name)
         cliente = Cliente.objects.create(
-            nome='Carlos', email=consumidor.email, origem=Cliente.ORIGEM_SERVICEMANAGE
+            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id,
         )
 
         RemocaoClienteService().remover(cliente)
@@ -115,7 +117,8 @@ class TestVinculoDesfeitoNaRemocao:
     def test_vinculo_de_outro_negocio_nao_e_afetado(self, patch_tenant_middleware, consumidor, tenant):
         VinculoConsumidor.objects.create(consumidor=consumidor, schema_name='outro_negocio')
         cliente = Cliente.objects.create(
-            nome='Carlos', email=consumidor.email, origem=Cliente.ORIGEM_SERVICEMANAGE
+            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id,
         )
 
         RemocaoClienteService().remover(cliente)
@@ -126,10 +129,43 @@ class TestVinculoDesfeitoNaRemocao:
     def test_remocao_de_cliente_manual_nao_mexe_no_vinculo(self, patch_tenant_middleware, consumidor, tenant):
         VinculoConsumidor.objects.create(consumidor=consumidor, schema_name=tenant.schema_name)
         cliente = Cliente.objects.create(
-            nome='Carlos', email=consumidor.email, origem=Cliente.ORIGEM_MANUAL
+            nome='Carlos', email=consumidor.email, origem=OrigemCliente.MANUAL
         )
 
         RemocaoClienteService().remover(cliente)
 
         vinculo = VinculoConsumidor.objects.get(consumidor=consumidor, schema_name=tenant.schema_name)
         assert vinculo.ativo is True
+
+
+@pytest.mark.django_db
+class TestRemocaoPeloPainelApagaDadosPessoais:
+    def test_vinculo_desfeito_mesmo_com_email_editado_no_painel(self, patch_tenant_middleware, consumidor, tenant):
+        """A remoção acha o vínculo pelo consumidor_id; pelo e-mail, um e-mail
+        editado no painel deixava o vínculo ativo."""
+        VinculoConsumidor.objects.create(consumidor=consumidor, schema_name=tenant.schema_name)
+        cliente = Cliente.objects.create(
+            nome='Carlos', email='outro@email.com', origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id,
+        )
+
+        RemocaoClienteService().remover(cliente)
+
+        assert not VinculoConsumidor.objects.get(consumidor=consumidor, schema_name=tenant.schema_name).ativo
+
+    def test_dados_pessoais_saem_e_nome_e_telefone_ficam(self, patch_tenant_middleware, consumidor):
+        import datetime
+        cliente = Cliente.objects.create(
+            nome='Carlos', telefone='11999990000', origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id, cpf='52998224725', data_nascimento=datetime.date(1990, 1, 1),
+            cep='01001000', endereco='Rua A', numero_endereco='10', foto_chave='consumidores/x.webp',
+        )
+
+        RemocaoClienteService().remover(cliente)
+
+        cliente.refresh_from_db()
+        assert (cliente.nome, cliente.telefone) == ('Carlos', '11999990000')
+        assert cliente.cpf == cliente.cep == cliente.endereco == cliente.numero_endereco == cliente.foto_chave == ''
+        assert cliente.data_nascimento is None
+        assert cliente.visivel is False
+

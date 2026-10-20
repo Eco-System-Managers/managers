@@ -11,7 +11,7 @@ colher a assinatura**.
 | `services.py` | Substituição de variáveis, geração, envio por e-mail, assinatura e recusa |
 | `views.py` | ViewSets de modelo e contrato, mais a view **pública** de assinatura |
 | `serializers.py` | Representação, incluindo a versão pública, que expõe menos |
-| `urls.py` | Rotas privadas sob `/api/contratos/` e a pública fora do prefixo |
+| `urls.py` | Rotas privadas sob `/api/v1/contratos/` e a pública em `/api/v1/contratos/publico/` |
 
 ## Tabelas
 
@@ -56,13 +56,20 @@ gerados. O que a pessoa assinou continua sendo o que ela viu.
 
 ## A parte pública
 
-`ContratoPublicoView` fica **fora** do prefixo `/api/`, sem autenticação, e é
-acessada por `schema_name` + `token` (UUID) na URL. É assim que o cliente abre e
+`ContratoPublicoView` fica em `/api/v1/contratos/publico/<schema>/<token>/`,
+sem autenticação, e é acessada por `schema_name` + `token` (UUID) na URL. Está
+isenta do bloqueio de assinatura (`core/middleware.py`): quem assina é o
+cliente, não o negócio. É assim que o cliente abre e
 assina o contrato sem ter conta no sistema.
 
 A assinatura registra nome e IP de quem assinou, mais o horário.
 
 ## O que é fácil errar aqui
+
+- **O `schema_name` da rota pública é entrada do usuário.** `ContratoPublicoView`
+  só troca de schema se ele passar em `core.schemas.schema_valido` (formato, e
+  nunca `public`) e existir um `Tenant` com ele; senão responde 404. Antes, um
+  schema inexistente dava 500.
 
 - **A view pública recebe `schema_name` da URL** e troca de schema com ele. É
   entrada de usuário e precisa ser tratada como tal.

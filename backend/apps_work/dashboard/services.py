@@ -4,6 +4,11 @@ from decimal import Decimal
 
 from django.db.models import Sum, Count
 from django.db.models.functions import TruncDate
+from django.utils import timezone
+
+from apps_work.financeiro.services import pagamentos_efetivados
+from apps_work.agenda.models import StatusAgendamento
+from apps_work.empresa.models import TipoAgenda
 
 
 def _var(atual, anterior) -> int | None:
@@ -14,13 +19,13 @@ def _var(atual, anterior) -> int | None:
 
 class DashboardService:
     def obter_resumo(self) -> dict:
-        from apps_work.kanban.models import PagamentoKanban, AtendimentoKanban
-        from apps_work.agenda.models import Pagamento, Agendamento, AgendamentoServico
+        from apps_work.kanban.models import AtendimentoKanban
+        from apps_work.agenda.models import Agendamento, AgendamentoServico
         from apps_work.clientes.models import Cliente
         from apps_work.empresa.models import EmpresaConfig
 
         config = EmpresaConfig.objects.first()
-        tipo_agenda = config.tipo_agenda if config else 'horario'
+        tipo_agenda = config.tipo_agenda if config else TipoAgenda.HORARIO
 
         hoje = date.today()
         inicio_mes = hoje.replace(day=1)
@@ -31,24 +36,27 @@ class DashboardService:
         inicio_mes_anterior = date(ano_ant, mes_ant, 1)
         fim_mes_anterior = date(ano_ant, mes_ant, calendar.monthrange(ano_ant, mes_ant)[1])
 
+        # Só o que conta como receita (pagamento provisório da vitrine fica fora).
+        kanban_efetivados, agenda_efetivados = pagamentos_efetivados()
+
         # ── Faturamento mês atual ───────────────────────────────────
-        fat_k = PagamentoKanban.objects.filter(
+        fat_k = kanban_efetivados.filter(
             criado_em__date__gte=inicio_mes,
         ).aggregate(t=Sum('valor'))['t'] or Decimal('0')
 
-        fat_a = Pagamento.objects.filter(
+        fat_a = agenda_efetivados.filter(
             criado_em__date__gte=inicio_mes,
         ).aggregate(t=Sum('valor'))['t'] or Decimal('0')
 
         faturamento_mes = fat_k + fat_a
 
         # ── Faturamento mês anterior ────────────────────────────────
-        fat_k_ant = PagamentoKanban.objects.filter(
+        fat_k_ant = kanban_efetivados.filter(
             criado_em__date__gte=inicio_mes_anterior,
             criado_em__date__lte=fim_mes_anterior,
         ).aggregate(t=Sum('valor'))['t'] or Decimal('0')
 
-        fat_a_ant = Pagamento.objects.filter(
+        fat_a_ant = agenda_efetivados.filter(
             criado_em__date__gte=inicio_mes_anterior,
             criado_em__date__lte=fim_mes_anterior,
         ).aggregate(t=Sum('valor'))['t'] or Decimal('0')
@@ -61,7 +69,7 @@ class DashboardService:
         ).count()
 
         at_a = Agendamento.objects.filter(
-            data_hora__date__gte=inicio_mes, status='concluido',
+            data_hora__date__gte=inicio_mes, status=StatusAgendamento.CONCLUIDO,
         ).count()
 
         atendimentos_mes = at_k + at_a
@@ -76,7 +84,7 @@ class DashboardService:
         at_a_ant = Agendamento.objects.filter(
             data_hora__date__gte=inicio_mes_anterior,
             data_hora__date__lte=fim_mes_anterior,
-            status='concluido',
+            status=StatusAgendamento.CONCLUIDO,
         ).count()
 
         atendimentos_anterior = at_k_ant + at_a_ant
@@ -84,7 +92,7 @@ class DashboardService:
         # ── Ticket médio ────────────────────────────────────────────
         ticket_medio = (
             (faturamento_mes / atendimentos_mes).quantize(Decimal('0.01'))
-            if atendimentos_mes else Decimal('0')
+            if atendimentos_mes else Decimal('0.00')
         )
 
         # ── Clientes novos ──────────────────────────────────────────
@@ -123,7 +131,7 @@ class DashboardService:
 
         # ── Próximos agendamentos / atendimentos do dia ─────────────
         agendamentos_hoje = []
-        if tipo_agenda == 'kanban':
+        if tipo_agenda == TipoAgenda.KANBAN:
             kanban_qs = (
                 AtendimentoKanban.objects
                 .filter(criado_em__date=hoje, pago=False)
@@ -134,7 +142,7 @@ class DashboardService:
                 hora = (
                     at.horario_entrada.strftime('%H:%M')
                     if at.horario_entrada
-                    else at.criado_em.strftime('%H:%M')
+                    else timezone.localtime(at.criado_em).strftime('%H:%M')
                 )
                 agendamentos_hoje.append({
                     'id': at.id,
@@ -146,7 +154,7 @@ class DashboardService:
         else:
             prox_qs = (
                 Agendamento.objects
-                .filter(data_hora__date=hoje, status__in=['agendado', 'confirmado'])
+                .filter(data_hora__date=hoje, status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO])
                 .select_related('cliente')
                 .prefetch_related('servicos__servico')
                 .order_by('data_hora')[:10]
@@ -157,20 +165,21 @@ class DashboardService:
                     'id': ag.id,
                     'cliente_nome': ag.cliente.nome,
                     'servico_nome': primeiro.servico.nome if primeiro else '',
-                    'hora': ag.data_hora.strftime('%H:%M'),
+                    # data_hora é UTC no banco; a hora mostrada é a local.
+                    'hora': timezone.localtime(ag.data_hora).strftime('%H:%M'),
                     'status': ag.status,
                 })
 
         # ── Série 30 dias ───────────────────────────────────────────
         fat_k_map = dict(
-            PagamentoKanban.objects
+            kanban_efetivados
             .filter(criado_em__date__gte=inicio_30d)
             .annotate(dia=TruncDate('criado_em'))
             .values('dia').annotate(t=Sum('valor'))
             .values_list('dia', 't')
         )
         fat_a_map = dict(
-            Pagamento.objects
+            agenda_efetivados
             .filter(criado_em__date__gte=inicio_30d)
             .annotate(dia=TruncDate('criado_em'))
             .values('dia').annotate(t=Sum('valor'))
@@ -185,7 +194,7 @@ class DashboardService:
         )
         at_a_map = dict(
             Agendamento.objects
-            .filter(data_hora__date__gte=inicio_30d, status='concluido')
+            .filter(data_hora__date__gte=inicio_30d, status=StatusAgendamento.CONCLUIDO)
             .annotate(dia=TruncDate('data_hora'))
             .values('dia').annotate(t=Count('id'))
             .values_list('dia', 't')

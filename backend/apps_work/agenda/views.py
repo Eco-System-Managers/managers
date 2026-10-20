@@ -1,27 +1,41 @@
 from datetime import date as date_type
-from decimal import Decimal
 from rest_framework import viewsets, status as drf_status
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Agendamento
-from .serializers import AgendamentoSerializer
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.plumbing import build_array_type, build_basic_type
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from .models import Agendamento, StatusAgendamento
+from .serializers import AgendamentoSerializer, PendenciaCobrancaSerializer, SlotSerializer
 from .services import (
     AgendamentoService,
     DiasComRegistroService,
     PendenciasCobrancaService,
     SlotsAgendaService,
 )
+from apps_work.financeiro.serializers import CobrancaSerializer
+from core.excecoes import erro
 
 
 class PendenciasCobrancaView(APIView):
+    @extend_schema(
+        responses=PendenciaCobrancaSerializer(many=True),
+        summary='Atendimentos passados ainda não cobrados (agenda e kanban)',
+    )
     def get(self, request):
         return Response(PendenciasCobrancaService().listar())
 
 
 class SlotsAgendaView(APIView):
+    @extend_schema(
+        responses=SlotSerializer(many=True), summary='Horários do dia de um colaborador para um serviço',
+        parameters=[
+            OpenApiParameter('data', OpenApiTypes.DATE, required=True),
+            OpenApiParameter('servico', OpenApiTypes.INT, required=True),
+            OpenApiParameter('colaborador', OpenApiTypes.INT, required=True),
+        ],
+    )
     def get(self, request):
         try:
             data = date_type.fromisoformat(request.query_params['data'])
@@ -29,56 +43,35 @@ class SlotsAgendaView(APIView):
             # Obrigatório: a agenda é individual, não existe grade sem dono.
             colaborador_id = int(request.query_params['colaborador'])
         except (KeyError, ValueError):
-            return Response(
-                {
-                    'detail': 'Parâmetros obrigatórios: data (YYYY-MM-DD), servico e colaborador.',
-                    'code': 'parametros_invalidos',
-                },
-                status=drf_status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Parâmetros obrigatórios: data (YYYY-MM-DD), servico e colaborador.', 'parametros_invalidos', drf_status.HTTP_400_BAD_REQUEST)
 
         return Response(SlotsAgendaService().listar(data, servico_id, colaborador_id))
 
 
 class DiasComRegistroView(APIView):
+    @extend_schema(
+        responses={200: build_array_type(build_basic_type(OpenApiTypes.DATE))},
+        summary='Dias do mês com algum agendamento',
+        parameters=[
+            OpenApiParameter('ano', OpenApiTypes.INT, required=True),
+            OpenApiParameter('mes', OpenApiTypes.INT, required=True, description='1 a 12'),
+        ],
+    )
     def get(self, request):
         try:
             ano = int(request.query_params['ano'])
             mes = int(request.query_params['mes'])
         except (KeyError, ValueError):
-            return Response(
-                {'detail': 'Parâmetros obrigatórios: ano e mes (números).', 'code': 'parametros_invalidos'},
-                status=drf_status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Parâmetros obrigatórios: ano e mes (números).', 'parametros_invalidos', drf_status.HTTP_400_BAD_REQUEST)
 
         if not 1 <= mes <= 12:
-            return Response(
-                {'detail': 'Mês deve estar entre 1 e 12.', 'code': 'mes_invalido'},
-                status=drf_status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Mês deve estar entre 1 e 12.', 'mes_invalido', drf_status.HTTP_400_BAD_REQUEST)
 
         return Response(DiasComRegistroService().listar(ano, mes))
 
 
-class AgendamentoPagination(PageNumberPagination):
-    page_size = 20
-
-
 class AgendamentoViewSet(viewsets.ModelViewSet):
     serializer_class = AgendamentoSerializer
-    pagination_class = AgendamentoPagination
-
-    def paginate_queryset(self, queryset):
-        """A grade do dia sai inteira; o resto vem paginado.
-
-        A tela de agenda monta a linha do tempo com todos os agendamentos
-        daquela data — se a pagina 2 nao vier, some horario da grade sem erro
-        nenhum, e o dia ja e um limite natural. Ja o historico por cliente nao
-        tem teto e cresce a cada visita.
-        """
-        if self.request.query_params.get('data'):
-            return None
-        return super().paginate_queryset(queryset)
 
     def get_queryset(self):
         qs = Agendamento.objects.select_related(
@@ -97,7 +90,7 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(cliente_id=cliente)
 
         if self.action == 'list':
-            qs = qs.exclude(status='cancelado')
+            qs = qs.exclude(status=StatusAgendamento.CANCELADO)
 
         return qs.order_by('data_hora')
 
@@ -128,27 +121,18 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
         serializer.save()
         AgendamentoService().notificar_mudanca_de_status(serializer.instance, status_anterior)
 
+    @extend_schema(request=CobrancaSerializer, responses=AgendamentoSerializer, summary='Cobrar o atendimento')
     @action(detail=True, methods=['post'])
     def cobrar(self, request, pk=None):
         agendamento = self.get_object()
-        desconto = Decimal(str(request.data.get('desconto', 0)))
-        pagamentos = request.data.get('pagamentos', [])
-        credito_aplicado = Decimal(str(request.data.get('credito_aplicado', 0)))
-        troco_credito = Decimal(str(request.data.get('troco_credito', 0)))
+        entrada = CobrancaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        dados = entrada.validated_data
 
-        if not pagamentos:
-            return Response(
-                {'detail': 'Pelo menos uma forma de pagamento é obrigatória.', 'code': 'sem_pagamentos'},
-                status=drf_status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            agendamento = AgendamentoService().cobrar(
-                agendamento, desconto, pagamentos,
-                credito_aplicado=credito_aplicado,
-                troco_credito=troco_credito,
-            )
-        except ValidationError as e:
-            return Response(e.detail, status=drf_status.HTTP_400_BAD_REQUEST)
+        agendamento = AgendamentoService().cobrar(
+            agendamento, dados['desconto'], dados['pagamentos'],
+            credito_aplicado=dados['credito_aplicado'],
+            troco_credito=dados['troco_credito'],
+        )
 
         return Response(AgendamentoSerializer(agendamento).data)

@@ -1,8 +1,9 @@
-from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
 
-from .models import Contrato, ModeloContrato
+from .models import Contrato, ModeloContrato, StatusContrato
+from core.email import enviar_email
+from core.links import link_contrato
+from core.excecoes import ErroDeNegocio
 
 
 _VARIAVEIS = {
@@ -45,12 +46,11 @@ class ContratoService:
 
     def enviar(self, contrato: Contrato, schema_name: str) -> None:
         if not contrato.cliente.email:
-            raise ValueError('O cliente não possui e-mail cadastrado.')
-        if contrato.status == Contrato.STATUS_ASSINADO:
-            raise ValueError('Este contrato já foi assinado.')
+            raise ErroDeNegocio('O cliente não possui e-mail cadastrado.', 'cliente_sem_email')
+        if contrato.status == StatusContrato.ASSINADO:
+            raise ErroDeNegocio('Este contrato já foi assinado.', 'contrato_ja_assinado')
 
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
-        link = f'{frontend_url}/contratos/{schema_name}/{contrato.token}'
+        link = link_contrato(schema_name, contrato.token)
 
         corpo_email = (
             f'Olá, {contrato.cliente.nome}!\n\n'
@@ -79,25 +79,23 @@ class ContratoService:
         </p>
         """
 
-        send_mail(
-            subject=f'[Contrato] {contrato.titulo}',
-            message=corpo_email,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[contrato.cliente.email],
-            html_message=corpo_html,
-            fail_silently=False,
+        enviar_email.enqueue(
+            assunto=f'[Contrato] {contrato.titulo}',
+            mensagem=corpo_email,
+            destinatario=contrato.cliente.email,
+            html=corpo_html,
         )
 
-        contrato.status = Contrato.STATUS_ENVIADO
+        contrato.status = StatusContrato.ENVIADO
         contrato.save(update_fields=['status', 'atualizado_em'])
 
     def assinar(self, contrato: Contrato, nome_assinante: str, ip: str) -> Contrato:
-        if contrato.status == Contrato.STATUS_ASSINADO:
-            raise ValueError('Contrato já foi assinado.')
-        if contrato.status == Contrato.STATUS_RECUSADO:
-            raise ValueError('Contrato foi recusado e não pode ser assinado.')
+        if contrato.status == StatusContrato.ASSINADO:
+            raise ErroDeNegocio('Contrato já foi assinado.', 'contrato_ja_assinado')
+        if contrato.status == StatusContrato.RECUSADO:
+            raise ErroDeNegocio('Contrato foi recusado e não pode ser assinado.', 'contrato_recusado')
 
-        contrato.status = Contrato.STATUS_ASSINADO
+        contrato.status = StatusContrato.ASSINADO
         contrato.nome_assinante = nome_assinante
         contrato.ip_assinante = ip
         contrato.assinado_em = timezone.now()
@@ -107,8 +105,8 @@ class ContratoService:
         return contrato
 
     def recusar(self, contrato: Contrato) -> Contrato:
-        if contrato.status in (Contrato.STATUS_ASSINADO, Contrato.STATUS_RECUSADO):
-            raise ValueError('Contrato já está finalizado.')
-        contrato.status = Contrato.STATUS_RECUSADO
+        if contrato.status in (StatusContrato.ASSINADO, StatusContrato.RECUSADO):
+            raise ErroDeNegocio('Contrato já está finalizado.', 'contrato_finalizado')
+        contrato.status = StatusContrato.RECUSADO
         contrato.save(update_fields=['status', 'atualizado_em'])
         return contrato

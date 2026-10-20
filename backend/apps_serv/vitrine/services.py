@@ -9,6 +9,18 @@ from django_tenants.utils import schema_context
 
 from apps_serv.identidade import cliente_do_consumidor
 from apps_serv.vitrine.models import NegocioPublico
+from core.excecoes import ErroDeNegocio
+from tenants.models import Membro
+from apps_work.agenda.models import FormaPagamento, OrigemAtendimento, StatusAgendamento
+from apps_work.clientes.models import OrigemCliente, TipoObjeto
+from apps_work.clientes.validators import normalizar_porte
+from apps_work.empresa.models import TipoAgenda
+from apps_work.notificacoes.models import TipoNotificacao
+
+
+def _dinheiro(valor) -> str:
+    """Valor monetário no formato da API: string com duas casas ("12.50")."""
+    return str(Decimal(str(valor)).quantize(Decimal('0.01')))
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +36,10 @@ class CrossTenantQueryService:
                     'nome': s.nome,
                     'descricao': s.descricao,
                     'duracao': s.duracao,
-                    'preco': s.preco,
-                    'taxa_cancelamento': s.calcular_taxa_cancelamento(),
+                    # Dinheiro sai como string, como nos serializers ("12.50"):
+                    # Decimal cru viraria número (float) no JSON.
+                    'preco': _dinheiro(s.preco),
+                    'taxa_cancelamento': _dinheiro(s.calcular_taxa_cancelamento()),
                 }
                 for s in Servico.objects.filter(ativo=True)
             ]
@@ -37,14 +51,16 @@ class CrossTenantQueryService:
                 Colaborador.objects
                 .filter(ativo=True)
                 .select_related('user')
-                .order_by('role')
+                # O papel vem do Membro (schema público), anotado na consulta.
+                .annotate(papel=Membro.papel_subquery(schema_name))
+                .order_by('papel')
             )
             return [
                 {
                     'id': c.id,
                     'nome': c.user.get_full_name() or c.user.username,
                     'funcao': c.funcao,
-                    'role': c.role,
+                    'papel': c.papel,
                 }
                 for c in colaboradores
             ]
@@ -94,7 +110,7 @@ class CrossTenantQueryService:
             from apps_work.servicos.models import Servico
 
             config = EmpresaConfig.objects.filter(pk=1).first()
-            if config and config.tipo_agenda == 'kanban':
+            if config and config.tipo_agenda == TipoAgenda.KANBAN:
                 from apps_work.kanban.services import SlotService
                 resultado = SlotService().gerar_slots(data)
                 return [
@@ -126,7 +142,7 @@ class CrossTenantQueryService:
 
             agendamentos_qs = Agendamento.objects.filter(
                 data_hora__date=data,
-                status__in=['agendado', 'confirmado'],
+                status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO],
             )
             if colaborador_id:
                 agendamentos_qs = agendamentos_qs.filter(colaborador_id=colaborador_id)
@@ -162,9 +178,9 @@ class StatusKanbanAgendamentosService:
     def por_agendamento(self, agendamentos: list) -> dict[int, dict]:
         ids_por_schema: dict[str, list[int]] = defaultdict(list)
         for ag in agendamentos:
-            # 'faltou' fica de fora junto com 'cancelado': os dois já são
+            # Faltou fica de fora junto com cancelado: os dois já são
             # desfecho final e não dependem da coluna atual do quadro.
-            if ag.origem == 'kanban' and ag.status not in ('cancelado', 'faltou'):
+            if ag.origem == OrigemAtendimento.KANBAN and ag.status not in (StatusAgendamento.CANCELADO, StatusAgendamento.FALTOU):
                 ids_por_schema[ag.schema_name].append(ag.agendamento_id)
 
         if not ids_por_schema:
@@ -196,7 +212,7 @@ class AgendamentoTenantService:
         from apps_serv.consumidores.models import AgendamentoConsumidor
 
         negocio = NegocioPublico.objects.get(schema_name=schema_name)
-        origem = 'kanban' if negocio.tipo_agenda == 'kanban' else 'agenda'
+        origem = OrigemAtendimento.KANBAN if negocio.tipo_agenda == TipoAgenda.KANBAN else OrigemAtendimento.AGENDA
 
         with transaction.atomic():
             # Resolver objeto antes de entrar no schema do tenant
@@ -207,10 +223,10 @@ class AgendamentoTenantService:
                     obj = ObjetoConsumidor.objects.get(id=objeto_id, consumidor=consumidor)
                     objeto_dados = {'tipo': obj.tipo, 'nome_exibicao': obj.nome_exibicao, **obj.dados}
                 except ObjetoConsumidor.DoesNotExist:
-                    raise ValueError('Objeto não encontrado.')
+                    raise ErroDeNegocio('Objeto não encontrado.', 'objeto_nao_encontrado')
 
-            if origem == 'kanban' and not objeto_dados:
-                raise ValueError('Selecione um pet ou veículo para agendar.')
+            if origem == OrigemAtendimento.KANBAN and not objeto_dados:
+                raise ErroDeNegocio('Selecione um pet ou veículo para agendar.', 'objeto_obrigatorio')
 
             with schema_context(schema_name):
                 from apps_work.servicos.models import Servico
@@ -218,7 +234,7 @@ class AgendamentoTenantService:
 
                 servicos = list(Servico.objects.filter(id__in=servico_ids, ativo=True))
                 if not servicos:
-                    raise ValueError('Nenhum serviço válido encontrado.')
+                    raise ErroDeNegocio('Nenhum serviço válido encontrado.', 'servico_invalido')
 
                 valor_total = sum(s.preco for s in servicos)
                 duracao_total = sum(s.duracao for s in servicos)
@@ -230,25 +246,25 @@ class AgendamentoTenantService:
                         nome=consumidor.nome,
                         email=consumidor.email,
                         telefone=consumidor.telefone,
-                        origem=Cliente.ORIGEM_SERVICEMANAGE,
+                        origem=OrigemCliente.SERVICEMANAGE,
                         consumidor_id=consumidor.id,
                     )
 
                 profissional_nome = ''
 
-                if origem == 'kanban':
+                if origem == OrigemAtendimento.KANBAN:
                     agendamento_id = self._criar_atendimento_kanban(
                         cliente=cliente, servico=servicos[0],
                         objeto_dados=objeto_dados, data_hora=data_hora,
                     )
                 else:
-                    from apps_work.agenda.models import Agendamento, AgendamentoServico, Pagamento
+                    from apps_work.agenda.models import Agendamento, AgendamentoServico, PagamentoAgendamento
 
                     agendamento = Agendamento.objects.create(
                         cliente=cliente,
                         data_hora=data_hora,
                         colaborador_id=colaborador_id,
-                        status='agendado',
+                        status=StatusAgendamento.AGENDADO,
                     )
 
                     for servico in servicos:
@@ -258,25 +274,23 @@ class AgendamentoTenantService:
                             preco_cobrado=servico.preco,
                         )
 
-                    Pagamento.objects.create(
+                    PagamentoAgendamento.objects.create(
                         agendamento=agendamento,
-                        forma='qr_code',
+                        forma=FormaPagamento.QR_CODE,
                         valor=valor_total,
                     )
 
                     agendamento_id = agendamento.id
                     if colaborador_id:
-                        try:
-                            from apps_work.usuarios.models import Colaborador
-                            colab = Colaborador.objects.get(id=colaborador_id)
+                        from apps_work.usuarios.models import Colaborador
+                        colab = Colaborador.objects.select_related('user').filter(id=colaborador_id).first()
+                        if colab is not None:
                             profissional_nome = colab.user.get_full_name() or colab.user.username
-                        except Exception:
-                            pass
 
                 servicos_snapshot = [
                     {
-                        'nome': s.nome, 'duracao': s.duracao, 'preco': float(s.preco),
-                        'taxa_cancelamento': float(s.calcular_taxa_cancelamento()),
+                        'nome': s.nome, 'duracao': s.duracao, 'preco': _dinheiro(s.preco),
+                        'taxa_cancelamento': _dinheiro(s.calcular_taxa_cancelamento()),
                     }
                     for s in servicos
                 ]
@@ -299,7 +313,7 @@ class AgendamentoTenantService:
                 duracao_total=duracao_total,
                 valor_total=valor_total,
                 valor_taxa_cancelamento=valor_taxa_cancelamento,
-                status='agendado',
+                status=StatusAgendamento.AGENDADO,
             )
 
         return agendamento_consumidor
@@ -312,35 +326,34 @@ class AgendamentoTenantService:
         from apps_work.kanban.services import AtendimentoKanbanService
 
         tipo = objeto_dados.get('tipo')
-        if tipo == 'veiculo':
+        if tipo == TipoObjeto.VEICULO:
             from apps_work.clientes.models import Veiculo
             objeto = Veiculo.objects.filter(cliente=cliente, placa=objeto_dados.get('placa', '')).first()
             if objeto is None:
                 objeto = Veiculo.objects.create(
-                    cliente=cliente, tipo='veiculo',
+                    cliente=cliente, tipo=TipoObjeto.VEICULO,
                     placa=objeto_dados.get('placa', ''),
                     marca=objeto_dados.get('marca', ''),
                     modelo=objeto_dados.get('modelo', ''),
                     cor=objeto_dados.get('cor', ''),
                 )
-        elif tipo == 'pet':
+        elif tipo == TipoObjeto.PET:
             from apps_work.clientes.models import Pet
-            porte_map = {'pequeno': 'pequeno', 'médio': 'medio', 'grande': 'grande', 'gigante': 'gigante'}
             objeto = Pet.objects.filter(cliente=cliente, nome=objeto_dados.get('nome', '')).first()
             if objeto is None:
                 objeto = Pet.objects.create(
-                    cliente=cliente, tipo='pet',
+                    cliente=cliente, tipo=TipoObjeto.PET,
                     nome=objeto_dados.get('nome', ''),
                     especie=objeto_dados.get('especie', ''),
                     raca=objeto_dados.get('raca', ''),
-                    porte=porte_map.get(objeto_dados.get('porte', '').strip().lower(), ''),
+                    porte=normalizar_porte(objeto_dados.get('porte', '')),
                 )
         else:
-            raise ValueError('Tipo de objeto inválido para agendamento por esteira.')
+            raise ErroDeNegocio('Tipo de objeto inválido para agendamento por esteira.', 'objeto_invalido')
 
         etapa = EtapaKanban.objects.order_by('ordem').first()
         if etapa is None:
-            raise ValueError('Este negócio ainda não configurou as etapas de atendimento.')
+            raise ErroDeNegocio('Este negócio ainda não configurou as etapas de atendimento.', 'esteira_nao_configurada')
 
         atendimento = AtendimentoKanbanService().criar(
             etapa=etapa,
@@ -357,23 +370,23 @@ class CancelarAgendamentoService:
         if agendamento_consumidor.consumidor_id != consumidor.id:
             raise PermissionError('Agendamento não pertence a este consumidor.')
 
-        if agendamento_consumidor.status == 'cancelado':
-            raise ValueError('Agendamento já cancelado.')
+        if agendamento_consumidor.status == StatusAgendamento.CANCELADO:
+            raise ErroDeNegocio('Agendamento já cancelado.', 'agendamento_ja_cancelado')
 
-        if agendamento_consumidor.status == 'concluido':
-            raise ValueError('Não é possível cancelar um agendamento concluído.')
+        if agendamento_consumidor.status == StatusAgendamento.CONCLUIDO:
+            raise ErroDeNegocio('Não é possível cancelar um agendamento concluído.', 'agendamento_concluido')
 
         dentro_prazo = self._dentro_prazo(agendamento_consumidor)
         taxa = Decimal('0') if dentro_prazo else agendamento_consumidor.valor_taxa_cancelamento
 
         with transaction.atomic():
             with schema_context(agendamento_consumidor.schema_name):
-                if agendamento_consumidor.origem == 'kanban':
+                if agendamento_consumidor.origem == OrigemAtendimento.KANBAN:
                     from apps_work.kanban.models import AtendimentoKanban
                     AtendimentoKanban.objects.filter(id=agendamento_consumidor.agendamento_id).delete()
                 else:
                     from apps_work.agenda.models import Agendamento
-                    Agendamento.objects.filter(id=agendamento_consumidor.agendamento_id).update(status='cancelado')
+                    Agendamento.objects.filter(id=agendamento_consumidor.agendamento_id).update(status=StatusAgendamento.CANCELADO)
 
                 if taxa > 0:
                     from apps_work.financeiro.services import SaldoService
@@ -388,10 +401,10 @@ class CancelarAgendamentoService:
                             ),
                         )
 
-            agendamento_consumidor.status = 'cancelado'
+            agendamento_consumidor.status = StatusAgendamento.CANCELADO
             agendamento_consumidor.save(update_fields=['status'])
 
-        return {'taxa': float(taxa)}
+        return {'taxa': _dinheiro(taxa)}
 
     def _dentro_prazo(self, agendamento) -> bool:
         duracao = agendamento.duracao_total
@@ -411,9 +424,8 @@ class VincularNegocioService:
         """Espelha o perfil do consumidor no Cliente do tenant e, quando o
         vínculo muda de estado, avisa o negócio.
 
-        A sincronização roda em todo agendamento porque é ela que propaga nome
-        e telefone do cadastro único (o cadastro vive no schema público e não
-        tem cópia por tenant). Já a notificação só faz sentido na transição —
+        A sincronização roda em todo agendamento porque é ela que propaga a ficha
+        do cadastro único (Cliente.CAMPOS_ESPELHADOS) para o negócio. Já a notificação só faz sentido na transição —
         notificar sempre fazia o dono receber "fulano agora é seu cliente" a
         cada agendamento de quem já era cliente dele havia meses.
 
@@ -438,29 +450,32 @@ class VincularNegocioService:
                     cliente = cliente_do_consumidor(consumidor)
 
                     if evento == 'vinculado':
+                        # A ficha completa vai na hora — antes iam só nome e
+                        # telefone, e o resto esperava o próximo PATCH do perfil.
                         if cliente is None:
-                            cliente = Cliente.objects.create(
-                                nome=consumidor.nome, email=consumidor.email,
-                                telefone=consumidor.telefone, visivel=True,
-                                origem=Cliente.ORIGEM_SERVICEMANAGE,
+                            cliente = Cliente(
+                                email=consumidor.email, visivel=True,
+                                origem=OrigemCliente.SERVICEMANAGE,
                                 consumidor_id=consumidor.id,
                             )
+                            cliente.espelhar(consumidor)
+                            cliente.save()
                         else:
                             # O vínculo passa a posse do cadastro pro consumidor,
                             # mesmo que o negócio o tenha criado na mão antes. Sem
                             # marcar a origem, remover pelo painel apagaria a linha
                             # e deixaria o vínculo ativo no público.
-                            cliente.nome = consumidor.nome
-                            cliente.telefone = consumidor.telefone
                             cliente.visivel = True
-                            cliente.origem = Cliente.ORIGEM_SERVICEMANAGE
-                            cliente.save(update_fields=['nome', 'telefone', 'visivel', 'origem'])
-                        tipo, titulo = 'cliente_vinculado', f'{consumidor.nome} agora é seu cliente'
+                            cliente.origem = OrigemCliente.SERVICEMANAGE
+                            cliente.save(update_fields=['visivel', 'origem', *cliente.espelhar(consumidor)])
+                        tipo, titulo = TipoNotificacao.CLIENTE_VINCULADO, f'{consumidor.nome} agora é seu cliente'
                     else:
                         if cliente:
+                            # Desfeito o vínculo, os dados pessoais saem do
+                            # negócio; ficam nome, telefone e o histórico.
                             cliente.visivel = False
-                            cliente.save(update_fields=['visivel'])
-                        tipo, titulo = 'cliente_desvinculado', f'{consumidor.nome} não é mais seu cliente'
+                            cliente.save(update_fields=['visivel', *cliente.apagar_dados_pessoais()])
+                        tipo, titulo = TipoNotificacao.CLIENTE_DESVINCULADO, f'{consumidor.nome} não é mais seu cliente'
 
                     if notificar:
                         Notificacao.objects.create(tipo=tipo, titulo=titulo, cliente=cliente)
@@ -505,7 +520,7 @@ class VincularNegocioService:
 
         if vinculo_existente:
             if vinculo_existente.ativo:
-                raise ValueError('Você já está vinculado a este negócio.')
+                raise ErroDeNegocio('Você já está vinculado a este negócio.', 'vinculo_existente')
             # Reativar vínculo anterior (consumidor havia se desvinculado)
             vinculo_existente.ativo = True
             vinculo_existente.desvinculado_em = None
@@ -530,7 +545,7 @@ class VincularNegocioService:
                 consumidor=consumidor, schema_name=schema_name, ativo=True
             )
         except VinculoConsumidor.DoesNotExist:
-            raise ValueError('Vínculo não encontrado.')
+            raise ErroDeNegocio('Vínculo não encontrado.', 'vinculo_nao_encontrado')
 
         vinculo.ativo = False
         vinculo.desvinculado_em = timezone.now()
@@ -541,8 +556,8 @@ class VincularNegocioService:
 
 
 _NICHO_TIPO_OBJETO = {
-    'lava_rapido': 'veiculo',
-    'banho_tosa': 'pet',
+    'lava_rapido': TipoObjeto.VEICULO,
+    'banho_tosa': TipoObjeto.PET,
 }
 
 

@@ -14,7 +14,7 @@ sincronizado, nunca a fonte.
 | `services.py` | Registro, login, recuperação de senha e — o mais importante — `SincronizarClienteService`, que empurra o perfil para todos os tenants vinculados |
 | `views.py` | Perfil (`/me/`), foto, agenda do cliente, vínculos e os objetos (pets/veículos). Views finas, exceto o cadastro de objeto, que valida ali mesmo |
 | `serializers.py` | Representação e validação. `ConsumidorUpdateSerializer` define o que o cliente pode editar do próprio cadastro |
-| `urls.py` | Rotas sob `/api/sm/` |
+| `urls.py` | Rotas sob `/api/sm/v1/` |
 
 ## Os cinco modelos
 
@@ -23,7 +23,7 @@ sincronizado, nunca a fonte.
 | `Consumidor` | A conta. Guarda a ficha completa (nome, telefone, CPF, endereço, foto). Tem `set_password`/`check_password` próprios — não herda de `AbstractUser` |
 | `CodigoRecuperacaoConsumidor` | Código de recuperação de senha, com expiração de 15min e trava após 5 tentativas |
 | `VinculoConsumidor` | Liga cliente a negócio. **Soft delete**: desvincular marca `ativo=False`, nunca apaga — assim revincular reativa em vez de duplicar |
-| `ObjetoConsumidor` | O pet ou veículo do cliente, em `JSONField`. É a fonte; o `Pet`/`Veiculo` do tenant é cópia |
+| `ObjetoConsumidor` | O pet ou veículo do cliente, em `JSONField`. Vira um `Pet`/`Veiculo` no tenant quando é usado num agendamento por esteira — cópia feita uma vez, sem sincronização posterior |
 | `AgendamentoConsumidor` | A agenda do cliente, atravessando todos os negócios. Guarda `schema_name` + `agendamento_id` (referência solta ao registro no tenant) e um **snapshot** dos serviços |
 
 ## Tabelas
@@ -40,22 +40,34 @@ sincronizado, nunca a fonte.
 | `data_nascimento` | `DateField` nulo | |
 | `cep` · `endereco` · `numero_endereco` | `CharField` vazios | |
 | `foto_chave` | `CharField(255)` vazio | Caminho no S3, **não** URL — a foto é privada e a URL sai assinada, válida por uma hora |
-| `is_active` | `Boolean` = `True` | |
+| `ativo` | `Boolean` = `True` | |
 | `criado_em` | `DateTime` `auto_now_add` | |
+| `sessoes_validas_desde` | `DateTimeField` nulo | Preenchido na troca de senha. Token com `iat` anterior é recusado |
+
+### `RefreshRevogadoConsumidor` — refresh que não vale mais
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| `jti` | `CharField(64)` único | O id do refresh. O `unique` barra renovação dupla simultânea |
+| `expira_em` | `DateTimeField` | Quando o token expiraria de qualquer forma. Depois disso a linha pode ser apagada |
+| `revogado_em` | `DateTime` `auto_now_add` | |
+
+Gravado ao renovar (o refresh usado) e no logout. Ver `../autenticacao/CLAUDE.md`.
 
 ### `CodigoRecuperacaoConsumidor`
 
 | Coluna | Tipo | O que é |
 |---|---|---|
 | `consumidor` | `FK → Consumidor` `CASCADE` | |
-| `codigo` | `CharField(8)` | |
+| `codigo_hash` | `CharField(128)` | Hash do código (`make_password`). O código em claro só existe no e-mail |
 | `criado_em` | `DateTime` `auto_now_add` | |
 | `expira_em` | `DateTimeField` | 15 minutos, definido no `save()` |
 | `usado` | `Boolean` = `False` | |
 | `tentativas` | `PositiveSmallInteger` = 0 | Trava em 5 (`MAX_TENTATIVAS`) |
 
 Ordenação por `-criado_em`. `expirado` e `bloqueado` são propriedades, não
-colunas.
+colunas. Crie com `CodigoRecuperacaoConsumidor.emitir(consumidor)` e confira
+com `registro.confere(codigo)`. O e-mail sai por task (`core/email.py`).
 
 ### `VinculoConsumidor` — cliente ↔ negócio
 
@@ -76,7 +88,7 @@ de duplicar.
 |---|---|---|
 | `consumidor` | `FK → Consumidor` `CASCADE` | |
 | `tipo` | `CharField(20)` | `veiculo` ou `pet` |
-| `dados` | `JSONField` | Os atributos, sem esquema fixo. É a **fonte**; o `Pet`/`Veiculo` do tenant é cópia |
+| `dados` | `JSONField` | Os atributos, sem esquema fixo. Copiados para o `Pet`/`Veiculo` do tenant no primeiro agendamento por esteira que os usa; editar ou apagar depois não muda a cópia |
 | `nome_exibicao` | `CharField(255)` | Montado na criação (ex.: "Honda Civic · ABC1D23") |
 | `criado_em` | `DateTime` `auto_now_add` | Ordenação por `-criado_em` |
 
@@ -120,6 +132,9 @@ upload, e um snapshot mostraria a marca antiga para sempre.
 - **O e-mail não é mais a chave de ligação** com o `Cliente` do tenant; quem faz
   isso é `Cliente.consumidor_id`. O e-mail continua bloqueado para edição, mas
   agora por ser credencial de login, não por ser chave.
-- **`ObjetosConsumidorView.post` valida apenas presença dos campos**, não o
-  formato. Existe um `_placa_valida` no arquivo que nunca é chamado — placa
-  inválida cadastrada aqui chega ao banco do negócio sem passar por serializer.
+- **O cadastro de pet/veículo está em `ObjetoConsumidorService`**, com a mesma
+  validação de placa do veículo cadastrado pelo negócio
+  (`clientes.validators.validar_placa_br`) e a placa gravada normalizada. Antes
+  havia uma cópia da validação na view que nunca era chamada.
+- **A foto de perfil está em `FotoConsumidorService`**: troca, remoção, apagar o
+  arquivo anterior e sincronizar com os negócios vinculados.
