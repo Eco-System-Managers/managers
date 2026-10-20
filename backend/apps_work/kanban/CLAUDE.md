@@ -76,8 +76,9 @@ Ao desfazer, volta para `agendado` — e o ponto do quadro volta a valer.
 
 ## O que é fácil errar aqui
 
-- **Paginação condicional, mesma razão da agenda.** Com `?data=` o quadro sai
-  inteiro; sem ela, pagina. Página 2 que não chega faria card sumir da coluna.
+- **O quadro do dia também vem paginado**, como a agenda: o front pede
+  `?data=...&page_size=100` e segue o `next`. Página que não chega faria card
+  sumir da coluna sem erro.
 - **Cobrar gera troco como crédito.** O excedente vira `TransacaoCredito` na
   comanda do cliente (app `financeiro`), não dinheiro devolvido.
 - **Não dá para marcar falta em atendimento já pago** — a regra está em

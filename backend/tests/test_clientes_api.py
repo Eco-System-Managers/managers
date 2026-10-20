@@ -163,7 +163,7 @@ class TestVeiculoAPI:
     def test_listar_veiculos_retorna_200(self, client_autenticado, veiculo):
         response = client_autenticado.get('/api/veiculos/')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_criar_veiculo_seta_tipo_veiculo(self, client_autenticado, cliente):
         payload = {'cliente': cliente.id, 'modelo': 'Gol', 'marca': 'VW', 'placa': 'XYZ-9999', 'cor': 'Prata'}
@@ -175,8 +175,8 @@ class TestVeiculoAPI:
         Veiculo.objects.create(cliente=outro_cliente, tipo='veiculo', modelo='Uno', marca='Fiat')
         response = client_autenticado.get(f'/api/veiculos/?cliente={cliente.id}')
         assert response.status_code == 200
-        assert len(response.data) == 1
-        assert response.data[0]['modelo'] == 'Civic'
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]['modelo'] == 'Civic'
 
     def test_deletar_veiculo_retorna_204(self, client_autenticado, veiculo):
         response = client_autenticado.delete(f'/api/veiculos/{veiculo.id}/')
@@ -197,7 +197,7 @@ class TestPetAPI:
     def test_listar_pets_retorna_200(self, client_autenticado, pet):
         response = client_autenticado.get('/api/pets/')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_criar_pet_seta_tipo_pet(self, client_autenticado, cliente):
         payload = {'cliente': cliente.id, 'nome': 'Bolinha', 'especie': 'Gato'}
@@ -209,8 +209,8 @@ class TestPetAPI:
         Pet.objects.create(cliente=outro_cliente, tipo='pet', nome='Mimi', especie='Gato')
         response = client_autenticado.get(f'/api/pets/?cliente={cliente.id}')
         assert response.status_code == 200
-        assert len(response.data) == 1
-        assert response.data[0]['nome'] == 'Rex'
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]['nome'] == 'Rex'
 
     def test_deletar_pet_retorna_204(self, client_autenticado, pet):
         response = client_autenticado.delete(f'/api/pets/{pet.id}/')

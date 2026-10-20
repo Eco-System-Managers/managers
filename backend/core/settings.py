@@ -241,6 +241,8 @@ REST_FRAMEWORK = {
     ),
     # Contrato único de erro: {detail, code, fields?} (core/excecoes.py).
     'EXCEPTION_HANDLER': 'core.excecoes.tratar_excecao',
+    # Toda coleção de recurso sai paginada: {count, next, previous, results}.
+    'DEFAULT_PAGINATION_CLASS': 'core.paginacao.Paginacao',
     # Valem para toda view que não declara throttle_classes própria. O
     # ScopedRateThrottle só age onde a view define throttle_scope.
     'DEFAULT_THROTTLE_CLASSES': (

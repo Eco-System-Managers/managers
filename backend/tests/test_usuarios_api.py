@@ -151,17 +151,17 @@ class TestColaboradorAPI:
     def test_listar_colaboradores_retorna_200(self, client_autenticado, colaborador):
         response = client_autenticado.get('/api/colaboradores/')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_buscar_por_nome_filtra_colaboradores(self, client_autenticado, colaborador):
         response = client_autenticado.get('/api/colaboradores/?search=João')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_busca_sem_resultado_retorna_lista_vazia(self, client_autenticado, colaborador):
         response = client_autenticado.get('/api/colaboradores/?search=Inexistente')
         assert response.status_code == 200
-        assert len(response.data) == 0
+        assert len(response.data['results']) == 0
 
     def test_sem_autenticacao_retorna_401(self, patch_tenant_middleware):
         client = APIClient()
@@ -317,17 +317,17 @@ class TestConviteAPI:
     def test_listar_convites_pendentes_retorna_200(self, client_autenticado, convite_valido):
         response = client_autenticado.get('/api/convites/')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_listar_nao_retorna_convites_aceitos(self, client_autenticado, convite_aceito):
         response = client_autenticado.get('/api/convites/')
         assert response.status_code == 200
-        assert len(response.data) == 0
+        assert len(response.data['results']) == 0
 
     def test_listar_nao_retorna_convites_expirados(self, client_autenticado, convite_expirado):
         response = client_autenticado.get('/api/convites/')
         assert response.status_code == 200
-        assert len(response.data) == 0
+        assert len(response.data['results']) == 0
 
     @patch('apps_work.usuarios.services.send_mail')
     def test_criar_convite_retorna_201(self, mock_mail, client_autenticado):

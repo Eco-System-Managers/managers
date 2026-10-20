@@ -1,21 +1,14 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import Notificacao
 from .serializers import NotificacaoSerializer
 
 
-class NotificacaoPagination(PageNumberPagination):
-    page_size = 20
-
-
 class NotificacaoViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificacaoSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = NotificacaoPagination
-
     def get_queryset(self):
         return Notificacao.objects.all()
 

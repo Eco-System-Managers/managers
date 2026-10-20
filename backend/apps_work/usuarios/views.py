@@ -99,7 +99,9 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         return super().get_throttles()
 
     def get_queryset(self):
-        return ConviteColaborador.objects.filter(aceito=False, expira_em__gt=timezone.now())
+        return ConviteColaborador.objects.filter(
+            aceito=False, expira_em__gt=timezone.now(),
+        ).order_by('-criado_em')
 
     def perform_destroy(self, instance):
         from tenants.models import ConviteIndex

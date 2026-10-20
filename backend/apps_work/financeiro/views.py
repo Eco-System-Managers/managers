@@ -2,7 +2,6 @@ from datetime import date
 from decimal import Decimal
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -57,13 +56,8 @@ class CaixaView(APIView):
         return Response(dados)
 
 
-class DespesaPagination(PageNumberPagination):
-    page_size = 20
-
-
 class DespesaViewSet(viewsets.ModelViewSet):
     serializer_class = DespesaSerializer
-    pagination_class = DespesaPagination
     permission_classes = [IsProprietario]
 
     def get_queryset(self):

@@ -2,7 +2,6 @@ from datetime import date as date_type
 from decimal import Decimal
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -33,25 +32,8 @@ class EtapaKanbanViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class AtendimentoKanbanPagination(PageNumberPagination):
-    page_size = 20
-
-
 class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
     serializer_class = AtendimentoKanbanSerializer
-    pagination_class = AtendimentoKanbanPagination
-
-    def paginate_queryset(self, queryset):
-        """O quadro do dia sai inteiro; o resto vem paginado.
-
-        Mesma razao da agenda: o kanban monta as colunas com todos os
-        atendimentos daquela data, e uma pagina 2 que nao chega faria card
-        sumir do quadro sem erro nenhum. Ja o historico por cliente nao tem
-        teto e cresce a cada visita.
-        """
-        if self.request.query_params.get('data'):
-            return None
-        return super().paginate_queryset(queryset)
 
     def get_permissions(self):
         return [IsAuthenticated()]

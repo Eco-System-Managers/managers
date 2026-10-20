@@ -15,6 +15,7 @@ from .models import NegocioPublico
 from .serializers import NegocioPublicoSerializer
 from .services import AgendamentoTenantService, CrossTenantQueryService, VincularNegocioService
 from core.excecoes import ErroDeNegocio, erro
+from core.paginacao import resposta_paginada
 
 _SCHEMA_NAME_RE = re.compile(r'^[a-z0-9_]+$')
 
@@ -91,7 +92,9 @@ class NegociosPublicosView(APIView):
         # Coordenada ou raio inválido levanta ErroDeNegocio → 400 pelo handler.
         qs = _filtrar_por_area(qs, request.query_params)
 
-        return Response(NegocioPublicoSerializer(qs, many=True).data)
+        return resposta_paginada(
+            request, qs, self, lambda pagina: NegocioPublicoSerializer(pagina, many=True).data,
+        )
 
 
 class CidadesView(APIView):
@@ -164,7 +167,7 @@ class ServicosNegocioView(APIView):
             return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         servicos = CrossTenantQueryService().listar_servicos(schema_name)
-        return Response(servicos)
+        return resposta_paginada(request, servicos, self)
 
 
 class EquipeNegocioView(APIView):
@@ -177,7 +180,7 @@ class EquipeNegocioView(APIView):
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
             return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
         equipe = CrossTenantQueryService().listar_colaboradores(schema_name)
-        return Response(equipe)
+        return resposta_paginada(request, equipe, self)
 
 
 class HorariosNegocioView(APIView):

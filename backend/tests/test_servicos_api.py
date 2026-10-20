@@ -32,7 +32,7 @@ class TestServicoAPI:
     def test_listar_servicos(self, client_autenticado, servico):
         response = client_autenticado.get('/api/servicos/')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_criar_servico(self, client_autenticado):
         payload = {'nome': 'Escova', 'duracao': 45, 'preco': '35.00'}
@@ -65,7 +65,7 @@ class TestServicoAPI:
         Servico.objects.create(nome='Inativo', duracao=30, preco='20.00', ativo=False)
         response = client_autenticado.get('/api/servicos/?ativo=true')
         assert response.status_code == 200
-        assert all(s['ativo'] for s in response.data)
+        assert all(s['ativo'] for s in response.data['results'])
 
     def test_preco_zero_retorna_400(self, client_autenticado):
         payload = {'nome': 'Teste', 'duracao': 30, 'preco': '0.00'}
@@ -86,8 +86,8 @@ class TestServicoAPI:
         Servico.objects.create(nome='Manicure', duracao=30, preco='25.00')
         response = client_autenticado.get('/api/servicos/?search=Corte')
         assert response.status_code == 200
-        assert len(response.data) == 1
-        assert response.data[0]['nome'] == 'Corte'
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]['nome'] == 'Corte'
 
 
 @pytest.mark.django_db
@@ -105,14 +105,14 @@ class TestServicoColaboradores:
 
         response = client_autenticado.get(f'/api/servicos/?colaborador={colaborador_user.id}')
         assert response.status_code == 200
-        assert len(response.data) == 1
-        assert response.data[0]['nome'] == 'Escova'
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]['nome'] == 'Escova'
 
     def test_filtro_por_colaborador_sem_vinculo_retorna_lista_vazia(self, client_autenticado, colaborador_user):
         Servico.objects.create(nome='Corte', duracao=30, preco='40.00')
         response = client_autenticado.get(f'/api/servicos/?colaborador={colaborador_user.id}')
         assert response.status_code == 200
-        assert len(response.data) == 0
+        assert len(response.data['results']) == 0
 
     def test_desassociar_colaborador_do_servico(self, client_autenticado, colaborador_user):
         servico = Servico.objects.create(nome='Escova', duracao=45, preco='50.00')

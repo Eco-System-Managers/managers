@@ -2,7 +2,6 @@ from django.db import connection
 from django_tenants.utils import schema_context
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,15 +26,9 @@ class ModeloContratoViewSet(viewsets.ModelViewSet):
         return ModeloContrato.objects.all()
 
 
-class ContratoPagination(PageNumberPagination):
-    page_size = 20
-
-
 class ContratoViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = ContratoPagination
-
     def get_queryset(self):
         qs = Contrato.objects.select_related('cliente', 'modelo')
         cliente_id = self.request.query_params.get('cliente')

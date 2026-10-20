@@ -3,7 +3,6 @@ import re
 import uuid
 
 from rest_framework import status
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,6 +17,7 @@ from .serializers import (
     ObjetoConsumidorSerializer,
 )
 from core.excecoes import erro
+from core.paginacao import Paginacao, resposta_paginada
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +126,8 @@ class MeusAgendamentosView(APIView):
         qs = AgendamentoConsumidor.objects.filter(consumidor=request.user).order_by('-data_hora')
         if status_filtro:
             qs = qs.filter(status=status_filtro)
-        paginator = PageNumberPagination()
-        paginator.page_size = 20
-        page = paginator.paginate_queryset(qs, request)
+        paginator = Paginacao()
+        page = paginator.paginate_queryset(qs, request, view=self)
 
         from apps_serv.vitrine.services import StatusKanbanAgendamentosService
         status_kanban = StatusKanbanAgendamentosService().por_agendamento(page)
@@ -179,7 +178,7 @@ class MeusVinculosView(APIView):
             dados['vinculado_em'] = vinculo.criado_em
             resultado.append(dados)
 
-        return Response(resultado)
+        return resposta_paginada(request, resultado, self)
 
 
 _PLACA_ANTIGO   = re.compile(r'^[A-Z]{3}\d{4}$')
@@ -215,7 +214,9 @@ class ObjetosConsumidorView(APIView):
         qs = ObjetoConsumidor.objects.filter(consumidor=request.user)
         if tipo:
             qs = qs.filter(tipo=tipo)
-        return Response(ObjetoConsumidorSerializer(qs, many=True).data)
+        return resposta_paginada(
+            request, qs, self, lambda pagina: ObjetoConsumidorSerializer(pagina, many=True).data,
+        )
 
     def post(self, request):
         tipo = request.data.get('tipo')

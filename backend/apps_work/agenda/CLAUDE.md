@@ -67,12 +67,13 @@ apenas o horário de início.
 Quem não tem colaborador definido não entra na checagem: sem profissional, não
 há recurso disputado.
 
-## Paginação condicional
+## Paginação
 
-`paginate_queryset` devolve `None` quando vem `?data=`. É proposital: a grade do
-dia monta a linha do tempo com todos os agendamentos daquela data, e uma página
-2 que não chega faria horário sumir da tela sem erro nenhum. O dia já é limite
-natural. Sem `data` — histórico por cliente — pagina normalmente.
+A listagem é sempre paginada (`core/paginacao.py`), inclusive com `?data=` —
+antes o dia saía como array e a mesma rota tinha dois formatos. A grade do dia
+monta a linha do tempo com todos os agendamentos daquela data, então o front
+pede `?page_size=100` e **segue o `next`** se ele vier: uma página que não chega
+faria horário sumir da tela sem erro nenhum.
 
 ## O que é fácil errar aqui
 

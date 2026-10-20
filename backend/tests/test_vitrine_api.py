@@ -83,7 +83,7 @@ class TestNegociosPublicos:
     def test_lista_somente_negocios_ativos(self, api, negocio, negocio_inativo):
         response = api.get('/api/sm/negocios/')
         assert response.status_code == 200
-        nomes = [n['nome'] for n in response.data]
+        nomes = [n['nome'] for n in response.data['results']]
         assert 'Barbearia X' in nomes
         assert 'Fechada' not in nomes
 
@@ -98,14 +98,14 @@ class TestNegociosPublicos:
         )
         response = api.get('/api/sm/negocios/?nicho=Barbearia')
         assert response.status_code == 200
-        schemas = [n['schema_name'] for n in response.data]
+        schemas = [n['schema_name'] for n in response.data['results']]
         assert 'barbearia_z' in schemas
         assert 'lavacao_y' not in schemas
 
     def test_lista_vazia_sem_negocios_ativos(self, api, negocio_inativo):
         response = api.get('/api/sm/negocios/')
         assert response.status_code == 200
-        schemas = [n['schema_name'] for n in response.data]
+        schemas = [n['schema_name'] for n in response.data['results']]
         assert negocio_inativo.schema_name not in schemas
 
     def test_endpoint_publico_sem_auth(self, api, negocio):
@@ -136,7 +136,7 @@ def vitrine_variada(db):
 @pytest.mark.django_db
 class TestBuscaDeNegocios:
     def _schemas(self, response):
-        return {n['schema_name'] for n in response.data}
+        return {n['schema_name'] for n in response.data['results']}
 
     def test_busca_por_nome(self, api, vitrine_variada):
         response = api.get('/api/sm/negocios/?search=barbearia do')
@@ -156,11 +156,11 @@ class TestBuscaDeNegocios:
 
     def test_busca_vazia_retorna_todos(self, api, vitrine_variada):
         response = api.get('/api/sm/negocios/?search=')
-        assert len(response.data) == 3
+        assert len(response.data['results']) == 3
 
     def test_busca_sem_resultado_retorna_lista_vazia(self, api, vitrine_variada):
         response = api.get('/api/sm/negocios/?search=inexistente')
-        assert response.data == []
+        assert response.data['results'] == []
 
     def test_busca_combina_com_filtro_de_nicho(self, api, vitrine_variada):
         """Chip de nicho e caixa de busca sao filtros independentes e somam."""
@@ -169,7 +169,7 @@ class TestBuscaDeNegocios:
 
     def test_nao_retorna_negocio_inativo(self, api, vitrine_variada, negocio_inativo):
         response = api.get('/api/sm/negocios/?search=fechada')
-        assert response.data == []
+        assert response.data['results'] == []
 
 
 @pytest.mark.django_db
@@ -192,7 +192,7 @@ class TestFiltroPorArea:
         )
 
     def _schemas(self, response):
-        return {n['schema_name'] for n in response.data}
+        return {n['schema_name'] for n in response.data['results']}
 
     def test_raio_curto_traz_so_o_que_esta_perto(self, api):
         response = api.get('/api/sm/negocios/?lat=-23.55&lng=-46.633&raio_km=20')
@@ -212,11 +212,11 @@ class TestFiltroPorArea:
 
     def test_sem_coordenadas_nao_filtra(self, api):
         response = api.get('/api/sm/negocios/')
-        assert len(response.data) == 3
+        assert len(response.data['results']) == 3
 
     def test_lat_sem_lng_e_ignorado(self, api):
         response = api.get('/api/sm/negocios/?lat=-23.55')
-        assert len(response.data) == 3
+        assert len(response.data['results']) == 3
 
     def test_area_combina_com_nicho(self, api):
         NegocioPublico.objects.create(
@@ -325,7 +325,7 @@ class TestServicosNegocio:
             MockSvc.return_value.listar_servicos.return_value = servicos_mock
             response = api.get(f'/api/sm/negocios/{negocio.schema_name}/servicos/')
         assert response.status_code == 200
-        assert len(response.data) == 2
+        assert len(response.data['results']) == 2
 
     def test_negocio_inexistente_retorna_404(self, api, db):
         response = api.get('/api/sm/negocios/schema_inexistente/servicos/')

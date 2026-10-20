@@ -170,7 +170,7 @@ class TestEtapaKanbanAPI:
     def test_listar_etapas_retorna_200(self, client_autenticado, etapa):
         response = client_autenticado.get('/api/kanban/etapas/')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_criar_etapa_retorna_201(self, client_autenticado):
         payload = {'nome': 'Nova Etapa', 'ordem': 0, 'cor': '#FFFFFF'}
@@ -209,13 +209,13 @@ class TestAtendimentoKanbanAPI:
         assert response.status_code == 200
         assert response.data['count'] == 1
 
-    def test_quadro_do_dia_nao_vem_paginado(self, client_autenticado, atendimento):
-        """As colunas do kanban sao montadas com o dia inteiro: paginar faria
-        card sumir do quadro sem erro nenhum."""
+    def test_quadro_do_dia_vem_no_mesmo_formato_paginado(self, client_autenticado, atendimento):
+        """O formato não muda com ?data= (antes virava array): o client gerado
+        do OpenAPI tem um tipo só para a rota."""
         import datetime
         hoje = datetime.date.today().isoformat()
         response = client_autenticado.get(f'/api/kanban/atendimentos/?data={hoje}')
-        assert isinstance(response.data, list)
+        assert set(response.data) >= {'count', 'next', 'previous', 'results'}
 
     def test_historico_por_cliente_vem_paginado(self, client_autenticado, atendimento):
         cliente_id = atendimento.objeto.cliente.id
@@ -236,8 +236,11 @@ class TestAtendimentoKanbanAPI:
         hoje = datetime.date.today()
         for _ in range(25):
             AtendimentoKanban.objects.create(etapa=etapa, objeto=objeto, servico=servico, data=hoje)
-        response = client_autenticado.get(f'/api/kanban/atendimentos/?data={hoje.isoformat()}')
-        assert len(response.data) == 25
+        # O quadro monta as colunas com o dia inteiro: pede página grande e
+        # confere que não há próxima — senão card sumiria do quadro sem erro.
+        response = client_autenticado.get(f'/api/kanban/atendimentos/?data={hoje.isoformat()}&page_size=100')
+        assert len(response.data['results']) == 25
+        assert response.data['next'] is None
 
     def test_criar_atendimento_retorna_201(self, client_autenticado, etapa, objeto, servico):
         payload = {'etapa': etapa.pk, 'objeto': objeto.pk, 'servico': servico.pk}
@@ -258,7 +261,7 @@ class TestAtendimentoKanbanAPI:
         AtendimentoKanban.objects.create(etapa=etapa, objeto=objeto, servico=servico, data=date(2026, 9, 2))
         response = client_autenticado.get('/api/kanban/atendimentos/?data=2026-09-01')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_sem_autenticacao_retorna_401(self, patch_tenant_middleware):
         client = APIClient()

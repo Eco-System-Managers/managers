@@ -3,7 +3,6 @@ from django.db import connection
 from django.http import HttpResponseRedirect
 from rest_framework import status
 from rest_framework.generics import ListAPIView
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
@@ -101,15 +100,9 @@ class CancelarAssinaturaView(APIView):
         return Response(AssinaturaSerializer(assinatura).data)
 
 
-class PagamentoPagination(PageNumberPagination):
-    page_size = 20
-
-
 class PagamentosListView(ListAPIView):
     serializer_class = PagamentoSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PagamentoPagination
-
     def get_queryset(self):
         from tenants.models import Tenant
 

@@ -1,5 +1,4 @@
 from rest_framework import viewsets
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Prefetch
@@ -8,14 +7,8 @@ from .serializers import ClienteSerializer, ObjetoClienteSerializer, PetSerializ
 from .services import RemocaoClienteService
 
 
-class ClientePagination(PageNumberPagination):
-    page_size = 20
-
-
 class ClienteViewSet(viewsets.ModelViewSet):
     serializer_class = ClienteSerializer
-    pagination_class = ClientePagination
-
     def perform_destroy(self, instance):
         RemocaoClienteService().remover(instance)
 

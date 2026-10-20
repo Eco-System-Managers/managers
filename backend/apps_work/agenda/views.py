@@ -1,7 +1,6 @@
 from datetime import date as date_type
 from decimal import Decimal
 from rest_framework import viewsets, status as drf_status
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -48,25 +47,8 @@ class DiasComRegistroView(APIView):
         return Response(DiasComRegistroService().listar(ano, mes))
 
 
-class AgendamentoPagination(PageNumberPagination):
-    page_size = 20
-
-
 class AgendamentoViewSet(viewsets.ModelViewSet):
     serializer_class = AgendamentoSerializer
-    pagination_class = AgendamentoPagination
-
-    def paginate_queryset(self, queryset):
-        """A grade do dia sai inteira; o resto vem paginado.
-
-        A tela de agenda monta a linha do tempo com todos os agendamentos
-        daquela data — se a pagina 2 nao vier, some horario da grade sem erro
-        nenhum, e o dia ja e um limite natural. Ja o historico por cliente nao
-        tem teto e cresce a cada visita.
-        """
-        if self.request.query_params.get('data'):
-            return None
-        return super().paginate_queryset(queryset)
 
     def get_queryset(self):
         qs = Agendamento.objects.select_related(

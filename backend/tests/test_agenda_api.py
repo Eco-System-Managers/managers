@@ -67,11 +67,11 @@ class TestAgendamentoAPI:
         assert response.status_code == 200
         assert response.data['count'] == 1
 
-    def test_grade_do_dia_nao_vem_paginada(self, client_autenticado, agendamento):
-        """A tela monta a linha do tempo com o dia inteiro: paginar faria
-        horario sumir da grade sem erro nenhum."""
+    def test_grade_do_dia_vem_no_mesmo_formato_paginado(self, client_autenticado, agendamento):
+        """O formato não muda com ?data= (antes virava array): o client gerado
+        do OpenAPI tem um tipo só para a rota."""
         response = client_autenticado.get('/api/agendamentos/?data=2024-06-10')
-        assert isinstance(response.data, list)
+        assert set(response.data) >= {'count', 'next', 'previous', 'results'}
 
     def test_historico_por_cliente_vem_paginado(self, client_autenticado, cliente):
         response = client_autenticado.get(f'/api/agendamentos/?cliente={cliente.id}')
@@ -99,8 +99,11 @@ class TestAgendamentoAPI:
                 cliente=cliente,
                 data_hora=datetime(2024, 6, 10, 12, 0, tzinfo=timezone.utc) + timedelta(minutes=30 * i),
             )
-        response = client_autenticado.get('/api/agendamentos/?data=2024-06-10')
-        assert len(response.data) == 25
+        # A grade monta a linha do tempo com o dia inteiro: pede página grande e
+        # confere que não há próxima — senão horário sumiria sem erro.
+        response = client_autenticado.get('/api/agendamentos/?data=2024-06-10&page_size=100')
+        assert len(response.data['results']) == 25
+        assert response.data['next'] is None
 
     def test_criar_agendamento_retorna_201(self, client_autenticado, cliente):
         payload = {'cliente': cliente.id, 'data_hora': '2024-06-15T10:00:00Z'}
@@ -154,7 +157,7 @@ class TestAgendamentoAPI:
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 11, 9, 0, tzinfo=timezone.utc))
         response = client_autenticado.get('/api/agendamentos/?data=2024-06-10')
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_filtrar_por_colaborador_retorna_do_colaborador(self, client_autenticado, cliente, colaborador):
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 10, 9, 0, tzinfo=timezone.utc), colaborador=colaborador)

@@ -424,9 +424,9 @@ class TestMeusVinculos:
         resposta = client.get(self.URL)
 
         assert resposta.status_code == 200
-        assert len(resposta.data) == 1
-        assert resposta.data[0]['nome'] == 'Barbearia A'
-        assert resposta.data[0]['logo_url'] == 'https://cdn/a.png'
+        assert len(resposta.data['results']) == 1
+        assert resposta.data['results'][0]['nome'] == 'Barbearia A'
+        assert resposta.data['results'][0]['logo_url'] == 'https://cdn/a.png'
 
     def test_mantem_schema_name_na_resposta(self, api_autenticado, consumidor):
         """A tela de perfil usa schema_name para saber se ja esta vinculada."""
@@ -436,7 +436,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data[0]['schema_name'] == 'barbearia_a'
+        assert resposta.data['results'][0]['schema_name'] == 'barbearia_a'
 
     def test_informa_quando_o_vinculo_foi_criado(self, api_autenticado, consumidor):
         client, _ = api_autenticado
@@ -445,7 +445,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data[0]['vinculado_em'] is not None
+        assert resposta.data['results'][0]['vinculado_em'] is not None
 
     def test_ignora_vinculo_cujo_negocio_saiu_da_vitrine(self, api_autenticado, consumidor):
         client, _ = api_autenticado
@@ -453,7 +453,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data == []
+        assert resposta.data['results'] == []
 
     def test_nao_retorna_vinculo_inativo(self, api_autenticado, consumidor):
         client, _ = api_autenticado
@@ -462,7 +462,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data == []
+        assert resposta.data['results'] == []
 
     def test_nao_retorna_vinculo_de_outro_consumidor(self, api_autenticado, db):
         client, _ = api_autenticado
@@ -474,7 +474,7 @@ class TestMeusVinculos:
 
         resposta = client.get(self.URL)
 
-        assert resposta.data == []
+        assert resposta.data['results'] == []
 
     def test_resolve_em_uma_consulta_independente_da_quantidade(self, api_autenticado, consumidor):
         """Guarda contra N+1: a consulta de negocios nao pode crescer com o
@@ -487,6 +487,6 @@ class TestMeusVinculos:
         with CaptureQueriesContext(connection) as ctx:
             resposta = client.get(self.URL)
 
-        assert len(resposta.data) == 3
+        assert len(resposta.data['results']) == 3
         consultas = [q for q in ctx.captured_queries if 'vitrine_negociopublico' in q['sql']]
         assert len(consultas) == 1

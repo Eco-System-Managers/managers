@@ -187,6 +187,8 @@ class UploadLogoView(APIView):
 
 class HorarioFuncionamentoViewSet(viewsets.ModelViewSet):
     serializer_class = HorarioFuncionamentoSerializer
+    # Sempre os 7 dias da semana: lista fixa, sem paginação.
+    pagination_class = None
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
