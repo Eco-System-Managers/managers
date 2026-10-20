@@ -47,7 +47,7 @@ class TestLoginSemEnumeracao:
         proprietario.save()
         response = api.post('/api/v1/auth/login/', {'email': proprietario.username, 'senha': 'senha123'})
         assert response.status_code == 403
-        assert response.data['code'] == 'user_inactive'
+        assert response.data['code'] == 'conta_inativa'
 
     def test_b2b_credencial_errada_tem_o_mesmo_codigo_do_b2c(self, api, proprietario):
         response = api.post('/api/v1/auth/login/', {'email': proprietario.username, 'senha': 'errada'})
@@ -64,6 +64,20 @@ class TestLoginSemEnumeracao:
             with pytest.raises(ValueError):
                 LoginConsumidorService().autenticar(email='ninguem@sm.com', senha='qualquer')
         hash_ficticio.assert_called_once_with('qualquer')
+
+    def test_conta_inativa_tem_o_mesmo_status_e_codigo_nos_dois_produtos(self, api, proprietario):
+        proprietario.is_active = False
+        proprietario.save()
+        consumidor = RegistroConsumidorService().registrar(
+            nome='Carla', email='carla@sm.com', senha='SenhaForte123!', telefone='11999990000',
+        )
+        consumidor.ativo = False
+        consumidor.save()
+
+        b2b = api.post('/api/v1/auth/login/', {'email': proprietario.username, 'senha': 'senha123'})
+        b2c = APIClient().post('/api/sm/v1/auth/login/', {'email': 'carla@sm.com', 'senha': 'SenhaForte123!'})
+        assert (b2b.status_code, b2b.data['code']) == (403, 'conta_inativa')
+        assert (b2c.status_code, b2c.data['code']) == (403, 'conta_inativa')
 
 
 # ---------------------------------------------------------------------------

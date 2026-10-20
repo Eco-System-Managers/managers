@@ -99,7 +99,7 @@ class LoginService:
 
         if not user.is_active:
             raise ErroDeNegocio(
-                'Você está inativo. Entre em contato com o proprietário do sistema.', 'user_inactive', 403,
+                'Você está inativo. Entre em contato com o proprietário do sistema.', 'conta_inativa', 403,
             )
 
         membro = Membro.objects.filter(user=user).select_related('tenant').first()

@@ -128,7 +128,7 @@ _CODIGOS_DRF = {
     'not_acceptable': 'formato_nao_aceito',
     'token_not_valid': 'token_invalido',
     'user_not_found': 'nao_autenticado',
-    'user_inactive': 'usuario_inativo',
+    'user_inactive': 'conta_inativa',
     'password_changed': 'sessao_encerrada',
 }
 

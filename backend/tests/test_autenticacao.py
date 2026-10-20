@@ -201,7 +201,7 @@ class TestLogin:
         user.save()
         response = api.post('/api/v1/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
         assert response.status_code == 403
-        assert response.data['code'] == 'user_inactive'
+        assert response.data['code'] == 'conta_inativa'
 
     def test_usuario_inativo_com_senha_errada_retorna_401(self, api, user_com_tenant):
         user, _ = user_com_tenant

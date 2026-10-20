@@ -50,7 +50,7 @@ class LoginConsumidorService:
         login_servicemanage.limpar(email)
 
         if not consumidor.ativo:
-            raise ErroDeNegocio('Conta inativa. Entre em contato com o suporte.', 'conta_inativa', 401)
+            raise ErroDeNegocio('Conta inativa. Entre em contato com o suporte.', 'conta_inativa', 403)
 
         return consumidor
 
