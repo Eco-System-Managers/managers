@@ -62,7 +62,7 @@ def _sessao_valida(consumidor: Consumidor, payload: dict) -> bool:
 
 def _consumidor_do_token(payload: dict) -> Consumidor:
     try:
-        consumidor = Consumidor.objects.get(id=payload['consumidor_id'], is_active=True)
+        consumidor = Consumidor.objects.get(id=payload['consumidor_id'], ativo=True)
     except Consumidor.DoesNotExist:
         raise AuthenticationFailed('Conta não encontrada.')
     if not _sessao_valida(consumidor, payload):

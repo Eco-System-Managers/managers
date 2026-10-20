@@ -77,7 +77,7 @@ class TestLoginConsumidorService:
             LoginConsumidorService().autenticar(email='nao@existe.com', senha='qualquer')
 
     def test_autenticar_usuario_inativo_levanta_value_error(self, consumidor_registrado):
-        consumidor_registrado.is_active = False
+        consumidor_registrado.ativo = False
         consumidor_registrado.save()
         with pytest.raises(ValueError, match='inativa'):
             LoginConsumidorService().autenticar(email='joao@teste.com', senha='SenhaForte123!')

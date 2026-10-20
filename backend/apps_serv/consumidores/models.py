@@ -25,7 +25,7 @@ class Consumidor(models.Model):
     # endereço vem assinado com validade curta — guardar a URL faria a imagem
     # parar de abrir sozinha depois de alguns minutos.
     foto_chave = models.CharField(max_length=255, blank=True)
-    is_active = models.BooleanField(default=True)
+    ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     # Tokens emitidos antes deste instante deixam de valer — é como a troca de
     # senha derruba todas as sessões, inclusive os access ainda não expirados.

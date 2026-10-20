@@ -40,7 +40,7 @@ sincronizado, nunca a fonte.
 | `data_nascimento` | `DateField` nulo | |
 | `cep` · `endereco` · `numero_endereco` | `CharField` vazios | |
 | `foto_chave` | `CharField(255)` vazio | Caminho no S3, **não** URL — a foto é privada e a URL sai assinada, válida por uma hora |
-| `is_active` | `Boolean` = `True` | |
+| `ativo` | `Boolean` = `True` | |
 | `criado_em` | `DateTime` `auto_now_add` | |
 | `sessoes_validas_desde` | `DateTimeField` nulo | Preenchido na troca de senha. Token com `iat` anterior é recusado |
 

@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
                 ('endereco', models.CharField(blank=True, max_length=255)),
                 ('numero_endereco', models.CharField(blank=True, max_length=10)),
                 ('foto_chave', models.CharField(blank=True, max_length=255)),
-                ('is_active', models.BooleanField(default=True)),
+                ('ativo', models.BooleanField(default=True)),
                 ('criado_em', models.DateTimeField(auto_now_add=True)),
                 ('sessoes_validas_desde', models.DateTimeField(blank=True, null=True)),
             ],

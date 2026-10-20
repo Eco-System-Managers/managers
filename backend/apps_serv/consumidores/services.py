@@ -49,7 +49,7 @@ class LoginConsumidorService:
             raise ErroDeNegocio('E-mail ou senha inválidos.', 'credenciais_invalidas', 401)
         login_servicemanage.limpar(email)
 
-        if not consumidor.is_active:
+        if not consumidor.ativo:
             raise ErroDeNegocio('Conta inativa. Entre em contato com o suporte.', 'conta_inativa', 401)
 
         return consumidor
@@ -64,7 +64,7 @@ class RecuperacaoSenhaConsumidorService(RecuperacaoSenhaBase):
 
     def _dono_para_envio(self, email: str):
         # Conta desativada não recebe código.
-        return Consumidor.objects.filter(email=email.strip().lower(), is_active=True).first()
+        return Consumidor.objects.filter(email=email.strip().lower(), ativo=True).first()
 
     def _encerrar_sessoes(self, consumidor) -> None:
         # Todo token emitido antes de agora deixa de valer, inclusive access.
