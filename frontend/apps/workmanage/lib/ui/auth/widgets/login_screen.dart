@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/ui/auth/view_models/login_view_model.dart';
+import 'package:managers/ui/auth/widgets/auth_logo.dart';
+import 'package:managers/ui/auth/widgets/auth_panel.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.viewModel});
@@ -57,19 +59,10 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // área superior (logo/ilustração)
-            const Expanded(child: SizedBox()),
+            // área superior: logo completo (símbolo + texto)
+            const Expanded(child: AuthLogo()),
             // painel inferior arredondado que contém o formulário
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(32),
-                ),
-              ),
-
+            AuthPanel(
               // form agrupa os campos e controla a validação
               child: Form(
                 key: _formKey,
@@ -192,9 +185,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 8),
 
-                    // navega para a tela de cadastro
+                    // navega para a tela de cadastro; push mantém o login
+                    // embaixo, para o painel animar na ida e na volta
                     TextButton(
-                      onPressed: () => context.go('/register'),
+                      onPressed: () => context.push('/register'),
                       child: const Text('Criar conta'),
                     ),
                   ],

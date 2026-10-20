@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../view_models/register_view_model.dart';
+import 'auth_logo.dart';
+import 'auth_panel.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key, required this.viewModel});
@@ -61,19 +63,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Column(
           children: [
             // área superior (logo/ilustração)
-            const Expanded(child: SizedBox()),
+            const Expanded(child: AuthLogo(showName: false)),
 
             // painel inferior arredondado que contém o formulário
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(32),
-                ),
-              ),
-
+            AuthPanel(
               // form agrupa os campos e controla a validação
               child: Form(
                 key: _formKey,
@@ -213,9 +206,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     const SizedBox(height: 8),
 
-                    // navega para a tela de login
+                    // volta para o login (o painel encolhe de volta);
+                    // se abriu direto no cadastro, não há o que desempilhar
                     TextButton(
-                      onPressed: () => context.go('/login'),
+                      onPressed: () => context.canPop()
+                          ? context.pop()
+                          : context.go('/login'),
                       child: const Text('Fazer Login'),
                     ),
                   ],
