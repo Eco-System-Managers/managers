@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import Agendamento, Pagamento
+from .models import Agendamento, OrigemAtendimento, Pagamento, StatusAgendamento
 
 DURACAO_PADRAO_MINUTOS = 30
 
@@ -25,7 +25,7 @@ class DiasComRegistroService:
         datas = set(
             Agendamento.objects
             .filter(data_hora__year=ano, data_hora__month=mes)
-            .exclude(status='cancelado')
+            .exclude(status=StatusAgendamento.CANCELADO)
             .values_list('data_hora__date', flat=True)
         )
         datas.update(
@@ -55,14 +55,14 @@ class PendenciasCobrancaService:
 
         agendamentos = (
             Agendamento.objects
-            .filter(data_hora__date__lt=hoje, status__in=['agendado', 'confirmado'])
+            .filter(data_hora__date__lt=hoje, status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO])
             .select_related('cliente')
             .prefetch_related('servicos__servico')
         )
         for ag in agendamentos:
             servicos = list(ag.servicos.all())
             pendencias.append({
-                'origem': 'agenda',
+                'origem': OrigemAtendimento.AGENDA,
                 'id': ag.pk,
                 'data': ag.data_hora.astimezone().date().isoformat(),
                 'cliente_id': ag.cliente_id,
@@ -84,7 +84,7 @@ class PendenciasCobrancaService:
         )
         for at in atendimentos:
             pendencias.append({
-                'origem': 'kanban',
+                'origem': OrigemAtendimento.KANBAN,
                 'id': at.pk,
                 'data': at.data.isoformat(),
                 'cliente_id': at.objeto.cliente_id,
@@ -150,7 +150,7 @@ class SlotsAgendaService:
             .filter(
                 data_hora__date=data,
                 colaborador_id=colaborador_id,
-                status__in=['agendado', 'confirmado'],
+                status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO],
             )
             .prefetch_related('servicos__servico')
         )
@@ -202,7 +202,7 @@ class AgendamentoService:
         candidatos = (
             Agendamento.objects
             .filter(colaborador=colaborador, data_hora__date=data_hora.date())
-            .exclude(status='cancelado')
+            .exclude(status=StatusAgendamento.CANCELADO)
             .prefetch_related('servicos__servico')
         )
         if excluir_id:
@@ -244,7 +244,7 @@ class AgendamentoService:
 
         status_anterior = agendamento.status
         agendamento.desconto = desconto
-        agendamento.status = 'concluido'
+        agendamento.status = StatusAgendamento.CONCLUIDO
         agendamento.save(update_fields=['desconto', 'status'])
         self.notificar_mudanca_de_status(agendamento, status_anterior)
 

@@ -6,6 +6,7 @@ from apps_work.agenda.signals import agendamento_status_alterado
 from apps_work.clientes.signals import cliente_servicemanage_removido
 from apps_work.empresa.signals import empresa_config_atualizada
 from apps_work.kanban.signals import atendimento_kanban_falta_alterada
+from apps_work.agenda.models import OrigemAtendimento, StatusAgendamento
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def _on_agendamento_status_alterado(sender, schema_name, agendamento_id, status,
         AgendamentoConsumidor.objects.filter(
             schema_name=schema_name,
             agendamento_id=agendamento_id,
-            origem='agenda',
+            origem=OrigemAtendimento.AGENDA,
         ).update(status=status)
     except Exception:
         logger.warning(
@@ -75,8 +76,8 @@ def _on_atendimento_kanban_falta_alterada(sender, schema_name, atendimento_id, f
         AgendamentoConsumidor.objects.filter(
             schema_name=schema_name,
             agendamento_id=atendimento_id,
-            origem='kanban',
-        ).update(status='faltou' if faltou else 'agendado')
+            origem=OrigemAtendimento.KANBAN,
+        ).update(status=StatusAgendamento.FALTOU if faltou else StatusAgendamento.AGENDADO)
     except Exception:
         logger.warning(
             'Falha ao espelhar falta do atendimento no schema público',

@@ -1,7 +1,7 @@
 from django.db import connection
 from rest_framework.permissions import BasePermission
 
-from tenants.models import UserTenant
+from tenants.models import Papel, UserTenant
 
 
 class IsProprietario(BasePermission):
@@ -18,4 +18,4 @@ class IsProprietario(BasePermission):
             papel = request.user.papel_no_tenant
         else:
             papel = UserTenant.papel_no_schema(request.user, connection.schema_name)
-        return papel == 'proprietario'
+        return papel == Papel.PROPRIETARIO

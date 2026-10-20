@@ -1,6 +1,6 @@
 from django.db import connection
 
-from .models import Cliente
+from .models import Cliente, OrigemCliente
 from .signals import cliente_servicemanage_removido
 
 
@@ -16,7 +16,7 @@ class RemocaoClienteService:
     """
 
     def remover(self, cliente: Cliente) -> None:
-        if cliente.origem != Cliente.ORIGEM_SERVICEMANAGE:
+        if cliente.origem != OrigemCliente.SERVICEMANAGE:
             cliente.delete()
             return
 

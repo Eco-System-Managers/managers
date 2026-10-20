@@ -3,14 +3,16 @@ from datetime import date
 from django.db.models import Q, Sum
 from rest_framework.exceptions import ValidationError
 
-from .models import CATEGORIA_DESPESA_CHOICES, Despesa, TransacaoCredito
+from apps_work.agenda.models import OrigemAtendimento, StatusAgendamento
+
+from .models import CategoriaDespesa, Despesa, OrigemTransacao, TipoTransacao, TransacaoCredito
 
 
 class SaldoService:
     def saldo(self, cliente_id: int) -> Decimal:
         result = TransacaoCredito.objects.filter(cliente_id=cliente_id).aggregate(
-            total_credito=Sum('valor', filter=Q(tipo='credito')),
-            total_debito=Sum('valor', filter=Q(tipo='debito')),
+            total_credito=Sum('valor', filter=Q(tipo=TipoTransacao.CREDITO)),
+            total_debito=Sum('valor', filter=Q(tipo=TipoTransacao.DEBITO)),
         )
         credito = result['total_credito'] or Decimal('0')
         debito = result['total_debito'] or Decimal('0')
@@ -25,9 +27,9 @@ class SaldoService:
     ) -> TransacaoCredito:
         return TransacaoCredito.objects.create(
             cliente_id=cliente_id,
-            tipo='credito',
+            tipo=TipoTransacao.CREDITO,
             valor=valor,
-            origem='troco',
+            origem=OrigemTransacao.TROCO,
             atendimento_kanban_id=atendimento_kanban_id,
             agendamento_id=agendamento_id,
             descricao='Troco mantido na comanda',
@@ -49,9 +51,9 @@ class SaldoService:
             })
         return TransacaoCredito.objects.create(
             cliente_id=cliente_id,
-            tipo='debito',
+            tipo=TipoTransacao.DEBITO,
             valor=valor,
-            origem='desconto_aplicado',
+            origem=OrigemTransacao.DESCONTO_APLICADO,
             atendimento_kanban_id=atendimento_kanban_id,
             agendamento_id=agendamento_id,
             descricao='Saldo aplicado como desconto',
@@ -60,9 +62,9 @@ class SaldoService:
     def registrar_taxa_cancelamento(self, cliente_id: int, valor: Decimal, descricao: str = '') -> TransacaoCredito:
         return TransacaoCredito.objects.create(
             cliente_id=cliente_id,
-            tipo='debito',
+            tipo=TipoTransacao.DEBITO,
             valor=valor.quantize(Decimal('0.01')),
-            origem='taxa_cancelamento',
+            origem=OrigemTransacao.TAXA_CANCELAMENTO,
             descricao=descricao,
         )
 
@@ -79,7 +81,7 @@ def pagamentos_efetivados():
     from apps_work.kanban.models import PagamentoKanban
     return (
         PagamentoKanban.objects.filter(atendimento__pago=True),
-        Pagamento.objects.filter(agendamento__status='concluido'),
+        Pagamento.objects.filter(agendamento__status=StatusAgendamento.CONCLUIDO),
     )
 
 
@@ -116,7 +118,7 @@ class CaixaService:
 
         for p in pk_qs:
             pagamentos.append({
-                'origem': 'kanban',
+                'origem': OrigemAtendimento.KANBAN,
                 'cliente_nome': p.atendimento.objeto.cliente.nome,
                 'servico_nome': p.atendimento.servico.nome,
                 'colaborador_nome': '',
@@ -131,7 +133,7 @@ class CaixaService:
             servico_nome = primeiro.servico.nome if primeiro else ''
             colaborador = p.agendamento.colaborador
             pagamentos.append({
-                'origem': 'agenda',
+                'origem': OrigemAtendimento.AGENDA,
                 'cliente_nome': p.agendamento.cliente.nome,
                 'servico_nome': servico_nome,
                 'colaborador_nome': colaborador.user.get_full_name() if colaborador else '',
@@ -172,7 +174,7 @@ class CaixaService:
 
 
 class DespesaService:
-    _LABELS = dict(CATEGORIA_DESPESA_CHOICES)
+    _LABELS = dict(CategoriaDespesa.choices)
 
     def resumo(self, data_inicio: date, data_fim: date) -> dict:
         linhas = (

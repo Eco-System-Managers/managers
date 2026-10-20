@@ -1,12 +1,12 @@
 import re
 
 from rest_framework import serializers
-from .models import EmpresaConfig, HorarioFuncionamento
+from .models import EmpresaConfig, HorarioFuncionamento, TipoAgenda
 from .validators import validar_documento
 
 NICHO_TIPO = {
-    'lava_rapido': 'kanban',
-    'banho_tosa': 'kanban',
+    'lava_rapido': TipoAgenda.KANBAN,
+    'banho_tosa': TipoAgenda.KANBAN,
 }
 
 
@@ -72,7 +72,7 @@ class EmpresaConfigSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         nicho = validated_data.get('nicho', instance.nicho)
-        validated_data['tipo_agenda'] = NICHO_TIPO.get(nicho, 'horario')
+        validated_data['tipo_agenda'] = NICHO_TIPO.get(nicho, TipoAgenda.HORARIO)
 
         # Coordenada enviada pela interface significa que o dono apontou o ponto
         # no mapa. É o único gesto que confirma a localização — e ele desliga o

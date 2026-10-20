@@ -33,7 +33,7 @@ class OnboardingService:
         senha: str,
     ):
         from django.db import connection
-        from tenants.models import Domain, Tenant, UserTenant
+        from tenants.models import Domain, Papel, Tenant, UserTenant
 
         with transaction.atomic():
             connection.set_schema_to_public()
@@ -51,16 +51,16 @@ class OnboardingService:
                 password=senha,
                 first_name=nome,
             )
-            UserTenant.objects.create(user=user, tenant=tenant, role='proprietario')
+            UserTenant.objects.create(user=user, tenant=tenant, role=Papel.PROPRIETARIO)
 
-            from apps_work.billing.models import Assinatura, Plano
+            from apps_work.billing.models import Assinatura, Plano, StatusAssinatura, TipoPlano
 
-            plano_pro = Plano.objects.filter(nome='pro', ativo=True).first()
+            plano_pro = Plano.objects.filter(nome=TipoPlano.PRO, ativo=True).first()
             if plano_pro:
                 Assinatura.objects.create(
                     tenant=tenant,
                     plano=plano_pro,
-                    status='trial',
+                    status=StatusAssinatura.TRIAL,
                     inicio=date.today(),
                     trial_fim=date.today() + timedelta(days=28),
                     proximo_vencimento=date.today() + timedelta(days=28),

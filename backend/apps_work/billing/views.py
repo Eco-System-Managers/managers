@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from core.permissions import IsProprietario
-from .models import Assinatura, Pagamento, Plano
+from .models import Assinatura, Pagamento, Plano, TipoPlano
 from .serializers import (
     AssinaturaSerializer, ConfirmarAssinaturaSerializer, LinkAssinaturaSerializer, PagamentoSerializer,
 )
@@ -44,7 +44,7 @@ class IniciarAssinaturaView(APIView):
 
     @extend_schema(request=None, responses=LinkAssinaturaSerializer, summary='Link do checkout do plano Pro')
     def post(self, request):
-        plano = Plano.objects.filter(nome='pro', ativo=True).first()
+        plano = Plano.objects.filter(nome=TipoPlano.PRO, ativo=True).first()
         if plano is None:
             return erro('Plano Pro não está configurado.', status_code=status.HTTP_400_BAD_REQUEST)
 

@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from apps_work.agenda.models import FORMAS_PAGAMENTO
+from apps_work.agenda.models import FormaPagamento, OrigemAtendimento
 from core.excecoes import ErroDeNegocio
 
 from .models import Despesa, TransacaoCredito
@@ -49,8 +49,7 @@ class CaixaPorFormaSerializer(serializers.Serializer):
 
 
 class CaixaPagamentoSerializer(serializers.Serializer):
-    # Mesmos pares de AgendamentoConsumidor.ORIGEM_CHOICES: um enum só no schema.
-    origem = serializers.ChoiceField(choices=[('agenda', 'Agenda'), ('kanban', 'Kanban')])
+    origem = serializers.ChoiceField(choices=OrigemAtendimento.choices)
     cliente_nome = serializers.CharField()
     servico_nome = serializers.CharField()
     colaborador_nome = serializers.CharField(help_text='Vazio nos atendimentos do kanban.')
@@ -82,7 +81,7 @@ class ResumoDespesasSerializer(serializers.Serializer):
 # ---------------------------------------------------------------------------
 
 class PagamentoCobrancaSerializer(serializers.Serializer):
-    forma = serializers.ChoiceField(choices=FORMAS_PAGAMENTO)
+    forma = serializers.ChoiceField(choices=FormaPagamento.choices)
     valor = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 

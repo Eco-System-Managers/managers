@@ -3,17 +3,17 @@ from decimal import Decimal
 from django.db import models
 
 
-class Servico(models.Model):
-    TAXA_CANCELAMENTO_TIPO_CHOICES = [
-        ('valor', 'Valor fixo (R$)'),
-        ('percentual', 'Percentual (%)'),
-    ]
+class TipoTaxaCancelamento(models.TextChoices):
+    VALOR = 'valor', 'Valor fixo (R$)'
+    PERCENTUAL = 'percentual', 'Percentual (%)'
 
+
+class Servico(models.Model):
     nome = models.CharField(max_length=255)
     descricao = models.TextField(blank=True)
     duracao = models.PositiveIntegerField(help_text='Duração em minutos')
     preco = models.DecimalField(max_digits=8, decimal_places=2)
-    taxa_cancelamento_tipo = models.CharField(max_length=10, choices=TAXA_CANCELAMENTO_TIPO_CHOICES, blank=True)
+    taxa_cancelamento_tipo = models.CharField(max_length=10, choices=TipoTaxaCancelamento.choices, blank=True)
     taxa_cancelamento_valor = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     ativo = models.BooleanField(default=True)
     colaboradores = models.ManyToManyField(
@@ -26,8 +26,8 @@ class Servico(models.Model):
         return self.nome
 
     def calcular_taxa_cancelamento(self) -> Decimal:
-        if self.taxa_cancelamento_tipo == 'percentual':
+        if self.taxa_cancelamento_tipo == TipoTaxaCancelamento.PERCENTUAL:
             return (self.preco * self.taxa_cancelamento_valor / Decimal('100')).quantize(Decimal('0.01'))
-        if self.taxa_cancelamento_tipo == 'valor':
+        if self.taxa_cancelamento_tipo == TipoTaxaCancelamento.VALOR:
             return self.taxa_cancelamento_valor
         return Decimal('0')

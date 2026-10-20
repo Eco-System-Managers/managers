@@ -22,6 +22,7 @@ from .serializers import (
 )
 from core.excecoes import erro
 from core.paginacao import Paginacao, resposta_paginada
+from apps_work.clientes.models import TipoObjeto
 
 logger = logging.getLogger(__name__)
 
@@ -217,13 +218,13 @@ def _placa_valida(valor: str) -> bool:
 
 
 _CAMPOS_OBRIGATORIOS = {
-    'veiculo': ['placa', 'marca', 'modelo'],
-    'pet': ['nome', 'especie', 'porte'],
+    TipoObjeto.VEICULO: ['placa', 'marca', 'modelo'],
+    TipoObjeto.PET: ['nome', 'especie', 'porte'],
 }
 
 _NOME_EXIBICAO = {
-    'veiculo': lambda d: f"{d['marca']} {d['modelo']} · {_normalizar_placa(d['placa'])}",
-    'pet': lambda d: f"{d['nome']} ({d['especie']})",
+    TipoObjeto.VEICULO: lambda d: f"{d['marca']} {d['modelo']} · {_normalizar_placa(d['placa'])}",
+    TipoObjeto.PET: lambda d: f"{d['nome']} ({d['especie']})",
 }
 
 
@@ -234,7 +235,7 @@ class ObjetosConsumidorView(APIView):
 
     @extend_schema(
         responses=ObjetoConsumidorSerializer(many=True),
-        parameters=[OpenApiParameter('tipo', str, enum=['veiculo', 'pet'])],
+        parameters=[OpenApiParameter('tipo', str, enum=TipoObjeto.values)],
         summary='Meus pets e veículos',
     )
     def get(self, request):

@@ -1,13 +1,13 @@
 from django.db import models
 
 
-class Notificacao(models.Model):
-    TIPO_CHOICES = [
-        ('cliente_vinculado', 'Cliente vinculado'),
-        ('cliente_desvinculado', 'Cliente desvinculado'),
-    ]
+class TipoNotificacao(models.TextChoices):
+    CLIENTE_VINCULADO = 'cliente_vinculado', 'Cliente vinculado'
+    CLIENTE_DESVINCULADO = 'cliente_desvinculado', 'Cliente desvinculado'
 
-    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES)
+
+class Notificacao(models.Model):
+    tipo = models.CharField(max_length=30, choices=TipoNotificacao.choices)
     titulo = models.CharField(max_length=255)
     mensagem = models.CharField(max_length=500, blank=True)
     cliente = models.ForeignKey(

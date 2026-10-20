@@ -1,17 +1,15 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import User
-import uuid
+
+from tenants.models import Papel
 
 
 class Colaborador(models.Model):
-    ROLE_CHOICES = [
-        ('proprietario', 'Proprietário'),
-        ('colaborador', 'Colaborador'),
-    ]
-
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='colaborador')
     funcao = models.CharField(max_length=100, blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='colaborador')
+    role = models.CharField(max_length=20, choices=Papel.choices, default=Papel.COLABORADOR)
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 

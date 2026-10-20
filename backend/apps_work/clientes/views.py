@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Prefetch
-from .models import Cliente, ObjetoCliente, Pet, Veiculo
+from .models import Cliente, ObjetoCliente, Pet, TipoObjeto, Veiculo
 from .serializers import ClienteSerializer, ObjetoClienteSerializer, PetSerializer, VeiculoSerializer
 from .services import RemocaoClienteService
 
@@ -44,7 +44,7 @@ class VeiculoViewSet(viewsets.ModelViewSet):
         return qs.order_by('modelo')
 
     def perform_create(self, serializer):
-        serializer.save(tipo='veiculo')
+        serializer.save(tipo=TipoObjeto.VEICULO)
 
 
 class PetViewSet(viewsets.ModelViewSet):
@@ -58,4 +58,4 @@ class PetViewSet(viewsets.ModelViewSet):
         return qs.order_by('nome')
 
     def perform_create(self, serializer):
-        serializer.save(tipo='pet')
+        serializer.save(tipo=TipoObjeto.PET)

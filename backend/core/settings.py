@@ -364,21 +364,21 @@ SPECTACULAR_SETTINGS = {
     # "Status939Enum" quando dois models têm um campo de mesmo nome, e o client
     # Dart muda de tipo a cada regeração.
     'ENUM_NAME_OVERRIDES': {
-        # Mesmo conjunto no B2B (Agendamento) e no B2C (AgendamentoConsumidor).
-        'StatusAgendamentoEnum': 'apps_work.agenda.models.Agendamento.STATUS_CHOICES',
-        'StatusContratoEnum': 'apps_work.contratos.models.Contrato.STATUS_CHOICES',
-        'StatusAssinaturaEnum': 'apps_work.billing.models.Assinatura.STATUS_CHOICES',
-        'StatusPagamentoAssinaturaEnum': 'apps_work.billing.models.Pagamento.STATUS_CHOICES',
-        'OrigemClienteEnum': 'apps_work.clientes.models.Cliente.ORIGEM_CHOICES',
-        'OrigemTransacaoCreditoEnum': 'apps_work.financeiro.models.TransacaoCredito.ORIGEM_CHOICES',
+        # Usado no B2B (Agendamento) e no B2C (AgendamentoConsumidor).
+        'StatusAgendamentoEnum': 'apps_work.agenda.models.StatusAgendamento',
+        'StatusContratoEnum': 'apps_work.contratos.models.StatusContrato',
+        'StatusAssinaturaEnum': 'apps_work.billing.models.StatusAssinatura',
+        'StatusPagamentoAssinaturaEnum': 'apps_work.billing.models.StatusPagamento',
+        'OrigemClienteEnum': 'apps_work.clientes.models.OrigemCliente',
+        'OrigemTransacaoCreditoEnum': 'apps_work.financeiro.models.OrigemTransacao',
         # agenda | kanban: de qual modo de agenda veio o atendimento.
-        'OrigemAtendimentoEnum': 'apps_serv.consumidores.models.AgendamentoConsumidor.ORIGEM_CHOICES',
-        'TipoTransacaoCreditoEnum': 'apps_work.financeiro.models.TransacaoCredito.TIPO_CHOICES',
-        'TipoNotificacaoEnum': 'apps_work.notificacoes.models.Notificacao.TIPO_CHOICES',
-        'TipoAgendaEnum': 'apps_work.empresa.models.EmpresaConfig.TIPO_AGENDA_CHOICES',
-        'TipoPlanoEnum': 'apps_work.billing.models.Plano.TIPO_CHOICES',
-        # pet | veiculo: mesmo conjunto no B2B (ObjetoCliente) e no B2C.
-        'TipoObjetoEnum': 'apps_serv.consumidores.models.ObjetoConsumidor.TIPO_CHOICES',
+        'OrigemAtendimentoEnum': 'apps_work.agenda.models.OrigemAtendimento',
+        'TipoTransacaoCreditoEnum': 'apps_work.financeiro.models.TipoTransacao',
+        'TipoNotificacaoEnum': 'apps_work.notificacoes.models.TipoNotificacao',
+        'TipoAgendaEnum': 'apps_work.empresa.models.TipoAgenda',
+        'TipoPlanoEnum': 'apps_work.billing.models.TipoPlano',
+        # pet | veiculo: usado no B2B (ObjetoCliente) e no B2C.
+        'TipoObjetoEnum': 'apps_work.clientes.models.TipoObjeto',
     },
     'POSTPROCESSING_HOOKS': [
         'drf_spectacular.hooks.postprocess_schema_enums',

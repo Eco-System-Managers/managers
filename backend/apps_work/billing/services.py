@@ -9,7 +9,8 @@ import requests
 from django.conf import settings
 from django.urls import reverse
 
-from .models import Assinatura, Pagamento, Plano
+from .models import Assinatura, Pagamento, Plano, StatusAssinatura, StatusPagamento
+from tenants.models import Papel
 
 
 class AssinaturaInvalidaError(Exception):
@@ -88,7 +89,7 @@ class MercadoPagoService:
             raise PreapprovalInvalidoError('Este negócio ainda não tem assinatura configurada.')
 
         assinatura.mercadopago_preapproval_id = preapproval_id
-        assinatura.status = 'ativa'
+        assinatura.status = StatusAssinatura.ATIVA
         assinatura.proximo_vencimento = date.today() + timedelta(days=30)
         assinatura.save(update_fields=['mercadopago_preapproval_id', 'status', 'proximo_vencimento'])
         return assinatura
@@ -104,14 +105,14 @@ class MercadoPagoService:
         except Assinatura.DoesNotExist:
             raise PreapprovalInvalidoError('Este negócio ainda não tem assinatura.')
 
-        if assinatura.status != 'ativa' or not assinatura.mercadopago_preapproval_id:
+        if assinatura.status != StatusAssinatura.ATIVA or not assinatura.mercadopago_preapproval_id:
             raise PreapprovalInvalidoError('Não há assinatura ativa para cancelar.')
 
         resultado = self._sdk.preapproval().update(assinatura.mercadopago_preapproval_id, {'status': 'cancelled'})
         if resultado['status'] != 200:
             raise PreapprovalInvalidoError('Não foi possível cancelar a assinatura no Mercado Pago. Tente novamente.')
 
-        assinatura.status = 'cancelada'
+        assinatura.status = StatusAssinatura.CANCELADA
         assinatura.save(update_fields=['status'])
         return assinatura
 
@@ -177,7 +178,7 @@ class MercadoPagoService:
         from tenants.models import UserTenant
 
         vinculo = UserTenant.objects.filter(
-            user__email__iexact=email, role='proprietario',
+            user__email__iexact=email, role=Papel.PROPRIETARIO,
         ).select_related('tenant').first()
         if vinculo is None:
             return None
@@ -196,7 +197,11 @@ class MercadoPagoService:
                 return
             assinatura.mercadopago_preapproval_id = preapproval_id
 
-        status_map = {'authorized': 'ativa', 'paused': 'inadimplente', 'cancelled': 'cancelada'}
+        status_map = {
+            'authorized': StatusAssinatura.ATIVA,
+            'paused': StatusAssinatura.INADIMPLENTE,
+            'cancelled': StatusAssinatura.CANCELADA,
+        }
         novo_status = status_map.get(resposta.get('status'))
         if novo_status:
             assinatura.status = novo_status
@@ -220,17 +225,21 @@ class MercadoPagoService:
         if assinatura is None:
             return
 
-        status_map = {'approved': 'pago', 'pending': 'pendente', 'rejected': 'falhou'}
+        status_map = {
+            'approved': StatusPagamento.PAGO,
+            'pending': StatusPagamento.PENDENTE,
+            'rejected': StatusPagamento.FALHOU,
+        }
         Pagamento.objects.create(
             assinatura=assinatura,
             valor=Decimal(str(resposta.get('transaction_amount', 0))),
-            status=status_map.get(resposta.get('status'), 'pendente'),
+            status=status_map.get(resposta.get('status'), StatusPagamento.PENDENTE),
             data=date.today(),
             mercadopago_payment_id=payment_id,
         )
 
         if resposta.get('status') == 'approved':
-            assinatura.status = 'ativa'
+            assinatura.status = StatusAssinatura.ATIVA
             assinatura.proximo_vencimento = date.today() + timedelta(days=30)
             assinatura.save(update_fields=['status', 'proximo_vencimento'])
 
@@ -266,16 +275,20 @@ class MercadoPagoService:
             return
 
         status_pagamento = resposta.get('payment', {}).get('status')
-        status_map = {'approved': 'pago', 'pending': 'pendente', 'rejected': 'falhou'}
+        status_map = {
+            'approved': StatusPagamento.PAGO,
+            'pending': StatusPagamento.PENDENTE,
+            'rejected': StatusPagamento.FALHOU,
+        }
         Pagamento.objects.create(
             assinatura=assinatura,
             valor=Decimal(str(resposta.get('transaction_amount', 0))),
-            status=status_map.get(status_pagamento, 'pendente'),
+            status=status_map.get(status_pagamento, StatusPagamento.PENDENTE),
             data=date.today(),
             mercadopago_payment_id=str(authorized_payment_id),
         )
 
         if status_pagamento == 'approved':
-            assinatura.status = 'ativa'
+            assinatura.status = StatusAssinatura.ATIVA
             assinatura.proximo_vencimento = date.today() + timedelta(days=30)
             assinatura.save(update_fields=['status', 'proximo_vencimento'])

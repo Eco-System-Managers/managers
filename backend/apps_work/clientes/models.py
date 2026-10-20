@@ -1,13 +1,28 @@
 from django.db import models
 
 
+class OrigemCliente(models.TextChoices):
+    MANUAL = 'manual', 'Cadastrado pelo negócio'
+    SERVICEMANAGE = 'servicemanage', 'Veio do Service Manage'
+
+
+class TipoObjeto(models.TextChoices):
+    """O que o negócio atende no modo kanban. Mesmo conjunto no B2C."""
+    VEICULO = 'veiculo', 'Veículo'
+    PET = 'pet', 'Pet'
+
+
+class PortePet(models.TextChoices):
+    PEQUENO = 'pequeno', 'Pequeno'
+    MEDIO = 'medio', 'Médio'
+    GRANDE = 'grande', 'Grande'
+    GIGANTE = 'gigante', 'Gigante'
+
+
 class Cliente(models.Model):
-    ORIGEM_MANUAL = 'manual'
-    ORIGEM_SERVICEMANAGE = 'servicemanage'
-    ORIGEM_CHOICES = [
-        (ORIGEM_MANUAL, 'Cadastrado pelo negócio'),
-        (ORIGEM_SERVICEMANAGE, 'Veio do Service Manage'),
-    ]
+    # Atalhos mantidos para os testes, que ainda usam Cliente.ORIGEM_*.
+    ORIGEM_MANUAL = OrigemCliente.MANUAL
+    ORIGEM_SERVICEMANAGE = OrigemCliente.SERVICEMANAGE
 
     nome = models.CharField(max_length=255)
     # Obrigatório: é por ele que o negócio fala com o cliente (WhatsApp,
@@ -45,7 +60,7 @@ class Cliente(models.Model):
     # apagado pelo painel sem desfazer o vínculo do consumidor no schema
     # público — senão o negócio continua em "Seus negócios" e o cliente
     # ressurge na lista no próximo agendamento.
-    origem = models.CharField(max_length=20, choices=ORIGEM_CHOICES, default=ORIGEM_MANUAL)
+    origem = models.CharField(max_length=20, choices=OrigemCliente.choices, default=OrigemCliente.MANUAL)
 
     # Quem e esta pessoa no schema publico. E a identidade estavel do par
     # consumidor-cliente: antes disso o par era encontrado pelo e-mail, o que
@@ -67,13 +82,8 @@ class Cliente(models.Model):
 
 
 class ObjetoCliente(models.Model):
-    TIPO_CHOICES = [
-        ('veiculo', 'Veículo'),
-        ('pet', 'Pet'),
-    ]
-
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='objetos')
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    tipo = models.CharField(max_length=20, choices=TipoObjeto.choices)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -94,17 +104,10 @@ class Veiculo(ObjetoCliente):
 
 
 class Pet(ObjetoCliente):
-    PORTE_CHOICES = [
-        ('pequeno', 'Pequeno'),
-        ('medio', 'Médio'),
-        ('grande', 'Grande'),
-        ('gigante', 'Gigante'),
-    ]
-
     nome = models.CharField(max_length=100)
     especie = models.CharField(max_length=50, blank=True)
     raca = models.CharField(max_length=100, blank=True)
-    porte = models.CharField(max_length=10, choices=PORTE_CHOICES, blank=True)
+    porte = models.CharField(max_length=10, choices=PortePet.choices, blank=True)
     data_nascimento = models.DateField(null=True, blank=True)
 
     def __str__(self):

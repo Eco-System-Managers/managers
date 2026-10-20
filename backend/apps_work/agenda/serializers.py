@@ -1,6 +1,6 @@
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
-from .models import Agendamento, AgendamentoServico, Pagamento
+from .models import Agendamento, AgendamentoServico, OrigemAtendimento, Pagamento
 
 
 class AgendamentoServicoSerializer(serializers.ModelSerializer):
@@ -69,8 +69,7 @@ class PendenciaServicoSerializer(serializers.Serializer):
 
 
 class PendenciaCobrancaSerializer(serializers.Serializer):
-    # Mesmos pares de AgendamentoConsumidor.ORIGEM_CHOICES: um enum só no schema.
-    origem = serializers.ChoiceField(choices=[('agenda', 'Agenda'), ('kanban', 'Kanban')])
+    origem = serializers.ChoiceField(choices=OrigemAtendimento.choices)
     id = serializers.IntegerField(help_text='Id do agendamento ou do atendimento do kanban.')
     data = serializers.DateField()
     cliente_id = serializers.IntegerField()

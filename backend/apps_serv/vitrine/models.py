@@ -1,19 +1,19 @@
 from django.db import models
 
+from apps_work.clientes.models import TipoObjeto
+from apps_work.empresa.models import TipoAgenda
+
 
 class NegocioPublico(models.Model):
     """
     Perfil público de um negócio no schema público.
     Sincronizado a partir do EmpresaConfig do tenant correspondente.
     """
-    TIPO_AGENDA_CHOICES = [('horario', 'Por horário'), ('kanban', 'Esteira / Kanban')]
-    TIPO_OBJETO_CHOICES = [('veiculo', 'Veículo'), ('pet', 'Pet')]
-
     schema_name = models.CharField(max_length=63, unique=True, db_index=True)
     nome = models.CharField(max_length=255)
     nicho = models.CharField(max_length=50)
-    tipo_agenda = models.CharField(max_length=20, choices=TIPO_AGENDA_CHOICES, default='horario')
-    tipo_objeto = models.CharField(max_length=20, choices=TIPO_OBJETO_CHOICES, null=True, blank=True)
+    tipo_agenda = models.CharField(max_length=20, choices=TipoAgenda.choices, default=TipoAgenda.HORARIO)
+    tipo_objeto = models.CharField(max_length=20, choices=TipoObjeto.choices, null=True, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
     logo_url = models.URLField(blank=True)

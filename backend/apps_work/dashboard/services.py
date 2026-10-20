@@ -7,6 +7,8 @@ from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 from apps_work.financeiro.services import pagamentos_efetivados
+from apps_work.agenda.models import StatusAgendamento
+from apps_work.empresa.models import TipoAgenda
 
 
 def _var(atual, anterior) -> int | None:
@@ -23,7 +25,7 @@ class DashboardService:
         from apps_work.empresa.models import EmpresaConfig
 
         config = EmpresaConfig.objects.first()
-        tipo_agenda = config.tipo_agenda if config else 'horario'
+        tipo_agenda = config.tipo_agenda if config else TipoAgenda.HORARIO
 
         hoje = date.today()
         inicio_mes = hoje.replace(day=1)
@@ -67,7 +69,7 @@ class DashboardService:
         ).count()
 
         at_a = Agendamento.objects.filter(
-            data_hora__date__gte=inicio_mes, status='concluido',
+            data_hora__date__gte=inicio_mes, status=StatusAgendamento.CONCLUIDO,
         ).count()
 
         atendimentos_mes = at_k + at_a
@@ -82,7 +84,7 @@ class DashboardService:
         at_a_ant = Agendamento.objects.filter(
             data_hora__date__gte=inicio_mes_anterior,
             data_hora__date__lte=fim_mes_anterior,
-            status='concluido',
+            status=StatusAgendamento.CONCLUIDO,
         ).count()
 
         atendimentos_anterior = at_k_ant + at_a_ant
@@ -129,7 +131,7 @@ class DashboardService:
 
         # ── Próximos agendamentos / atendimentos do dia ─────────────
         agendamentos_hoje = []
-        if tipo_agenda == 'kanban':
+        if tipo_agenda == TipoAgenda.KANBAN:
             kanban_qs = (
                 AtendimentoKanban.objects
                 .filter(criado_em__date=hoje, pago=False)
@@ -152,7 +154,7 @@ class DashboardService:
         else:
             prox_qs = (
                 Agendamento.objects
-                .filter(data_hora__date=hoje, status__in=['agendado', 'confirmado'])
+                .filter(data_hora__date=hoje, status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO])
                 .select_related('cliente')
                 .prefetch_related('servicos__servico')
                 .order_by('data_hora')[:10]
@@ -192,7 +194,7 @@ class DashboardService:
         )
         at_a_map = dict(
             Agendamento.objects
-            .filter(data_hora__date__gte=inicio_30d, status='concluido')
+            .filter(data_hora__date__gte=inicio_30d, status=StatusAgendamento.CONCLUIDO)
             .annotate(dia=TruncDate('data_hora'))
             .values('dia').annotate(t=Count('id'))
             .values_list('dia', 't')

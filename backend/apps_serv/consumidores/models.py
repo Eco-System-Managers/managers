@@ -5,6 +5,9 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
 from django.utils import timezone
 
+from apps_work.agenda.models import OrigemAtendimento, StatusAgendamento
+from apps_work.clientes.models import TipoObjeto
+
 
 class Consumidor(models.Model):
     email = models.EmailField(unique=True)
@@ -124,10 +127,8 @@ class VinculoConsumidor(models.Model):
 
 
 class ObjetoConsumidor(models.Model):
-    TIPO_CHOICES = [('veiculo', 'Veículo'), ('pet', 'Pet')]
-
     consumidor = models.ForeignKey(Consumidor, on_delete=models.CASCADE, related_name='objetos')
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    tipo = models.CharField(max_length=20, choices=TipoObjeto.choices)
     dados = models.JSONField()
     nome_exibicao = models.CharField(max_length=255)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -142,25 +143,10 @@ class ObjetoConsumidor(models.Model):
 
 
 class AgendamentoConsumidor(models.Model):
-    STATUS_CHOICES = [
-        ('agendado', 'Agendado'),
-        ('confirmado', 'Confirmado'),
-        ('concluido', 'Concluído'),
-        ('cancelado', 'Cancelado'),
-        # Marcado pelo negócio no painel e espelhado aqui: o cliente precisa
-        # saber que constou como falta, não só o negócio.
-        ('faltou', 'Faltou'),
-    ]
-
-    ORIGEM_CHOICES = [
-        ('agenda', 'Agenda'),
-        ('kanban', 'Kanban'),
-    ]
-
     consumidor = models.ForeignKey(Consumidor, on_delete=models.CASCADE, related_name='agendamentos')
     schema_name = models.CharField(max_length=63)
     agendamento_id = models.PositiveIntegerField()
-    origem = models.CharField(max_length=10, choices=ORIGEM_CHOICES, default='agenda')
+    origem = models.CharField(max_length=10, choices=OrigemAtendimento.choices, default=OrigemAtendimento.AGENDA)
     negocio_nome = models.CharField(max_length=255)
     nicho = models.CharField(max_length=50, blank=True)
     servicos = models.JSONField(default=list)
@@ -169,7 +155,9 @@ class AgendamentoConsumidor(models.Model):
     duracao_total = models.PositiveIntegerField(help_text='Duração total em minutos')
     valor_total = models.DecimalField(max_digits=10, decimal_places=2)
     valor_taxa_cancelamento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='agendado')
+    # Espelha o status do agendamento no negócio — inclusive "faltou", que o
+    # negócio marca no painel: o cliente precisa saber que constou como falta.
+    status = models.CharField(max_length=20, choices=StatusAgendamento.choices, default=StatusAgendamento.AGENDADO)
     objeto_dados = models.JSONField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 

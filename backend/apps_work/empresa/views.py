@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from core.permissions import IsProprietario
-from .models import EmpresaConfig, HorarioFuncionamento
+from .models import EmpresaConfig, HorarioFuncionamento, TipoAgenda
 from .serializers import (
     CoordenadaSerializer, EmpresaConfigSerializer, HorarioFuncionamentoSerializer, LogoSerializer,
     RuaNoPontoSerializer, UploadLogoSerializer,
@@ -15,6 +15,7 @@ from .serializers import (
 from .signals import empresa_config_atualizada
 from apps_work.usuarios.models import Colaborador
 from core.excecoes import erro
+from tenants.models import Papel
 
 logger = logging.getLogger(__name__)
 
@@ -146,11 +147,11 @@ class EmpresaConfigView(generics.RetrieveUpdateAPIView):
             try:
                 Colaborador.objects.get_or_create(
                     user=self.request.user,
-                    defaults={'role': 'proprietario', 'ativo': True},
+                    defaults={'role': Papel.PROPRIETARIO, 'ativo': True},
                 )
             except Exception:
                 pass
-            if serializer.instance.tipo_agenda == 'kanban':
+            if serializer.instance.tipo_agenda == TipoAgenda.KANBAN:
                 try:
                     from apps_work.kanban.services import EtapaService
                     EtapaService().criar_etapas_padrao()

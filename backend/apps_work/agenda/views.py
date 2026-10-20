@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.plumbing import build_array_type, build_basic_type
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from .models import Agendamento
+from .models import Agendamento, StatusAgendamento
 from .serializers import AgendamentoSerializer, PendenciaCobrancaSerializer, SlotSerializer
 from .services import (
     AgendamentoService,
@@ -90,7 +90,7 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(cliente_id=cliente)
 
         if self.action == 'list':
-            qs = qs.exclude(status='cancelado')
+            qs = qs.exclude(status=StatusAgendamento.CANCELADO)
 
         return qs.order_by('data_hora')
 

@@ -19,15 +19,16 @@ class Domain(DomainMixin):
     pass
 
 
-class UserTenant(models.Model):
-    ROLE_CHOICES = [
-        ('proprietario', 'Proprietário'),
-        ('colaborador', 'Colaborador'),
-    ]
+class Papel(models.TextChoices):
+    """Papel do usuário no negócio. A fonte é o UserTenant.role."""
+    PROPRIETARIO = 'proprietario', 'Proprietário'
+    COLABORADOR = 'colaborador', 'Colaborador'
 
+
+class UserTenant(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tenants')
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='membros')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=20, choices=Papel.choices)
 
     class Meta:
         unique_together = ['user', 'tenant']

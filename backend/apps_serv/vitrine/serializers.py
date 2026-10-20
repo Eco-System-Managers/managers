@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from tenants.models import Papel
+
 from .models import NegocioPublico
 
 
@@ -26,7 +28,7 @@ class MembroEquipeSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     nome = serializers.CharField()
     funcao = serializers.CharField()
-    role = serializers.ChoiceField(choices=['proprietario', 'colaborador'])
+    role = serializers.ChoiceField(choices=Papel.choices)
 
 
 class HorarioNegocioSerializer(serializers.Serializer):

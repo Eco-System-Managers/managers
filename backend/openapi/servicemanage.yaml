@@ -2230,8 +2230,8 @@ components:
       - colaborador
       type: string
       description: |-
-        * `proprietario` - proprietario
-        * `colaborador` - colaborador
+        * `proprietario` - Proprietário
+        * `colaborador` - Colaborador
     ServicoVitrine:
       type: object
       properties:

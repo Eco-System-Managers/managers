@@ -6,7 +6,7 @@ from django.core.mail import send_mail
 from django.db import connection, transaction
 from django.utils import timezone
 from datetime import timedelta
-from tenants.models import Tenant, UserTenant
+from tenants.models import Papel, Tenant, UserTenant
 from apps_work.autenticacao.models import LastActivity
 from .models import Colaborador, ConviteColaborador
 from core.excecoes import ErroDeNegocio
@@ -20,7 +20,7 @@ class ColaboradorService:
     def _garantir_que_nao_e_proprietario(self, colaborador: Colaborador) -> None:
         # Desativar ou remover o dono — inclusive ele mesmo — deixaria o tenant
         # sem ninguém capaz de reativá-lo.
-        if UserTenant.papel_no_schema(colaborador.user, connection.schema_name) == 'proprietario':
+        if UserTenant.papel_no_schema(colaborador.user, connection.schema_name) == Papel.PROPRIETARIO:
             raise ErroDeNegocio('O proprietário não pode ser desativado nem removido.', 'proprietario_protegido')
 
     def desativar(self, colaborador: Colaborador) -> None:
@@ -39,11 +39,11 @@ class ColaboradorService:
         self.sincronizar_is_active(colaborador)
 
     def tem_agendamentos_pendentes(self, colaborador: Colaborador) -> dict:
-        from apps_work.agenda.models import Agendamento
+        from apps_work.agenda.models import Agendamento, StatusAgendamento
         total = Agendamento.objects.filter(
             colaborador=colaborador,
             data_hora__gte=timezone.now(),
-        ).exclude(status__in=['concluido', 'cancelado', 'faltou']).count()
+        ).exclude(status__in=[StatusAgendamento.CONCLUIDO, StatusAgendamento.CANCELADO, StatusAgendamento.FALTOU]).count()
         return {'tem_pendentes': total > 0, 'total': total}
 
     @transaction.atomic
@@ -62,11 +62,11 @@ class ConviteService:
     EXPIRACAO_DIAS = 2
 
     def criar_e_enviar(self, nome: str, email: str, tenant_nome: str) -> ConviteColaborador:
-        from apps_work.empresa.models import EmpresaConfig
+        from apps_work.empresa.models import EmpresaConfig, TipoAgenda
         from tenants.models import ConviteIndex
         email = email.lower().strip()
         config = EmpresaConfig.objects.filter(pk=1).first()
-        if config and config.tipo_agenda == 'kanban':
+        if config and config.tipo_agenda == TipoAgenda.KANBAN:
             raise ErroDeNegocio('Empresas com agenda por esteira não podem ter colaboradores.', 'esteira_sem_colaboradores')
         if User.objects.filter(email=email).exists():
             raise ErroDeNegocio('Este e-mail já está vinculado a uma conta.', 'email_ja_cadastrado')
@@ -122,12 +122,12 @@ class AceitarConviteService:
                 first_name=partes[0] if partes else '',
                 last_name=partes[1] if len(partes) > 1 else '',
             )
-            UserTenant.objects.create(user=user, tenant=tenant, role='colaborador')
+            UserTenant.objects.create(user=user, tenant=tenant, role=Papel.COLABORADOR)
             LastActivity.objects.create(user=user, ultimo_acesso=timezone.now())
 
             connection.set_tenant(tenant)
 
-            Colaborador.objects.create(user=user, role='colaborador', ativo=True)
+            Colaborador.objects.create(user=user, role=Papel.COLABORADOR, ativo=True)
 
             convite.aceito = True
             convite.save()

@@ -2,7 +2,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
 
-from .models import Contrato, ModeloContrato
+from .models import Contrato, ModeloContrato, StatusContrato
 from core.excecoes import ErroDeNegocio
 
 
@@ -47,7 +47,7 @@ class ContratoService:
     def enviar(self, contrato: Contrato, schema_name: str) -> None:
         if not contrato.cliente.email:
             raise ErroDeNegocio('O cliente não possui e-mail cadastrado.', 'cliente_sem_email')
-        if contrato.status == Contrato.STATUS_ASSINADO:
+        if contrato.status == StatusContrato.ASSINADO:
             raise ErroDeNegocio('Este contrato já foi assinado.', 'contrato_ja_assinado')
 
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
@@ -89,16 +89,16 @@ class ContratoService:
             fail_silently=False,
         )
 
-        contrato.status = Contrato.STATUS_ENVIADO
+        contrato.status = StatusContrato.ENVIADO
         contrato.save(update_fields=['status', 'atualizado_em'])
 
     def assinar(self, contrato: Contrato, nome_assinante: str, ip: str) -> Contrato:
-        if contrato.status == Contrato.STATUS_ASSINADO:
+        if contrato.status == StatusContrato.ASSINADO:
             raise ErroDeNegocio('Contrato já foi assinado.', 'contrato_ja_assinado')
-        if contrato.status == Contrato.STATUS_RECUSADO:
+        if contrato.status == StatusContrato.RECUSADO:
             raise ErroDeNegocio('Contrato foi recusado e não pode ser assinado.', 'contrato_recusado')
 
-        contrato.status = Contrato.STATUS_ASSINADO
+        contrato.status = StatusContrato.ASSINADO
         contrato.nome_assinante = nome_assinante
         contrato.ip_assinante = ip
         contrato.assinado_em = timezone.now()
@@ -108,8 +108,8 @@ class ContratoService:
         return contrato
 
     def recusar(self, contrato: Contrato) -> Contrato:
-        if contrato.status in (Contrato.STATUS_ASSINADO, Contrato.STATUS_RECUSADO):
+        if contrato.status in (StatusContrato.ASSINADO, StatusContrato.RECUSADO):
             raise ErroDeNegocio('Contrato já está finalizado.', 'contrato_finalizado')
-        contrato.status = Contrato.STATUS_RECUSADO
+        contrato.status = StatusContrato.RECUSADO
         contrato.save(update_fields=['status', 'atualizado_em'])
         return contrato

@@ -11,7 +11,7 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from core.permissions import IsProprietario
 from apps_work.clientes.models import Cliente
-from .models import Despesa, TransacaoCredito
+from .models import Despesa, TipoTransacao, TransacaoCredito
 from .serializers import (
     CaixaSerializer, DespesaSerializer, ResumoDespesasSerializer, SaldoClienteSerializer,
     TransacaoCreditoSerializer,
@@ -30,7 +30,7 @@ class SaldoClienteView(APIView):
 
         transacoes = list(TransacaoCredito.objects.filter(cliente_id=cliente_id))
         saldo = sum(
-            (t.valor if t.tipo == 'credito' else -t.valor) for t in transacoes
+            (t.valor if t.tipo == TipoTransacao.CREDITO else -t.valor) for t in transacoes
         ) or Decimal('0')
         return Response({
             'saldo': str(saldo.quantize(Decimal('0.01'))),

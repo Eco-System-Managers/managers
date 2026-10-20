@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps_work.empresa.models import EmpresaConfig
+from apps_work.empresa.models import TipoAgenda
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ class AtendimentosDiaSerializer(serializers.Serializer):
 
 
 class DashboardResumoSerializer(serializers.Serializer):
-    tipo_agenda = serializers.ChoiceField(choices=EmpresaConfig.TIPO_AGENDA_CHOICES)
+    tipo_agenda = serializers.ChoiceField(choices=TipoAgenda.choices)
     kpis = DashboardKpisSerializer()
     ranking_servicos = RankingServicoSerializer(many=True, help_text='Top 5 do mês.')
     agendamentos_hoje = AgendamentoHojeSerializer(many=True, help_text='Até 10 do dia.')
