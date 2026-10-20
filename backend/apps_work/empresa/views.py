@@ -1,3 +1,4 @@
+from decimal import Decimal
 import logging
 
 from rest_framework import generics, viewsets, status
@@ -56,7 +57,7 @@ class GeocodificarView(APIView):
             # do aparelho, centro da cidade) em vez de travar o cadastro.
             return Response({'latitude': None, 'longitude': None})
 
-        return Response({'latitude': coords[0], 'longitude': coords[1]})
+        return Response(CoordenadaSerializer({'latitude': Decimal(coords[0]), 'longitude': Decimal(coords[1])}).data)
 
 
 class RuaNoPontoView(APIView):

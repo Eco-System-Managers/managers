@@ -290,6 +290,13 @@ class TestGeocodificarAPI:
         assert response.status_code == 200
         assert response.data == {'latitude': None, 'longitude': None}
 
+    def test_coordenada_sai_no_formato_do_empresa_config(self, client_autenticado):
+        """O Nominatim devolve até 7 casas; a config guarda 6. O palpite já
+        sai no formato que o PATCH da config aceita."""
+        with patch(GEOCODIFICAR, return_value=('-22.3407471', '-47.3701829')):
+            response = client_autenticado.get(self.URL, {'cidade': 'Araras'})
+        assert response.data == {'latitude': '-22.340747', 'longitude': '-47.370183'}
+
     def test_falha_do_geocodificador_nao_derruba_a_requisicao(self, client_autenticado):
         with patch(GEOCODIFICAR, side_effect=RuntimeError('nominatim fora do ar')):
             response = client_autenticado.get(self.URL, {'cidade': 'Araras'})

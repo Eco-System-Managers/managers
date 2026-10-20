@@ -7929,13 +7929,15 @@ components:
       type: object
       properties:
         latitude:
-          type: number
-          format: double
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           nullable: true
           description: null quando não foi possível geocodificar.
         longitude:
-          type: number
-          format: double
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           nullable: true
       required:
       - latitude

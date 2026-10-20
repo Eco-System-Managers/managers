@@ -101,8 +101,12 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 class CoordenadaSerializer(serializers.Serializer):
-    latitude = serializers.FloatField(allow_null=True, help_text='null quando não foi possível geocodificar.')
-    longitude = serializers.FloatField(allow_null=True)
+    # Mesmo formato do EmpresaConfig (decimal com 6 casas, como string): o
+    # palpite vai direto para o PATCH da config, sem conversão no app.
+    latitude = serializers.DecimalField(
+        max_digits=9, decimal_places=6, allow_null=True, help_text='null quando não foi possível geocodificar.',
+    )
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, allow_null=True)
 
 
 class RuaNoPontoSerializer(serializers.Serializer):
