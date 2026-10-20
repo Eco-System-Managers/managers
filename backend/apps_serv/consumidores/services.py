@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from core.email import enviar_email
+from core.limites import login_servicemanage
 
 from .models import CodigoRecuperacaoConsumidor, Consumidor
 
@@ -29,17 +30,18 @@ class RegistroConsumidorService:
 class LoginConsumidorService:
     def autenticar(self, email: str, senha: str) -> Consumidor:
         email = email.strip().lower()
+        # Levanta MuitasTentativas com 10 falhas em 15 minutos para o e-mail.
+        login_servicemanage.verificar(email)
 
-        try:
-            consumidor = Consumidor.objects.get(email=email)
-        except Consumidor.DoesNotExist:
+        consumidor = Consumidor.objects.filter(email=email).first()
+        if consumidor is None:
             # Calcula um hash mesmo assim: sem isso, e-mail inexistente responde
             # mais rápido e o tempo de resposta revela quem tem conta.
             make_password(senha)
+        if consumidor is None or not consumidor.check_password(senha):
+            login_servicemanage.registrar_falha(email)
             raise ValueError('E-mail ou senha inválidos.')
-
-        if not consumidor.check_password(senha):
-            raise ValueError('E-mail ou senha inválidos.')
+        login_servicemanage.limpar(email)
 
         if not consumidor.is_active:
             raise ValueError('Conta inativa. Entre em contato com o suporte.')

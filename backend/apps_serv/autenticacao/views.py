@@ -13,7 +13,9 @@ from apps_serv.consumidores.services import (
     RecuperacaoSenhaConsumidorService,
     RegistroConsumidorService,
 )
+from core.limites import MuitasTentativas
 from core.sessao import entregar_refresh, refresh_da_requisicao
+from core.throttling import RecuperacaoConsumidorPorEmailThrottle
 
 from .authentication import gerar_tokens, renovar_tokens, revogar_refresh
 
@@ -42,7 +44,7 @@ class CadastroConsumidorView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth_cadastro'
+    throttle_scope = 'sm_auth_cadastro'
 
     def post(self, request):
         serializer = CadastroConsumidorSerializer(data=request.data)
@@ -71,7 +73,7 @@ class LoginConsumidorView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth_login'
+    throttle_scope = 'sm_auth_login'
 
     def post(self, request):
         email = request.data.get('email', '')
@@ -79,6 +81,11 @@ class LoginConsumidorView(APIView):
 
         try:
             consumidor = LoginConsumidorService().autenticar(email=email, senha=senha)
+        except MuitasTentativas as e:
+            return Response(
+                {'detail': str(e), 'code': 'muitas_tentativas'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         except ValueError as e:
             return Response({'detail': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -128,8 +135,8 @@ class LogoutConsumidorView(APIView):
 class RecuperarSenhaConsumidorView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth_recovery'
+    throttle_classes = [ScopedRateThrottle, RecuperacaoConsumidorPorEmailThrottle]
+    throttle_scope = 'sm_auth_recovery'
 
     def post(self, request):
         email = request.data.get('email', '').strip()
@@ -141,7 +148,7 @@ class VerificarCodigoConsumidorView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth_verify'
+    throttle_scope = 'sm_auth_verify'
 
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
@@ -157,7 +164,7 @@ class NovaSenhaConsumidorView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth_verify'
+    throttle_scope = 'sm_auth_verify'
 
     def post(self, request):
         email = request.data.get('email', '').strip().lower()

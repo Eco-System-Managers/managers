@@ -91,7 +91,11 @@ driblar.
 ## O que é fácil errar aqui
 
 - **O webhook valida assinatura HMAC** (`x-signature`) antes de processar. É
-  endpoint público: sem essa checagem, qualquer um ativa assinatura.
+  endpoint público: sem essa checagem, qualquer um ativa assinatura. O `ts` da
+  assinatura precisa estar a no máximo 10 minutos do relógio
+  (`TOLERANCIA_WEBHOOK_SEGUNDOS`, em segundos ou milissegundos), senão uma
+  notificação capturada poderia ser reenviada depois. Tem throttle próprio
+  (`webhook`), separado do de anônimo.
 - **Rotas de billing são isentas do bloqueio**, junto com `/colaboradores/me/` e
   `/empresa/config/` — senão o tenant bloqueado não alcança a tela que resolve.
 - **O `back_url` do preapproval é fixado na criação do plano** e aponta para o

@@ -52,6 +52,15 @@ nos dois. O app mobile se identifica com `X-Client-Platform: mobile` e manda o
 refresh no corpo; sem o cabeçalho, o refresh só é lido do cookie
 (`core/sessao.py`).
 
+## Rate limiting
+
+Escopos próprios, com prefixo `sm_` (`sm_auth_login`, `sm_auth_recovery`…):
+o B2C não divide contador com o B2B. Como lá, o login conta falhas por e-mail
+(`login_servicemanage` em `core/limites.py`, 10 em 15 min, zerado no acerto) e a
+recuperação limita códigos por e-mail (`RecuperacaoConsumidorPorEmailThrottle`,
+5/hora). O throttle padrão de usuário logado (`UsuarioRateThrottle`) leva o tipo
+da conta na chave, para o `Consumidor` 5 não dividir contador com o `User` 5.
+
 ## O que é fácil errar aqui
 
 - **`request.user` aqui é um `Consumidor`, não um `User`.** Ele implementa

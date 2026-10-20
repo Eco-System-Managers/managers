@@ -1,3 +1,4 @@
+import time
 import datetime
 import hashlib
 import hmac
@@ -322,10 +323,22 @@ class TestMercadoPagoServiceCancelar:
 @pytest.mark.django_db
 @pytest.mark.usefixtures('mp_settings')
 class TestMercadoPagoServiceWebhook:
-    def _assinar(self, data_id, x_request_id, ts='1700000000', secret='segredo-teste'):
+    def _assinar(self, data_id, x_request_id, ts=None, secret='segredo-teste'):
+        ts = ts or str(int(time.time()))
         manifest = f'id:{data_id};request-id:{x_request_id};ts:{ts};'
         v1 = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
         return f'ts={ts},v1={v1}'
+
+    def test_assinatura_antiga_e_recusada(self):
+        # Reenvio de uma notificação capturada: assinatura certa, ts velho.
+        velho = str(int(time.time()) - 11 * 60)
+        x_signature = self._assinar(data_id='123', x_request_id='req-1', ts=velho)
+        assert MercadoPagoService()._validar_assinatura_webhook(x_signature, 'req-1', '123') is False
+
+    def test_ts_em_milissegundos_e_aceito(self):
+        agora_ms = str(int(time.time() * 1000))
+        x_signature = self._assinar(data_id='123', x_request_id='req-1', ts=agora_ms)
+        assert MercadoPagoService()._validar_assinatura_webhook(x_signature, 'req-1', '123') is True
 
     def test_assinatura_valida_e_aceita(self):
         x_signature = self._assinar(data_id='123', x_request_id='req-1')

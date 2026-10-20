@@ -5,7 +5,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from core.limites import MuitasTentativas, login_work
 from core.sessao import entregar_refresh, refresh_da_requisicao
+from core.throttling import RecuperacaoPorEmailThrottle
 from tenants.models import UserTenant
 from .models import LastActivity
 from .serializers import CadastroSerializer
@@ -70,21 +72,26 @@ class LoginView(APIView):
         email = request.data.get('email', '').strip().lower()
         senha = request.data.get('senha', '')
 
+        try:
+            login_work.verificar(email)
+        except MuitasTentativas as e:
+            return Response(
+                {'detail': str(e), 'code': 'muitas_tentativas'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         user = User.objects.filter(username=email).first()
         if user is None:
             # Calcula um hash mesmo assim: sem isso, e-mail inexistente responde
             # mais rápido e o tempo de resposta revela quem tem conta.
             User().set_password(senha)
+        if user is None or not user.check_password(senha):
+            login_work.registrar_falha(email)
             return Response(
                 {'detail': 'E-mail ou senha inválidos.'},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-
-        if not user.check_password(senha):
-            return Response(
-                {'detail': 'E-mail ou senha inválidos.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        login_work.limpar(email)
 
         if not user.is_active:
             return Response(
@@ -115,7 +122,7 @@ class LoginView(APIView):
 class RecuperarSenhaView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [ScopedRateThrottle, RecuperacaoPorEmailThrottle]
     throttle_scope = 'auth_recovery'
 
     def post(self, request):

@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import time
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -124,7 +125,7 @@ class MercadoPagoService:
         partes = dict(p.split('=', 1) for p in x_signature.split(',') if '=' in p)
         ts = partes.get('ts')
         v1 = partes.get('v1')
-        if not ts or not v1:
+        if not ts or not v1 or not self._ts_recente(ts):
             return False
 
         manifest = f'id:{data_id};request-id:{x_request_id or ""};ts:{ts};'
@@ -135,6 +136,20 @@ class MercadoPagoService:
         ).hexdigest()
 
         return hmac.compare_digest(assinatura_calculada, v1)
+
+    # Notificação assinada há mais tempo que isso é recusada: sem a janela, uma
+    # notificação capturada poderia ser reenviada a qualquer momento.
+    TOLERANCIA_WEBHOOK_SEGUNDOS = 10 * 60
+
+    def _ts_recente(self, ts: str) -> bool:
+        try:
+            instante = int(ts)
+        except ValueError:
+            return False
+        # Aceita o ts em segundos ou em milissegundos.
+        if instante > 10**12:
+            instante //= 1000
+        return abs(time.time() - instante) <= self.TOLERANCIA_WEBHOOK_SEGUNDOS
 
     def processar_webhook(self, topico: str, data_id: str, x_signature: str, x_request_id: str) -> None:
         """Processa uma notificação do Mercado Pago. Levanta WebhookInvalidoError

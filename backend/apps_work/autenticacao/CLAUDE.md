@@ -103,6 +103,22 @@ Uma linha por usuário, com o horário do último acesso. É lida e escrita pelo
 (só grava fora de uma janela de 60s). Sessão parada além de
 `INACTIVITY_TIMEOUT_MINUTES` recebe 401 com `code: inactivity_timeout`.
 
+## Rate limiting
+
+Configuração em `REST_FRAMEWORK` (`core/settings.py`); classes em
+`core/throttling.py` e `core/limites.py`.
+
+- **Por IP:** escopos `auth_*` nas rotas daqui (B2B). O IP vem do
+  `REMOTE_ADDR` (`NUM_PROXIES=0`) — sem isso o DRF usaria o `X-Forwarded-For`,
+  que o cliente escreve, e qualquer limite por IP seria burlável.
+- **Falhas de login por conta:** `login_work` (`core/limites.py`) bloqueia o
+  e-mail com 10 falhas em 15 min, com 429 `muitas_tentativas`. Conta só falhas
+  e o acerto zera: um throttle comum deixaria qualquer um travar o login de
+  outra pessoa. Vale para qualquer e-mail, exista ou não.
+- **Recuperação por conta:** `RecuperacaoPorEmailThrottle`, 5 códigos por hora
+  por e-mail, independente do IP.
+- O refresh e o logout não têm escopo: ficam com o throttle padrão de anônimo.
+
 ## O que é fácil errar aqui
 
 - **Este app é compartilhado** (`SHARED_APPS`), não de tenant. Faz sentido: o

@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -117,6 +118,10 @@ class PagamentosListView(ListAPIView):
 
 class MercadoPagoWebhookView(APIView):
     permission_classes = [AllowAny]
+    # Escopo próprio: o Mercado Pago chega de poucos IPs, e o limite de
+    # anônimo comum poderia barrar uma rajada legítima de notificações.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'webhook'
 
     def post(self, request):
         topico = request.query_params.get('type') or request.query_params.get('topic')

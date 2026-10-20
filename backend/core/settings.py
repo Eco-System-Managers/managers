@@ -216,16 +216,37 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Valem para toda view que não declara throttle_classes própria. O
+    # ScopedRateThrottle só age onde a view define throttle_scope.
     'DEFAULT_THROTTLE_CLASSES': (
         'rest_framework.throttling.ScopedRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+        'core.throttling.UsuarioRateThrottle',
     ),
     'DEFAULT_THROTTLE_RATES': {
+        'anon': '120/min',
+        'user': '600/min',
+        # Work Manage (B2B)
         'auth_login': '5/min',
         'auth_cadastro': '3/min',
         'auth_recovery': '3/min',
         'auth_verify': '10/min',
+        'recuperacao_email': '5/hour',
         'convite_criar': '5/min',
+        # Service Manage (B2C) — contadores separados dos do B2B
+        'sm_auth_login': '5/min',
+        'sm_auth_cadastro': '3/min',
+        'sm_auth_recovery': '3/min',
+        'sm_auth_verify': '10/min',
+        'sm_recuperacao_email': '5/hour',
+        # Mercado Pago
+        'webhook': '120/min',
     },
+    # Quantos proxies confiáveis ficam na frente da aplicação. Com 0 o IP é o
+    # REMOTE_ADDR. Sem definir (None), o DRF usaria o X-Forwarded-For inteiro
+    # como identidade — um cabeçalho que o cliente escreve, e com o qual
+    # burlaria todo limite por IP mandando um valor diferente a cada requisição.
+    'NUM_PROXIES': int(os.getenv('NUM_PROXIES', '0')),
 }
 
 # Work Manage (B2B)
@@ -259,19 +280,17 @@ INACTIVITY_TIMEOUT_MINUTES = 30
 # instante do logout por inatividade nao muda de forma perceptivel.
 INACTIVITY_WRITE_WINDOW_SECONDS = 60
 
-# Cache local ao processo. E o padrao do Django quando CACHES nao e declarado —
-# fica explicito aqui porque agora ha codigo dependendo dele (o estado de
-# bloqueio da assinatura, em core/cache.py).
-#
-# Consequencia de ser local ao processo: com mais de um worker, invalidar em um
-# nao invalida nos outros. Na pratica isso limita o atraso ao TTL da chave, nao
-# ao proximo evento de cobranca. Trocar por Redis aqui resolve, e nenhum outro
-# arquivo precisa mudar.
+# Contadores de rate limiting e o estado de bloqueio da assinatura
+# (core/cache.py) vivem aqui. Com REDIS_URL, ficam no Redis e valem para todos
+# os processos; sem ela, ficam na memória de cada processo — suficiente com um
+# processo só (runserver), mas com N workers cada um teria o próprio contador.
+REDIS_URL = os.getenv('REDIS_URL', '')
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'workmanage-local',
-    }
+    'default': (
+        {'BACKEND': 'django.core.cache.backends.redis.RedisCache', 'LOCATION': REDIS_URL}
+        if REDIS_URL else
+        {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'workmanage-local'}
+    ),
 }
 
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')

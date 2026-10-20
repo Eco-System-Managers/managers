@@ -37,13 +37,14 @@ def _patch_transactional_flush():
 
 
 @pytest.fixture(autouse=True)
-def disable_throttling(settings):
-    """Desabilita throttling para que testes não recebam 429 por rate limit."""
+def limpar_rate_limit():
+    """Zera os contadores de rate limit (e o resto do cache) entre testes.
+
+    Os throttles não são desligados: o DRF fixa `throttle_classes` quando
+    `rest_framework.views` é importado, e desligar por settings fazia o
+    resultado depender de qual teste importava as views primeiro.
+    """
     from django.core.cache import cache
-    settings.REST_FRAMEWORK = {
-        **settings.REST_FRAMEWORK,
-        'DEFAULT_THROTTLE_CLASSES': [],
-    }
     cache.clear()
 
 
