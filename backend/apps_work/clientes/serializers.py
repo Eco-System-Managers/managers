@@ -67,10 +67,7 @@ class ClienteSerializer(serializers.ModelSerializer):
     # Campos cuja fonte é o cadastro do consumidor no schema público. Para
     # cliente vindo do Service Manage eles são espelho: aceitar edição pelo
     # painel só criaria um valor que a próxima sincronização apaga sem aviso.
-    CAMPOS_SINCRONIZADOS = [
-        'nome', 'telefone', 'cpf', 'data_nascimento',
-        'cep', 'endereco', 'numero_endereco',
-    ]
+    CAMPOS_SINCRONIZADOS = [c for c in Cliente.CAMPOS_ESPELHADOS if c != 'foto_chave']
 
     def get_foto(self, obj) -> str:
         from apps_work.empresa.services import ArmazenamentoImagemService

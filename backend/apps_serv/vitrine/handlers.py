@@ -19,7 +19,7 @@ def _on_empresa_config_atualizada(sender, schema_name, instance, **kwargs):
     SincronizarVitrineService().sincronizar(schema_name, instance)
 
 
-def _on_cliente_servicemanage_removido(sender, schema_name, email, **kwargs):
+def _on_cliente_servicemanage_removido(sender, schema_name, consumidor_id, **kwargs):
     """O negócio removeu do painel um cliente que veio do app: desfaz o vínculo
     para o negócio sair de "Seus negócios" e o cadastro não ressurgir na lista
     no próximo agendamento."""
@@ -28,7 +28,9 @@ def _on_cliente_servicemanage_removido(sender, schema_name, email, **kwargs):
     try:
         VinculoConsumidor.objects.filter(
             schema_name=schema_name,
-            consumidor__email=email,
+            # Pelo consumidor_id, não pelo e-mail: o e-mail do Cliente pode ter
+            # sido editado no painel, e a remoção não acharia o vínculo.
+            consumidor_id=consumidor_id,
             ativo=True,
         ).update(ativo=False, desvinculado_em=timezone.now())
     except Exception:

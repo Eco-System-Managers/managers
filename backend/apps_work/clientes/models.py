@@ -67,14 +67,38 @@ class Cliente(models.Model):
     # migration de cada tenant a tabela publica. Mesmo padrao que
     # AgendamentoConsumidor.agendamento_id usa na direcao contraria.
     #
-    # Nulo em dois casos legitimos: cadastro feito na mao pelo negocio, e
-    # registro anterior ao backfill que ainda nao foi acessado.
+    # Nulo no cadastro feito na mao pelo negocio. Se o mesmo e-mail depois se
+    # vincula pelo app, o cadastro passa a ser do consumidor (ver
+    # apps_serv/identidade.py).
     consumidor_id = models.PositiveIntegerField(null=True, blank=True, unique=True, db_index=True)
 
     criado_em = models.DateTimeField(auto_now_add=True)
 
+    # Cliente vindo do Service Manage espelha estes campos do Consumidor: a
+    # ficha vive no schema publico e o negocio recebe uma copia. Lista unica —
+    # vincular, sincronizar o perfil e travar a edicao no painel leem daqui.
+    CAMPOS_ESPELHADOS = [
+        'nome', 'telefone', 'cpf', 'data_nascimento',
+        'cep', 'endereco', 'numero_endereco', 'foto_chave',
+    ]
+    # Dados pessoais que saem quando o vinculo e desfeito (pelo app ou pelo
+    # painel). Ficam nome, telefone e o historico de atendimentos.
+    CAMPOS_PESSOAIS = ['cpf', 'data_nascimento', 'cep', 'endereco', 'numero_endereco', 'foto_chave']
+
     def __str__(self):
         return self.nome
+
+    def espelhar(self, consumidor) -> list[str]:
+        """Copia a ficha do consumidor. Devolve os campos para o update_fields."""
+        for campo in self.CAMPOS_ESPELHADOS:
+            setattr(self, campo, getattr(consumidor, campo))
+        return list(self.CAMPOS_ESPELHADOS)
+
+    def apagar_dados_pessoais(self) -> list[str]:
+        """Limpa os dados pessoais. Devolve os campos para o update_fields."""
+        for campo in self.CAMPOS_PESSOAIS:
+            setattr(self, campo, None if self._meta.get_field(campo).null else '')
+        return list(self.CAMPOS_PESSOAIS)
 
 
 class ObjetoCliente(models.Model):

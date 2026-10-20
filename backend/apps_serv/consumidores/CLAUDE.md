@@ -23,7 +23,7 @@ sincronizado, nunca a fonte.
 | `Consumidor` | A conta. Guarda a ficha completa (nome, telefone, CPF, endereço, foto). Tem `set_password`/`check_password` próprios — não herda de `AbstractUser` |
 | `CodigoRecuperacaoConsumidor` | Código de recuperação de senha, com expiração de 15min e trava após 5 tentativas |
 | `VinculoConsumidor` | Liga cliente a negócio. **Soft delete**: desvincular marca `ativo=False`, nunca apaga — assim revincular reativa em vez de duplicar |
-| `ObjetoConsumidor` | O pet ou veículo do cliente, em `JSONField`. É a fonte; o `Pet`/`Veiculo` do tenant é cópia |
+| `ObjetoConsumidor` | O pet ou veículo do cliente, em `JSONField`. Vira um `Pet`/`Veiculo` no tenant quando é usado num agendamento por esteira — cópia feita uma vez, sem sincronização posterior |
 | `AgendamentoConsumidor` | A agenda do cliente, atravessando todos os negócios. Guarda `schema_name` + `agendamento_id` (referência solta ao registro no tenant) e um **snapshot** dos serviços |
 
 ## Tabelas
@@ -88,7 +88,7 @@ de duplicar.
 |---|---|---|
 | `consumidor` | `FK → Consumidor` `CASCADE` | |
 | `tipo` | `CharField(20)` | `veiculo` ou `pet` |
-| `dados` | `JSONField` | Os atributos, sem esquema fixo. É a **fonte**; o `Pet`/`Veiculo` do tenant é cópia |
+| `dados` | `JSONField` | Os atributos, sem esquema fixo. Copiados para o `Pet`/`Veiculo` do tenant no primeiro agendamento por esteira que os usa; editar ou apagar depois não muda a cópia |
 | `nome_exibicao` | `CharField(255)` | Montado na criação (ex.: "Honda Civic · ABC1D23") |
 | `criado_em` | `DateTime` `auto_now_add` | Ordenação por `-criado_em` |
 

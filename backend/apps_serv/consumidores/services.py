@@ -165,13 +165,6 @@ class SincronizarClienteService:
     estarem de pé.
     """
 
-    # `foto_chave` entra aqui e não como caso especial: para o negócio, a foto é
-    # mais um dado da ficha do cliente. Some junto quando o vínculo é desfeito.
-    CAMPOS = [
-        'nome', 'telefone', 'cpf', 'data_nascimento',
-        'cep', 'endereco', 'numero_endereco', 'foto_chave',
-    ]
-
     def sincronizar(self, consumidor: Consumidor) -> int:
         from .models import VinculoConsumidor
 
@@ -196,9 +189,7 @@ class SincronizarClienteService:
                 if cliente is None:
                     return False
 
-                for campo in self.CAMPOS:
-                    setattr(cliente, campo, getattr(consumidor, campo))
-                cliente.save(update_fields=self.CAMPOS)
+                cliente.save(update_fields=cliente.espelhar(consumidor))
                 return True
         except Exception:
             logger.warning(

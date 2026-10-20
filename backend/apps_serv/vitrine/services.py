@@ -427,9 +427,8 @@ class VincularNegocioService:
         """Espelha o perfil do consumidor no Cliente do tenant e, quando o
         vínculo muda de estado, avisa o negócio.
 
-        A sincronização roda em todo agendamento porque é ela que propaga nome
-        e telefone do cadastro único (o cadastro vive no schema público e não
-        tem cópia por tenant). Já a notificação só faz sentido na transição —
+        A sincronização roda em todo agendamento porque é ela que propaga a ficha
+        do cadastro único (Cliente.CAMPOS_ESPELHADOS) para o negócio. Já a notificação só faz sentido na transição —
         notificar sempre fazia o dono receber "fulano agora é seu cliente" a
         cada agendamento de quem já era cliente dele havia meses.
 
@@ -454,28 +453,31 @@ class VincularNegocioService:
                     cliente = cliente_do_consumidor(consumidor)
 
                     if evento == 'vinculado':
+                        # A ficha completa vai na hora — antes iam só nome e
+                        # telefone, e o resto esperava o próximo PATCH do perfil.
                         if cliente is None:
-                            cliente = Cliente.objects.create(
-                                nome=consumidor.nome, email=consumidor.email,
-                                telefone=consumidor.telefone, visivel=True,
+                            cliente = Cliente(
+                                email=consumidor.email, visivel=True,
                                 origem=OrigemCliente.SERVICEMANAGE,
                                 consumidor_id=consumidor.id,
                             )
+                            cliente.espelhar(consumidor)
+                            cliente.save()
                         else:
                             # O vínculo passa a posse do cadastro pro consumidor,
                             # mesmo que o negócio o tenha criado na mão antes. Sem
                             # marcar a origem, remover pelo painel apagaria a linha
                             # e deixaria o vínculo ativo no público.
-                            cliente.nome = consumidor.nome
-                            cliente.telefone = consumidor.telefone
                             cliente.visivel = True
                             cliente.origem = OrigemCliente.SERVICEMANAGE
-                            cliente.save(update_fields=['nome', 'telefone', 'visivel', 'origem'])
+                            cliente.save(update_fields=['visivel', 'origem', *cliente.espelhar(consumidor)])
                         tipo, titulo = TipoNotificacao.CLIENTE_VINCULADO, f'{consumidor.nome} agora é seu cliente'
                     else:
                         if cliente:
+                            # Desfeito o vínculo, os dados pessoais saem do
+                            # negócio; ficam nome, telefone e o histórico.
                             cliente.visivel = False
-                            cliente.save(update_fields=['visivel'])
+                            cliente.save(update_fields=['visivel', *cliente.apagar_dados_pessoais()])
                         tipo, titulo = TipoNotificacao.CLIENTE_DESVINCULADO, f'{consumidor.nome} não é mais seu cliente'
 
                     if notificar:

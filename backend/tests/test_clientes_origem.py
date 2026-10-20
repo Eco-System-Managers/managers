@@ -93,7 +93,8 @@ class TestVinculoDesfeitoNaRemocao:
     def test_vinculo_fica_inativo(self, patch_tenant_middleware, consumidor, tenant):
         VinculoConsumidor.objects.create(consumidor=consumidor, schema_name=tenant.schema_name)
         cliente = Cliente.objects.create(
-            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE
+            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id,
         )
 
         RemocaoClienteService().remover(cliente)
@@ -104,7 +105,8 @@ class TestVinculoDesfeitoNaRemocao:
     def test_vinculo_registra_data_da_desvinculacao(self, patch_tenant_middleware, consumidor, tenant):
         VinculoConsumidor.objects.create(consumidor=consumidor, schema_name=tenant.schema_name)
         cliente = Cliente.objects.create(
-            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE
+            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id,
         )
 
         RemocaoClienteService().remover(cliente)
@@ -115,7 +117,8 @@ class TestVinculoDesfeitoNaRemocao:
     def test_vinculo_de_outro_negocio_nao_e_afetado(self, patch_tenant_middleware, consumidor, tenant):
         VinculoConsumidor.objects.create(consumidor=consumidor, schema_name='outro_negocio')
         cliente = Cliente.objects.create(
-            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE
+            nome='Carlos', email=consumidor.email, origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id,
         )
 
         RemocaoClienteService().remover(cliente)
@@ -133,3 +136,36 @@ class TestVinculoDesfeitoNaRemocao:
 
         vinculo = VinculoConsumidor.objects.get(consumidor=consumidor, schema_name=tenant.schema_name)
         assert vinculo.ativo is True
+
+
+@pytest.mark.django_db
+class TestRemocaoPeloPainelApagaDadosPessoais:
+    def test_vinculo_desfeito_mesmo_com_email_editado_no_painel(self, patch_tenant_middleware, consumidor, tenant):
+        """A remoção acha o vínculo pelo consumidor_id; pelo e-mail, um e-mail
+        editado no painel deixava o vínculo ativo."""
+        VinculoConsumidor.objects.create(consumidor=consumidor, schema_name=tenant.schema_name)
+        cliente = Cliente.objects.create(
+            nome='Carlos', email='outro@email.com', origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id,
+        )
+
+        RemocaoClienteService().remover(cliente)
+
+        assert not VinculoConsumidor.objects.get(consumidor=consumidor, schema_name=tenant.schema_name).ativo
+
+    def test_dados_pessoais_saem_e_nome_e_telefone_ficam(self, patch_tenant_middleware, consumidor):
+        import datetime
+        cliente = Cliente.objects.create(
+            nome='Carlos', telefone='11999990000', origem=OrigemCliente.SERVICEMANAGE,
+            consumidor_id=consumidor.id, cpf='52998224725', data_nascimento=datetime.date(1990, 1, 1),
+            cep='01001000', endereco='Rua A', numero_endereco='10', foto_chave='consumidores/x.webp',
+        )
+
+        RemocaoClienteService().remover(cliente)
+
+        cliente.refresh_from_db()
+        assert (cliente.nome, cliente.telefone) == ('Carlos', '11999990000')
+        assert cliente.cpf == cliente.cep == cliente.endereco == cliente.numero_endereco == cliente.foto_chave == ''
+        assert cliente.data_nascimento is None
+        assert cliente.visivel is False
+

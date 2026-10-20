@@ -112,3 +112,48 @@ class TestFalhaNaSincronizacaoNaoQuebraOVinculo:
                 VincularNegocioService().garantir_vinculo(tenant.schema_name, consumidor)
 
         assert log.warning.called
+
+
+@pytest.fixture
+def consumidor_com_ficha(db):
+    import datetime
+    from apps_serv.consumidores.models import Consumidor
+    consumidor = RegistroConsumidorService().registrar(
+        nome='Ana Ficha', email='ana@sm.com', senha='SenhaForte123!', telefone='11988887777',
+    )
+    Consumidor.objects.filter(pk=consumidor.pk).update(
+        cpf='52998224725', data_nascimento=datetime.date(1992, 5, 4), cep='01001000',
+        endereco='Rua B', numero_endereco='20', foto_chave='consumidores/ana.webp',
+    )
+    consumidor.refresh_from_db()
+    return consumidor
+
+
+@pytest.mark.django_db
+class TestFichaNoVinculo:
+    def test_vincular_copia_a_ficha_completa(self, patch_tenant_middleware, consumidor_com_ficha, tenant):
+        # Antes iam só nome e telefone; o resto esperava o próximo PATCH do perfil.
+        VincularNegocioService().vincular(tenant.schema_name, consumidor_com_ficha)
+
+        cliente = Cliente.objects.get(consumidor_id=consumidor_com_ficha.id)
+        for campo in Cliente.CAMPOS_ESPELHADOS:
+            assert getattr(cliente, campo) == getattr(consumidor_com_ficha, campo), campo
+
+    def test_desvincular_apaga_os_dados_pessoais(self, patch_tenant_middleware, consumidor_com_ficha, tenant):
+        VincularNegocioService().vincular(tenant.schema_name, consumidor_com_ficha)
+        VincularNegocioService().desvincular(tenant.schema_name, consumidor_com_ficha)
+
+        cliente = Cliente.objects.get(consumidor_id=consumidor_com_ficha.id)
+        assert (cliente.nome, cliente.telefone) == ('Ana Ficha', '11988887777')
+        assert cliente.cpf == cliente.cep == cliente.endereco == cliente.numero_endereco == cliente.foto_chave == ''
+        assert cliente.data_nascimento is None
+        assert cliente.visivel is False
+
+    def test_revincular_traz_a_ficha_de_volta(self, patch_tenant_middleware, consumidor_com_ficha, tenant):
+        VincularNegocioService().vincular(tenant.schema_name, consumidor_com_ficha)
+        VincularNegocioService().desvincular(tenant.schema_name, consumidor_com_ficha)
+        VincularNegocioService().vincular(tenant.schema_name, consumidor_com_ficha)
+
+        cliente = Cliente.objects.get(consumidor_id=consumidor_com_ficha.id)
+        assert cliente.cpf == '52998224725'
+        assert cliente.visivel is True

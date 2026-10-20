@@ -47,7 +47,7 @@ Controle:
 |---|---|---|
 | `visivel` | `Boolean` = `True` | Soft delete. `False` quando o consumidor se desvincula. O registro nunca é apagado, por retenção fiscal |
 | `origem` | `CharField(20)` = `manual` | `manual` ou `servicemanage`. Decide se o painel pode editar e o que acontece ao remover |
-| `consumidor_id` | `PositiveInteger` **único**, indexado, nulo | Quem é esta pessoa no schema público. Referência solta, sem FK. Nulo em cadastro manual |
+| `consumidor_id` | `PositiveInteger` **único**, indexado, nulo | Quem é esta pessoa no schema público. Referência solta, sem FK. Nulo em cadastro manual — até o mesmo e-mail se vincular pelo app, quando o cadastro passa a ser do consumidor |
 | `criado_em` | `DateTime` `auto_now_add` | |
 
 ### `ObjetoCliente` — a base de pet e veículo
@@ -94,12 +94,20 @@ veículo; banho & tosa usa pet.
 ## O que é fácil errar aqui
 
 - **`consumidor_id` é único.** Um tenant não pode ter dois `Cliente` para a
-  mesma pessoa. Tentar criar o segundo levanta `IntegrityError` — de propósito,
-  para falhar alto em vez de duplicar em silêncio.
-- **Remover cliente do app não apaga.** `RemocaoClienteService` marca invisível
-  e dispara sinal para desfazer o vínculo no público. Apagar a linha deixaria o
-  vínculo órfão e o cadastro ressurgiria no próximo agendamento.
+  mesma pessoa: o banco recusa o segundo com `IntegrityError`. Ao *ligar* um
+  cadastro existente (`apps_serv/identidade.py`), essa falha é registrada e a
+  operação segue com o cadastro encontrado, num savepoint — agendar não pode
+  quebrar por causa da ligação.
+- **Os campos espelhados do consumidor estão em `Cliente.CAMPOS_ESPELHADOS`** e
+  os que saem ao desfazer o vínculo, em `Cliente.CAMPOS_PESSOAIS`. Vincular,
+  sincronizar o perfil, travar a edição no painel e remover pelo painel leem
+  dessas listas.
+- **Remover cliente do app não apaga a linha.** `RemocaoClienteService` marca
+  invisível, apaga os dados pessoais (mesma regra do desvínculo pelo app) e
+  dispara sinal com o `consumidor_id` para desfazer o vínculo no público. Apagar
+  a linha deixaria o vínculo órfão e o cadastro ressurgiria no próximo
+  agendamento.
 - **A busca (`?search=`) cobre 4 campos** e alimenta os nove autocompletes dos
-  frontends. A listagem é paginada de 20 em 20.
+  frontends. A listagem usa a paginação padrão (`core/paginacao.py`).
 - **O cadastro que veio do app é sincronizado de fora.** Editar aqui campo que o
   consumidor controla é trabalho perdido: a próxima sincronização sobrescreve.
