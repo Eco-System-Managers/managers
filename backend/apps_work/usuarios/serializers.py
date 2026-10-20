@@ -37,3 +37,14 @@ class ConviteColaboradorSerializer(serializers.ModelSerializer):
         model = ConviteColaborador
         fields = ['id', 'nome', 'email', 'aceito', 'criado_em', 'expira_em']
         read_only_fields = ['id', 'aceito', 'criado_em', 'expira_em']
+
+
+class ConviteInfoSerializer(serializers.Serializer):
+    """O que a tela de aceite mostra antes de a pessoa definir a senha."""
+    nome = serializers.CharField()
+    email = serializers.EmailField()
+    expira_em = serializers.DateTimeField()
+
+
+class AceitarConviteSerializer(serializers.Serializer):
+    senha = serializers.CharField(write_only=True)

@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Prefetch
@@ -25,6 +26,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
             )
         return qs.order_by('nome')
 
+    @extend_schema(responses={200: ObjetoClienteSerializer(many=True)}, summary='Pets/veículos do cliente')
     @action(detail=True, methods=['get'], url_path='objetos')
     def objetos(self, request, pk=None):
         cliente = self.get_object()

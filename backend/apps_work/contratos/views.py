@@ -45,6 +45,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
         # duas paginas e omitir outro.
         return qs.order_by('-criado_em', '-id')
 
+    @extend_schema(request=GerarContratoSerializer, responses={201: ContratoSerializer}, summary='Gerar contrato a partir de um modelo')
     @action(detail=False, methods=['post'])
     def gerar(self, request):
         serializer = GerarContratoSerializer(data=request.data)
@@ -64,6 +65,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
         contrato = ContratoService().gerar(modelo, cliente)
         return Response(ContratoSerializer(contrato).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=None, responses={200: ContratoSerializer}, summary='Enviar contrato por e-mail ao cliente')
     @action(detail=True, methods=['post'])
     def enviar(self, request, pk=None):
         contrato = self.get_object()

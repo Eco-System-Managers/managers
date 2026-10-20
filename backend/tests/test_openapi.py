@@ -31,3 +31,24 @@ def test_schemas_versionados_estao_atualizados(tmp_path):
         gerado = (tmp_path / f'{produto}.yaml').read_text()
         versionado = (BACKEND / 'openapi' / f'{produto}.yaml').read_text()
         assert gerado == versionado, f'openapi/{produto}.yaml desatualizado: rode manage.py gerar_openapi'
+
+
+def test_toda_action_de_viewset_tem_extend_schema():
+    """Sem @extend_schema, o drf-spectacular documenta a action com o
+    serializer do viewset: o aceite de convite saía recebendo {nome, email} e
+    devolvendo o convite, quando recebe {senha} e devolve a sessão — e o client
+    Dart nasceria errado."""
+    import ast
+
+    faltando = []
+    for arquivo in BACKEND.glob('apps_*/**/views.py'):
+        for no in ast.walk(ast.parse(arquivo.read_text())):
+            if not isinstance(no, ast.FunctionDef):
+                continue
+            nomes = [
+                getattr(d.func, 'id', getattr(d.func, 'attr', None)) if isinstance(d, ast.Call) else getattr(d, 'id', None)
+                for d in no.decorator_list
+            ]
+            if 'action' in nomes and 'extend_schema' not in nomes:
+                faltando.append(f'{arquivo.relative_to(BACKEND)}:{no.lineno} {no.name}')
+    assert not faltando, faltando

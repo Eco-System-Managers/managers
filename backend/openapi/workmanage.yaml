@@ -1590,7 +1590,8 @@ paths:
                 $ref: '#/components/schemas/Erro'
   /api/v1/clientes/{id}/objetos/:
     get:
-      operationId: clientes_objetos_retrieve
+      operationId: clientes_objetos_list
+      summary: Pets/veículos do cliente
       parameters:
       - in: path
         name: id
@@ -1598,6 +1599,18 @@ paths:
           type: integer
         description: Um valor inteiro único que identifica este cliente.
         required: true
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
       tags:
       - clientes
       security:
@@ -1607,7 +1620,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Cliente'
+                $ref: '#/components/schemas/PaginatedObjetoClienteList'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
@@ -1972,6 +1985,7 @@ paths:
   /api/v1/colaboradores/{id}/agendamentos-pendentes/:
     get:
       operationId: colaboradores_agendamentos_pendentes_retrieve
+      summary: Agendamentos futuros do colaborador (antes de remover)
       parameters:
       - in: path
         name: id
@@ -1988,7 +2002,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Colaborador'
+                $ref: '#/components/schemas/AgendamentosPendentes'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
@@ -2023,6 +2037,7 @@ paths:
   /api/v1/colaboradores/{id}/ativar/:
     post:
       operationId: colaboradores_ativar_create
+      summary: Reativar colaborador
       parameters:
       - in: path
         name: id
@@ -2032,17 +2047,6 @@ paths:
         required: true
       tags:
       - colaboradores
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ColaboradorRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/ColaboradorRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/ColaboradorRequest'
       security:
       - workmanageJWT: []
       responses:
@@ -2085,6 +2089,7 @@ paths:
   /api/v1/colaboradores/{id}/desativar/:
     post:
       operationId: colaboradores_desativar_create
+      summary: Desativar colaborador
       parameters:
       - in: path
         name: id
@@ -2094,26 +2099,11 @@ paths:
         required: true
       tags:
       - colaboradores
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ColaboradorRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/ColaboradorRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/ColaboradorRequest'
       security:
       - workmanageJWT: []
       responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Colaborador'
-          description: ''
+        '204':
+          description: No response body
         '400':
           description: Requisição inválida ou regra de negócio violada.
           content:
@@ -2147,6 +2137,7 @@ paths:
   /api/v1/colaboradores/{id}/remover/:
     delete:
       operationId: colaboradores_remover_destroy
+      summary: Remover colaborador
       parameters:
       - in: path
         name: id
@@ -2194,6 +2185,7 @@ paths:
   /api/v1/colaboradores/me/:
     get:
       operationId: colaboradores_me_retrieve
+      summary: Colaborador do usuário logado
       tags:
       - colaboradores
       security:
@@ -2570,6 +2562,7 @@ paths:
   /api/v1/contratos/{id}/enviar/:
     post:
       operationId: contratos_enviar_create
+      summary: Enviar contrato por e-mail ao cliente
       parameters:
       - in: path
         name: id
@@ -2579,18 +2572,6 @@ paths:
         required: true
       tags:
       - contratos
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ContratoRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/ContratoRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/ContratoRequest'
-        required: true
       security:
       - workmanageJWT: []
       responses:
@@ -2633,24 +2614,25 @@ paths:
   /api/v1/contratos/gerar/:
     post:
       operationId: contratos_gerar_create
+      summary: Gerar contrato a partir de um modelo
       tags:
       - contratos
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ContratoRequest'
+              $ref: '#/components/schemas/GerarContratoRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/ContratoRequest'
+              $ref: '#/components/schemas/GerarContratoRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ContratoRequest'
+              $ref: '#/components/schemas/GerarContratoRequest'
         required: true
       security:
       - workmanageJWT: []
       responses:
-        '200':
+        '201':
           content:
             application/json:
               schema:
@@ -3478,7 +3460,16 @@ paths:
   /api/v1/convites/aceitar/{token}/:
     post:
       operationId: convites_aceitar_create
+      summary: Aceitar convite definindo a senha (já devolve a sessão)
       parameters:
+      - in: header
+        name: X-Client-Platform
+        schema:
+          type: string
+          enum:
+          - mobile
+        description: 'Envie `mobile` no app: o refresh vem e vai no corpo. Sem o cabeçalho
+          (web), o refresh fica só no cookie httpOnly.'
       - in: path
         name: token
         schema:
@@ -3491,22 +3482,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConviteColaboradorRequest'
+              $ref: '#/components/schemas/AceitarConviteRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/ConviteColaboradorRequest'
+              $ref: '#/components/schemas/AceitarConviteRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ConviteColaboradorRequest'
+              $ref: '#/components/schemas/AceitarConviteRequest'
         required: true
-      security:
-      - {}
       responses:
-        '200':
+        '201':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConviteColaborador'
+                $ref: '#/components/schemas/Sessao'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
@@ -3541,6 +3530,7 @@ paths:
   /api/v1/convites/info/{token}/:
     get:
       operationId: convites_info_retrieve
+      summary: Dados do convite para a tela de aceite
       parameters:
       - in: path
         name: token
@@ -3550,14 +3540,12 @@ paths:
         required: true
       tags:
       - convites
-      security:
-      - {}
       responses:
         '200':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConviteColaborador'
+                $ref: '#/components/schemas/ConviteInfo'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
@@ -5180,6 +5168,7 @@ paths:
   /api/v1/kanban/atendimentos/{id}/desfazer_cobranca/:
     post:
       operationId: kanban_atendimentos_desfazer_cobranca_create
+      summary: Desfazer cobrança
       parameters:
       - in: path
         name: id
@@ -5189,18 +5178,6 @@ paths:
         required: true
       tags:
       - kanban
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-        required: true
       security:
       - workmanageJWT: []
       responses:
@@ -5243,6 +5220,7 @@ paths:
   /api/v1/kanban/atendimentos/{id}/desfazer_falta/:
     post:
       operationId: kanban_atendimentos_desfazer_falta_create
+      summary: Desfazer falta
       parameters:
       - in: path
         name: id
@@ -5252,18 +5230,6 @@ paths:
         required: true
       tags:
       - kanban
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-        required: true
       security:
       - workmanageJWT: []
       responses:
@@ -5306,6 +5272,7 @@ paths:
   /api/v1/kanban/atendimentos/{id}/marcar_falta/:
     post:
       operationId: kanban_atendimentos_marcar_falta_create
+      summary: Marcar falta
       parameters:
       - in: path
         name: id
@@ -5315,18 +5282,6 @@ paths:
         required: true
       tags:
       - kanban
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
-        required: true
       security:
       - workmanageJWT: []
       responses:
@@ -5369,6 +5324,7 @@ paths:
   /api/v1/kanban/atendimentos/{id}/mover/:
     post:
       operationId: kanban_atendimentos_mover_create
+      summary: Mover atendimento de etapa
       parameters:
       - in: path
         name: id
@@ -5382,13 +5338,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
+              $ref: '#/components/schemas/MoverAtendimentoRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
+              $ref: '#/components/schemas/MoverAtendimentoRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
+              $ref: '#/components/schemas/MoverAtendimentoRequest'
         required: true
       security:
       - workmanageJWT: []
@@ -5764,29 +5720,26 @@ paths:
   /api/v1/kanban/etapas/reordenar/:
     post:
       operationId: kanban_etapas_reordenar_create
+      summary: Reordenar etapas (ids na nova ordem)
       tags:
       - kanban
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EtapaKanbanRequest'
+              $ref: '#/components/schemas/ReordenarEtapasRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/EtapaKanbanRequest'
+              $ref: '#/components/schemas/ReordenarEtapasRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/EtapaKanbanRequest'
+              $ref: '#/components/schemas/ReordenarEtapasRequest'
         required: true
       security:
       - workmanageJWT: []
       responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EtapaKanban'
-          description: ''
+        '204':
+          description: No response body
         '400':
           description: Requisição inválida ou regra de negócio violada.
           content:
@@ -5983,6 +5936,7 @@ paths:
   /api/v1/notificacoes/{id}/marcar-lida/:
     post:
       operationId: notificacoes_marcar_lida_create
+      summary: Marcar notificação como lida
       parameters:
       - in: path
         name: id
@@ -6034,6 +5988,7 @@ paths:
   /api/v1/notificacoes/marcar-todas-lidas/:
     post:
       operationId: notificacoes_marcar_todas_lidas_create
+      summary: Marcar todas como lidas
       tags:
       - notificacoes
       security:
@@ -6043,7 +5998,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Notificacao'
+                $ref: '#/components/schemas/Mensagem'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
@@ -6078,6 +6033,7 @@ paths:
   /api/v1/notificacoes/nao-lidas/:
     get:
       operationId: notificacoes_nao_lidas_retrieve
+      summary: Total de notificações não lidas
       tags:
       - notificacoes
       security:
@@ -6087,7 +6043,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Notificacao'
+                $ref: '#/components/schemas/NotificacoesNaoLidas'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
@@ -7136,6 +7092,15 @@ components:
       description: |-
         * `assinar` - assinar
         * `recusar` - recusar
+    AceitarConviteRequest:
+      type: object
+      properties:
+        senha:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - senha
     Agendamento:
       type: object
       properties:
@@ -7291,6 +7256,16 @@ components:
       - agendamento
       - preco_cobrado
       - servico
+    AgendamentosPendentes:
+      type: object
+      properties:
+        tem_pendentes:
+          type: boolean
+        total:
+          type: integer
+      required:
+      - tem_pendentes
+      - total
     Assinatura:
       type: object
       properties:
@@ -7928,6 +7903,22 @@ components:
           maxLength: 254
       required:
       - email
+    ConviteInfo:
+      type: object
+      description: O que a tela de aceite mostra antes de a pessoa definir a senha.
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        expira_em:
+          type: string
+          format: date-time
+      required:
+      - email
+      - expira_em
+      - nome
     Coordenada:
       type: object
       properties:
@@ -8272,6 +8263,16 @@ components:
         * `credito` - Crédito
         * `debito` - Débito
         * `qr_code` - QR Code
+    GerarContratoRequest:
+      type: object
+      properties:
+        modelo_id:
+          type: integer
+        cliente_id:
+          type: integer
+      required:
+      - cliente_id
+      - modelo_id
     HorarioFuncionamento:
       type: object
       properties:
@@ -8414,6 +8415,13 @@ components:
       required:
       - corpo
       - titulo
+    MoverAtendimentoRequest:
+      type: object
+      properties:
+        etapa_id:
+          type: integer
+      required:
+      - etapa_id
     Notificacao:
       type: object
       properties:
@@ -8454,6 +8462,13 @@ components:
       - mensagem
       - tipo
       - titulo
+    NotificacoesNaoLidas:
+      type: object
+      properties:
+        total:
+          type: integer
+      required:
+      - total
     NovaSenhaRequest:
       type: object
       properties:
@@ -8840,6 +8855,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Notificacao'
+    PaginatedObjetoClienteList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObjetoCliente'
     PaginatedPagamentoAssinaturaList:
       type: object
       required:
@@ -9408,6 +9446,15 @@ components:
           minLength: 1
           description: 'Só no app mobile (cabeçalho X-Client-Platform: mobile); no
             web o refresh vai no cookie.'
+    ReordenarEtapasRequest:
+      type: object
+      properties:
+        ordem:
+          type: array
+          items:
+            type: integer
+      required:
+      - ordem
     ResumoCategoria:
       type: object
       properties:

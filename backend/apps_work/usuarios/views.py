@@ -1,4 +1,6 @@
 from rest_framework import viewsets, status
+from rest_framework import serializers
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -6,12 +8,16 @@ from rest_framework.throttling import ScopedRateThrottle
 from django.db import connection
 from django.db.models import Q
 from django.utils import timezone
+from apps_work.autenticacao.serializers import SessaoSerializer
 from apps_work.autenticacao.views import responder_sessao
+from core.openapi import PLATAFORMA
 from core.permissions import IsProprietario
 from tenants.models import Membro
 
 from .models import Colaborador, ConviteColaborador
-from .serializers import ColaboradorSerializer, ConviteColaboradorSerializer
+from .serializers import (
+    AceitarConviteSerializer, ColaboradorSerializer, ConviteColaboradorSerializer, ConviteInfoSerializer,
+)
 from .services import AceitarConviteService, ColaboradorService, ConviteService
 from core.excecoes import erro
 
@@ -42,6 +48,7 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         return self.desativar(request, *args, **kwargs)
 
+    @extend_schema(request=None, responses={204: None}, summary='Desativar colaborador')
     @action(detail=True, methods=['post'], url_path='desativar')
     def desativar(self, request, pk=None):
         colaborador = self.get_object()
@@ -51,17 +58,25 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
             return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(request=None, responses={200: ColaboradorSerializer}, summary='Reativar colaborador')
     @action(detail=True, methods=['post'], url_path='ativar')
     def ativar(self, request, pk=None):
         colaborador = self.get_object()
         ColaboradorService().reativar(colaborador)
         return Response(ColaboradorSerializer(colaborador).data)
 
+    @extend_schema(
+        responses={200: inline_serializer('AgendamentosPendentes', {
+            'tem_pendentes': serializers.BooleanField(), 'total': serializers.IntegerField(),
+        })},
+        summary='Agendamentos futuros do colaborador (antes de remover)',
+    )
     @action(detail=True, methods=['get'], url_path='agendamentos-pendentes')
     def agendamentos_pendentes(self, request, pk=None):
         colaborador = self.get_object()
         return Response(ColaboradorService().tem_agendamentos_pendentes(colaborador))
 
+    @extend_schema(responses={200: ColaboradorSerializer}, summary='Colaborador do usuário logado')
     @action(detail=False, methods=['get'], url_path='me')
     def me(self, request):
         try:
@@ -70,6 +85,7 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
             return erro('Usuário sem perfil de colaborador.', 'sem_colaborador', status.HTTP_404_NOT_FOUND)
         return Response(ColaboradorSerializer(colaborador).data)
 
+    @extend_schema(responses={204: None}, summary='Remover colaborador')
     @action(detail=True, methods=['delete'], url_path='remover')
     def remover(self, request, pk=None):
         colaborador = self.get_object()
@@ -122,11 +138,19 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
             tenant_nome=tenant.nome,
         )
 
+    @extend_schema(
+        auth=[], responses={200: ConviteInfoSerializer},
+        summary='Dados do convite para a tela de aceite',
+    )
     @action(detail=False, methods=['get'], url_path=r'info/(?P<token>[^/.]+)', permission_classes=[AllowAny])
     def info(self, request, token=None):
         # Convite inexistente, já usado ou expirado levanta ErroDeNegocio.
         return Response(ConviteService().info(token))
 
+    @extend_schema(
+        auth=[], request=AceitarConviteSerializer, responses={201: SessaoSerializer}, parameters=[PLATAFORMA],
+        summary='Aceitar convite definindo a senha (já devolve a sessão)',
+    )
     @action(detail=False, methods=['post'], url_path=r'aceitar/(?P<token>[^/.]+)', permission_classes=[AllowAny])
     def aceitar_por_token(self, request, token=None):
         refresh = AceitarConviteService().aceitar(token, request.data.get('senha', ''))

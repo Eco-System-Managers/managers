@@ -1,12 +1,13 @@
 from datetime import date as date_type
 from rest_framework import viewsets, status
+from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.plumbing import build_array_type, build_basic_type
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from core.permissions import IsProprietario
 from .models import AtendimentoKanban, EtapaKanban
 from .serializers import AtendimentoKanbanSerializer, EtapaKanbanSerializer
@@ -26,6 +27,10 @@ class EtapaKanbanViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return EtapaKanban.objects.all()
 
+    @extend_schema(
+        request=inline_serializer('ReordenarEtapas', {'ordem': serializers.ListField(child=serializers.IntegerField())}),
+        responses={204: None}, summary='Reordenar etapas (ids na nova ordem)',
+    )
     @action(detail=False, methods=['post'])
     def reordenar(self, request):
         ordem = request.data.get('ordem', [])
@@ -64,6 +69,10 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
         )
         serializer.instance = atendimento
 
+    @extend_schema(
+        request=inline_serializer('MoverAtendimento', {'etapa_id': serializers.IntegerField()}),
+        responses={200: AtendimentoKanbanSerializer}, summary='Mover atendimento de etapa',
+    )
     @action(detail=True, methods=['post'])
     def mover(self, request, pk=None):
         atendimento = self.get_object()
@@ -93,6 +102,7 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
 
         return Response(AtendimentoKanbanSerializer(atendimento).data)
 
+    @extend_schema(request=None, responses={200: AtendimentoKanbanSerializer}, summary='Desfazer cobrança')
     @action(detail=True, methods=['post'])
     def desfazer_cobranca(self, request, pk=None):
         atendimento = self.get_object()
@@ -101,12 +111,14 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
         atendimento = AtendimentoKanbanService().desfazer_cobranca(atendimento)
         return Response(AtendimentoKanbanSerializer(atendimento).data)
 
+    @extend_schema(request=None, responses={200: AtendimentoKanbanSerializer}, summary='Marcar falta')
     @action(detail=True, methods=['post'])
     def marcar_falta(self, request, pk=None):
         atendimento = self.get_object()
         atendimento = AtendimentoKanbanService().marcar_falta(atendimento)
         return Response(AtendimentoKanbanSerializer(atendimento).data)
 
+    @extend_schema(request=None, responses={200: AtendimentoKanbanSerializer}, summary='Desfazer falta')
     @action(detail=True, methods=['post'])
     def desfazer_falta(self, request, pk=None):
         atendimento = self.get_object()
