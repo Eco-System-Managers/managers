@@ -2,6 +2,15 @@ from datetime import date
 from django.db import models
 
 
+class Gateway(models.TextChoices):
+    """Provedor de pagamento das assinaturas da plataforma.
+
+    Os ids do provedor ficam em `gateway` + `id_externo` — sem campo com nome
+    de provedor no model, trocar ou somar um gateway não muda o schema.
+    """
+    MERCADO_PAGO = 'mercadopago', 'Mercado Pago'
+
+
 class TipoPlano(models.TextChoices):
     PRO = 'pro', 'Pro'
     BUSINESS = 'business', 'Business'
@@ -27,8 +36,10 @@ class Plano(models.Model):
     preco_mensal = models.DecimalField(max_digits=8, decimal_places=2)
     limite_colaboradores = models.IntegerField(null=True, blank=True)
     ativo = models.BooleanField(default=True)
-    mercadopago_plan_id = models.CharField(max_length=100, blank=True)
-    mercadopago_init_point = models.URLField(max_length=500, blank=True)
+    gateway = models.CharField(max_length=20, choices=Gateway.choices, default=Gateway.MERCADO_PAGO)
+    # Id do plano no gateway e o link do checkout hospedado por ele.
+    id_externo = models.CharField(max_length=100, blank=True)
+    link_checkout = models.URLField(max_length=500, blank=True)
 
     def __str__(self):
         return self.get_nome_display()
@@ -41,7 +52,14 @@ class Assinatura(models.Model):
     inicio = models.DateField()
     proximo_vencimento = models.DateField()
     trial_fim = models.DateField(null=True, blank=True)
-    mercadopago_preapproval_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
+    gateway = models.CharField(max_length=20, choices=Gateway.choices, default=Gateway.MERCADO_PAGO)
+    # Id da assinatura recorrente no gateway; vazio enquanto não há uma.
+    id_externo = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['gateway', 'id_externo'], name='assinatura_id_externo_unico'),
+        ]
 
     @property
     def bloqueada(self) -> bool:
@@ -93,8 +111,15 @@ class PagamentoAssinatura(models.Model):
     valor = models.DecimalField(max_digits=8, decimal_places=2)
     status = models.CharField(max_length=20, choices=StatusPagamento.choices, default=StatusPagamento.PENDENTE)
     data = models.DateField()
-    referencia_externa = models.CharField(max_length=255, blank=True)
-    mercadopago_payment_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
+    gateway = models.CharField(max_length=20, choices=Gateway.choices, default=Gateway.MERCADO_PAGO)
+    # Id do pagamento no gateway. O único com o gateway é o que torna o
+    # webhook idempotente.
+    id_externo = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['gateway', 'id_externo'], name='pagamento_assinatura_id_externo_unico'),
+        ]
 
     def __str__(self):
         return f'{self.assinatura.tenant} — {self.data} — {self.status}'

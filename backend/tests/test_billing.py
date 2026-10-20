@@ -8,7 +8,7 @@ import pytest
 from django.test import RequestFactory
 
 from apps_work.billing.models import Assinatura, PagamentoAssinatura, Plano
-from apps_work.billing.services import MercadoPagoService, WebhookInvalidoError
+from apps_work.billing.services import MercadoPagoGateway, WebhookInvalidoError
 from apps_work.billing.views import RetornoCheckoutView
 
 
@@ -133,7 +133,7 @@ def _mock_sdk(**recursos):
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures('mp_settings')
-class TestMercadoPagoServiceCriar:
+class TestMercadoPagoGatewayCriar:
     def test_criar_plano_no_gateway_salva_id_e_init_point(self):
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         recurso_plano = MagicMock()
@@ -143,22 +143,22 @@ class TestMercadoPagoServiceCriar:
         }
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(plan=recurso_plano)):
-            plan_id = MercadoPagoService().criar_plano_no_gateway(plano)
+            plan_id = MercadoPagoGateway().criar_plano_no_gateway(plano)
 
         plano.refresh_from_db()
         assert plan_id == 'plan-123'
-        assert plano.mercadopago_plan_id == 'plan-123'
-        assert plano.mercadopago_init_point == 'https://mp.example/subscriptions/checkout?preapproval_plan_id=plan-123'
+        assert plano.id_externo == 'plan-123'
+        assert plano.link_checkout == 'https://mp.example/subscriptions/checkout?preapproval_plan_id=plan-123'
 
     def test_obter_link_assinatura_retorna_init_point_salvo(self):
         plano = Plano.objects.create(
             nome='pro', preco_mensal='69.90',
-            mercadopago_plan_id='plan-123',
-            mercadopago_init_point='https://mp.example/subscriptions/checkout?preapproval_plan_id=plan-123',
+            id_externo='plan-123',
+            link_checkout='https://mp.example/subscriptions/checkout?preapproval_plan_id=plan-123',
         )
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
-            init_point = MercadoPagoService().obter_link_assinatura(plano)
+            init_point = MercadoPagoGateway().obter_link_assinatura(plano)
 
         assert init_point == 'https://mp.example/subscriptions/checkout?preapproval_plan_id=plan-123'
 
@@ -169,12 +169,12 @@ class TestMercadoPagoServiceCriar:
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
             with pytest.raises(AssinaturaInvalidaError):
-                MercadoPagoService().obter_link_assinatura(plano)
+                MercadoPagoGateway().obter_link_assinatura(plano)
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures('mp_settings')
-class TestMercadoPagoServiceConfirmar:
+class TestMercadoPagoGatewayConfirmar:
     def test_confirmar_assinatura_ativa_e_vincula(self, tenant):
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         Assinatura.objects.create(
@@ -185,13 +185,13 @@ class TestMercadoPagoServiceConfirmar:
         recurso_preapproval.get.return_value = {'status': 200, 'response': {'status': 'authorized'}}
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            assinatura = MercadoPagoService().confirmar_assinatura(tenant, 'preapproval-abc')
+            assinatura = MercadoPagoGateway().confirmar_assinatura(tenant, 'preapproval-abc')
 
         assert assinatura.status == 'ativa'
-        assert assinatura.mercadopago_preapproval_id == 'preapproval-abc'
+        assert assinatura.id_externo == 'preapproval-abc'
 
     def test_confirmar_assinatura_erro_na_api_levanta_erro(self, tenant):
-        from apps_work.billing.services import PreapprovalInvalidoError
+        from apps_work.billing.services import AssinaturaGatewayError
 
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         Assinatura.objects.create(
@@ -202,11 +202,11 @@ class TestMercadoPagoServiceConfirmar:
         recurso_preapproval.get.return_value = {'status': 404, 'response': {}}
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            with pytest.raises(PreapprovalInvalidoError):
-                MercadoPagoService().confirmar_assinatura(tenant, 'preapproval-inexistente')
+            with pytest.raises(AssinaturaGatewayError):
+                MercadoPagoGateway().confirmar_assinatura(tenant, 'preapproval-inexistente')
 
     def test_confirmar_assinatura_nao_autorizada_levanta_erro(self, tenant):
-        from apps_work.billing.services import PreapprovalInvalidoError
+        from apps_work.billing.services import AssinaturaGatewayError
 
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         Assinatura.objects.create(
@@ -217,13 +217,13 @@ class TestMercadoPagoServiceConfirmar:
         recurso_preapproval.get.return_value = {'status': 200, 'response': {'status': 'pending'}}
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            with pytest.raises(PreapprovalInvalidoError):
-                MercadoPagoService().confirmar_assinatura(tenant, 'preapproval-pendente')
+            with pytest.raises(AssinaturaGatewayError):
+                MercadoPagoGateway().confirmar_assinatura(tenant, 'preapproval-pendente')
 
     def test_confirmar_assinatura_ja_vinculada_a_outro_tenant_levanta_erro(self, tenant):
         from django.db import connection
 
-        from apps_work.billing.services import PreapprovalInvalidoError
+        from apps_work.billing.services import AssinaturaGatewayError
         from tenants.models import Tenant
 
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
@@ -237,42 +237,42 @@ class TestMercadoPagoServiceConfirmar:
         Assinatura.objects.create(
             tenant=outro_tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
-            mercadopago_preapproval_id='preapproval-do-outro',
+            id_externo='preapproval-do-outro',
         )
 
         recurso_preapproval = MagicMock()
         recurso_preapproval.get.return_value = {'status': 200, 'response': {'status': 'authorized'}}
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            with pytest.raises(PreapprovalInvalidoError):
-                MercadoPagoService().confirmar_assinatura(tenant, 'preapproval-do-outro')
+            with pytest.raises(AssinaturaGatewayError):
+                MercadoPagoGateway().confirmar_assinatura(tenant, 'preapproval-do-outro')
 
     def test_confirmar_assinatura_sem_assinatura_local_levanta_erro(self, tenant):
-        from apps_work.billing.services import PreapprovalInvalidoError
+        from apps_work.billing.services import AssinaturaGatewayError
 
         recurso_preapproval = MagicMock()
         recurso_preapproval.get.return_value = {'status': 200, 'response': {'status': 'authorized'}}
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            with pytest.raises(PreapprovalInvalidoError):
-                MercadoPagoService().confirmar_assinatura(tenant, 'preapproval-sem-assinatura')
+            with pytest.raises(AssinaturaGatewayError):
+                MercadoPagoGateway().confirmar_assinatura(tenant, 'preapproval-sem-assinatura')
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures('mp_settings')
-class TestMercadoPagoServiceCancelar:
+class TestMercadoPagoGatewayCancelar:
     def test_cancelar_assinatura_ativa_com_sucesso(self, tenant):
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         assinatura = Assinatura.objects.create(
             tenant=tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today() + datetime.timedelta(days=10),
-            mercadopago_preapproval_id='preapproval-cancelar',
+            id_externo='preapproval-cancelar',
         )
         recurso_preapproval = MagicMock()
         recurso_preapproval.update.return_value = {'status': 200, 'response': {'status': 'cancelled'}}
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            resultado = MercadoPagoService().cancelar_assinatura(tenant)
+            resultado = MercadoPagoGateway().cancelar_assinatura(tenant)
 
         recurso_preapproval.update.assert_called_once_with('preapproval-cancelar', {'status': 'cancelled'})
         assert resultado.status == 'cancelada'
@@ -282,14 +282,14 @@ class TestMercadoPagoServiceCancelar:
         assert assinatura.proximo_vencimento == datetime.date.today() + datetime.timedelta(days=10)
 
     def test_cancelar_sem_assinatura_levanta_erro(self, tenant):
-        from apps_work.billing.services import PreapprovalInvalidoError
+        from apps_work.billing.services import AssinaturaGatewayError
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
-            with pytest.raises(PreapprovalInvalidoError):
-                MercadoPagoService().cancelar_assinatura(tenant)
+            with pytest.raises(AssinaturaGatewayError):
+                MercadoPagoGateway().cancelar_assinatura(tenant)
 
     def test_cancelar_assinatura_nao_ativa_levanta_erro(self, tenant):
-        from apps_work.billing.services import PreapprovalInvalidoError
+        from apps_work.billing.services import AssinaturaGatewayError
 
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         Assinatura.objects.create(
@@ -297,24 +297,24 @@ class TestMercadoPagoServiceCancelar:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
         )
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
-            with pytest.raises(PreapprovalInvalidoError):
-                MercadoPagoService().cancelar_assinatura(tenant)
+            with pytest.raises(AssinaturaGatewayError):
+                MercadoPagoGateway().cancelar_assinatura(tenant)
 
     def test_cancelar_assinatura_falha_na_api_nao_atualiza_local(self, tenant):
-        from apps_work.billing.services import PreapprovalInvalidoError
+        from apps_work.billing.services import AssinaturaGatewayError
 
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         assinatura = Assinatura.objects.create(
             tenant=tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today() + datetime.timedelta(days=10),
-            mercadopago_preapproval_id='preapproval-falha',
+            id_externo='preapproval-falha',
         )
         recurso_preapproval = MagicMock()
         recurso_preapproval.update.return_value = {'status': 500, 'response': {}}
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            with pytest.raises(PreapprovalInvalidoError):
-                MercadoPagoService().cancelar_assinatura(tenant)
+            with pytest.raises(AssinaturaGatewayError):
+                MercadoPagoGateway().cancelar_assinatura(tenant)
 
         assinatura.refresh_from_db()
         assert assinatura.status == 'ativa'
@@ -322,7 +322,7 @@ class TestMercadoPagoServiceCancelar:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures('mp_settings')
-class TestMercadoPagoServiceWebhook:
+class TestMercadoPagoGatewayWebhook:
     def _assinar(self, data_id, x_request_id, ts=None, secret='segredo-teste'):
         ts = ts or str(int(time.time()))
         manifest = f'id:{data_id};request-id:{x_request_id};ts:{ts};'
@@ -333,29 +333,29 @@ class TestMercadoPagoServiceWebhook:
         # Reenvio de uma notificação capturada: assinatura certa, ts velho.
         velho = str(int(time.time()) - 11 * 60)
         x_signature = self._assinar(data_id='123', x_request_id='req-1', ts=velho)
-        assert MercadoPagoService()._validar_assinatura_webhook(x_signature, 'req-1', '123') is False
+        assert MercadoPagoGateway()._validar_assinatura_webhook(x_signature, 'req-1', '123') is False
 
     def test_ts_em_milissegundos_e_aceito(self):
         agora_ms = str(int(time.time() * 1000))
         x_signature = self._assinar(data_id='123', x_request_id='req-1', ts=agora_ms)
-        assert MercadoPagoService()._validar_assinatura_webhook(x_signature, 'req-1', '123') is True
+        assert MercadoPagoGateway()._validar_assinatura_webhook(x_signature, 'req-1', '123') is True
 
     def test_assinatura_valida_e_aceita(self):
         x_signature = self._assinar(data_id='123', x_request_id='req-1')
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
-            valido = MercadoPagoService()._validar_assinatura_webhook(x_signature, 'req-1', '123')
+            valido = MercadoPagoGateway()._validar_assinatura_webhook(x_signature, 'req-1', '123')
         assert valido is True
 
     def test_assinatura_invalida_e_rejeitada(self):
         x_signature = self._assinar(data_id='123', x_request_id='req-1', secret='outro-segredo')
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
-            valido = MercadoPagoService()._validar_assinatura_webhook(x_signature, 'req-1', '123')
+            valido = MercadoPagoGateway()._validar_assinatura_webhook(x_signature, 'req-1', '123')
         assert valido is False
 
     def test_processar_webhook_com_assinatura_invalida_levanta_erro(self):
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
             with pytest.raises(WebhookInvalidoError):
-                MercadoPagoService().processar_webhook(
+                MercadoPagoGateway().processar_webhook(
                     topico='payment', data_id='123',
                     x_signature='ts=1,v1=assinatura-forjada', x_request_id='req-1',
                 )
@@ -380,14 +380,14 @@ class TestMercadoPagoServiceWebhook:
         x_signature = self._assinar(data_id='preapproval-999', x_request_id='req-4')
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            MercadoPagoService().processar_webhook(
+            MercadoPagoGateway().processar_webhook(
                 topico='subscription_preapproval', data_id='preapproval-999',
                 x_signature=x_signature, x_request_id='req-4',
             )
 
         assinatura.refresh_from_db()
         assert assinatura.status == 'ativa'
-        assert assinatura.mercadopago_preapproval_id == 'preapproval-999'
+        assert assinatura.id_externo == 'preapproval-999'
 
     def test_processar_preapproval_sem_proprietario_correspondente_nao_quebra(self):
         recurso_preapproval = MagicMock()
@@ -398,12 +398,12 @@ class TestMercadoPagoServiceWebhook:
         x_signature = self._assinar(data_id='preapproval-000', x_request_id='req-5')
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(preapproval=recurso_preapproval)):
-            MercadoPagoService().processar_webhook(
+            MercadoPagoGateway().processar_webhook(
                 topico='subscription_preapproval', data_id='preapproval-000',
                 x_signature=x_signature, x_request_id='req-5',
             )
 
-        assert not Assinatura.objects.filter(mercadopago_preapproval_id='preapproval-000').exists()
+        assert not Assinatura.objects.filter(id_externo='preapproval-000').exists()
 
     def test_processar_pagamento_aprovado_cria_registro_e_ativa_assinatura(self, tenant):
         from django.contrib.auth.models import User
@@ -428,14 +428,14 @@ class TestMercadoPagoServiceWebhook:
         x_signature = self._assinar(data_id='payment-789', x_request_id='req-2')
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(payment=recurso_payment)):
-            MercadoPagoService().processar_webhook(
+            MercadoPagoGateway().processar_webhook(
                 topico='payment', data_id='payment-789',
                 x_signature=x_signature, x_request_id='req-2',
             )
 
         assinatura.refresh_from_db()
         assert assinatura.status == 'ativa'
-        pagamento = PagamentoAssinatura.objects.get(mercadopago_payment_id='payment-789')
+        pagamento = PagamentoAssinatura.objects.get(id_externo='payment-789')
         assert pagamento.status == 'pago'
         assert pagamento.assinatura == assinatura
 
@@ -444,30 +444,30 @@ class TestMercadoPagoServiceWebhook:
         assinatura = Assinatura.objects.create(
             tenant=tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
-            mercadopago_preapproval_id='preapproval-456',
+            id_externo='preapproval-456',
         )
         PagamentoAssinatura.objects.create(
             assinatura=assinatura, valor='69.90', status='pago',
-            data=datetime.date.today(), mercadopago_payment_id='payment-789',
+            data=datetime.date.today(), id_externo='payment-789',
         )
         recurso_payment = MagicMock()
         x_signature = self._assinar(data_id='payment-789', x_request_id='req-3')
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(payment=recurso_payment)):
-            MercadoPagoService().processar_webhook(
+            MercadoPagoGateway().processar_webhook(
                 topico='payment', data_id='payment-789',
                 x_signature=x_signature, x_request_id='req-3',
             )
 
         recurso_payment.get.assert_not_called()
-        assert PagamentoAssinatura.objects.filter(mercadopago_payment_id='payment-789').count() == 1
+        assert PagamentoAssinatura.objects.filter(id_externo='payment-789').count() == 1
 
     def test_processar_authorized_payment_aprovado_ativa_assinatura(self, tenant):
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         assinatura = Assinatura.objects.create(
             tenant=tenant, plano=plano, status='trial',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
-            mercadopago_preapproval_id='preapproval-999',
+            id_externo='preapproval-999',
         )
         x_signature = self._assinar(data_id='authpay-1', x_request_id='req-6')
 
@@ -481,7 +481,7 @@ class TestMercadoPagoServiceWebhook:
 
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
             with patch('apps_work.billing.services.requests.get', return_value=resposta_mock) as mock_get:
-                MercadoPagoService().processar_webhook(
+                MercadoPagoGateway().processar_webhook(
                     topico='subscription_authorized_payment', data_id='authpay-1',
                     x_signature=x_signature, x_request_id='req-6',
                 )
@@ -489,7 +489,7 @@ class TestMercadoPagoServiceWebhook:
         assert 'authorized_payments/authpay-1' in mock_get.call_args[0][0]
         assinatura.refresh_from_db()
         assert assinatura.status == 'ativa'
-        pagamento = PagamentoAssinatura.objects.get(mercadopago_payment_id='authpay-1')
+        pagamento = PagamentoAssinatura.objects.get(id_externo='authpay-1')
         assert pagamento.status == 'pago'
         assert pagamento.assinatura == assinatura
 
@@ -504,11 +504,11 @@ class TestMercadoPagoServiceWebhook:
         }
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
             with patch('apps_work.billing.services.requests.get', return_value=resposta_mock):
-                MercadoPagoService().processar_webhook(
+                MercadoPagoGateway().processar_webhook(
                     topico='subscription_authorized_payment', data_id='authpay-2',
                     x_signature=x_signature, x_request_id='req-7',
                 )
-        assert not PagamentoAssinatura.objects.filter(mercadopago_payment_id='authpay-2').exists()
+        assert not PagamentoAssinatura.objects.filter(id_externo='authpay-2').exists()
 
     def test_processar_authorized_payment_endpoint_falha_nao_quebra(self):
         x_signature = self._assinar(data_id='authpay-3', x_request_id='req-8')
@@ -516,32 +516,32 @@ class TestMercadoPagoServiceWebhook:
         resposta_mock.status_code = 404
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
             with patch('apps_work.billing.services.requests.get', return_value=resposta_mock):
-                MercadoPagoService().processar_webhook(
+                MercadoPagoGateway().processar_webhook(
                     topico='subscription_authorized_payment', data_id='authpay-3',
                     x_signature=x_signature, x_request_id='req-8',
                 )
-        assert not PagamentoAssinatura.objects.filter(mercadopago_payment_id='authpay-3').exists()
+        assert not PagamentoAssinatura.objects.filter(id_externo='authpay-3').exists()
 
     def test_processar_authorized_payment_ja_registrado_nao_duplica(self, tenant):
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         assinatura = Assinatura.objects.create(
             tenant=tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
-            mercadopago_preapproval_id='preapproval-999',
+            id_externo='preapproval-999',
         )
         PagamentoAssinatura.objects.create(
             assinatura=assinatura, valor='69.90', status='pago',
-            data=datetime.date.today(), mercadopago_payment_id='authpay-4',
+            data=datetime.date.today(), id_externo='authpay-4',
         )
         x_signature = self._assinar(data_id='authpay-4', x_request_id='req-9')
         with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
             with patch('apps_work.billing.services.requests.get') as mock_get:
-                MercadoPagoService().processar_webhook(
+                MercadoPagoGateway().processar_webhook(
                     topico='subscription_authorized_payment', data_id='authpay-4',
                     x_signature=x_signature, x_request_id='req-9',
                 )
         mock_get.assert_not_called()
-        assert PagamentoAssinatura.objects.filter(mercadopago_payment_id='authpay-4').count() == 1
+        assert PagamentoAssinatura.objects.filter(id_externo='authpay-4').count() == 1
 
 
 class TestRetornoCheckoutView:
@@ -616,3 +616,64 @@ class TestPagamentosListView:
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         response = client.get('/api/v1/billing/pagamentos/')
         assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Gateway genérico e plano padrão (issue #5)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def api_dono(patch_tenant_middleware, proprietario):
+    from rest_framework.test import APIClient
+    client = APIClient()
+    client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
+    client.force_authenticate(user=proprietario)
+    return client
+
+
+@pytest.mark.django_db
+class TestAssinaturaPeloGateway:
+    def test_gateway_vem_da_configuracao(self, settings, mp_settings):
+        from apps_work.billing.services import gateway_de_pagamento
+        settings.BILLING_GATEWAY = 'mercadopago'
+        with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
+            assert isinstance(gateway_de_pagamento(), MercadoPagoGateway)
+
+    def test_iniciar_usa_o_plano_padrao_e_devolve_link_checkout(self, api_dono, settings, mp_settings):
+        settings.PLANO_PADRAO = 'business'
+        Plano.objects.create(nome='business', preco_mensal='99.90', link_checkout='https://gw.example/checkout/b')
+        with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk()):
+            resposta = api_dono.post('/api/v1/billing/assinatura/iniciar/')
+        assert resposta.status_code == 200
+        assert resposta.json() == {'link_checkout': 'https://gw.example/checkout/b'}
+
+    def test_iniciar_sem_plano_configurado(self, api_dono, settings):
+        settings.PLANO_PADRAO = 'enterprise'
+        resposta = api_dono.post('/api/v1/billing/assinatura/iniciar/')
+        assert resposta.status_code == 400
+        assert resposta.json()['code'] == 'plano_nao_configurado'
+
+    def test_confirmar_exige_id_externo(self, api_dono):
+        resposta = api_dono.post('/api/v1/billing/assinatura/confirmar/', {})
+        assert resposta.status_code == 400
+        assert resposta.json()['code'] == 'parametros_invalidos'
+
+    def test_id_externo_e_unico_dentro_do_gateway(self, tenant):
+        """O único é (gateway, id_externo): o mesmo pagamento notificado duas
+        vezes pelo webhook não vira dois registros."""
+        from django.db import IntegrityError, transaction
+        plano = Plano.objects.get_or_create(nome='pro', defaults={'preco_mensal': '69.90'})[0]
+        assinatura = Assinatura.objects.get(tenant=tenant) if Assinatura.objects.filter(tenant=tenant).exists() else \
+            Assinatura.objects.create(tenant=tenant, plano=plano, inicio=datetime.date.today(),
+                                      proximo_vencimento=datetime.date.today())
+        PagamentoAssinatura.objects.create(assinatura=assinatura, valor='1.00', data=datetime.date.today(), id_externo='X1')
+        with pytest.raises(IntegrityError), transaction.atomic():
+            PagamentoAssinatura.objects.create(assinatura=assinatura, valor='1.00', data=datetime.date.today(), id_externo='X1')
+
+
+@pytest.mark.django_db
+def test_fixture_de_planos_carrega():
+    """A fixture que semeia o plano padrão acompanha o model."""
+    from django.core.management import call_command
+    call_command('loaddata', 'planos', verbosity=0)
+    assert Plano.objects.filter(nome='pro', ativo=True).exists()

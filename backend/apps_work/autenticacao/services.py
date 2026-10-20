@@ -53,9 +53,9 @@ class OnboardingService:
             )
             Membro.objects.create(user=user, tenant=tenant, papel=Papel.PROPRIETARIO)
 
-            from apps_work.billing.models import Assinatura, Plano, StatusAssinatura, TipoPlano
+            from apps_work.billing.models import Assinatura, Plano, StatusAssinatura
 
-            plano_pro = Plano.objects.filter(nome=TipoPlano.PRO, ativo=True).first()
+            plano_pro = Plano.objects.filter(nome=settings.PLANO_PADRAO, ativo=True).first()
             if plano_pro:
                 Assinatura.objects.create(
                     tenant=tenant,

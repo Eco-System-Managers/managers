@@ -23,9 +23,12 @@ class PagamentoAssinaturaSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 class LinkAssinaturaSerializer(serializers.Serializer):
-    init_point = serializers.URLField(help_text='Link do checkout do Mercado Pago.')
+    link_checkout = serializers.URLField(help_text='Link do checkout hospedado pelo gateway de pagamento.')
 
 
 class ConfirmarAssinaturaSerializer(serializers.Serializer):
-    preapproval_id = serializers.CharField()
+    id_externo = serializers.CharField(
+        help_text='Id da assinatura no gateway, recebido no retorno do checkout '
+                  '(no Mercado Pago, o parâmetro preapproval_id).',
+    )
 

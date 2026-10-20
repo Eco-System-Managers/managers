@@ -1100,7 +1100,7 @@ paths:
   /api/v1/billing/assinatura/confirmar/:
     post:
       operationId: billing_assinatura_confirmar_create
-      summary: Vincular a assinatura do Mercado Pago ao negócio
+      summary: Vincular ao negócio a assinatura feita no checkout do gateway
       tags:
       - billing
       requestBody:
@@ -1157,7 +1157,7 @@ paths:
   /api/v1/billing/assinatura/iniciar/:
     post:
       operationId: billing_assinatura_iniciar_create
-      summary: Link do checkout do plano Pro
+      summary: Link do checkout do plano padrão
       tags:
       - billing
       security:
@@ -7772,11 +7772,13 @@ components:
     ConfirmarAssinaturaRequest:
       type: object
       properties:
-        preapproval_id:
+        id_externo:
           type: string
           minLength: 1
+          description: Id da assinatura no gateway, recebido no retorno do checkout
+            (no Mercado Pago, o parâmetro preapproval_id).
       required:
-      - preapproval_id
+      - id_externo
     Contrato:
       type: object
       properties:
@@ -8331,12 +8333,12 @@ components:
     LinkAssinatura:
       type: object
       properties:
-        init_point:
+        link_checkout:
           type: string
           format: uri
-          description: Link do checkout do Mercado Pago.
+          description: Link do checkout hospedado pelo gateway de pagamento.
       required:
-      - init_point
+      - link_checkout
     LoginRequest:
       type: object
       properties:

@@ -183,7 +183,7 @@ class AssinaturaBloqueadaMiddleware:
             if self._bloqueada(connection.schema_name):
                 return JsonResponse(
                     {
-                        'detail': 'Assinatura inativa. Assine o plano Pro para continuar.',
+                        'detail': 'Assinatura inativa. Assine um plano para continuar.',
                         'code': 'assinatura_bloqueada',
                     },
                     status=402,

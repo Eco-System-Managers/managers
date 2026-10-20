@@ -344,6 +344,10 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER', 'noreply@workmanage.com.br')
 
+# Billing: gateway das assinaturas da plataforma e plano do trial/checkout
+BILLING_GATEWAY = os.getenv('BILLING_GATEWAY', 'mercadopago')
+PLANO_PADRAO = os.getenv('PLANO_PADRAO', 'pro')
+
 # Mercado Pago
 MERCADOPAGO_ACCESS_TOKEN = os.getenv('MERCADOPAGO_ACCESS_TOKEN', '')
 MERCADOPAGO_PUBLIC_KEY = os.getenv('MERCADOPAGO_PUBLIC_KEY', '')

@@ -10,14 +10,15 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from core.permissions import IsProprietario
-from .models import Assinatura, PagamentoAssinatura, Plano, TipoPlano
+from .models import Assinatura, PagamentoAssinatura, Plano
 from .serializers import (
     AssinaturaSerializer, ConfirmarAssinaturaSerializer, LinkAssinaturaSerializer, PagamentoAssinaturaSerializer,
 )
 from .services import (
+    AssinaturaGatewayError,
     AssinaturaInvalidaError,
-    MercadoPagoService,
-    PreapprovalInvalidoError,
+    gateway_de_pagamento,
+    MercadoPagoGateway,
     WebhookInvalidoError,
 )
 from core.excecoes import erro
@@ -42,18 +43,18 @@ class MinhaAssinaturaView(APIView):
 class IniciarAssinaturaView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
-    @extend_schema(request=None, responses=LinkAssinaturaSerializer, summary='Link do checkout do plano Pro')
+    @extend_schema(request=None, responses=LinkAssinaturaSerializer, summary='Link do checkout do plano padrão')
     def post(self, request):
-        plano = Plano.objects.filter(nome=TipoPlano.PRO, ativo=True).first()
+        plano = Plano.objects.filter(nome=settings.PLANO_PADRAO, ativo=True).first()
         if plano is None:
-            return erro('Plano Pro não está configurado.', status_code=status.HTTP_400_BAD_REQUEST)
+            return erro('O plano de assinatura não está configurado.', 'plano_nao_configurado')
 
         try:
-            init_point = MercadoPagoService().obter_link_assinatura(plano)
+            link = gateway_de_pagamento().obter_link_assinatura(plano)
         except AssinaturaInvalidaError as e:
-            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), 'plano_nao_configurado')
 
-        return Response({'init_point': init_point})
+        return Response({'link_checkout': link})
 
 
 class RetornoCheckoutView(APIView):
@@ -79,20 +80,20 @@ class ConfirmarAssinaturaView(APIView):
 
     @extend_schema(
         request=ConfirmarAssinaturaSerializer, responses=AssinaturaSerializer,
-        summary='Vincular a assinatura do Mercado Pago ao negócio',
+        summary='Vincular ao negócio a assinatura feita no checkout do gateway',
     )
     def post(self, request):
-        preapproval_id = request.data.get('preapproval_id')
-        if not preapproval_id:
-            return erro('preapproval_id é obrigatório.', status_code=status.HTTP_400_BAD_REQUEST)
+        id_externo = request.data.get('id_externo')
+        if not id_externo:
+            return erro('id_externo é obrigatório.', 'parametros_invalidos')
 
         from tenants.models import Tenant
 
         tenant = Tenant.objects.get(schema_name=connection.schema_name)
         try:
-            assinatura = MercadoPagoService().confirmar_assinatura(tenant, preapproval_id)
-        except PreapprovalInvalidoError as e:
-            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
+            assinatura = gateway_de_pagamento().confirmar_assinatura(tenant, id_externo)
+        except AssinaturaGatewayError as e:
+            return erro(str(e), 'assinatura_recusada')
 
         return Response(AssinaturaSerializer(assinatura).data)
 
@@ -106,9 +107,9 @@ class CancelarAssinaturaView(APIView):
 
         tenant = Tenant.objects.get(schema_name=connection.schema_name)
         try:
-            assinatura = MercadoPagoService().cancelar_assinatura(tenant)
-        except PreapprovalInvalidoError as e:
-            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
+            assinatura = gateway_de_pagamento().cancelar_assinatura(tenant)
+        except AssinaturaGatewayError as e:
+            return erro(str(e), 'assinatura_recusada')
 
         return Response(AssinaturaSerializer(assinatura).data)
 
@@ -139,7 +140,7 @@ class MercadoPagoWebhookView(APIView):
             return Response(status=status.HTTP_200_OK)
 
         try:
-            MercadoPagoService().processar_webhook(
+            MercadoPagoGateway().processar_webhook(
                 topico=topico,
                 data_id=data_id,
                 x_signature=request.headers.get('x-signature', ''),
