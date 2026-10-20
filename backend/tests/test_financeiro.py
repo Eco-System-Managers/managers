@@ -4,11 +4,11 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 
-from apps_work.agenda.models import Agendamento, AgendamentoServico, Pagamento as PagamentoAgenda
+from apps_work.agenda.models import Agendamento, AgendamentoServico, PagamentoAgendamento as PagamentoAgenda
 from apps_work.clientes.models import Cliente, ObjetoCliente, Pet
 from apps_work.financeiro.models import Despesa, TransacaoCredito
 from apps_work.financeiro.services import CaixaService, DespesaService, SaldoService
-from apps_work.kanban.models import AtendimentoKanban, EtapaKanban, PagamentoKanban
+from apps_work.kanban.models import AtendimentoKanban, EtapaKanban, PagamentoAtendimento
 from apps_work.kanban.services import AtendimentoKanbanService
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
@@ -184,7 +184,7 @@ def colaborador(patch_tenant_middleware):
         username='colab@email.com', email='colab@email.com', password='senha123',
         first_name='Pedro', last_name='Costa',
     )
-    return Colaborador.objects.create(user=user, role='colaborador')
+    return Colaborador.objects.create(user=user)
 
 
 @pytest.fixture
@@ -230,7 +230,7 @@ class TestCaixaServiceColaborador:
 
     def test_filtro_por_outro_colaborador_nao_retorna_nada(self, agendamento_com_colaborador):
         outro_user = User.objects.create_user(username='outro@email.com', email='outro@email.com', password='senha123')
-        outro = Colaborador.objects.create(user=outro_user, role='colaborador')
+        outro = Colaborador.objects.create(user=outro_user)
         dados = CaixaService().obter_dados(date(2024, 6, 10), date(2024, 6, 10), colaborador_id=outro.pk)
         assert dados['pagamentos'] == []
 

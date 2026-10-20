@@ -67,7 +67,7 @@ class TestEmpresaConfigAPI:
     def test_onboarding_concluido_cria_colaborador_proprietario(self, client_autenticado, usuario):
         response = client_autenticado.patch('/api/v1/empresa/config/', CONCLUIR_ONBOARDING, format='json')
         assert response.status_code == 200
-        assert Colaborador.objects.filter(user=usuario, role='proprietario').exists()
+        assert Colaborador.objects.filter(user=usuario).exists()
 
     def test_onboarding_kanban_cria_etapas_padrao(self, client_autenticado):
         client_autenticado.patch('/api/v1/empresa/config/', {'nicho': 'lava_rapido'}, format='json')

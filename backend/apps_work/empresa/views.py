@@ -15,7 +15,6 @@ from .serializers import (
 from .signals import empresa_config_atualizada
 from apps_work.usuarios.models import Colaborador
 from core.excecoes import erro
-from tenants.models import Papel
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +146,7 @@ class EmpresaConfigView(generics.RetrieveUpdateAPIView):
             try:
                 Colaborador.objects.get_or_create(
                     user=self.request.user,
-                    defaults={'role': Papel.PROPRIETARIO, 'ativo': True},
+                    defaults={'ativo': True},
                 )
             except Exception:
                 pass

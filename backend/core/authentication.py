@@ -2,7 +2,7 @@ from django.db import connection
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from tenants.models import UserTenant
+from tenants.models import Membro
 
 
 class TenantJWTAuthentication(JWTAuthentication):
@@ -18,7 +18,7 @@ class TenantJWTAuthentication(JWTAuthentication):
     - pelo Host (TenantMainMiddleware), o token pode ser de outro tenant —
       daí a comparação com o `schema_name` do token
     - pelo token (JWTTenantMiddleware), o schema é o do token, mas o vínculo
-      pode ter deixado de existir — daí a consulta ao `UserTenant`
+      pode ter deixado de existir — daí a consulta ao `Membro`
 
     O papel encontrado fica em `user.papel_no_tenant`, para o `IsProprietario`
     não consultar de novo.
@@ -31,7 +31,7 @@ class TenantJWTAuthentication(JWTAuthentication):
         if schema_name == 'public' or validated_token.get('schema_name') != schema_name:
             raise AuthenticationFailed('Token não pertence a esta empresa.', code='tenant_invalido')
 
-        papel = UserTenant.papel_no_schema(user, schema_name)
+        papel = Membro.papel_no_schema(user, schema_name)
         if papel is None:
             raise AuthenticationFailed('Usuário não vinculado a esta empresa.', code='tenant_invalido')
 

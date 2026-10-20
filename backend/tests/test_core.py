@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from apps_work.billing.models import Assinatura, Plano
 from apps_work.usuarios.models import Colaborador
-from apps_work.autenticacao.models import LastActivity
+from apps_work.autenticacao.models import UltimaAtividade
 from core.middleware import (
     AssinaturaBloqueadaMiddleware,
     InactivityMiddleware,
@@ -20,7 +20,7 @@ from core.middleware import (
     _token_do_request,
 )
 from core.permissions import IsProprietario
-from tenants.models import UserTenant
+from tenants.models import Membro
 
 
 # ---------------------------------------------------------------------------
@@ -214,13 +214,13 @@ class TestInactivityMiddleware:
     def test_primeiro_acesso_cria_o_registro(self, usuario):
         resposta, _ = self._chamar(usuario)
         assert resposta == 'ok'
-        assert LastActivity.objects.filter(user=usuario).exists()
+        assert UltimaAtividade.objects.filter(user=usuario).exists()
 
     def test_nao_grava_de_novo_dentro_da_janela(self, usuario, settings):
         """A escrita amortizada e o ganho principal: era um UPDATE por
         requisicao so para adiantar o relogio em milissegundos."""
         settings.INACTIVITY_WRITE_WINDOW_SECONDS = 60
-        LastActivity.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(seconds=5))
+        UltimaAtividade.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(seconds=5))
 
         with CaptureQueriesContext(connection) as ctx:
             self._chamar(usuario)
@@ -231,15 +231,15 @@ class TestInactivityMiddleware:
     def test_grava_quando_passa_da_janela(self, usuario, settings):
         settings.INACTIVITY_WRITE_WINDOW_SECONDS = 60
         anterior = timezone.now() - timedelta(seconds=120)
-        LastActivity.objects.create(user=usuario, ultimo_acesso=anterior)
+        UltimaAtividade.objects.create(user=usuario, ultimo_acesso=anterior)
 
         self._chamar(usuario)
 
-        assert LastActivity.objects.get(user=usuario).ultimo_acesso > anterior
+        assert UltimaAtividade.objects.get(user=usuario).ultimo_acesso > anterior
 
     def test_expira_a_sessao_depois_do_timeout(self, usuario, settings):
         settings.INACTIVITY_TIMEOUT_MINUTES = 30
-        LastActivity.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(minutes=31))
+        UltimaAtividade.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(minutes=31))
 
         resposta, get_response = self._chamar(usuario)
 
@@ -251,7 +251,7 @@ class TestInactivityMiddleware:
         escrita nao pode ser confundida com o limite de inatividade."""
         settings.INACTIVITY_TIMEOUT_MINUTES = 30
         settings.INACTIVITY_WRITE_WINDOW_SECONDS = 60
-        LastActivity.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(minutes=20))
+        UltimaAtividade.objects.create(user=usuario, ultimo_acesso=timezone.now() - timedelta(minutes=20))
 
         resposta, get_response = self._chamar(usuario)
 
@@ -342,7 +342,7 @@ class TestCustoPorRequisicao:
 
         refresh = RefreshToken.for_user(usuario)
         refresh['schema_name'] = tenant.schema_name
-        refresh['empresa'] = tenant.name
+        refresh['empresa'] = tenant.nome
 
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
@@ -361,7 +361,7 @@ class TestCustoPorRequisicao:
             },
         )
         client = self._cliente_autenticado(tenant, usuario)
-        # Aquece: primeira chamada cria o LastActivity e memoriza a assinatura.
+        # Aquece: primeira chamada cria o UltimaAtividade e memoriza a assinatura.
         client.get('/api/v1/servicos/')
         return client
 
@@ -376,10 +376,10 @@ class TestCustoPorRequisicao:
 
     def test_nao_consulta_o_tenant_em_requisicao_aquecida(self, cenario):
         # A unica consulta que toca tenants_tenant e a checagem de vinculo da
-        # TenantJWTAuthentication, que junta UserTenant e Tenant numa so.
+        # TenantJWTAuthentication, que junta Membro e Tenant numa so.
         consultas = [s for s in self._queries(cenario) if 'tenants_tenant' in s]
         assert len(consultas) == 1
-        assert 'tenants_usertenant' in consultas[0]
+        assert 'tenants_membro' in consultas[0]
 
     def test_nao_escreve_o_relogio_de_atividade_a_cada_requisicao(self, cenario):
         updates = [s for s in self._queries(cenario) if s.lstrip().upper().startswith('UPDATE')]
@@ -399,13 +399,13 @@ class TestIsProprietario:
         assert perm.has_permission(request, MagicMock()) is False
 
     def test_retorna_true_para_proprietario(self, tenant, usuario):
-        UserTenant.objects.create(user=usuario, tenant=tenant, role='proprietario')
+        Membro.objects.create(user=usuario, tenant=tenant, papel='proprietario')
         request = MagicMock()
         request.user = usuario
         assert IsProprietario().has_permission(request, MagicMock()) is True
 
     def test_retorna_false_para_colaborador_comum(self, tenant, usuario):
-        UserTenant.objects.create(user=usuario, tenant=tenant, role='colaborador')
+        Membro.objects.create(user=usuario, tenant=tenant, papel='colaborador')
         request = MagicMock()
         request.user = usuario
         assert IsProprietario().has_permission(request, MagicMock()) is False
@@ -418,9 +418,9 @@ class TestIsProprietario:
         assert IsProprietario().has_permission(request, MagicMock()) is False
 
     def test_papel_de_colaborador_no_model_nao_concede_nem_nega(self, tenant, usuario):
-        """O papel vem do UserTenant; o Colaborador.role nao e consultado."""
-        UserTenant.objects.create(user=usuario, tenant=tenant, role='colaborador')
-        Colaborador.objects.create(user=usuario, role='proprietario')
+        """O papel vem só do Membro: ter um Colaborador não muda nada."""
+        Membro.objects.create(user=usuario, tenant=tenant, papel='colaborador')
+        Colaborador.objects.create(user=usuario)
         request = MagicMock()
         request.user = usuario
         assert IsProprietario().has_permission(request, MagicMock()) is False
@@ -429,14 +429,14 @@ class TestIsProprietario:
         usuario.papel_no_tenant = 'proprietario'
         request = MagicMock()
         request.user = usuario
-        with patch.object(UserTenant, 'papel_no_schema') as consulta:
+        with patch.object(Membro, 'papel_no_schema') as consulta:
             assert IsProprietario().has_permission(request, MagicMock()) is True
         consulta.assert_not_called()
 
     def test_erro_inesperado_nao_concede_permissao(self, tenant, usuario):
         request = MagicMock()
         request.user = usuario
-        with patch.object(UserTenant, 'papel_no_schema', side_effect=DatabaseError('conexão caiu')):
+        with patch.object(Membro, 'papel_no_schema', side_effect=DatabaseError('conexão caiu')):
             with pytest.raises(DatabaseError):
                 IsProprietario().has_permission(request, MagicMock())
 
@@ -448,15 +448,15 @@ class TestIsProprietario:
 @pytest.mark.django_db
 class TestTenantModelStr:
     def test_str_user_tenant(self, usuario):
-        from tenants.models import ConviteIndex, UserTenant
+        from tenants.models import ConviteIndex, Membro
         from tenants.models import Tenant
 
         tenant = Tenant.objects.filter(schema_name='public').first()
         if not tenant:
             pytest.skip('tenant público não existe neste ambiente')
 
-        ut = UserTenant(user=usuario, tenant=tenant, role='colaborador')
-        assert str(ut) == f'{usuario.email} → {tenant.name} (colaborador)'
+        ut = Membro(user=usuario, tenant=tenant, papel='colaborador')
+        assert str(ut) == f'{usuario.email} → {tenant.nome} (colaborador)'
 
     def test_str_convite_index(self, db):
         from tenants.models import ConviteIndex

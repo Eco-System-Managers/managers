@@ -22,7 +22,7 @@ from apps_work.autenticacao.models import CodigoRecuperacao
 from apps_work.autenticacao.services import SessaoService
 from apps_work.usuarios.models import Colaborador
 from apps_work.usuarios.services import ColaboradorService
-from tenants.models import UserTenant
+from tenants.models import Membro
 
 MOBILE = {'HTTP_X_CLIENT_PLATFORM': 'mobile'}
 
@@ -97,7 +97,7 @@ class TestRevogacaoB2B:
     def test_desativar_colaborador_derruba_o_refresh(self, api, tenant):
         from django.contrib.auth.models import User
         user = User.objects.create_user(username='c@email.com', email='c@email.com', password='x')
-        UserTenant.objects.create(user=user, tenant=tenant, role='colaborador')
+        Membro.objects.create(user=user, tenant=tenant, papel='colaborador')
         colaborador = Colaborador.objects.create(user=user)
         refresh = SessaoService().emitir(user, tenant)
 
@@ -108,7 +108,7 @@ class TestRevogacaoB2B:
         assert _renovar(api, refresh).status_code == 401
 
     def test_refresh_sem_vinculo_com_o_tenant_e_recusado(self, api, sessao, proprietario):
-        UserTenant.objects.filter(user=proprietario).delete()
+        Membro.objects.filter(user=proprietario).delete()
         assert _renovar(api, sessao).status_code == 401
 
     def test_refresh_de_usuario_inativo_e_recusado(self, api, sessao, proprietario):

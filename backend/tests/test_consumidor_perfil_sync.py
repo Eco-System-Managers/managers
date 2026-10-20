@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 from apps_serv.autenticacao.authentication import gerar_tokens
 from apps_serv.consumidores.models import VinculoConsumidor
 from apps_serv.consumidores.services import RegistroConsumidorService
-from apps_work.clientes.models import Cliente
+from apps_work.clientes.models import Cliente, OrigemCliente
 
 EMAIL = 'carlos@sm.com'
 
@@ -48,7 +48,7 @@ def cliente_do_negocio(tenant, consumidor):
     with schema_context(tenant.schema_name):
         cliente = Cliente.objects.create(
             nome='Carlos', email=EMAIL, telefone='11888880000',
-            origem=Cliente.ORIGEM_SERVICEMANAGE,
+            origem=OrigemCliente.SERVICEMANAGE,
         )
     connection.set_schema_to_public()
     return cliente
@@ -172,7 +172,7 @@ class TestPainelNaoEditaCadastroDoCliente:
     def test_painel_nao_altera_campo_sincronizado(self, painel):
         cliente = Cliente.objects.create(
             nome='Do app', email=EMAIL, telefone='11999990000',
-            origem=Cliente.ORIGEM_SERVICEMANAGE,
+            origem=OrigemCliente.SERVICEMANAGE,
         )
 
         painel.patch(f'/api/v1/clientes/{cliente.pk}/', {'nome': 'Editado'}, format='json')
@@ -183,7 +183,7 @@ class TestPainelNaoEditaCadastroDoCliente:
     def test_painel_ainda_edita_observacao_do_cliente_do_app(self, painel):
         cliente = Cliente.objects.create(
             nome='Do app', email=EMAIL, telefone='11999990000',
-            origem=Cliente.ORIGEM_SERVICEMANAGE,
+            origem=OrigemCliente.SERVICEMANAGE,
         )
 
         painel.patch(

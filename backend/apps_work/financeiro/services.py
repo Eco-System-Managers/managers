@@ -77,17 +77,17 @@ def pagamentos_efetivados():
     app — e não pode entrar no faturamento. Caixa e dashboard leem daqui para
     não divergirem.
     """
-    from apps_work.agenda.models import Pagamento
-    from apps_work.kanban.models import PagamentoKanban
+    from apps_work.agenda.models import PagamentoAgendamento
+    from apps_work.kanban.models import PagamentoAtendimento
     return (
-        PagamentoKanban.objects.filter(atendimento__pago=True),
-        Pagamento.objects.filter(agendamento__status=StatusAgendamento.CONCLUIDO),
+        PagamentoAtendimento.objects.filter(atendimento__pago=True),
+        PagamentoAgendamento.objects.filter(agendamento__status=StatusAgendamento.CONCLUIDO),
     )
 
 
 class CaixaService:
     def obter_dados(self, data_inicio: date, data_fim: date, colaborador_id: int | None = None) -> dict:
-        from apps_work.kanban.models import PagamentoKanban
+        from apps_work.kanban.models import PagamentoAtendimento
 
         kanban_efetivados, agenda_efetivados = pagamentos_efetivados()
 
@@ -102,7 +102,7 @@ class CaixaService:
                 'atendimento__servico',
             )
         else:
-            pk_qs = PagamentoKanban.objects.none()
+            pk_qs = PagamentoAtendimento.objects.none()
 
         pa_qs = agenda_efetivados.filter(
             agendamento__data_hora__date__gte=data_inicio,

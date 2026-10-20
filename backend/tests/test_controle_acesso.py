@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps_work.usuarios.models import Colaborador, ConviteColaborador
-from tenants.models import Tenant, UserTenant
+from tenants.models import Tenant, Membro
 
 
 def _cliente_com_token(user, schema_name='test_empresa'):
@@ -28,7 +28,7 @@ def _cliente_com_token(user, schema_name='test_empresa'):
 
 @pytest.fixture
 def dono(patch_tenant_middleware, proprietario):
-    Colaborador.objects.create(user=proprietario, role='proprietario')
+    Colaborador.objects.create(user=proprietario)
     return proprietario
 
 
@@ -37,15 +37,15 @@ def colaborador(patch_tenant_middleware, tenant):
     user = User.objects.create_user(
         username='colab@email.com', email='colab@email.com', password='SenhaForte123!',
     )
-    UserTenant.objects.create(user=user, tenant=tenant, role='colaborador')
-    return Colaborador.objects.create(user=user, role='colaborador')
+    Membro.objects.create(user=user, tenant=tenant, papel='colaborador')
+    return Colaborador.objects.create(user=user)
 
 
 @pytest.fixture
 def outra_empresa(patch_tenant_middleware, tenant):
     # Só a linha do tenant: o schema não é necessário para testar o vínculo.
     connection.set_schema_to_public()
-    outra = Tenant(schema_name='outra_empresa', name='Outra Empresa')
+    outra = Tenant(schema_name='outra_empresa', nome='Outra Empresa')
     outra.auto_create_schema = False
     outra.save()
     connection.set_tenant(tenant)
@@ -62,8 +62,7 @@ class TestEscaladaParaProprietario:
         )
         assert response.status_code == 403
         colaborador.refresh_from_db()
-        assert colaborador.role == 'colaborador'
-        assert UserTenant.objects.get(user=colaborador.user).role == 'colaborador'
+        assert Membro.objects.get(user=colaborador.user).papel == 'colaborador'
 
     def test_colaborador_nao_edita_via_patch(self, colaborador):
         client = _cliente_com_token(colaborador.user)
@@ -120,8 +119,8 @@ class TestProprietarioNaoSeTrancaParaFora:
 
     def test_nao_desativa_outro_proprietario(self, dono, tenant):
         socio = User.objects.create_user(username='socio@email.com', email='socio@email.com', password='x')
-        UserTenant.objects.create(user=socio, tenant=tenant, role='proprietario')
-        colab_socio = Colaborador.objects.create(user=socio, role='proprietario')
+        Membro.objects.create(user=socio, tenant=tenant, papel='proprietario')
+        colab_socio = Colaborador.objects.create(user=socio)
 
         client = _cliente_com_token(dono)
         response = client.post(f'/api/v1/colaboradores/{colab_socio.id}/desativar/')
@@ -136,16 +135,16 @@ class TestAcessoCruzadoEntreTenants:
         # Usuário da outra empresa, com o próprio token, chegando pelo Host
         # desta empresa.
         user = User.objects.create_user(username='a@email.com', email='a@email.com', password='x')
-        UserTenant.objects.create(user=user, tenant=outra_empresa, role='proprietario')
+        Membro.objects.create(user=user, tenant=outra_empresa, papel='proprietario')
 
         client = _cliente_com_token(user, schema_name='outra_empresa')
         assert client.get('/api/v1/colaboradores/').status_code == 401
         assert client.get('/api/v1/servicos/').status_code == 401
 
     def test_usuario_sem_vinculo_com_o_tenant_e_recusado(self, outra_empresa):
-        # Mesmo com o schema_name do token batendo, sem UserTenant não entra.
+        # Mesmo com o schema_name do token batendo, sem Membro não entra.
         user = User.objects.create_user(username='b@email.com', email='b@email.com', password='x')
-        UserTenant.objects.create(user=user, tenant=outra_empresa, role='proprietario')
+        Membro.objects.create(user=user, tenant=outra_empresa, papel='proprietario')
 
         client = _cliente_com_token(user, schema_name='test_empresa')
         assert client.get('/api/v1/colaboradores/').status_code == 401
@@ -156,8 +155,8 @@ class TestAcessoCruzadoEntreTenants:
 
     def test_proprietario_de_outro_tenant_nao_e_proprietario_aqui(self, outra_empresa, colaborador):
         # Dono de outra empresa não vira dono desta por ter um papel lá.
-        UserTenant.objects.filter(user=colaborador.user).delete()
-        UserTenant.objects.create(user=colaborador.user, tenant=outra_empresa, role='proprietario')
+        Membro.objects.filter(user=colaborador.user).delete()
+        Membro.objects.create(user=colaborador.user, tenant=outra_empresa, papel='proprietario')
 
         client = _cliente_com_token(colaborador.user)
         response = client.post('/api/v1/servicos/', {'nome': 'Corte', 'duracao': 30, 'preco': '50.00'})

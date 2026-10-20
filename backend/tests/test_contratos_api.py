@@ -2,7 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps_work.clientes.models import Cliente
-from apps_work.contratos.models import Contrato
+from apps_work.contratos.models import Contrato, StatusContrato
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def cliente(patch_tenant_middleware):
     return Cliente.objects.create(nome='Ana Lima', telefone='11999990000')
 
 
-def _contrato(cliente, titulo='Contrato', status=Contrato.STATUS_PENDENTE):
+def _contrato(cliente, titulo='Contrato', status=StatusContrato.PENDENTE):
     return Contrato.objects.create(
         cliente=cliente, titulo=titulo, corpo='Corpo do contrato.', status=status,
     )
@@ -63,8 +63,8 @@ class TestContratoAPI:
         assert len(ids) == len(set(ids)) == 25
 
     def test_filtra_por_status(self, client_autenticado, cliente):
-        _contrato(cliente, titulo='Pendente', status=Contrato.STATUS_PENDENTE)
-        _contrato(cliente, titulo='Assinado', status=Contrato.STATUS_ASSINADO)
+        _contrato(cliente, titulo='Pendente', status=StatusContrato.PENDENTE)
+        _contrato(cliente, titulo='Assinado', status=StatusContrato.ASSINADO)
         response = client_autenticado.get(f'{self.URL}?status=assinado')
         assert response.data['count'] == 1
         assert response.data['results'][0]['titulo'] == 'Assinado'
@@ -79,8 +79,8 @@ class TestContratoAPI:
 
     def test_filtro_pagina_o_proprio_resultado(self, client_autenticado, cliente):
         for i in range(25):
-            _contrato(cliente, titulo=f'Assinado {i:02d}', status=Contrato.STATUS_ASSINADO)
-        _contrato(cliente, titulo='Fora do filtro', status=Contrato.STATUS_PENDENTE)
+            _contrato(cliente, titulo=f'Assinado {i:02d}', status=StatusContrato.ASSINADO)
+        _contrato(cliente, titulo='Fora do filtro', status=StatusContrato.PENDENTE)
         response = client_autenticado.get(f'{self.URL}?status=assinado')
         assert response.data['count'] == 25
         assert len(response.data['results']) == 20

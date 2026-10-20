@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.test import RequestFactory
 
-from apps_work.billing.models import Assinatura, Pagamento, Plano
+from apps_work.billing.models import Assinatura, PagamentoAssinatura, Plano
 from apps_work.billing.services import MercadoPagoService, WebhookInvalidoError
 from apps_work.billing.views import RetornoCheckoutView
 
@@ -43,7 +43,7 @@ class TestBillingAssinaturaStr:
             inicio=datetime.date.today(),
             proximo_vencimento=datetime.date.today(),
         )
-        pagamento = Pagamento.objects.create(
+        pagamento = PagamentoAssinatura.objects.create(
             assinatura=assinatura,
             valor='49.90',
             status='pago',
@@ -233,7 +233,7 @@ class TestMercadoPagoServiceConfirmar:
         )
 
         connection.set_schema_to_public()
-        outro_tenant = Tenant.objects.create(schema_name='outro_negocio_confirmar', name='Outro Negócio')
+        outro_tenant = Tenant.objects.create(schema_name='outro_negocio_confirmar', nome='Outro Negócio')
         Assinatura.objects.create(
             tenant=outro_tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
@@ -362,7 +362,7 @@ class TestMercadoPagoServiceWebhook:
 
     def test_processar_preapproval_correlaciona_por_email_do_proprietario(self, tenant):
         from django.contrib.auth.models import User
-        from tenants.models import UserTenant
+        from tenants.models import Membro
 
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         assinatura = Assinatura.objects.create(
@@ -370,7 +370,7 @@ class TestMercadoPagoServiceWebhook:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
         )
         dono = User.objects.create_user(username='dona@teste.com', email='dona@teste.com', password='x')
-        UserTenant.objects.create(user=dono, tenant=tenant, role='proprietario')
+        Membro.objects.create(user=dono, tenant=tenant, papel='proprietario')
 
         recurso_preapproval = MagicMock()
         recurso_preapproval.get.return_value = {
@@ -407,7 +407,7 @@ class TestMercadoPagoServiceWebhook:
 
     def test_processar_pagamento_aprovado_cria_registro_e_ativa_assinatura(self, tenant):
         from django.contrib.auth.models import User
-        from tenants.models import UserTenant
+        from tenants.models import Membro
 
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
         assinatura = Assinatura.objects.create(
@@ -415,7 +415,7 @@ class TestMercadoPagoServiceWebhook:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
         )
         dono = User.objects.create_user(username='dono@teste.com', email='dono@teste.com', password='x')
-        UserTenant.objects.create(user=dono, tenant=tenant, role='proprietario')
+        Membro.objects.create(user=dono, tenant=tenant, papel='proprietario')
 
         recurso_payment = MagicMock()
         recurso_payment.get.return_value = {
@@ -435,7 +435,7 @@ class TestMercadoPagoServiceWebhook:
 
         assinatura.refresh_from_db()
         assert assinatura.status == 'ativa'
-        pagamento = Pagamento.objects.get(mercadopago_payment_id='payment-789')
+        pagamento = PagamentoAssinatura.objects.get(mercadopago_payment_id='payment-789')
         assert pagamento.status == 'pago'
         assert pagamento.assinatura == assinatura
 
@@ -446,7 +446,7 @@ class TestMercadoPagoServiceWebhook:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
             mercadopago_preapproval_id='preapproval-456',
         )
-        Pagamento.objects.create(
+        PagamentoAssinatura.objects.create(
             assinatura=assinatura, valor='69.90', status='pago',
             data=datetime.date.today(), mercadopago_payment_id='payment-789',
         )
@@ -460,7 +460,7 @@ class TestMercadoPagoServiceWebhook:
             )
 
         recurso_payment.get.assert_not_called()
-        assert Pagamento.objects.filter(mercadopago_payment_id='payment-789').count() == 1
+        assert PagamentoAssinatura.objects.filter(mercadopago_payment_id='payment-789').count() == 1
 
     def test_processar_authorized_payment_aprovado_ativa_assinatura(self, tenant):
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
@@ -489,7 +489,7 @@ class TestMercadoPagoServiceWebhook:
         assert 'authorized_payments/authpay-1' in mock_get.call_args[0][0]
         assinatura.refresh_from_db()
         assert assinatura.status == 'ativa'
-        pagamento = Pagamento.objects.get(mercadopago_payment_id='authpay-1')
+        pagamento = PagamentoAssinatura.objects.get(mercadopago_payment_id='authpay-1')
         assert pagamento.status == 'pago'
         assert pagamento.assinatura == assinatura
 
@@ -508,7 +508,7 @@ class TestMercadoPagoServiceWebhook:
                     topico='subscription_authorized_payment', data_id='authpay-2',
                     x_signature=x_signature, x_request_id='req-7',
                 )
-        assert not Pagamento.objects.filter(mercadopago_payment_id='authpay-2').exists()
+        assert not PagamentoAssinatura.objects.filter(mercadopago_payment_id='authpay-2').exists()
 
     def test_processar_authorized_payment_endpoint_falha_nao_quebra(self):
         x_signature = self._assinar(data_id='authpay-3', x_request_id='req-8')
@@ -520,7 +520,7 @@ class TestMercadoPagoServiceWebhook:
                     topico='subscription_authorized_payment', data_id='authpay-3',
                     x_signature=x_signature, x_request_id='req-8',
                 )
-        assert not Pagamento.objects.filter(mercadopago_payment_id='authpay-3').exists()
+        assert not PagamentoAssinatura.objects.filter(mercadopago_payment_id='authpay-3').exists()
 
     def test_processar_authorized_payment_ja_registrado_nao_duplica(self, tenant):
         plano = Plano.objects.create(nome='pro', preco_mensal='69.90')
@@ -529,7 +529,7 @@ class TestMercadoPagoServiceWebhook:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
             mercadopago_preapproval_id='preapproval-999',
         )
-        Pagamento.objects.create(
+        PagamentoAssinatura.objects.create(
             assinatura=assinatura, valor='69.90', status='pago',
             data=datetime.date.today(), mercadopago_payment_id='authpay-4',
         )
@@ -541,7 +541,7 @@ class TestMercadoPagoServiceWebhook:
                     x_signature=x_signature, x_request_id='req-9',
                 )
         mock_get.assert_not_called()
-        assert Pagamento.objects.filter(mercadopago_payment_id='authpay-4').count() == 1
+        assert PagamentoAssinatura.objects.filter(mercadopago_payment_id='authpay-4').count() == 1
 
 
 class TestRetornoCheckoutView:
@@ -582,16 +582,16 @@ class TestPagamentosListView:
         from tenants.models import Tenant
 
         assinatura = Assinatura.objects.get(tenant=tenant)  # já criada por patch_tenant_middleware
-        Pagamento.objects.create(assinatura=assinatura, valor='69.90', status='pago', data=datetime.date.today())
+        PagamentoAssinatura.objects.create(assinatura=assinatura, valor='69.90', status='pago', data=datetime.date.today())
 
         connection.set_schema_to_public()
         plano = Plano.objects.get(nome='pro')
-        outro_tenant = Tenant.objects.create(schema_name='outro_negocio_pagamentos', name='Outro Negócio')
+        outro_tenant = Tenant.objects.create(schema_name='outro_negocio_pagamentos', nome='Outro Negócio')
         outra_assinatura = Assinatura.objects.create(
             tenant=outro_tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
         )
-        Pagamento.objects.create(assinatura=outra_assinatura, valor='69.90', status='pago', data=datetime.date.today())
+        PagamentoAssinatura.objects.create(assinatura=outra_assinatura, valor='69.90', status='pago', data=datetime.date.today())
 
         response = client_autenticado.get('/api/v1/billing/pagamentos/')
         assert response.status_code == 200
@@ -599,11 +599,11 @@ class TestPagamentosListView:
 
     def test_ordena_mais_recente_primeiro(self, client_autenticado, tenant):
         assinatura = Assinatura.objects.get(tenant=tenant)
-        Pagamento.objects.create(
+        PagamentoAssinatura.objects.create(
             assinatura=assinatura, valor='69.90', status='pago',
             data=datetime.date.today() - datetime.timedelta(days=30),
         )
-        Pagamento.objects.create(assinatura=assinatura, valor='69.90', status='pago', data=datetime.date.today())
+        PagamentoAssinatura.objects.create(assinatura=assinatura, valor='69.90', status='pago', data=datetime.date.today())
 
         response = client_autenticado.get('/api/v1/billing/pagamentos/')
         datas = [p['data'] for p in response.data['results']]

@@ -38,8 +38,8 @@ Campos por nicho (preenchidos conforme o ramo do negócio):
 | Coluna | Tipo | Nicho |
 |---|---|---|
 | `alergia` | `TextField` vazio | Beleza |
-| `convenio` · `carteirinha` · `plano` | `CharField` vazios | Saúde |
-| `validade_plano` | `DateField` nulo | Saúde |
+| `convenio` · `carteirinha` · `plano_saude` | `CharField` vazios | Saúde |
+| `validade_plano_saude` | `DateField` nulo | Saúde |
 
 Controle:
 

@@ -51,7 +51,7 @@ class AgendamentoServico(models.Model):
         return f'{self.agendamento} — {self.servico}'
 
 
-class Pagamento(models.Model):
+class PagamentoAgendamento(models.Model):
     agendamento = models.ForeignKey(Agendamento, on_delete=models.CASCADE, related_name='pagamentos')
     forma = models.CharField(max_length=20, choices=FormaPagamento.choices)
     valor = models.DecimalField(max_digits=8, decimal_places=2)

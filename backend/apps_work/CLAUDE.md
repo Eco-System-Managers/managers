@@ -103,10 +103,10 @@ deles atravessam a fronteira, e todos são escutados em
   recebem, delegam e devolvem.
 - **Escrita sensível exige `IsProprietario`** — serviços, etapas do kanban,
   configuração, billing e gestão da equipe. Estar autenticado não basta. O papel
-  vem do `UserTenant.role`, não do `Colaborador.role`.
+  vem do `Membro.papel` — o `Colaborador` não tem papel.
 - **Autenticado significa autenticado neste tenant.** A autenticação padrão é a
   `core.authentication.TenantJWTAuthentication`, que recusa token de outro
-  schema e usuário sem `UserTenant` no tenant atual. A checagem não pode ir
+  schema e usuário sem `Membro` no tenant atual. A checagem não pode ir
   para `DEFAULT_PERMISSION_CLASSES`: quase toda view declara as próprias
   permissões e a ignoraria.
 - **`force_authenticate` nos testes pula a autenticação** — e com ela a

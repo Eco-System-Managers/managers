@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps_work.autenticacao.models import LastActivity
+from apps_work.autenticacao.models import UltimaAtividade
 
 ORIGEM = settings.CORS_ALLOWED_ORIGINS[0]
 
@@ -55,7 +55,7 @@ class TestCorsNasRespostasDosMiddlewares:
         assert response['Access-Control-Allow-Origin'] == ORIGEM
 
     def test_401_de_inatividade_sai_com_cors(self, patch_tenant_middleware, proprietario, tenant):
-        LastActivity.objects.create(user=proprietario, ultimo_acesso=timezone.now() - timedelta(hours=2))
+        UltimaAtividade.objects.create(user=proprietario, ultimo_acesso=timezone.now() - timedelta(hours=2))
         refresh = RefreshToken.for_user(proprietario)
         refresh['schema_name'] = tenant.schema_name
 

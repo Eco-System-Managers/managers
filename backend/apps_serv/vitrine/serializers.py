@@ -28,7 +28,7 @@ class MembroEquipeSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     nome = serializers.CharField()
     funcao = serializers.CharField()
-    role = serializers.ChoiceField(choices=Papel.choices)
+    papel = serializers.ChoiceField(choices=Papel.choices)
 
 
 class HorarioNegocioSerializer(serializers.Serializer):

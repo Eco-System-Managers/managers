@@ -1,4 +1,8 @@
+from django.db import connection
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+
+from tenants.models import Membro, Papel
 from django.contrib.auth.models import User
 from .models import Colaborador, ConviteColaborador
 
@@ -11,13 +15,21 @@ class UserSerializer(serializers.ModelSerializer):
 
 class ColaboradorSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    papel = serializers.SerializerMethodField()
 
     class Meta:
         model = Colaborador
-        fields = ['id', 'user', 'funcao', 'role', 'ativo', 'criado_em']
-        # Papel e ativação não passam pela edição comum: o papel vem do
-        # UserTenant, e ativar/desativar tem actions próprias do proprietário.
-        read_only_fields = ['role', 'ativo', 'criado_em']
+        fields = ['id', 'user', 'funcao', 'papel', 'ativo', 'criado_em']
+        # Ativação não passa pela edição comum: tem actions próprias do
+        # proprietário. O papel nem é campo do Colaborador — vem do Membro.
+        read_only_fields = ['ativo', 'criado_em']
+
+    @extend_schema_field(serializers.ChoiceField(choices=Papel.choices, allow_null=True))
+    def get_papel(self, obj):
+        # Anotado pelo ColaboradorViewSet; fora dele (ex.: /me/), consulta.
+        if hasattr(obj, 'papel'):
+            return obj.papel
+        return Membro.papel_no_schema(obj.user, connection.schema_name)
 
 
 class ConviteColaboradorSerializer(serializers.ModelSerializer):

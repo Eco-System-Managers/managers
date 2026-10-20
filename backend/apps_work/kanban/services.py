@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, date, time
 from decimal import Decimal
 from django.db import IntegrityError
 from rest_framework.exceptions import ValidationError
-from .models import AtendimentoKanban, EtapaKanban, PagamentoKanban
+from .models import AtendimentoKanban, EtapaKanban, PagamentoAtendimento
 
 ERRO_HORARIO_OCUPADO = {
     'detail': 'Esse horário já foi reservado. Escolha outro.',
@@ -133,8 +133,8 @@ class AtendimentoKanbanService:
         atendimento.save(update_fields=['desconto', 'pago'])
 
         atendimento.pagamentos.all().delete()
-        PagamentoKanban.objects.bulk_create([
-            PagamentoKanban(atendimento=atendimento, forma=p['forma'], valor=p['valor'])
+        PagamentoAtendimento.objects.bulk_create([
+            PagamentoAtendimento(atendimento=atendimento, forma=p['forma'], valor=p['valor'])
             for p in pagamentos
         ])
 

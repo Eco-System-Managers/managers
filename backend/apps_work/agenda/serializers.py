@@ -1,6 +1,6 @@
-from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from .models import Agendamento, AgendamentoServico, OrigemAtendimento, Pagamento
+from .models import Agendamento, AgendamentoServico, OrigemAtendimento, PagamentoAgendamento
 
 
 class AgendamentoServicoSerializer(serializers.ModelSerializer):
@@ -12,16 +12,15 @@ class AgendamentoServicoSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-@extend_schema_serializer(component_name='PagamentoAgendamento')
-class PagamentoSerializer(serializers.ModelSerializer):
+class PagamentoAgendamentoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Pagamento
+        model = PagamentoAgendamento
         fields = ['id', 'forma', 'valor']
 
 
 class AgendamentoSerializer(serializers.ModelSerializer):
     servicos = AgendamentoServicoSerializer(many=True, read_only=True)
-    pagamentos = PagamentoSerializer(many=True, read_only=True)
+    pagamentos = PagamentoAgendamentoSerializer(many=True, read_only=True)
     cliente_nome = serializers.ReadOnlyField(source='cliente.nome')
     cliente_telefone = serializers.ReadOnlyField(source='cliente.telefone')
     colaborador_nome = serializers.SerializerMethodField()

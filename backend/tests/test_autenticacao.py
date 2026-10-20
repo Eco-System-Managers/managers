@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps_work.autenticacao.models import CodigoRecuperacao
-from tenants.models import Domain, Tenant, UserTenant
+from tenants.models import Domain, Tenant, Membro
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def user_com_tenant(db):
     from django.db import connection
 
     connection.set_schema_to_public()
-    tenant = Tenant.objects.create(schema_name='login_test', name='Login Test')
+    tenant = Tenant.objects.create(schema_name='login_test', nome='Login Test')
     connection.set_schema_to_public()
     Domain.objects.create(domain='login-test.localhost', tenant=tenant, is_primary=True)
     user = User.objects.create_user(
@@ -41,7 +41,7 @@ def user_com_tenant(db):
         password='SenhaForte123!',
         first_name='Login',
     )
-    UserTenant.objects.create(user=user, tenant=tenant, role='proprietario')
+    Membro.objects.create(user=user, tenant=tenant, papel='proprietario')
     return user, tenant
 
 
@@ -82,7 +82,7 @@ class TestCadastro:
         # Duas empresas podem ter o mesmo nome; o schema é que precisa ser único.
         from django.db import connection
         connection.set_schema_to_public()
-        Tenant.objects.create(schema_name='salao_existente', name='Salão Existente')
+        Tenant.objects.create(schema_name='salao_existente', nome='Salão Existente')
         connection.set_schema_to_public()
         payload = {
             'nome_empresa': 'Salão Existente',
@@ -174,7 +174,7 @@ class TestLogin:
         assert 'access' in response.data
         assert 'refresh' not in response.data
         assert response.data['schema_name'] == tenant.schema_name
-        assert response.data['empresa'] == tenant.name
+        assert response.data['empresa'] == tenant.nome
         assert response.cookies.get('refresh_token') is not None
 
     def test_mobile_recebe_refresh_no_corpo_e_sem_cookie(self, api, user_com_tenant):
@@ -333,9 +333,9 @@ class TestInatividade:
         from datetime import timedelta
         from django.utils import timezone
         from rest_framework_simplejwt.tokens import AccessToken
-        from apps_work.autenticacao.models import LastActivity
+        from apps_work.autenticacao.models import UltimaAtividade
 
-        LastActivity.objects.create(
+        UltimaAtividade.objects.create(
             user=usuario,
             ultimo_acesso=timezone.now() - timedelta(minutes=31),
         )
@@ -352,10 +352,10 @@ class TestInatividade:
         from datetime import timedelta
         from django.utils import timezone
         from rest_framework_simplejwt.tokens import AccessToken
-        from apps_work.autenticacao.models import LastActivity
+        from apps_work.autenticacao.models import UltimaAtividade
 
         antes = timezone.now() - timedelta(minutes=5)
-        last = LastActivity.objects.create(user=usuario, ultimo_acesso=antes)
+        last = UltimaAtividade.objects.create(user=usuario, ultimo_acesso=antes)
 
         token = str(AccessToken.for_user(usuario))
         client = APIClient()
@@ -370,17 +370,17 @@ class TestInatividade:
     def test_login_reseta_ultimo_acesso(self, api, user_com_tenant):
         from datetime import timedelta
         from django.utils import timezone
-        from apps_work.autenticacao.models import LastActivity
+        from apps_work.autenticacao.models import UltimaAtividade
 
         user, _ = user_com_tenant
-        LastActivity.objects.create(
+        UltimaAtividade.objects.create(
             user=user,
             ultimo_acesso=timezone.now() - timedelta(hours=2),
         )
 
         api.post('/api/v1/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
 
-        last = LastActivity.objects.get(user=user)
+        last = UltimaAtividade.objects.get(user=user)
         assert (timezone.now() - last.ultimo_acesso).seconds < 5
 
 
@@ -461,9 +461,9 @@ class TestCodigoRecuperacaoModel:
 
 @pytest.mark.django_db
 class TestLastActivityModel:
-    def test_str_last_activity(self, user_auth):
-        from apps_work.autenticacao.models import LastActivity
-        activity = LastActivity.objects.create(user=user_auth, ultimo_acesso=timezone.now())
+    def test_str_ultima_atividade(self, user_auth):
+        from apps_work.autenticacao.models import UltimaAtividade
+        activity = UltimaAtividade.objects.create(user=user_auth, ultimo_acesso=timezone.now())
         assert user_auth.email in str(activity)
 
 

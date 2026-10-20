@@ -10,9 +10,9 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from core.permissions import IsProprietario
-from .models import Assinatura, Pagamento, Plano, TipoPlano
+from .models import Assinatura, PagamentoAssinatura, Plano, TipoPlano
 from .serializers import (
-    AssinaturaSerializer, ConfirmarAssinaturaSerializer, LinkAssinaturaSerializer, PagamentoSerializer,
+    AssinaturaSerializer, ConfirmarAssinaturaSerializer, LinkAssinaturaSerializer, PagamentoAssinaturaSerializer,
 )
 from .services import (
     AssinaturaInvalidaError,
@@ -114,13 +114,13 @@ class CancelarAssinaturaView(APIView):
 
 
 class PagamentosListView(ListAPIView):
-    serializer_class = PagamentoSerializer
+    serializer_class = PagamentoAssinaturaSerializer
     permission_classes = [IsAuthenticated]
     def get_queryset(self):
         from tenants.models import Tenant
 
         tenant = Tenant.objects.get(schema_name=connection.schema_name)
-        return Pagamento.objects.filter(assinatura__tenant=tenant).order_by('-data')
+        return PagamentoAssinatura.objects.filter(assinatura__tenant=tenant).order_by('-data')
 
 
 class MercadoPagoWebhookView(APIView):

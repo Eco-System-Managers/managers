@@ -6,8 +6,8 @@ from django.core.mail import send_mail
 from django.db import connection, transaction
 from django.utils import timezone
 from datetime import timedelta
-from tenants.models import Papel, Tenant, UserTenant
-from apps_work.autenticacao.models import LastActivity
+from tenants.models import Papel, Tenant, Membro
+from apps_work.autenticacao.models import UltimaAtividade
 from .models import Colaborador, ConviteColaborador
 from core.excecoes import ErroDeNegocio
 
@@ -20,7 +20,7 @@ class ColaboradorService:
     def _garantir_que_nao_e_proprietario(self, colaborador: Colaborador) -> None:
         # Desativar ou remover o dono — inclusive ele mesmo — deixaria o tenant
         # sem ninguém capaz de reativá-lo.
-        if UserTenant.papel_no_schema(colaborador.user, connection.schema_name) == Papel.PROPRIETARIO:
+        if Membro.papel_no_schema(colaborador.user, connection.schema_name) == Papel.PROPRIETARIO:
             raise ErroDeNegocio('O proprietário não pode ser desativado nem removido.', 'proprietario_protegido')
 
     def desativar(self, colaborador: Colaborador) -> None:
@@ -53,8 +53,8 @@ class ColaboradorService:
         user = colaborador.user
         Agendamento.objects.filter(colaborador=colaborador).update(colaborador=None)
         colaborador.delete()
-        UserTenant.objects.filter(user=user).delete()
-        LastActivity.objects.filter(user=user).delete()
+        Membro.objects.filter(user=user).delete()
+        UltimaAtividade.objects.filter(user=user).delete()
         user.delete()
 
 
@@ -122,12 +122,12 @@ class AceitarConviteService:
                 first_name=partes[0] if partes else '',
                 last_name=partes[1] if len(partes) > 1 else '',
             )
-            UserTenant.objects.create(user=user, tenant=tenant, role=Papel.COLABORADOR)
-            LastActivity.objects.create(user=user, ultimo_acesso=timezone.now())
+            Membro.objects.create(user=user, tenant=tenant, papel=Papel.COLABORADOR)
+            UltimaAtividade.objects.create(user=user, ultimo_acesso=timezone.now())
 
             connection.set_tenant(tenant)
 
-            Colaborador.objects.create(user=user, role=Papel.COLABORADOR, ativo=True)
+            Colaborador.objects.create(user=user, ativo=True)
 
             convite.aceito = True
             convite.save()

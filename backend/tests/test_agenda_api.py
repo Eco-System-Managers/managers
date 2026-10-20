@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from datetime import datetime, timedelta, timezone
 from rest_framework.test import APIClient
 
-from apps_work.agenda.models import Agendamento, AgendamentoServico, Pagamento as PagamentoAgenda
+from apps_work.agenda.models import Agendamento, AgendamentoServico, PagamentoAgendamento as PagamentoAgenda
 from apps_work.clientes.models import Cliente
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
@@ -36,7 +36,7 @@ def colaborador(patch_tenant_middleware):
         first_name='Pedro',
         last_name='Costa',
     )
-    return Colaborador.objects.create(user=user, role='colaborador')
+    return Colaborador.objects.create(user=user)
 
 
 @pytest.fixture
@@ -257,7 +257,7 @@ class TestAgendamentoConflitoHorario:
             data_hora=datetime(2024, 6, 15, 10, 0, tzinfo=timezone.utc),
         )
         outro_user = User.objects.create_user(username='outro@email.com', email='outro@email.com', password='senha123')
-        outro_colaborador = Colaborador.objects.create(user=outro_user, role='colaborador')
+        outro_colaborador = Colaborador.objects.create(user=outro_user)
         payload = {
             'cliente': cliente.id, 'colaborador': outro_colaborador.id,
             'data_hora': '2024-06-15T10:15:00Z',

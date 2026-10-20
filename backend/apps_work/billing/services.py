@@ -9,7 +9,7 @@ import requests
 from django.conf import settings
 from django.urls import reverse
 
-from .models import Assinatura, Pagamento, Plano, StatusAssinatura, StatusPagamento
+from .models import Assinatura, PagamentoAssinatura, Plano, StatusAssinatura, StatusPagamento
 from tenants.models import Papel
 
 
@@ -175,10 +175,10 @@ class MercadoPagoService:
         e-mail de login)."""
         if not email:
             return None
-        from tenants.models import UserTenant
+        from tenants.models import Membro
 
-        vinculo = UserTenant.objects.filter(
-            user__email__iexact=email, role=Papel.PROPRIETARIO,
+        vinculo = Membro.objects.filter(
+            user__email__iexact=email, papel=Papel.PROPRIETARIO,
         ).select_related('tenant').first()
         if vinculo is None:
             return None
@@ -208,7 +208,7 @@ class MercadoPagoService:
         assinatura.save()
 
     def _processar_pagamento(self, payment_id: str) -> None:
-        if Pagamento.objects.filter(mercadopago_payment_id=payment_id).exists():
+        if PagamentoAssinatura.objects.filter(mercadopago_payment_id=payment_id).exists():
             return  # já processado — idempotência
 
         resultado = self._sdk.payment().get(payment_id)
@@ -230,7 +230,7 @@ class MercadoPagoService:
             'pending': StatusPagamento.PENDENTE,
             'rejected': StatusPagamento.FALHOU,
         }
-        Pagamento.objects.create(
+        PagamentoAssinatura.objects.create(
             assinatura=assinatura,
             valor=Decimal(str(resposta.get('transaction_amount', 0))),
             status=status_map.get(resposta.get('status'), StatusPagamento.PENDENTE),
@@ -262,7 +262,7 @@ class MercadoPagoService:
         _processar_pagamento: aqui a correlação é direta via preapproval_id
         (não precisa de e-mail), porque o authorized_payment já vem
         vinculado à assinatura que o gerou."""
-        if Pagamento.objects.filter(mercadopago_payment_id=str(authorized_payment_id)).exists():
+        if PagamentoAssinatura.objects.filter(mercadopago_payment_id=str(authorized_payment_id)).exists():
             return  # já processado — idempotência
 
         resposta = self._buscar_authorized_payment(authorized_payment_id)
@@ -280,7 +280,7 @@ class MercadoPagoService:
             'pending': StatusPagamento.PENDENTE,
             'rejected': StatusPagamento.FALHOU,
         }
-        Pagamento.objects.create(
+        PagamentoAssinatura.objects.create(
             assinatura=assinatura,
             valor=Decimal(str(resposta.get('transaction_amount', 0))),
             status=status_map.get(status_pagamento, StatusPagamento.PENDENTE),

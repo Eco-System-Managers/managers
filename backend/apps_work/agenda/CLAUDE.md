@@ -11,7 +11,7 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `Agendamento`, `AgendamentoServico` (o N:N com preço congelado) e `Pagamento` |
+| `models.py` | `Agendamento`, `AgendamentoServico` (o N:N com preço congelado) e `PagamentoAgendamento` |
 | `services.py` | Quatro serviços: dias com registro, pendências de cobrança, grade de horários livres e a regra de conflito |
 | `views.py` | `AgendamentoViewSet` mais três views de leitura (slots, dias do mês, pendências) |
 | `serializers.py` | Representação; o `create` monta agendamento e serviços juntos |
@@ -24,7 +24,7 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 |---|---|
 | `Agendamento` | O compromisso: cliente, colaborador, data/hora, status |
 | `AgendamentoServico` | Quais serviços, com `preco_cobrado` **congelado** no momento do agendamento — mudar a tabela de preços depois não reescreve o passado |
-| `Pagamento` | Como foi pago (dinheiro, PIX, crédito, débito, QR Code). Um agendamento pode ter mais de um |
+| `PagamentoAgendamento` | Como foi pago (dinheiro, PIX, crédito, débito, QR Code). Um agendamento pode ter mais de um |
 
 ## Tabelas
 
@@ -49,7 +49,7 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 | `preco_cobrado` | `Decimal(8,2)` | **Congelado** no agendamento. Mudar a tabela de preços não reescreve o passado |
 | `desconto` | `Decimal(8,2)` = 0 | Desconto neste item |
 
-### `Pagamento` — como foi pago
+### `PagamentoAgendamento` — como foi pago
 
 | Coluna | Tipo | O que é |
 |---|---|---|

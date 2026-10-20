@@ -12,8 +12,8 @@ from core.openapi import PLATAFORMA, MensagemSerializer
 from core.limites import MuitasTentativas, login_work
 from core.sessao import entregar_refresh, refresh_da_requisicao
 from core.throttling import RecuperacaoPorEmailThrottle
-from tenants.models import UserTenant
-from .models import LastActivity
+from tenants.models import Membro
+from .models import UltimaAtividade
 from .serializers import (
     CadastroSerializer, EmailSerializer, LoginSerializer, NovaSenhaSerializer, RefreshSerializer,
     SessaoSerializer, VerificarCodigoSerializer,
@@ -67,7 +67,7 @@ class CadastroView(APIView):
         user, tenant = serializer.save()
 
         from django.utils import timezone
-        LastActivity.objects.create(user=user, ultimo_acesso=timezone.now())
+        UltimaAtividade.objects.create(user=user, ultimo_acesso=timezone.now())
 
         from .services import SessaoService
         refresh = SessaoService().emitir(user, tenant)
@@ -106,14 +106,14 @@ class LoginView(APIView):
         if not user.is_active:
             return erro('Você está inativo. Entre em contato com o proprietário do sistema.', 'user_inactive', status.HTTP_403_FORBIDDEN)
 
-        user_tenant = UserTenant.objects.filter(user=user).select_related('tenant').first()
-        if not user_tenant:
+        membro = Membro.objects.filter(user=user).select_related('tenant').first()
+        if not membro:
             return erro('Usuário não vinculado a nenhuma empresa.', status_code=status.HTTP_400_BAD_REQUEST)
 
-        tenant = user_tenant.tenant
+        tenant = membro.tenant
 
         from django.utils import timezone
-        LastActivity.objects.update_or_create(user=user, defaults={'ultimo_acesso': timezone.now()})
+        UltimaAtividade.objects.update_or_create(user=user, defaults={'ultimo_acesso': timezone.now()})
 
         from .services import SessaoService
         refresh = SessaoService().emitir(user, tenant)

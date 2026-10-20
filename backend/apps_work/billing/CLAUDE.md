@@ -9,7 +9,7 @@ negócio e os clientes dele. Este é o dinheiro entre o negócio e **nós**.
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `Plano`, `Assinatura` (com a propriedade `bloqueada`) e `Pagamento` |
+| `models.py` | `Plano`, `Assinatura` (com a propriedade `bloqueada`) e `PagamentoAssinatura` |
 | `services.py` | `MercadoPagoService` — criar plano no gateway, gerar link, confirmar, cancelar e processar webhook |
 | `views.py` | Assinatura atual, iniciar, confirmar, cancelar, histórico paginado e o endpoint de webhook |
 | `serializers.py` | Representação |
@@ -49,7 +49,7 @@ idempotente).
 **Não há coluna `bloqueada`** — é propriedade calculada a partir de `status` e
 das datas, e o resultado é memorizado em cache por 60s.
 
-### `Pagamento` — o histórico de cobranças
+### `PagamentoAssinatura` — o histórico de cobranças
 
 | Coluna | Tipo | O que é |
 |---|---|---|

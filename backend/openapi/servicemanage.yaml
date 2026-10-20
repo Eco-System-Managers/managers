@@ -1897,13 +1897,13 @@ components:
           type: string
         funcao:
           type: string
-        role:
-          $ref: '#/components/schemas/RoleEnum'
+        papel:
+          $ref: '#/components/schemas/PapelEnum'
       required:
       - funcao
       - id
       - nome
-      - role
+      - papel
     Mensagem:
       type: object
       description: 'Resposta de sucesso que só confirma a ação: {"detail": "..."}.'
@@ -2159,6 +2159,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VinculoNegocio'
+    PapelEnum:
+      enum:
+      - proprietario
+      - colaborador
+      type: string
+      description: |-
+        * `proprietario` - Proprietário
+        * `colaborador` - Colaborador
     PatchedConsumidorUpdateRequest:
       type: object
       description: |-
@@ -2224,14 +2232,6 @@ components:
           description: 'Só para o app mobile (cabeçalho X-Client-Platform: mobile).'
       required:
       - access
-    RoleEnum:
-      enum:
-      - proprietario
-      - colaborador
-      type: string
-      description: |-
-        * `proprietario` - Proprietário
-        * `colaborador` - Colaborador
     ServicoVitrine:
       type: object
       properties:

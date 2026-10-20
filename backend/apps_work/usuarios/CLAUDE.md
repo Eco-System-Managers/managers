@@ -19,7 +19,6 @@ Quem trabalha no negócio: **colaboradores e convites**.
 |---|---|---|
 | `user` | `OneToOne → auth.User` `CASCADE` | O login em si é do Django; este modelo é o lado do domínio |
 | `funcao` | `CharField(100)` vazio | Cargo exibido (ex.: "Cabeleireiro") |
-| `role` | `CharField(20)` = `colaborador` | `proprietario` ou `colaborador`. Espelho só de leitura do `UserTenant.role` — **não** é o que `IsProprietario` consulta. Sai na #5 |
 | `ativo` | `Boolean` = `True` | Mantido em sincronia com `User.is_active` pelo `ColaboradorService` |
 | `criado_em` | `DateTime` `auto_now_add` | |
 
@@ -36,13 +35,13 @@ Quem trabalha no negócio: **colaboradores e convites**.
 
 ## Papéis
 
-A fonte do papel é o **`UserTenant.role`**, no schema público. É o que a
+A fonte do papel é o **`Membro.papel`**, no schema público. É o que a
 permissão `IsProprietario` (em `core/permissions.py`) consulta para liberar
 escrita em serviços, etapas do kanban, configuração da empresa, billing e na
 gestão da equipe.
 
-O `UserTenant` existe desde o cadastro, então o dono já é dono durante o
-onboarding, antes de o `Colaborador` dele ser criado. Sem `UserTenant` no tenant
+O `Membro` existe desde o cadastro, então o dono já é dono durante o
+onboarding, antes de o `Colaborador` dele ser criado. Sem `Membro` no tenant
 atual, a permissão nega — e a `TenantJWTAuthentication` nem deixa a requisição
 chegar até ela.
 
@@ -53,7 +52,7 @@ Fluxo em duas pontas, porque quem aceita ainda não tem acesso ao tenant:
 1. O proprietário cria o convite; um `ConviteIndex` no schema público mapeia
    token → schema, para o link funcionar sem o convidado saber de tenant
 2. O convidado abre o link, define senha, e `AceitarConviteService` cria o
-   `User`, o `UserTenant` e o `Colaborador`
+   `User`, o `Membro` e o `Colaborador`
 
 O `ConviteColaboradorViewSet` troca de autenticação e de throttle conforme a
 ação — aceitar convite é público por natureza, criar convite não. O aceite é
@@ -69,8 +68,9 @@ nunca devem divergir: é o `is_active` que o SimpleJWT consulta para barrar o
 token em toda requisição.
 
 Ativar e desativar são actions do proprietário (`POST /colaboradores/<id>/ativar/`
-e `/desativar/`; o `DELETE` também desativa). `role` e `ativo` são somente
-leitura no serializer, então o PATCH comum só altera a `funcao`.
+e `/desativar/`; o `DELETE` também desativa). `ativo` é somente leitura no serializer, e o
+`papel` exposto vem do `Membro` (anotado na consulta) — o PATCH comum só altera
+a `funcao`.
 
 O proprietário não pode ser desativado nem removido — nem por ele mesmo —, senão
 o tenant fica sem ninguém capaz de reativá-lo. O service recusa com

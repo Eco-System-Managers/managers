@@ -7,8 +7,8 @@ from django.utils import timezone
 from datetime import timedelta
 
 
-class LastActivity(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='last_activity')
+class UltimaAtividade(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='ultima_atividade')
     ultimo_acesso = models.DateTimeField()
 
     def __str__(self):

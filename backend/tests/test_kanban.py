@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 
 from apps_work.clientes.models import Cliente, ObjetoCliente, Pet
 from apps_work.empresa.models import HorarioFuncionamento
-from apps_work.kanban.models import AtendimentoKanban, EtapaKanban, PagamentoKanban
+from apps_work.kanban.models import AtendimentoKanban, EtapaKanban, PagamentoAtendimento
 from apps_work.kanban.services import AtendimentoKanbanService, EtapaService, SlotService
 from apps_work.servicos.models import Servico
 
@@ -55,7 +55,7 @@ class TestKanbanModelStr:
         assert str(atendimento) == f'{atendimento.objeto} — {atendimento.etapa}'
 
     def test_str_pagamento(self, atendimento):
-        pagamento = PagamentoKanban.objects.create(
+        pagamento = PagamentoAtendimento.objects.create(
             atendimento=atendimento, forma='dinheiro', valor='50.00'
         )
         assert str(pagamento) == f'{atendimento} — dinheiro: R$50.00'
@@ -148,7 +148,7 @@ class TestAtendimentoKanbanService:
         resultado.refresh_from_db()
         assert resultado.pago is True
         assert resultado.desconto == Decimal('0')
-        assert PagamentoKanban.objects.filter(atendimento=resultado).count() == 1
+        assert PagamentoAtendimento.objects.filter(atendimento=resultado).count() == 1
 
     def test_cobrar_com_desconto_correto_marca_pago(self, atendimento):
         pagamentos = [{'forma': 'dinheiro', 'valor': '40.00'}]

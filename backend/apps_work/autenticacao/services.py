@@ -33,11 +33,11 @@ class OnboardingService:
         senha: str,
     ):
         from django.db import connection
-        from tenants.models import Domain, Papel, Tenant, UserTenant
+        from tenants.models import Domain, Papel, Tenant, Membro
 
         with transaction.atomic():
             connection.set_schema_to_public()
-            tenant = Tenant.objects.create(schema_name=schema_name, name=nome_empresa)
+            tenant = Tenant.objects.create(schema_name=schema_name, nome=nome_empresa)
             connection.set_schema_to_public()
             Domain.objects.create(
                 domain=dominio_do_schema(schema_name),
@@ -51,7 +51,7 @@ class OnboardingService:
                 password=senha,
                 first_name=nome,
             )
-            UserTenant.objects.create(user=user, tenant=tenant, role=Papel.PROPRIETARIO)
+            Membro.objects.create(user=user, tenant=tenant, papel=Papel.PROPRIETARIO)
 
             from apps_work.billing.models import Assinatura, Plano, StatusAssinatura, TipoPlano
 
@@ -146,11 +146,11 @@ class SessaoService:
     def emitir(self, user, tenant) -> RefreshToken:
         refresh = RefreshToken.for_user(user)
         refresh['schema_name'] = tenant.schema_name
-        refresh['empresa'] = tenant.name
+        refresh['empresa'] = tenant.nome
         return refresh
 
     def renovar(self, token_str: str) -> RefreshToken:
-        from tenants.models import Tenant, UserTenant
+        from tenants.models import Tenant, Membro
 
         try:
             # Valida assinatura, expiração, audiência e se já foi revogado.
@@ -165,7 +165,7 @@ class SessaoService:
             raise SessaoInvalida()
 
         schema_name = antigo.get('schema_name')
-        if not schema_name or UserTenant.papel_no_schema(user, schema_name) is None:
+        if not schema_name or Membro.papel_no_schema(user, schema_name) is None:
             raise SessaoInvalida()
 
         antigo.blacklist()

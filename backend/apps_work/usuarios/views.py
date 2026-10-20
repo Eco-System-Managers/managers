@@ -3,10 +3,13 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from django.db import connection
 from django.db.models import Q
 from django.utils import timezone
 from apps_work.autenticacao.views import responder_sessao
 from core.permissions import IsProprietario
+from tenants.models import Membro
+
 from .models import Colaborador, ConviteColaborador
 from .serializers import ColaboradorSerializer, ConviteColaboradorSerializer
 from .services import AceitarConviteService, ColaboradorService, ConviteService
@@ -32,7 +35,9 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search)
             )
-        return qs.order_by('-role', 'user__first_name', 'user__last_name')
+        # O papel vem do Membro (schema público), anotado na mesma consulta.
+        qs = qs.annotate(papel=Membro.papel_subquery(connection.schema_name))
+        return qs.order_by('-papel', 'user__first_name', 'user__last_name')
 
     def destroy(self, request, *args, **kwargs):
         return self.desativar(request, *args, **kwargs)
@@ -116,7 +121,7 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         serializer.instance = ConviteService().criar_e_enviar(
             nome=serializer.validated_data.get('nome', ''),
             email=serializer.validated_data['email'],
-            tenant_nome=tenant.name,
+            tenant_nome=tenant.nome,
         )
 
     @action(detail=False, methods=['get'], url_path=r'info/(?P<token>[^/.]+)', permission_classes=[AllowAny])

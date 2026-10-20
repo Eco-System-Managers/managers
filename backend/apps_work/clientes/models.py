@@ -20,10 +20,6 @@ class PortePet(models.TextChoices):
 
 
 class Cliente(models.Model):
-    # Atalhos mantidos para os testes, que ainda usam Cliente.ORIGEM_*.
-    ORIGEM_MANUAL = OrigemCliente.MANUAL
-    ORIGEM_SERVICEMANAGE = OrigemCliente.SERVICEMANAGE
-
     nome = models.CharField(max_length=255)
     # Obrigatório: é por ele que o negócio fala com o cliente (WhatsApp,
     # confirmação, cobrança). blank=False vale para formulário e serializer —
@@ -48,8 +44,8 @@ class Cliente(models.Model):
     # Saúde
     convenio = models.CharField(max_length=100, blank=True)
     carteirinha = models.CharField(max_length=50, blank=True)
-    plano = models.CharField(max_length=100, blank=True)
-    validade_plano = models.DateField(null=True, blank=True)
+    plano_saude = models.CharField(max_length=100, blank=True)
+    validade_plano_saude = models.DateField(null=True, blank=True)
 
     # Controla se o cliente aparece na listagem -- fica False quando o
     # consumidor (Service Manage) se desvincula do negócio. O registro nunca

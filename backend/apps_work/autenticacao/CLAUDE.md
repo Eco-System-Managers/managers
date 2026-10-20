@@ -11,13 +11,13 @@ dentro de um tenant; lá é um `Consumidor` no schema público.
 |---|---|
 | `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário e assinatura de trial numa tacada. `RecuperacaoSenhaService`. E `SessaoService`, que emite, renova e revoga sessões |
 | `views.py` | Cadastro, login, refresh por cookie, logout e as três etapas de recuperação de senha |
-| `models.py` | `LastActivity` (relógio de inatividade) e `CodigoRecuperacao` |
+| `models.py` | `UltimaAtividade` (relógio de inatividade) e `CodigoRecuperacao` |
 | `serializers.py` | Validação do cadastro, incluindo o slug do schema a partir do nome da empresa |
 | `urls.py` | Rotas sob `/api/v1/auth/` — isentas do bloqueio de assinatura |
 
 ## Tabelas
 
-### `LastActivity` — o relógio de inatividade
+### `UltimaAtividade` — o relógio de inatividade
 
 | Coluna | Tipo | O que é |
 |---|---|---|
@@ -44,7 +44,7 @@ códigos anteriores e devolve o código em claro para o e-mail; confira com
 
 `OnboardingService.registrar_empresa` é a operação mais pesada do app: cria o
 `Tenant` (o django-tenants materializa o schema no Postgres e roda as
-migrations nele), o `Domain`, o `User`, o `UserTenant` e uma `Assinatura` em
+migrations nele), o `Domain`, o `User`, o `Membro` e uma `Assinatura` em
 trial.
 
 O `schema_name` sai de `gerar_schema_name` (`serializers.py`): só `[a-z0-9_]`,
@@ -96,7 +96,7 @@ nos dois. O app mobile se identifica com `X-Client-Platform: mobile` e manda o
 refresh no corpo; sem o cabeçalho, o refresh só é lido do cookie
 (`core/sessao.py`). Só existe uma rota de refresh: `/api/v1/auth/token-refresh/`.
 
-## `LastActivity`
+## `UltimaAtividade`
 
 Uma linha por usuário, com o horário do último acesso. É lida e escrita pelo
 `InactivityMiddleware` a cada requisição autenticada, com escrita amortizada
@@ -122,7 +122,7 @@ Configuração em `REST_FRAMEWORK` (`core/settings.py`); classes em
 ## O que é fácil errar aqui
 
 - **Este app é compartilhado** (`SHARED_APPS`), não de tenant. Faz sentido: o
-  `LastActivity` precisa funcionar antes de o schema ser resolvido.
+  `UltimaAtividade` precisa funcionar antes de o schema ser resolvido.
 - **Usuário inativo é barrado na autenticação, não na permissão.** Desativar
   colaborador sincroniza `User.is_active=False`, e o SimpleJWT recusa o token em
   toda requisição — não só no login.

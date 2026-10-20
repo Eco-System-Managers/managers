@@ -40,7 +40,7 @@ onde a verdade pode divergir.
 
 - **Faturamento usa a mesma definição de receita do caixa:**
   `financeiro.services.pagamentos_efetivados()` (kanban pago, agendamento
-  concluído). Somar todo `Pagamento` contava o pagamento provisório que a
+  concluído). Somar todo `PagamentoAgendamento` contava o pagamento provisório que a
   vitrine cria ao agendar pelo app — e o dashboard divergia do caixa.
 
 - **Ele lê os dois modos de agenda.** Um negócio usa agenda ou esteira, então

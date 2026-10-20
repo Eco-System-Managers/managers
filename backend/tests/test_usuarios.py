@@ -16,11 +16,7 @@ class TestColaboradorModel:
 
     def test_str_colaborador(self, tenant, usuario):
         colaborador = Colaborador.objects.create(user=usuario)
-        assert str(colaborador) == f'{usuario.get_full_name()} — Colaborador'
-
-    def test_role_padrao(self, tenant, usuario):
-        colaborador = Colaborador.objects.create(user=usuario)
-        assert colaborador.role == 'colaborador'
+        assert str(colaborador) == usuario.get_full_name()
 
 
 @pytest.mark.django_db

@@ -6,7 +6,7 @@ from django.core.management import call_command
 from django.db import connection
 from django.test import TransactionTestCase, override_settings
 from django_tenants.middleware.main import TenantMainMiddleware
-from tenants.models import Tenant, Domain, UserTenant
+from tenants.models import Tenant, Domain, Membro
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -82,7 +82,7 @@ def tenant(db):
 
     tenant = Tenant.objects.create(
         schema_name='test_empresa',
-        name='Empresa Teste',
+        nome='Empresa Teste',
     )
     connection.set_schema_to_public()
     Domain.objects.get_or_create(
@@ -148,7 +148,7 @@ def usuario(db):
 def proprietario(tenant, usuario):
     """O `usuario` como dono do tenant de teste — o vínculo que o cadastro cria.
 
-    O papel vem do UserTenant; sem ele o IsProprietario nega.
+    O papel vem do Membro; sem ele o IsProprietario nega.
     """
-    UserTenant.objects.create(user=usuario, tenant=tenant, role='proprietario')
+    Membro.objects.create(user=usuario, tenant=tenant, papel='proprietario')
     return usuario

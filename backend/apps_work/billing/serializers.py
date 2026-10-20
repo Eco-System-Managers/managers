@@ -1,7 +1,6 @@
-from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
-from .models import Assinatura, Pagamento
+from .models import Assinatura, PagamentoAssinatura
 
 
 class AssinaturaSerializer(serializers.ModelSerializer):
@@ -13,10 +12,9 @@ class AssinaturaSerializer(serializers.ModelSerializer):
         fields = ['status', 'plano_nome', 'inicio', 'proximo_vencimento', 'trial_fim', 'bloqueada']
 
 
-@extend_schema_serializer(component_name='PagamentoAssinatura')
-class PagamentoSerializer(serializers.ModelSerializer):
+class PagamentoAssinaturaSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Pagamento
+        model = PagamentoAssinatura
         fields = ['valor', 'status', 'data']
 
 

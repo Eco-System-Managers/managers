@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps_work.usuarios.models import Colaborador, ConviteColaborador
+from tenants.models import Membro
 from apps_work.usuarios.services import AceitarConviteService, ConviteService
 
 
@@ -19,7 +20,7 @@ def client_autenticado(patch_tenant_middleware, proprietario):
 
 @pytest.fixture
 def colaborador(patch_tenant_middleware, usuario):
-    return Colaborador.objects.create(user=usuario, funcao='Cabeleireiro', role='colaborador')
+    return Colaborador.objects.create(user=usuario, funcao='Cabeleireiro')
 
 
 @pytest.fixture
@@ -143,7 +144,7 @@ def outro_usuario(patch_tenant_middleware):
 
 @pytest.fixture
 def colaborador_outro(patch_tenant_middleware, outro_usuario):
-    return Colaborador.objects.create(user=outro_usuario, funcao='Barbeiro', role='colaborador')
+    return Colaborador.objects.create(user=outro_usuario, funcao='Barbeiro')
 
 
 @pytest.mark.django_db
@@ -173,7 +174,8 @@ class TestColaboradorAPI:
         response = client_autenticado.get('/api/v1/colaboradores/me/')
         assert response.status_code == 200
         assert response.data['id'] == colaborador.id
-        assert response.data['role'] == 'colaborador'
+        # O papel vem do Membro: quem está logado é o dono do tenant de teste.
+        assert response.data['papel'] == 'proprietario'
         assert response.data['user']['email'] == colaborador.user.email
 
     def test_me_sem_colaborador_vinculado_retorna_404(self, client_autenticado):
@@ -219,7 +221,8 @@ class TestColaboradorAPI:
         colaborador_outro.refresh_from_db()
         colaborador_outro.user.refresh_from_db()
         assert colaborador_outro.funcao == 'Gerente'
-        assert colaborador_outro.role == 'colaborador'
+        # O 'role' do corpo é ignorado: o papel não é campo do Colaborador.
+        assert not Membro.objects.filter(user=colaborador_outro.user, papel='proprietario').exists()
         assert colaborador_outro.ativo is True
         assert colaborador_outro.user.is_active is True
 
@@ -376,7 +379,7 @@ class TestConviteAPI:
         assert ConviteIndex.objects.filter(token=convite_valido.token).count() == 0
 
     def test_cancelar_convite_colaborador_comum_retorna_403(self, patch_tenant_middleware, usuario, convite_valido):
-        Colaborador.objects.create(user=usuario, role='colaborador')
+        Colaborador.objects.create(user=usuario)
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         client.force_authenticate(user=usuario)

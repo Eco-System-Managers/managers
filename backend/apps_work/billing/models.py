@@ -88,7 +88,7 @@ class Assinatura(models.Model):
         return f'{self.tenant} — {self.plano}'
 
 
-class Pagamento(models.Model):
+class PagamentoAssinatura(models.Model):
     assinatura = models.ForeignKey(Assinatura, on_delete=models.CASCADE, related_name='pagamentos')
     valor = models.DecimalField(max_digits=8, decimal_places=2)
     status = models.CharField(max_length=20, choices=StatusPagamento.choices, default=StatusPagamento.PENDENTE)

@@ -78,12 +78,12 @@ class InactivityMiddleware:
         controle de inatividade e conveniencia, nao autenticacao.
         """
         try:
-            from apps_work.autenticacao.models import LastActivity
+            from apps_work.autenticacao.models import UltimaAtividade
 
             agora = timezone.now()
             timeout = timedelta(minutes=getattr(settings, 'INACTIVITY_TIMEOUT_MINUTES', 30))
 
-            registro, criado = LastActivity.objects.get_or_create(
+            registro, criado = UltimaAtividade.objects.get_or_create(
                 user_id=token['user_id'],
                 defaults={'ultimo_acesso': agora},
             )

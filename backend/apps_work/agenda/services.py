@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import Agendamento, OrigemAtendimento, Pagamento, StatusAgendamento
+from .models import Agendamento, OrigemAtendimento, PagamentoAgendamento, StatusAgendamento
 
 DURACAO_PADRAO_MINUTOS = 30
 
@@ -40,7 +40,7 @@ class PendenciasCobrancaService:
     """Atendimentos que já passaram da data e nunca foram cobrados.
 
     A agenda mostra um dia por vez e o caixa é montado a partir das linhas de
-    Pagamento: sem essa lista, o que ficou para trás não aparece em lugar
+    PagamentoAgendamento: sem essa lista, o que ficou para trás não aparece em lugar
     nenhum, e o faturamento fica menor do que o que de fato entrou.
 
     Junta as duas origens como o CaixaService faz — quem consome não precisa
@@ -249,8 +249,8 @@ class AgendamentoService:
         self.notificar_mudanca_de_status(agendamento, status_anterior)
 
         agendamento.pagamentos.all().delete()
-        Pagamento.objects.bulk_create([
-            Pagamento(agendamento=agendamento, forma=p['forma'], valor=p['valor'])
+        PagamentoAgendamento.objects.bulk_create([
+            PagamentoAgendamento(agendamento=agendamento, forma=p['forma'], valor=p['valor'])
             for p in pagamentos
         ])
 

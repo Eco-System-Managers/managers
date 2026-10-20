@@ -24,7 +24,7 @@ def colaborador_user(patch_tenant_middleware):
         username='colab@email.com', email='colab@email.com', password='senha123',
         first_name='Maria', last_name='Souza',
     )
-    return Colaborador.objects.create(user=user, funcao='Cabeleireira', role='colaborador')
+    return Colaborador.objects.create(user=user, funcao='Cabeleireira')
 
 
 @pytest.mark.django_db

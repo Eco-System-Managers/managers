@@ -10,6 +10,7 @@ from django_tenants.utils import schema_context
 from apps_serv.identidade import cliente_do_consumidor
 from apps_serv.vitrine.models import NegocioPublico
 from core.excecoes import ErroDeNegocio
+from tenants.models import Membro
 from apps_work.agenda.models import FormaPagamento, OrigemAtendimento, StatusAgendamento
 from apps_work.clientes.models import OrigemCliente, PortePet, TipoObjeto
 from apps_work.empresa.models import TipoAgenda
@@ -49,14 +50,16 @@ class CrossTenantQueryService:
                 Colaborador.objects
                 .filter(ativo=True)
                 .select_related('user')
-                .order_by('role')
+                # O papel vem do Membro (schema público), anotado na consulta.
+                .annotate(papel=Membro.papel_subquery(schema_name))
+                .order_by('papel')
             )
             return [
                 {
                     'id': c.id,
                     'nome': c.user.get_full_name() or c.user.username,
                     'funcao': c.funcao,
-                    'role': c.role,
+                    'papel': c.papel,
                 }
                 for c in colaboradores
             ]
@@ -254,7 +257,7 @@ class AgendamentoTenantService:
                         objeto_dados=objeto_dados, data_hora=data_hora,
                     )
                 else:
-                    from apps_work.agenda.models import Agendamento, AgendamentoServico, Pagamento
+                    from apps_work.agenda.models import Agendamento, AgendamentoServico, PagamentoAgendamento
 
                     agendamento = Agendamento.objects.create(
                         cliente=cliente,
@@ -270,7 +273,7 @@ class AgendamentoTenantService:
                             preco_cobrado=servico.preco,
                         )
 
-                    Pagamento.objects.create(
+                    PagamentoAgendamento.objects.create(
                         agendamento=agendamento,
                         forma=FormaPagamento.QR_CODE,
                         valor=valor_total,

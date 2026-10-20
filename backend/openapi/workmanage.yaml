@@ -7375,7 +7375,7 @@ components:
         pagamentos:
           type: array
           items:
-            $ref: '#/components/schemas/PagamentoKanban'
+            $ref: '#/components/schemas/PagamentoAtendimento'
           readOnly: true
         criado_em:
           type: string
@@ -7611,10 +7611,10 @@ components:
         carteirinha:
           type: string
           maxLength: 50
-        plano:
+        plano_saude:
           type: string
           maxLength: 100
-        validade_plano:
+        validade_plano_saude:
           type: string
           format: date
           nullable: true
@@ -7692,10 +7692,10 @@ components:
         carteirinha:
           type: string
           maxLength: 50
-        plano:
+        plano_saude:
           type: string
           maxLength: 100
-        validade_plano:
+        validade_plano_saude:
           type: string
           format: date
           nullable: true
@@ -7744,10 +7744,12 @@ components:
         funcao:
           type: string
           maxLength: 100
-        role:
-          allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+        papel:
+          nullable: true
           readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/PapelEnum'
+          - $ref: '#/components/schemas/NullEnum'
         ativo:
           type: boolean
           readOnly: true
@@ -7759,7 +7761,7 @@ components:
       - ativo
       - criado_em
       - id
-      - role
+      - papel
       - user
     ColaboradorRequest:
       type: object
@@ -8467,6 +8469,9 @@ components:
       - codigo
       - email
       - nova_senha
+    NullEnum:
+      enum:
+      - null
     ObjetoCliente:
       type: object
       properties:
@@ -8563,19 +8568,7 @@ components:
       required:
       - data
       - valor
-    PagamentoCobrancaRequest:
-      type: object
-      properties:
-        forma:
-          $ref: '#/components/schemas/FormaEnum'
-        valor:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-      required:
-      - forma
-      - valor
-    PagamentoKanban:
+    PagamentoAtendimento:
       type: object
       properties:
         id:
@@ -8591,7 +8584,7 @@ components:
       - forma
       - id
       - valor
-    PagamentoKanbanRequest:
+    PagamentoAtendimentoRequest:
       type: object
       properties:
         forma:
@@ -8600,6 +8593,18 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+      required:
+      - forma
+      - valor
+    PagamentoCobrancaRequest:
+      type: object
+      properties:
+        forma:
+          $ref: '#/components/schemas/FormaEnum'
+        valor:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
       required:
       - forma
       - valor
@@ -8925,6 +8930,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Veiculo'
+    PapelEnum:
+      enum:
+      - proprietario
+      - colaborador
+      type: string
+      description: |-
+        * `proprietario` - Proprietário
+        * `colaborador` - Colaborador
     PatchedAgendamentoRequest:
       type: object
       properties:
@@ -9019,10 +9032,10 @@ components:
         carteirinha:
           type: string
           maxLength: 50
-        plano:
+        plano_saude:
           type: string
           maxLength: 100
-        validade_plano:
+        validade_plano_saude:
           type: string
           format: date
           nullable: true
@@ -9425,14 +9438,6 @@ components:
       required:
       - por_categoria
       - total
-    RoleEnum:
-      enum:
-      - proprietario
-      - colaborador
-      type: string
-      description: |-
-        * `proprietario` - Proprietário
-        * `colaborador` - Colaborador
     RuaNoPonto:
       type: object
       properties:

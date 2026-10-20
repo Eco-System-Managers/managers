@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from apps_serv.vitrine.models import NegocioPublico
 from apps_work.clientes.models import Cliente
-from apps_work.contratos.models import Contrato
+from apps_work.contratos.models import Contrato, StatusContrato
 from apps_work.servicos.models import Servico
 from core.schemas import schema_valido
 
@@ -137,7 +137,7 @@ def test_hora_do_dashboard_e_a_local(api_dono):
 def test_ip_da_assinatura_ignora_x_forwarded_for(api, tenant):
     cliente = Cliente.objects.create(nome='Ana', telefone='11999990000', email='ana@x.com')
     contrato = Contrato.objects.create(
-        cliente=cliente, titulo='Contrato', corpo='Corpo.', status=Contrato.STATUS_ENVIADO,
+        cliente=cliente, titulo='Contrato', corpo='Corpo.', status=StatusContrato.ENVIADO,
     )
     resposta = api.post(
         f'/api/v1/contratos/publico/{tenant.schema_name}/{contrato.token}/',

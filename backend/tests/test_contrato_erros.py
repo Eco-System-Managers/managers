@@ -118,7 +118,7 @@ class TestDePontaAPonta:
 
     def test_erro_de_negocio_do_service_chega_com_code(self, api, proprietario):
         from apps_work.usuarios.models import Colaborador
-        dono = Colaborador.objects.create(user=proprietario, role='proprietario')
+        dono = Colaborador.objects.create(user=proprietario)
         resposta = api.post(f'/api/v1/colaboradores/{dono.id}/desativar/')
         assert resposta.status_code == 400
         assert resposta.json() == {

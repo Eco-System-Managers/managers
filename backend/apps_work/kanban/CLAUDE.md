@@ -10,7 +10,7 @@ do profissional": existe uma fila de etapas, e o atendimento anda por ela.
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `EtapaKanban` (as colunas do quadro), `AtendimentoKanban` (o card) e `PagamentoKanban` |
+| `models.py` | `EtapaKanban` (as colunas do quadro), `AtendimentoKanban` (o card) e `PagamentoAtendimento` |
 | `services.py` | Traduz posição no quadro em status, cria etapas padrão, reordena colunas e cria o atendimento com checagem de horário |
 | `views.py` | Os dois ViewSets, mais as ações `mover`, `cobrar`, `desfazer_cobranca` e `marcar_falta` |
 | `serializers.py` | Representação do quadro |
@@ -49,7 +49,7 @@ Ordenação padrão por `ordem`.
 dois estão preenchidos. É o que impede dois atendimentos no mesmo horário sem
 proibir o atendimento sem hora marcada.
 
-### `PagamentoKanban`
+### `PagamentoAtendimento`
 
 | Coluna | Tipo | O que é |
 |---|---|---|

@@ -57,7 +57,7 @@ class ClienteSerializer(serializers.ModelSerializer):
             'cep', 'endereco', 'numero_endereco',
             'observacao',
             'alergia',
-            'convenio', 'carteirinha', 'plano', 'validade_plano',
+            'convenio', 'carteirinha', 'plano_saude', 'validade_plano_saude',
             'criado_em', 'origem',
             'veiculos', 'pets', 'foto',
         ]

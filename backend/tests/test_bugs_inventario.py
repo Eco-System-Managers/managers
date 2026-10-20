@@ -7,7 +7,7 @@ from django.db import IntegrityError, connection
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps_work.agenda.models import Agendamento, Pagamento
+from apps_work.agenda.models import Agendamento, PagamentoAgendamento
 from apps_work.clientes.models import Cliente
 from apps_work.servicos.models import Servico
 
@@ -31,19 +31,19 @@ class TestFaturamentoDoDashboard:
         # O que a vitrine cria ao agendar pelo app: agendamento em aberto com
         # pagamento "qr_code" provisório.
         pendente = Agendamento.objects.create(cliente=cliente, data_hora=timezone.now(), status='agendado')
-        Pagamento.objects.create(agendamento=pendente, forma='qr_code', valor=Decimal('80.00'))
+        PagamentoAgendamento.objects.create(agendamento=pendente, forma='qr_code', valor=Decimal('80.00'))
 
         concluido = Agendamento.objects.create(cliente=cliente, data_hora=timezone.now(), status='concluido')
-        Pagamento.objects.create(agendamento=concluido, forma='pix', valor=Decimal('50.00'))
+        PagamentoAgendamento.objects.create(agendamento=concluido, forma='pix', valor=Decimal('50.00'))
 
         kpis = api.get('/api/v1/dashboard/resumo/').json()['kpis']
         assert kpis['faturamento_mes'] == '50.00'
 
     def test_dashboard_e_caixa_concordam(self, api, cliente):
         cancelado = Agendamento.objects.create(cliente=cliente, data_hora=timezone.now(), status='cancelado')
-        Pagamento.objects.create(agendamento=cancelado, forma='pix', valor=Decimal('30.00'))
+        PagamentoAgendamento.objects.create(agendamento=cancelado, forma='pix', valor=Decimal('30.00'))
         concluido = Agendamento.objects.create(cliente=cliente, data_hora=timezone.now(), status='concluido')
-        Pagamento.objects.create(agendamento=concluido, forma='pix', valor=Decimal('70.00'))
+        PagamentoAgendamento.objects.create(agendamento=concluido, forma='pix', valor=Decimal('70.00'))
 
         hoje = timezone.localdate().isoformat()
         caixa = api.get(f'/api/v1/financeiro/caixa/?data_inicio={hoje}&data_fim={hoje}').json()

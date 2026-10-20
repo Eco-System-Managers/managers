@@ -75,7 +75,7 @@ dessincroniza do histórico.
 ## O caixa
 
 `CaixaService.obter_dados` junta pagamentos dos **dois modos** de agenda
-(`Pagamento` da agenda e `PagamentoKanban` da esteira) num período.
+(`PagamentoAgendamento` da agenda e `PagamentoAtendimento` da esteira) num período.
 
 Detalhe que já causou confusão: atendimento de esteira não tem colaborador
 vinculado. Filtrar o caixa por colaborador exclui esses registros por completo —

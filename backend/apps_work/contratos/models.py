@@ -32,12 +32,6 @@ class StatusContrato(models.TextChoices):
 
 
 class Contrato(models.Model):
-    # Atalhos mantidos para os testes, que ainda usam Contrato.STATUS_*.
-    STATUS_PENDENTE = StatusContrato.PENDENTE
-    STATUS_ENVIADO = StatusContrato.ENVIADO
-    STATUS_ASSINADO = StatusContrato.ASSINADO
-    STATUS_RECUSADO = StatusContrato.RECUSADO
-
     modelo = models.ForeignKey(
         ModeloContrato,
         on_delete=models.SET_NULL,
