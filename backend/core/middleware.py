@@ -7,26 +7,27 @@ from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 
+from core import rotas
 from core.cache import TTL_ASSINATURA_SEGUNDOS, chave_assinatura_bloqueada
 
 _INACTIVITY_SKIP = {
-    '/auth/login/',
-    '/auth/cadastro/',
-    '/auth/recuperar-senha/',
-    '/auth/verificar-codigo/',
-    '/auth/nova-senha/',
+    f'{rotas.WORK_AUTH}login/',
+    f'{rotas.WORK_AUTH}cadastro/',
+    f'{rotas.WORK_AUTH}recuperar-senha/',
+    f'{rotas.WORK_AUTH}verificar-codigo/',
+    f'{rotas.WORK_AUTH}nova-senha/',
     '/admin/',
     # Service Manage (B2C)
-    '/api/sm/auth/cadastro/',
-    '/api/sm/auth/login/',
-    '/api/sm/auth/refresh/',
-    '/api/sm/auth/logout/',
+    f'{rotas.SERVICEMANAGE_AUTH}cadastro/',
+    f'{rotas.SERVICEMANAGE_AUTH}login/',
+    f'{rotas.SERVICEMANAGE_AUTH}refresh/',
+    f'{rotas.SERVICEMANAGE_AUTH}logout/',
 }
 
 
 _TOKEN_NO_REQUEST = '_access_token_decodificado'
 
-_PREFIXO_SERVICEMANAGE = '/api/sm/'
+_PREFIXO_SERVICEMANAGE = rotas.SERVICEMANAGE
 
 
 def _token_do_request(request):
@@ -142,16 +143,23 @@ class JWTTenantMiddleware:
 
 
 _BLOQUEIO_ISENTOS = (
-    '/api/billing/',
+    # Login, cadastro, refresh e recuperação: estavam em /auth/, fora de /api/,
+    # e continuam isentos — o dono de um tenant bloqueado precisa entrar para
+    # pagar.
+    rotas.WORK_AUTH,
+    # O cliente que assina pelo link do e-mail não tem nada a ver com a
+    # assinatura do negócio (antes a rota ficava fora de /api/).
+    f'{rotas.WORK}contratos/publico/',
+    f'{rotas.WORK}billing/',
     # /me/ identifica o usuário logado e decide se ele pode ver o botão de
     # assinar (só o proprietário pode) — precisa funcionar mesmo bloqueado,
     # senão ninguém consegue sair do estado bloqueado.
-    '/api/colaboradores/me/',
+    f'{rotas.WORK}colaboradores/me/',
     # PrivateRoute (frontend) consulta isso pra saber se o onboarding foi
     # concluído antes mesmo de decidir pra onde navegar — sem essa isenção,
     # todo tenant bloqueado é jogado de volta pro login em vez de continuar
     # logado e cair na tela de Pagamentos.
-    '/api/empresa/config/',
+    f'{rotas.WORK}empresa/config/',
 )
 
 
@@ -169,7 +177,7 @@ class AssinaturaBloqueadaMiddleware:
     def __call__(self, request):
         if (
             connection.schema_name != 'public'
-            and request.path.startswith('/api/')
+            and request.path.startswith(rotas.WORK)
             and not any(request.path.startswith(p) for p in _BLOQUEIO_ISENTOS)
         ):
             if self._bloqueada(connection.schema_name):

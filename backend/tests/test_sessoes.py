@@ -44,12 +44,12 @@ def sessao(proprietario, tenant):
 
 
 def _renovar(api, refresh):
-    return api.post('/auth/token-refresh/', {'refresh': str(refresh)}, **MOBILE)
+    return api.post('/api/v1/auth/token-refresh/', {'refresh': str(refresh)}, **MOBILE)
 
 
 def _acessar(api, access):
     api.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
-    return api.get('/api/colaboradores/')
+    return api.get('/api/v1/colaboradores/')
 
 
 @pytest.mark.django_db
@@ -70,23 +70,23 @@ class TestRotacaoB2B:
 @pytest.mark.django_db
 class TestRevogacaoB2B:
     def test_logout_revoga_o_refresh(self, api, sessao):
-        assert api.post('/auth/logout/', {'refresh': str(sessao)}, **MOBILE).status_code == 200
+        assert api.post('/api/v1/auth/logout/', {'refresh': str(sessao)}, **MOBILE).status_code == 200
         assert _renovar(api, sessao).status_code == 401
 
     def test_logout_web_revoga_o_refresh_do_cookie(self, api, sessao):
         api.cookies['refresh_token'] = str(sessao)
-        api.post('/auth/logout/')
+        api.post('/api/v1/auth/logout/')
         assert _renovar(api, sessao).status_code == 401
 
     def test_logout_com_refresh_invalido_responde_200(self, api):
-        response = api.post('/auth/logout/', {'refresh': 'lixo'}, **MOBILE)
+        response = api.post('/api/v1/auth/logout/', {'refresh': 'lixo'}, **MOBILE)
         assert response.status_code == 200
 
     def test_troca_de_senha_derruba_refresh_e_access(self, api, sessao, proprietario):
         access = str(sessao.access_token)
         CodigoRecuperacao.emitir(proprietario, '12345678')
 
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': proprietario.email, 'codigo': '12345678', 'nova_senha': 'OutraSenha456!',
         })
 
@@ -120,7 +120,7 @@ class TestRevogacaoB2B:
 @pytest.mark.django_db
 class TestEndpointDeRefreshDuplicado:
     def test_rota_do_simplejwt_nao_existe_mais(self, api, sessao):
-        response = api.post('/api/token/refresh/', {'refresh': str(sessao)})
+        response = api.post('/api/v1/token/refresh/', {'refresh': str(sessao)})
         assert response.status_code == 404
 
 
@@ -153,7 +153,7 @@ class TestChavesDeAssinatura:
 
     def test_token_do_b2b_nao_autentica_no_b2c(self, api_sm, sessao):
         api_sm.credentials(HTTP_AUTHORIZATION=f'Bearer {sessao.access_token}')
-        assert api_sm.get('/api/sm/me/').status_code == 401
+        assert api_sm.get('/api/sm/v1/me/').status_code == 401
 
 
 def test_aplicacao_nao_sobe_sem_secret_key():
@@ -192,20 +192,20 @@ def consumidor(db):
 
 def _login_sm(api_sm):
     response = api_sm.post(
-        '/api/sm/auth/login/', {'email': 'carla@sm.com', 'senha': 'SenhaForte123!'}, **MOBILE,
+        '/api/sm/v1/auth/login/', {'email': 'carla@sm.com', 'senha': 'SenhaForte123!'}, **MOBILE,
     )
     assert response.status_code == 200
     return response.data['access'], response.data['refresh']
 
 
 def _renovar_sm(api_sm, refresh):
-    return api_sm.post('/api/sm/auth/refresh/', {'refresh': refresh}, **MOBILE)
+    return api_sm.post('/api/sm/v1/auth/refresh/', {'refresh': refresh}, **MOBILE)
 
 
 @pytest.mark.django_db
 class TestSessoesB2C:
     def test_web_recebe_refresh_so_no_cookie(self, api_sm, consumidor):
-        response = api_sm.post('/api/sm/auth/login/', {'email': 'carla@sm.com', 'senha': 'SenhaForte123!'})
+        response = api_sm.post('/api/sm/v1/auth/login/', {'email': 'carla@sm.com', 'senha': 'SenhaForte123!'})
         assert 'refresh' not in response.data
         assert response.cookies.get('sm_refresh_token') is not None
 
@@ -221,7 +221,7 @@ class TestSessoesB2C:
 
     def test_logout_revoga_o_refresh(self, api_sm, consumidor):
         _, refresh = _login_sm(api_sm)
-        assert api_sm.post('/api/sm/auth/logout/', {'refresh': refresh}, **MOBILE).status_code == 200
+        assert api_sm.post('/api/sm/v1/auth/logout/', {'refresh': refresh}, **MOBILE).status_code == 200
         assert _renovar_sm(api_sm, refresh).status_code == 401
 
     def test_troca_de_senha_derruba_access_e_refresh(self, api_sm, consumidor):
@@ -231,14 +231,14 @@ class TestSessoesB2C:
         # O token tem resolução de segundos; a troca acontece "depois" dele.
         depois = timezone.now() + timedelta(seconds=5)
         with patch('apps_serv.consumidores.services.timezone.now', return_value=depois):
-            response = api_sm.post('/api/sm/auth/nova-senha/', {
+            response = api_sm.post('/api/sm/v1/auth/nova-senha/', {
                 'email': 'carla@sm.com', 'codigo': '12345678', 'nova_senha': 'OutraSenha456!',
             })
         assert response.status_code == 200
 
         assert _renovar_sm(api_sm, refresh).status_code == 401
         api_sm.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
-        assert api_sm.get('/api/sm/me/').status_code == 401
+        assert api_sm.get('/api/sm/v1/me/').status_code == 401
 
     def test_login_depois_da_troca_de_senha_funciona(self, api_sm, consumidor):
         Consumidor.objects.filter(pk=consumidor.pk).update(
@@ -246,7 +246,7 @@ class TestSessoesB2C:
         )
         access, _ = _login_sm(api_sm)
         api_sm.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
-        assert api_sm.get('/api/sm/me/').status_code == 200
+        assert api_sm.get('/api/sm/v1/me/').status_code == 200
 
     def test_access_nao_serve_como_refresh(self, api_sm, consumidor):
         access, _ = _login_sm(api_sm)

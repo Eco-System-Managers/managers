@@ -13,6 +13,7 @@ from apps_serv.consumidores.services import (
     RecuperacaoSenhaConsumidorService,
     RegistroConsumidorService,
 )
+from core import rotas
 from core.limites import MuitasTentativas
 from core.sessao import entregar_refresh, refresh_da_requisicao
 from core.throttling import RecuperacaoConsumidorPorEmailThrottle
@@ -33,12 +34,12 @@ def _set_refresh_cookie(response: Response, token_str: str) -> None:
         secure=not settings.DEBUG,
         samesite='Lax',
         max_age=REFRESH_COOKIE_MAX_AGE,
-        path='/api/sm/auth/',
+        path=rotas.SERVICEMANAGE_AUTH,
     )
 
 
 def _delete_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key=REFRESH_COOKIE, path='/api/sm/auth/')
+    response.delete_cookie(key=REFRESH_COOKIE, path=rotas.SERVICEMANAGE_AUTH)
 
 
 class CadastroConsumidorView(APIView):

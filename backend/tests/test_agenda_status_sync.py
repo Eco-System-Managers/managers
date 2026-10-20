@@ -54,7 +54,7 @@ class TestStatusEspelhadoNoConsumidor:
     def test_faltou_chega_no_app(self, client_autenticado, consumidor, tenant, agendamento):
         espelho = _espelho(consumidor, tenant, agendamento)
 
-        client_autenticado.patch(f'/api/agendamentos/{agendamento.pk}/', {'status': 'faltou'}, format='json')
+        client_autenticado.patch(f'/api/v1/agendamentos/{agendamento.pk}/', {'status': 'faltou'}, format='json')
 
         espelho.refresh_from_db()
         assert espelho.status == 'faltou'
@@ -62,7 +62,7 @@ class TestStatusEspelhadoNoConsumidor:
     def test_concluido_chega_no_app(self, client_autenticado, consumidor, tenant, agendamento):
         espelho = _espelho(consumidor, tenant, agendamento)
 
-        client_autenticado.patch(f'/api/agendamentos/{agendamento.pk}/', {'status': 'concluido'}, format='json')
+        client_autenticado.patch(f'/api/v1/agendamentos/{agendamento.pk}/', {'status': 'concluido'}, format='json')
 
         espelho.refresh_from_db()
         assert espelho.status == 'concluido'
@@ -75,7 +75,7 @@ class TestStatusEspelhadoNoConsumidor:
         espelho.status = 'faltou'
         espelho.save(update_fields=['status'])
 
-        client_autenticado.patch(f'/api/agendamentos/{agendamento.pk}/', {'status': 'confirmado'}, format='json')
+        client_autenticado.patch(f'/api/v1/agendamentos/{agendamento.pk}/', {'status': 'confirmado'}, format='json')
 
         espelho.refresh_from_db()
         assert espelho.status == 'confirmado'
@@ -86,7 +86,7 @@ class TestStatusEspelhadoNoConsumidor:
         espelho.save(update_fields=['status'])
 
         client_autenticado.patch(
-            f'/api/agendamentos/{agendamento.pk}/', {'observacoes': 'chegou cedo'}, format='json'
+            f'/api/v1/agendamentos/{agendamento.pk}/', {'observacoes': 'chegou cedo'}, format='json'
         )
 
         espelho.refresh_from_db()
@@ -96,7 +96,7 @@ class TestStatusEspelhadoNoConsumidor:
         """Esteira tem status lido ao vivo da coluna — não pode ser sobrescrito."""
         espelho = _espelho(consumidor, tenant, agendamento, origem='kanban')
 
-        client_autenticado.patch(f'/api/agendamentos/{agendamento.pk}/', {'status': 'faltou'}, format='json')
+        client_autenticado.patch(f'/api/v1/agendamentos/{agendamento.pk}/', {'status': 'faltou'}, format='json')
 
         espelho.refresh_from_db()
         assert espelho.status == 'agendado'
@@ -104,7 +104,7 @@ class TestStatusEspelhadoNoConsumidor:
     def test_agendamento_do_balcao_nao_quebra(self, client_autenticado, agendamento):
         """Sem contraparte no público, o handler simplesmente não acha nada."""
         response = client_autenticado.patch(
-            f'/api/agendamentos/{agendamento.pk}/', {'status': 'faltou'}, format='json'
+            f'/api/v1/agendamentos/{agendamento.pk}/', {'status': 'faltou'}, format='json'
         )
         assert response.status_code == 200
 
@@ -117,7 +117,7 @@ class TestStatusEspelhadoNoConsumidor:
             duracao_total=30, valor_total='50.00', status='agendado',
         )
 
-        client_autenticado.patch(f'/api/agendamentos/{agendamento.pk}/', {'status': 'faltou'}, format='json')
+        client_autenticado.patch(f'/api/v1/agendamentos/{agendamento.pk}/', {'status': 'faltou'}, format='json')
 
         espelho.refresh_from_db(); outro.refresh_from_db()
         assert outro.status == 'agendado'
@@ -132,7 +132,7 @@ class TestStatusEspelhadoNoConsumidor:
         espelho = _espelho(consumidor, tenant, agendamento)
 
         client_autenticado.post(
-            f'/api/agendamentos/{agendamento.pk}/cobrar/',
+            f'/api/v1/agendamentos/{agendamento.pk}/cobrar/',
             {'desconto': 0, 'pagamentos': [{'forma': 'pix', 'valor': '50.00'}]},
             format='json',
         )

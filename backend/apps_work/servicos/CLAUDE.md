@@ -12,7 +12,7 @@ cliente final.
 | `models.py` | `Servico` — nome, duração, preço, quais colaboradores executam, e a taxa de cancelamento |
 | `serializers.py` | Validação de preço, duração e o teto da taxa |
 | `views.py` | ViewSet. Escrita restrita ao proprietário; leitura liberada para colaborador |
-| `urls.py` | Rotas sob `/api/servicos/` |
+| `urls.py` | Rotas sob `/api/v1/servicos/` |
 
 ## Tabela
 

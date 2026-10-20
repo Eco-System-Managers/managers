@@ -34,7 +34,7 @@ class TestOrigemPadrao:
 
     def test_cadastro_pela_api_nasce_manual(self, client_autenticado):
         response = client_autenticado.post(
-            '/api/clientes/', {'nome': 'Joana', 'telefone': '11988887777'}, format='json'
+            '/api/v1/clientes/', {'nome': 'Joana', 'telefone': '11988887777'}, format='json'
         )
         assert response.status_code == 201
         assert response.data['origem'] == 'manual'
@@ -42,7 +42,7 @@ class TestOrigemPadrao:
     def test_origem_nao_pode_ser_definida_pela_api(self, client_autenticado):
         """Só quem cria o cadastro decide a origem — nunca o cliente da API."""
         response = client_autenticado.post(
-            '/api/clientes/',
+            '/api/v1/clientes/',
             {'nome': 'Joana', 'telefone': '11988887777', 'origem': 'servicemanage'},
             format='json',
         )
@@ -69,8 +69,8 @@ class TestRemocaoCliente:
 
     def test_cliente_arquivado_some_da_listagem(self, client_autenticado):
         cliente = Cliente.objects.create(nome='Carlos', origem=Cliente.ORIGEM_SERVICEMANAGE)
-        client_autenticado.delete(f'/api/clientes/{cliente.pk}/')
-        response = client_autenticado.get('/api/clientes/')
+        client_autenticado.delete(f'/api/v1/clientes/{cliente.pk}/')
+        response = client_autenticado.get('/api/v1/clientes/')
         assert all(c['id'] != cliente.pk for c in response.data['results'])
 
     def test_remocao_do_servicemanage_emite_sinal(self, patch_tenant_middleware):

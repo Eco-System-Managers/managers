@@ -26,7 +26,7 @@ def _contrato(cliente, titulo='Contrato', status=Contrato.STATUS_PENDENTE):
 
 @pytest.mark.django_db
 class TestContratoAPI:
-    URL = '/api/contratos/'
+    URL = '/api/v1/contratos/'
 
     def test_listar_retorna_200(self, client_autenticado, cliente):
         _contrato(cliente)

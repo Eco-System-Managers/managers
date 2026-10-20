@@ -16,7 +16,7 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 | `views.py` | `AgendamentoViewSet` mais três views de leitura (slots, dias do mês, pendências) |
 | `serializers.py` | Representação; o `create` monta agendamento e serviços juntos |
 | `signals.py` | Declara `agendamento_status_alterado`, que a vitrine escuta |
-| `urls.py` | Rotas sob `/api/agendamentos/` e afins |
+| `urls.py` | Rotas sob `/api/v1/agendamentos/` e afins |
 
 ## Os três modelos
 

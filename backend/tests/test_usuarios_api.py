@@ -149,50 +149,50 @@ def colaborador_outro(patch_tenant_middleware, outro_usuario):
 @pytest.mark.django_db
 class TestColaboradorAPI:
     def test_listar_colaboradores_retorna_200(self, client_autenticado, colaborador):
-        response = client_autenticado.get('/api/colaboradores/')
+        response = client_autenticado.get('/api/v1/colaboradores/')
         assert response.status_code == 200
         assert len(response.data['results']) == 1
 
     def test_buscar_por_nome_filtra_colaboradores(self, client_autenticado, colaborador):
-        response = client_autenticado.get('/api/colaboradores/?search=João')
+        response = client_autenticado.get('/api/v1/colaboradores/?search=João')
         assert response.status_code == 200
         assert len(response.data['results']) == 1
 
     def test_busca_sem_resultado_retorna_lista_vazia(self, client_autenticado, colaborador):
-        response = client_autenticado.get('/api/colaboradores/?search=Inexistente')
+        response = client_autenticado.get('/api/v1/colaboradores/?search=Inexistente')
         assert response.status_code == 200
         assert len(response.data['results']) == 0
 
     def test_sem_autenticacao_retorna_401(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get('/api/colaboradores/')
+        response = client.get('/api/v1/colaboradores/')
         assert response.status_code == 401
 
     def test_me_retorna_dados_do_colaborador_autenticado(self, client_autenticado, colaborador):
-        response = client_autenticado.get('/api/colaboradores/me/')
+        response = client_autenticado.get('/api/v1/colaboradores/me/')
         assert response.status_code == 200
         assert response.data['id'] == colaborador.id
         assert response.data['role'] == 'colaborador'
         assert response.data['user']['email'] == colaborador.user.email
 
     def test_me_sem_colaborador_vinculado_retorna_404(self, client_autenticado):
-        response = client_autenticado.get('/api/colaboradores/me/')
+        response = client_autenticado.get('/api/v1/colaboradores/me/')
         assert response.status_code == 404
 
     def test_delete_retorna_204_sem_deletar_fisicamente(self, client_autenticado, colaborador_outro):
-        response = client_autenticado.delete(f'/api/colaboradores/{colaborador_outro.id}/')
+        response = client_autenticado.delete(f'/api/v1/colaboradores/{colaborador_outro.id}/')
         assert response.status_code == 204
         colaborador_outro.refresh_from_db()
         assert colaborador_outro.ativo is False
 
     def test_delete_seta_user_is_active_false(self, client_autenticado, colaborador_outro):
-        client_autenticado.delete(f'/api/colaboradores/{colaborador_outro.id}/')
+        client_autenticado.delete(f'/api/v1/colaboradores/{colaborador_outro.id}/')
         colaborador_outro.user.refresh_from_db()
         assert colaborador_outro.user.is_active is False
 
     def test_desativar_desativa_user(self, client_autenticado, colaborador_outro):
-        response = client_autenticado.post(f'/api/colaboradores/{colaborador_outro.id}/desativar/')
+        response = client_autenticado.post(f'/api/v1/colaboradores/{colaborador_outro.id}/desativar/')
         assert response.status_code == 204
         colaborador_outro.refresh_from_db()
         colaborador_outro.user.refresh_from_db()
@@ -204,7 +204,7 @@ class TestColaboradorAPI:
         colaborador_outro.save()
         colaborador_outro.user.is_active = False
         colaborador_outro.user.save()
-        response = client_autenticado.post(f'/api/colaboradores/{colaborador_outro.id}/ativar/')
+        response = client_autenticado.post(f'/api/v1/colaboradores/{colaborador_outro.id}/ativar/')
         assert response.status_code == 200
         assert response.data['ativo'] is True
         colaborador_outro.user.refresh_from_db()
@@ -212,7 +212,7 @@ class TestColaboradorAPI:
 
     def test_patch_ignora_role_e_ativo(self, client_autenticado, colaborador_outro):
         response = client_autenticado.patch(
-            f'/api/colaboradores/{colaborador_outro.id}/',
+            f'/api/v1/colaboradores/{colaborador_outro.id}/',
             {'funcao': 'Gerente', 'role': 'proprietario', 'ativo': False},
         )
         assert response.status_code == 200
@@ -224,7 +224,7 @@ class TestColaboradorAPI:
         assert colaborador_outro.user.is_active is True
 
     def test_agendamentos_pendentes_sem_agendamentos_retorna_false(self, client_autenticado, colaborador_outro):
-        response = client_autenticado.get(f'/api/colaboradores/{colaborador_outro.id}/agendamentos-pendentes/')
+        response = client_autenticado.get(f'/api/v1/colaboradores/{colaborador_outro.id}/agendamentos-pendentes/')
         assert response.status_code == 200
         assert response.data['tem_pendentes'] is False
         assert response.data['total'] == 0
@@ -241,7 +241,7 @@ class TestColaboradorAPI:
             data_hora=timezone.now() + timedelta(days=1),
             status='agendado',
         )
-        response = client_autenticado.get(f'/api/colaboradores/{colaborador_outro.id}/agendamentos-pendentes/')
+        response = client_autenticado.get(f'/api/v1/colaboradores/{colaborador_outro.id}/agendamentos-pendentes/')
         assert response.status_code == 200
         assert response.data['tem_pendentes'] is True
         assert response.data['total'] == 1
@@ -264,12 +264,12 @@ class TestColaboradorAPI:
             data_hora=timezone.now() + timedelta(days=2),
             status='cancelado',
         )
-        response = client_autenticado.get(f'/api/colaboradores/{colaborador_outro.id}/agendamentos-pendentes/')
+        response = client_autenticado.get(f'/api/v1/colaboradores/{colaborador_outro.id}/agendamentos-pendentes/')
         assert response.data['tem_pendentes'] is False
 
     def test_remover_colaborador_deleta_fisicamente(self, client_autenticado, colaborador_outro):
         colab_id = colaborador_outro.id
-        response = client_autenticado.delete(f'/api/colaboradores/{colab_id}/remover/')
+        response = client_autenticado.delete(f'/api/v1/colaboradores/{colab_id}/remover/')
         assert response.status_code == 204
         assert Colaborador.objects.filter(pk=colab_id).count() == 0
 
@@ -278,7 +278,7 @@ class TestColaboradorAPI:
         servico = Servico.objects.create(nome='Corte', duracao=30, preco='50.00')
         servico.colaboradores.add(colaborador_outro)
 
-        client_autenticado.delete(f'/api/colaboradores/{colaborador_outro.id}/')
+        client_autenticado.delete(f'/api/v1/colaboradores/{colaborador_outro.id}/')
 
         assert not servico.colaboradores.filter(pk=colaborador_outro.pk).exists()
 
@@ -305,7 +305,7 @@ class TestColaboradorAPI:
             data_hora=timezone.now() - timedelta(days=1),
             status='concluido',
         )
-        client_autenticado.delete(f'/api/colaboradores/{colaborador_outro.id}/remover/')
+        client_autenticado.delete(f'/api/v1/colaboradores/{colaborador_outro.id}/remover/')
         ag.refresh_from_db()
         assert ag.colaborador is None
 
@@ -315,24 +315,24 @@ class TestColaboradorAPI:
 @pytest.mark.django_db
 class TestConviteAPI:
     def test_listar_convites_pendentes_retorna_200(self, client_autenticado, convite_valido):
-        response = client_autenticado.get('/api/convites/')
+        response = client_autenticado.get('/api/v1/convites/')
         assert response.status_code == 200
         assert len(response.data['results']) == 1
 
     def test_listar_nao_retorna_convites_aceitos(self, client_autenticado, convite_aceito):
-        response = client_autenticado.get('/api/convites/')
+        response = client_autenticado.get('/api/v1/convites/')
         assert response.status_code == 200
         assert len(response.data['results']) == 0
 
     def test_listar_nao_retorna_convites_expirados(self, client_autenticado, convite_expirado):
-        response = client_autenticado.get('/api/convites/')
+        response = client_autenticado.get('/api/v1/convites/')
         assert response.status_code == 200
         assert len(response.data['results']) == 0
 
     @patch('apps_work.usuarios.services.send_mail')
     def test_criar_convite_retorna_201(self, mock_mail, client_autenticado):
         payload = {'nome': 'Maria', 'email': 'maria@email.com'}
-        response = client_autenticado.post('/api/convites/', payload)
+        response = client_autenticado.post('/api/v1/convites/', payload)
         assert response.status_code == 201
         assert response.data['email'] == 'maria@email.com'
 
@@ -341,38 +341,38 @@ class TestConviteAPI:
         from django.core.cache import cache
         cache.clear()
         for i in range(5):
-            response = client_autenticado.post('/api/convites/', {'nome': f'Pessoa {i}', 'email': f'pessoa{i}@email.com'})
+            response = client_autenticado.post('/api/v1/convites/', {'nome': f'Pessoa {i}', 'email': f'pessoa{i}@email.com'})
             assert response.status_code == 201
-        response = client_autenticado.post('/api/convites/', {'nome': 'Excedente', 'email': 'excedente@email.com'})
+        response = client_autenticado.post('/api/v1/convites/', {'nome': 'Excedente', 'email': 'excedente@email.com'})
         assert response.status_code == 429
 
     def test_criar_convite_com_email_ja_pendente_retorna_400(self, client_autenticado, convite_valido):
         payload = {'nome': 'Outro', 'email': convite_valido.email}
-        response = client_autenticado.post('/api/convites/', payload)
+        response = client_autenticado.post('/api/v1/convites/', payload)
         assert response.status_code == 400
         assert 'pendente' in response.data['detail'].lower()
 
     @patch('apps_work.usuarios.services.send_mail')
     def test_criar_convite_apos_expiracao_retorna_201(self, mock_mail, client_autenticado, convite_expirado):
         payload = {'nome': 'Carlos', 'email': convite_expirado.email}
-        response = client_autenticado.post('/api/convites/', payload)
+        response = client_autenticado.post('/api/v1/convites/', payload)
         assert response.status_code == 201
 
     @patch('apps_work.usuarios.services.send_mail')
     def test_criar_convite_apos_aceito_retorna_201(self, mock_mail, client_autenticado, convite_aceito):
         payload = {'nome': 'Pedro', 'email': convite_aceito.email}
-        response = client_autenticado.post('/api/convites/', payload)
+        response = client_autenticado.post('/api/v1/convites/', payload)
         assert response.status_code == 201
 
     def test_cancelar_convite_retorna_204_e_remove(self, client_autenticado, convite_valido):
-        response = client_autenticado.delete(f'/api/convites/{convite_valido.pk}/')
+        response = client_autenticado.delete(f'/api/v1/convites/{convite_valido.pk}/')
         assert response.status_code == 204
         assert ConviteColaborador.objects.filter(pk=convite_valido.pk).count() == 0
 
     def test_cancelar_convite_remove_convite_index(self, client_autenticado, convite_valido):
         from tenants.models import ConviteIndex
         ConviteIndex.objects.create(token=convite_valido.token, schema_name='test_empresa')
-        client_autenticado.delete(f'/api/convites/{convite_valido.pk}/')
+        client_autenticado.delete(f'/api/v1/convites/{convite_valido.pk}/')
         assert ConviteIndex.objects.filter(token=convite_valido.token).count() == 0
 
     def test_cancelar_convite_colaborador_comum_retorna_403(self, patch_tenant_middleware, usuario, convite_valido):
@@ -380,19 +380,19 @@ class TestConviteAPI:
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         client.force_authenticate(user=usuario)
-        response = client.delete(f'/api/convites/{convite_valido.pk}/')
+        response = client.delete(f'/api/v1/convites/{convite_valido.pk}/')
         assert response.status_code == 403
         assert ConviteColaborador.objects.filter(pk=convite_valido.pk).count() == 1
 
     def test_cancelar_convite_expirado_retorna_404(self, client_autenticado, convite_expirado):
-        response = client_autenticado.delete(f'/api/convites/{convite_expirado.pk}/')
+        response = client_autenticado.delete(f'/api/v1/convites/{convite_expirado.pk}/')
         assert response.status_code == 404
 
     def test_info_token_invalido_retorna_404(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         import uuid
-        response = client.get(f'/api/convites/info/{uuid.uuid4()}/')
+        response = client.get(f'/api/v1/convites/info/{uuid.uuid4()}/')
         assert response.status_code == 404
 
     def test_info_convite_valido_retorna_dados(self, patch_tenant_middleware, convite_valido):
@@ -400,7 +400,7 @@ class TestConviteAPI:
         ConviteIndex.objects.create(token=convite_valido.token, schema_name='test_empresa')
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get(f'/api/convites/info/{convite_valido.token}/')
+        response = client.get(f'/api/v1/convites/info/{convite_valido.token}/')
         assert response.status_code == 200
         assert response.data['nome'] == convite_valido.nome
         assert response.data['email'] == convite_valido.email
@@ -409,7 +409,7 @@ class TestConviteAPI:
         import uuid
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.post(f'/api/convites/aceitar/{uuid.uuid4()}/', {'senha': 'SenhaForte@2024!'})
+        response = client.post(f'/api/v1/convites/aceitar/{uuid.uuid4()}/', {'senha': 'SenhaForte@2024!'})
         assert response.status_code == 404
 
     def test_aceitar_por_token_convite_ja_aceito_retorna_400(self, patch_tenant_middleware, convite_aceito):
@@ -418,7 +418,7 @@ class TestConviteAPI:
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         response = client.post(
-            f'/api/convites/aceitar/{convite_aceito.token}/',
+            f'/api/v1/convites/aceitar/{convite_aceito.token}/',
             {'senha': 'SenhaForte@2024!'},
         )
         assert response.status_code == 400
@@ -429,7 +429,7 @@ class TestConviteAPI:
         ConviteIndex.objects.create(token=convite_valido.token, schema_name='test_empresa')
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.post(f'/api/convites/aceitar/{convite_valido.token}/', {})
+        response = client.post(f'/api/v1/convites/aceitar/{convite_valido.token}/', {})
         assert response.status_code == 400
         assert 'senha' in response.data['detail'].lower()
 
@@ -439,7 +439,7 @@ class TestConviteAPI:
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         response = client.post(
-            f'/api/convites/aceitar/{convite_valido.token}/',
+            f'/api/v1/convites/aceitar/{convite_valido.token}/',
             {'senha': 'SenhaForte@2024!'},
         )
         assert response.status_code == 201
@@ -453,7 +453,7 @@ class TestConviteAPI:
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         response = client.post(
-            f'/api/convites/aceitar/{convite_valido.token}/',
+            f'/api/v1/convites/aceitar/{convite_valido.token}/',
             {'senha': '123'},
         )
         assert response.status_code == 400
@@ -465,7 +465,7 @@ class TestConviteAPI:
         ConviteIndex.objects.create(token=token, schema_name='schema_que_nao_existe')
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.post(f'/api/convites/aceitar/{token}/', {'senha': 'SenhaForte@2024!'})
+        response = client.post(f'/api/v1/convites/aceitar/{token}/', {'senha': 'SenhaForte@2024!'})
         assert response.status_code == 404
 
     def test_aceitar_por_token_convite_nao_encontrado_retorna_404(self, patch_tenant_middleware):
@@ -475,7 +475,7 @@ class TestConviteAPI:
         ConviteIndex.objects.create(token=token, schema_name='test_empresa')
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.post(f'/api/convites/aceitar/{token}/', {'senha': 'SenhaForte@2024!'})
+        response = client.post(f'/api/v1/convites/aceitar/{token}/', {'senha': 'SenhaForte@2024!'})
         assert response.status_code == 404
 
     def test_info_tenant_inexistente_retorna_404(self, patch_tenant_middleware):
@@ -485,7 +485,7 @@ class TestConviteAPI:
         ConviteIndex.objects.create(token=token, schema_name='schema_que_nao_existe')
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get(f'/api/convites/info/{token}/')
+        response = client.get(f'/api/v1/convites/info/{token}/')
         assert response.status_code == 404
 
     def test_info_convite_ja_aceito_retorna_404(self, patch_tenant_middleware, convite_aceito):
@@ -493,7 +493,7 @@ class TestConviteAPI:
         ConviteIndex.objects.create(token=convite_aceito.token, schema_name='test_empresa')
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get(f'/api/convites/info/{convite_aceito.token}/')
+        response = client.get(f'/api/v1/convites/info/{convite_aceito.token}/')
         assert response.status_code == 404
 
     def test_info_convite_expirado_retorna_400(self, patch_tenant_middleware, convite_expirado):
@@ -501,7 +501,7 @@ class TestConviteAPI:
         ConviteIndex.objects.create(token=convite_expirado.token, schema_name='test_empresa')
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get(f'/api/convites/info/{convite_expirado.token}/')
+        response = client.get(f'/api/v1/convites/info/{convite_expirado.token}/')
         assert response.status_code == 400
 
     def test_aceitar_por_token_email_ja_existente_retorna_400(self, patch_tenant_middleware, convite_valido):
@@ -513,7 +513,7 @@ class TestConviteAPI:
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         response = client.post(
-            f'/api/convites/aceitar/{convite_valido.token}/',
+            f'/api/v1/convites/aceitar/{convite_valido.token}/',
             {'senha': 'SenhaForte@2024!'},
         )
         assert response.status_code == 400

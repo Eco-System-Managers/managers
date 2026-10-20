@@ -15,8 +15,8 @@ from apps_serv.consumidores.services import RegistroConsumidorService
 from core.limites import LimiteDeFalhas, MuitasTentativas
 from core.throttling import UsuarioRateThrottle
 
-LOGIN_B2B = '/auth/login/'
-LOGIN_B2C = '/api/sm/auth/login/'
+LOGIN_B2B = '/api/v1/auth/login/'
+LOGIN_B2C = '/api/sm/v1/auth/login/'
 
 
 @pytest.fixture
@@ -184,17 +184,17 @@ class TestRecuperacaoPorEmail:
 
     def test_b2b_limita_codigos_por_email_de_ips_diferentes(self, api):
         for i in range(5):
-            response = api.post('/auth/recuperar-senha/', {'email': 'alvo@x.com'}, REMOTE_ADDR=f'10.0.0.{i}')
+            response = api.post('/api/v1/auth/recuperar-senha/', {'email': 'alvo@x.com'}, REMOTE_ADDR=f'10.0.0.{i}')
             assert response.status_code == 200
 
-        response = api.post('/auth/recuperar-senha/', {'email': 'alvo@x.com'}, REMOTE_ADDR='10.0.0.99')
+        response = api.post('/api/v1/auth/recuperar-senha/', {'email': 'alvo@x.com'}, REMOTE_ADDR='10.0.0.99')
         assert response.status_code == 429
-        assert api.post('/auth/recuperar-senha/', {'email': 'outro@x.com'}).status_code == 200
+        assert api.post('/api/v1/auth/recuperar-senha/', {'email': 'outro@x.com'}).status_code == 200
 
     def test_b2c_limita_codigos_por_email(self, api_sm):
         for _ in range(5):
-            api_sm.post('/api/sm/auth/recuperar-senha/', {'email': 'alvo@x.com'})
-        response = api_sm.post('/api/sm/auth/recuperar-senha/', {'email': 'alvo@x.com'})
+            api_sm.post('/api/sm/v1/auth/recuperar-senha/', {'email': 'alvo@x.com'})
+        response = api_sm.post('/api/sm/v1/auth/recuperar-senha/', {'email': 'alvo@x.com'})
         assert response.status_code == 429
 
 
@@ -215,5 +215,5 @@ def test_rota_publica_sem_escopo_tem_limite_de_anonimo(api_sm):
     # O refresh do B2C não declara throttle próprio: fica com o de anônimo.
     with patch('rest_framework.throttling.AnonRateThrottle.get_rate', return_value='2/min'):
         for _ in range(2):
-            assert api_sm.post('/api/sm/auth/refresh/').status_code == 401
-        assert api_sm.post('/api/sm/auth/refresh/').status_code == 429
+            assert api_sm.post('/api/sm/v1/auth/refresh/').status_code == 401
+        assert api_sm.post('/api/sm/v1/auth/refresh/').status_code == 429

@@ -14,7 +14,7 @@ sincronizado, nunca a fonte.
 | `services.py` | Registro, login, recuperação de senha e — o mais importante — `SincronizarClienteService`, que empurra o perfil para todos os tenants vinculados |
 | `views.py` | Perfil (`/me/`), foto, agenda do cliente, vínculos e os objetos (pets/veículos). Views finas, exceto o cadastro de objeto, que valida ali mesmo |
 | `serializers.py` | Representação e validação. `ConsumidorUpdateSerializer` define o que o cliente pode editar do próprio cadastro |
-| `urls.py` | Rotas sob `/api/sm/` |
+| `urls.py` | Rotas sob `/api/sm/v1/` |
 
 ## Os cinco modelos
 

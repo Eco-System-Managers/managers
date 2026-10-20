@@ -41,13 +41,13 @@ def tenant_bloqueado(tenant):
 @pytest.mark.django_db
 class TestCorsNasRespostasDosMiddlewares:
     def test_402_da_assinatura_sai_com_cors(self, tenant_bloqueado):
-        response = tenant_bloqueado.get('/api/servicos/', HTTP_ORIGIN=ORIGEM)
+        response = tenant_bloqueado.get('/api/v1/servicos/', HTTP_ORIGIN=ORIGEM)
         assert response.status_code == 402
         assert response['Access-Control-Allow-Origin'] == ORIGEM
 
     def test_preflight_em_tenant_bloqueado_e_respondido_pelo_cors(self, tenant_bloqueado):
         response = tenant_bloqueado.options(
-            '/api/servicos/',
+            '/api/v1/servicos/',
             HTTP_ORIGIN=ORIGEM,
             HTTP_ACCESS_CONTROL_REQUEST_METHOD='GET',
         )
@@ -62,7 +62,7 @@ class TestCorsNasRespostasDosMiddlewares:
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-        response = client.get('/api/servicos/', HTTP_ORIGIN=ORIGEM)
+        response = client.get('/api/v1/servicos/', HTTP_ORIGIN=ORIGEM)
 
         assert response.status_code == 401
         assert response.json()['code'] == 'inactivity_timeout'

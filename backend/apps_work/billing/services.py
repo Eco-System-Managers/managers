@@ -7,6 +7,7 @@ from decimal import Decimal
 import mercadopago
 import requests
 from django.conf import settings
+from django.urls import reverse
 
 from .models import Assinatura, Pagamento, Plano
 
@@ -42,7 +43,7 @@ class MercadoPagoService:
             # Aponta pro nosso próprio backend, não pro site institucional — é
             # esse endpoint que repassa a pessoa de volta pro frontend depois
             # do checkout (ver RetornoCheckoutView).
-            'back_url': f'{settings.MERCADOPAGO_BACK_URL}/api/billing/retorno/',
+            'back_url': f"{settings.MERCADOPAGO_BACK_URL}{reverse('retorno-checkout')}",
         })
         if resultado['status'] not in (200, 201):
             raise AssinaturaInvalidaError(f'Erro ao criar plano no Mercado Pago: {resultado["response"]}')

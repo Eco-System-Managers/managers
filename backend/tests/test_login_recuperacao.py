@@ -38,14 +38,14 @@ def user_auth(db):
 class TestLoginSemEnumeracao:
     def test_b2b_calcula_hash_quando_o_usuario_nao_existe(self, api):
         with patch.object(User, 'set_password') as hash_ficticio:
-            response = api.post('/auth/login/', {'email': 'ninguem@teste.com', 'senha': 'qualquer'})
+            response = api.post('/api/v1/auth/login/', {'email': 'ninguem@teste.com', 'senha': 'qualquer'})
         assert response.status_code == 401
         hash_ficticio.assert_called_once_with('qualquer')
 
     def test_b2b_mantem_a_mensagem_de_usuario_inativo(self, api, proprietario):
         proprietario.is_active = False
         proprietario.save()
-        response = api.post('/auth/login/', {'email': proprietario.username, 'senha': 'senha123'})
+        response = api.post('/api/v1/auth/login/', {'email': proprietario.username, 'senha': 'senha123'})
         assert response.status_code == 403
         assert response.data['code'] == 'user_inactive'
 
@@ -70,33 +70,33 @@ class TestRecuperacaoB2B:
 
     def test_busca_pelo_email_ignora_maiusculas(self, api, user_auth):
         with patch('core.email.send_mail') as mock_mail:
-            api.post('/auth/recuperar-senha/', {'email': 'AUTH@Teste.com'})
+            api.post('/api/v1/auth/recuperar-senha/', {'email': 'AUTH@Teste.com'})
         mock_mail.assert_called_once()
 
     def test_email_repetido_em_outro_user_nao_quebra(self, api, user_auth):
         # O campo email do User não é único; antes isso dava MultipleObjectsReturned.
         User.objects.create_user(username='outro', email='auth@teste.com', password='x')
         with patch('core.email.send_mail'):
-            response = api.post('/auth/recuperar-senha/', {'email': 'auth@teste.com'})
+            response = api.post('/api/v1/auth/recuperar-senha/', {'email': 'auth@teste.com'})
         assert response.status_code == 200
 
     def test_erro_de_smtp_nao_aparece_na_resposta(self, api, user_auth):
         with patch('core.email.send_mail', side_effect=smtplib.SMTPException('fora do ar')):
-            response = api.post('/auth/recuperar-senha/', {'email': 'auth@teste.com'})
+            response = api.post('/api/v1/auth/recuperar-senha/', {'email': 'auth@teste.com'})
         assert response.status_code == 200
         assert response.data['detail'] == RecuperacaoSenhaService.GENERIC_MSG
 
     def test_codigo_bloqueia_apos_5_tentativas(self, api, user_auth):
         CodigoRecuperacao.emitir(user_auth, '12345678')
         for _ in range(CodigoRecuperacao.MAX_TENTATIVAS):
-            api.post('/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '00000000'})
+            api.post('/api/v1/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '00000000'})
 
-        response = api.post('/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '12345678'})
+        response = api.post('/api/v1/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '12345678'})
         assert response.status_code == 400
 
     def test_tentativa_errada_na_nova_senha_tambem_conta(self, api, user_auth):
         registro, _ = CodigoRecuperacao.emitir(user_auth, '12345678')
-        api.post('/auth/nova-senha/', {
+        api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com', 'codigo': '00000000', 'nova_senha': 'NovaSenha456!',
         })
         registro.refresh_from_db()
@@ -104,7 +104,7 @@ class TestRecuperacaoB2B:
 
     def test_senha_fraca_nao_gasta_tentativa(self, api, user_auth):
         registro, _ = CodigoRecuperacao.emitir(user_auth, '12345678')
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com', 'codigo': '00000000', 'nova_senha': '123',
         })
         assert response.status_code == 400
@@ -113,7 +113,7 @@ class TestRecuperacaoB2B:
 
     def test_nova_senha_parecida_com_o_email_e_recusada(self, api, user_auth):
         CodigoRecuperacao.emitir(user_auth, '12345678')
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com', 'codigo': '12345678', 'nova_senha': 'auth@teste.com',
         })
         assert response.status_code == 400
@@ -203,14 +203,14 @@ class TestSchemaNoCadastro:
         assert gerar_schema_name('Test Empresa') == 'test_empresa_2'
 
     def test_nome_sem_letra_nem_numero_retorna_400(self, api):
-        response = api.post('/auth/cadastro/', {
+        response = api.post('/api/v1/auth/cadastro/', {
             'nome_empresa': '!!!', 'nome': 'Ana', 'email': 'ana@x.com', 'senha': 'SenhaForte123!',
         })
         assert response.status_code == 400
         assert 'nome_empresa' in response.data['fields']
 
     def test_cadastro_cria_dominio_valido(self, api):
-        response = api.post('/auth/cadastro/', {
+        response = api.post('/api/v1/auth/cadastro/', {
             'nome_empresa': 'Salão Bela', 'nome': 'Ana', 'email': 'ana@x.com', 'senha': 'SenhaForte123!',
         })
         assert response.status_code == 201

@@ -59,7 +59,7 @@ class TestCadastro:
             'email': 'ana@teste.com',
             'senha': 'SenhaForte123!',
         }
-        response = api.post('/auth/cadastro/', payload)
+        response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 201
         assert 'access' in response.data
         # Web: o refresh vai só no cookie httpOnly, nunca no corpo.
@@ -75,7 +75,7 @@ class TestCadastro:
             'email': 'auth@teste.com',
             'senha': 'SenhaForte123!',
         }
-        response = api.post('/auth/cadastro/', payload)
+        response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 400
 
     def test_empresa_com_nome_repetido_ganha_sufixo(self, api, db):
@@ -90,7 +90,7 @@ class TestCadastro:
             'email': 'nova@teste.com',
             'senha': 'SenhaForte123!',
         }
-        response = api.post('/auth/cadastro/', payload)
+        response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 201
         assert response.data['schema_name'] == 'salao_existente_2'
         assert response.data['empresa'] == 'Salão Existente'
@@ -102,7 +102,7 @@ class TestCadastro:
             'email': 'fraco@teste.com',
             'senha': '123',
         }
-        response = api.post('/auth/cadastro/', payload)
+        response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 400
 
     def test_email_invalido_retorna_400(self, api, db):
@@ -112,7 +112,7 @@ class TestCadastro:
             'email': 'nao-e-email',
             'senha': 'SenhaForte123!',
         }
-        response = api.post('/auth/cadastro/', payload)
+        response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 400
 
     def test_cria_assinatura_trial_quando_plano_pro_existe(self, api, db):
@@ -133,7 +133,7 @@ class TestCadastro:
             'email': 'bia@teste.com',
             'senha': 'SenhaForte123!',
         }
-        response = api.post('/auth/cadastro/', payload)
+        response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 201
 
         connection.set_schema_to_public()
@@ -158,7 +158,7 @@ class TestCadastro:
             'email': 'caio@teste.com',
             'senha': 'SenhaForte123!',
         }
-        response = api.post('/auth/cadastro/', payload)
+        response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 201
 
         connection.set_schema_to_public()
@@ -169,7 +169,7 @@ class TestCadastro:
 class TestLogin:
     def test_retorna_tokens_e_dados_do_tenant(self, api, user_com_tenant):
         user, tenant = user_com_tenant
-        response = api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
+        response = api.post('/api/v1/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
         assert response.status_code == 200
         assert 'access' in response.data
         assert 'refresh' not in response.data
@@ -179,7 +179,7 @@ class TestLogin:
 
     def test_mobile_recebe_refresh_no_corpo_e_sem_cookie(self, api, user_com_tenant):
         response = api.post(
-            '/auth/login/',
+            '/api/v1/auth/login/',
             {'email': 'login@teste.com', 'senha': 'SenhaForte123!'},
             HTTP_X_CLIENT_PLATFORM='mobile',
         )
@@ -188,18 +188,18 @@ class TestLogin:
         assert response.cookies.get('refresh_token') is None
 
     def test_credenciais_invalidas_retorna_401(self, api, user_com_tenant):
-        response = api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'errada'})
+        response = api.post('/api/v1/auth/login/', {'email': 'login@teste.com', 'senha': 'errada'})
         assert response.status_code == 401
 
     def test_usuario_sem_tenant_retorna_400(self, api, user_auth):
-        response = api.post('/auth/login/', {'email': 'auth@teste.com', 'senha': 'SenhaForte123!'})
+        response = api.post('/api/v1/auth/login/', {'email': 'auth@teste.com', 'senha': 'SenhaForte123!'})
         assert response.status_code == 400
 
     def test_usuario_inativo_com_credenciais_corretas_retorna_403(self, api, user_com_tenant):
         user, _ = user_com_tenant
         user.is_active = False
         user.save()
-        response = api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
+        response = api.post('/api/v1/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
         assert response.status_code == 403
         assert response.data['code'] == 'user_inactive'
 
@@ -207,11 +207,11 @@ class TestLogin:
         user, _ = user_com_tenant
         user.is_active = False
         user.save()
-        response = api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'senhaerrada'})
+        response = api.post('/api/v1/auth/login/', {'email': 'login@teste.com', 'senha': 'senhaerrada'})
         assert response.status_code == 401
 
     def test_email_inexistente_retorna_401(self, api, db):
-        response = api.post('/auth/login/', {'email': 'naoexiste@email.com', 'senha': 'SenhaForte123!'})
+        response = api.post('/api/v1/auth/login/', {'email': 'naoexiste@email.com', 'senha': 'SenhaForte123!'})
         assert response.status_code == 401
 
 
@@ -219,19 +219,19 @@ class TestLogin:
 class TestRecuperarSenha:
     def test_email_existente_cria_codigo_e_envia_email(self, api, user_auth):
         with patch('core.email.send_mail') as mock_mail:
-            response = api.post('/auth/recuperar-senha/', {'email': 'auth@teste.com'})
+            response = api.post('/api/v1/auth/recuperar-senha/', {'email': 'auth@teste.com'})
         assert response.status_code == 200
         assert CodigoRecuperacao.objects.filter(user=user_auth, usado=False).exists()
         mock_mail.assert_called_once()
 
     def test_email_inexistente_retorna_200_sem_enumerar(self, api, db):
-        response = api.post('/auth/recuperar-senha/', {'email': 'naoexiste@teste.com'})
+        response = api.post('/api/v1/auth/recuperar-senha/', {'email': 'naoexiste@teste.com'})
         assert response.status_code == 200
         assert 'cadastrado' in response.data['detail']
 
     def test_novo_codigo_invalida_codigos_anteriores(self, api, user_auth, codigo_recuperacao):
         with patch('core.email.send_mail'):
-            api.post('/auth/recuperar-senha/', {'email': 'auth@teste.com'})
+            api.post('/api/v1/auth/recuperar-senha/', {'email': 'auth@teste.com'})
         codigo_recuperacao.refresh_from_db()
         assert codigo_recuperacao.usado is True
 
@@ -239,29 +239,29 @@ class TestRecuperarSenha:
 @pytest.mark.django_db
 class TestVerificarCodigo:
     def test_codigo_valido_retorna_200(self, api, user_auth, codigo_recuperacao):
-        response = api.post('/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '12345678'})
+        response = api.post('/api/v1/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '12345678'})
         assert response.status_code == 200
 
     def test_codigo_invalido_retorna_400(self, api, user_auth):
-        response = api.post('/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '00000000'})
+        response = api.post('/api/v1/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '00000000'})
         assert response.status_code == 400
 
     def test_codigo_expirado_retorna_400(self, api, user_auth):
         codigo = CodigoRecuperacao.emitir(user_auth, '99999999')[0]
         codigo.expira_em = timezone.now() - timedelta(minutes=1)
         codigo.save()
-        response = api.post('/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '99999999'})
+        response = api.post('/api/v1/auth/verificar-codigo/', {'email': 'auth@teste.com', 'codigo': '99999999'})
         assert response.status_code == 400
 
     def test_email_inexistente_retorna_400(self, api, db):
-        response = api.post('/auth/verificar-codigo/', {'email': 'nao@existe.com', 'codigo': '1234'})
+        response = api.post('/api/v1/auth/verificar-codigo/', {'email': 'nao@existe.com', 'codigo': '1234'})
         assert response.status_code == 400
 
 
 @pytest.mark.django_db
 class TestNovaSenha:
     def test_redefine_senha_e_marca_codigo_como_usado(self, api, user_auth, codigo_recuperacao):
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com',
             'codigo': '12345678',
             'nova_senha': 'NovaSenha456!',
@@ -273,7 +273,7 @@ class TestNovaSenha:
         assert codigo_recuperacao.usado is True
 
     def test_senha_curta_retorna_400(self, api, user_auth, codigo_recuperacao):
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com',
             'codigo': '12345678',
             'nova_senha': '123',
@@ -281,7 +281,7 @@ class TestNovaSenha:
         assert response.status_code == 400
 
     def test_senha_numerica_simples_retorna_400(self, api, user_auth, codigo_recuperacao):
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com',
             'codigo': '12345678',
             'nova_senha': '12345678',
@@ -289,7 +289,7 @@ class TestNovaSenha:
         assert response.status_code == 400
 
     def test_codigo_invalido_retorna_400(self, api, user_auth):
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com',
             'codigo': '00000000',
             'nova_senha': 'NovaSenha456!',
@@ -300,7 +300,7 @@ class TestNovaSenha:
         usado, _ = CodigoRecuperacao.emitir(user_auth, '56789012')
         usado.usado = True
         usado.save()
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com',
             'codigo': '56789012',
             'nova_senha': 'NovaSenha456!',
@@ -311,7 +311,7 @@ class TestNovaSenha:
         codigo = CodigoRecuperacao.emitir(user_auth, '43219876')[0]
         codigo.expira_em = timezone.now() - timedelta(minutes=1)
         codigo.save()
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'auth@teste.com',
             'codigo': '43219876',
             'nova_senha': 'NovaSenha456!',
@@ -319,7 +319,7 @@ class TestNovaSenha:
         assert response.status_code == 400
 
     def test_email_inexistente_retorna_400(self, api, db):
-        response = api.post('/auth/nova-senha/', {
+        response = api.post('/api/v1/auth/nova-senha/', {
             'email': 'naoexiste@email.com',
             'codigo': '1234',
             'nova_senha': 'NovaSenha456!',
@@ -344,7 +344,7 @@ class TestInatividade:
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
 
-        response = client.get('/api/servicos/')
+        response = client.get('/api/v1/servicos/')
         assert response.status_code == 401
         assert response.json()['code'] == 'inactivity_timeout'
 
@@ -362,7 +362,7 @@ class TestInatividade:
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
 
-        client.get('/api/servicos/')
+        client.get('/api/v1/servicos/')
 
         last.refresh_from_db()
         assert last.ultimo_acesso > antes
@@ -378,7 +378,7 @@ class TestInatividade:
             ultimo_acesso=timezone.now() - timedelta(hours=2),
         )
 
-        api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
+        api.post('/api/v1/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
 
         last = LastActivity.objects.get(user=user)
         assert (timezone.now() - last.ultimo_acesso).seconds < 5
@@ -392,13 +392,13 @@ def _sessao(user, tenant):
 @pytest.mark.django_db
 class TestCookieTokenRefresh:
     def test_refresh_sem_cookie_retorna_401(self, api):
-        response = api.post('/auth/token-refresh/')
+        response = api.post('/api/v1/auth/token-refresh/')
         assert response.status_code == 401
 
     def test_refresh_com_cookie_valido_retorna_200_e_novo_cookie(self, api, proprietario, tenant):
         refresh = _sessao(proprietario, tenant)
         api.cookies['refresh_token'] = str(refresh)
-        response = api.post('/auth/token-refresh/')
+        response = api.post('/api/v1/auth/token-refresh/')
         assert response.status_code == 200
         assert 'access' in response.data
         assert 'refresh' not in response.data
@@ -407,7 +407,7 @@ class TestCookieTokenRefresh:
 
     def test_refresh_com_cookie_invalido_retorna_401(self, api):
         api.cookies['refresh_token'] = 'token_invalido_qualquer'
-        response = api.post('/auth/token-refresh/')
+        response = api.post('/api/v1/auth/token-refresh/')
         assert response.status_code == 401
 
     def test_mobile_renova_via_body(self, api, proprietario, tenant):
@@ -415,7 +415,7 @@ class TestCookieTokenRefresh:
         # pelo cabeçalho e manda o refresh no corpo.
         refresh = _sessao(proprietario, tenant)
         response = api.post(
-            '/auth/token-refresh/', {'refresh': str(refresh)}, HTTP_X_CLIENT_PLATFORM='mobile',
+            '/api/v1/auth/token-refresh/', {'refresh': str(refresh)}, HTTP_X_CLIENT_PLATFORM='mobile',
         )
         assert response.status_code == 200
         assert 'access' in response.data
@@ -424,14 +424,14 @@ class TestCookieTokenRefresh:
     def test_web_nao_renova_via_body(self, api, proprietario, tenant):
         """Sem o cabeçalho de mobile, o refresh só é lido do cookie."""
         refresh = _sessao(proprietario, tenant)
-        response = api.post('/auth/token-refresh/', {'refresh': str(refresh)})
+        response = api.post('/api/v1/auth/token-refresh/', {'refresh': str(refresh)})
         assert response.status_code == 401
 
 
 @pytest.mark.django_db
 class TestLogout:
     def test_logout_deleta_cookie(self, api):
-        response = api.post('/auth/logout/')
+        response = api.post('/api/v1/auth/logout/')
         assert response.status_code == 200
         assert 'refresh_token' in response.cookies
 
@@ -478,7 +478,7 @@ class TestEndpointsPublicosIgnoramAuthorizationHeader:
 
     def test_cadastro_com_bearer_invalido_no_header_ainda_cria_conta(self, api):
         api.credentials(HTTP_AUTHORIZATION=BEARER_INVALIDO)
-        response = api.post('/auth/cadastro/', {
+        response = api.post('/api/v1/auth/cadastro/', {
             'nome_empresa': 'Salão Header',
             'nome': 'Ana Silva',
             'email': 'header@teste.com',
@@ -488,22 +488,22 @@ class TestEndpointsPublicosIgnoramAuthorizationHeader:
 
     def test_login_com_bearer_invalido_no_header_ainda_autentica(self, api, user_com_tenant):
         api.credentials(HTTP_AUTHORIZATION=BEARER_INVALIDO)
-        response = api.post('/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
+        response = api.post('/api/v1/auth/login/', {'email': 'login@teste.com', 'senha': 'SenhaForte123!'})
         assert response.status_code == 200
 
     def test_token_refresh_com_bearer_invalido_no_header_ainda_renova(self, api, proprietario, tenant):
         refresh = _sessao(proprietario, tenant)
         api.credentials(HTTP_AUTHORIZATION=BEARER_INVALIDO)
         api.cookies['refresh_token'] = str(refresh)
-        response = api.post('/auth/token-refresh/')
+        response = api.post('/api/v1/auth/token-refresh/')
         assert response.status_code == 200
 
     def test_recuperar_senha_com_bearer_invalido_no_header_responde_200(self, api, db):
         api.credentials(HTTP_AUTHORIZATION=BEARER_INVALIDO)
-        response = api.post('/auth/recuperar-senha/', {'email': 'naoexiste@teste.com'})
+        response = api.post('/api/v1/auth/recuperar-senha/', {'email': 'naoexiste@teste.com'})
         assert response.status_code == 200
 
     def test_logout_com_bearer_invalido_no_header_responde_200(self, api):
         api.credentials(HTTP_AUTHORIZATION=BEARER_INVALIDO)
-        response = api.post('/auth/logout/')
+        response = api.post('/api/v1/auth/logout/')
         assert response.status_code == 200

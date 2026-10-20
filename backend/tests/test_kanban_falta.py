@@ -79,17 +79,17 @@ class TestMarcarFalta:
         atendimento.pago = True
         atendimento.save(update_fields=['pago'])
 
-        response = client_autenticado.post(f'/api/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
+        response = client_autenticado.post(f'/api/v1/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
 
         assert response.status_code == 400
 
     def test_api_marca_falta(self, client_autenticado, atendimento):
-        response = client_autenticado.post(f'/api/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
+        response = client_autenticado.post(f'/api/v1/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
         assert response.data['faltou'] is True
 
     def test_api_desfaz_falta(self, client_autenticado, atendimento):
-        client_autenticado.post(f'/api/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
-        response = client_autenticado.post(f'/api/kanban/atendimentos/{atendimento.pk}/desfazer_falta/')
+        client_autenticado.post(f'/api/v1/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
+        response = client_autenticado.post(f'/api/v1/kanban/atendimentos/{atendimento.pk}/desfazer_falta/')
         assert response.data['faltou'] is False
 
 
@@ -108,16 +108,16 @@ class TestFaltaEspelhadaNoConsumidor:
     def test_falta_chega_no_app(self, client_autenticado, consumidor, tenant, atendimento):
         espelho = _espelho(consumidor, tenant, atendimento)
 
-        client_autenticado.post(f'/api/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
+        client_autenticado.post(f'/api/v1/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
 
         espelho.refresh_from_db()
         assert espelho.status == 'faltou'
 
     def test_desfazer_falta_devolve_o_atendimento_ao_app(self, client_autenticado, consumidor, tenant, atendimento):
         espelho = _espelho(consumidor, tenant, atendimento)
-        client_autenticado.post(f'/api/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
+        client_autenticado.post(f'/api/v1/kanban/atendimentos/{atendimento.pk}/marcar_falta/')
 
-        client_autenticado.post(f'/api/kanban/atendimentos/{atendimento.pk}/desfazer_falta/')
+        client_autenticado.post(f'/api/v1/kanban/atendimentos/{atendimento.pk}/desfazer_falta/')
 
         espelho.refresh_from_db()
         assert espelho.status == 'agendado'

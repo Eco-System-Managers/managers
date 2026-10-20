@@ -205,7 +205,7 @@ class TestStatusKanbanNaAgendaAPI:
             MockSvc.return_value.status_kanban.return_value = {
                 5: {'status_kanban': 'em_atendimento', 'etapa_nome': 'Lavando'},
             }
-            response = client.get('/api/sm/agendamentos/')
+            response = client.get('/api/sm/v1/agendamentos/')
         assert response.data['results'][0]['status_kanban'] == 'em_atendimento'
 
     def test_resposta_traz_nome_real_da_coluna(self, api_autenticado):
@@ -215,7 +215,7 @@ class TestStatusKanbanNaAgendaAPI:
             MockSvc.return_value.status_kanban.return_value = {
                 5: {'status_kanban': 'em_atendimento', 'etapa_nome': 'Lavando'},
             }
-            response = client.get('/api/sm/agendamentos/')
+            response = client.get('/api/sm/v1/agendamentos/')
         assert response.data['results'][0]['etapa_nome'] == 'Lavando'
 
     def test_resposta_traz_origem(self, api_autenticado):
@@ -223,7 +223,7 @@ class TestStatusKanbanNaAgendaAPI:
         self._agendamento_kanban(consumidor)
         with patch('apps_serv.vitrine.services.CrossTenantQueryService') as MockSvc:
             MockSvc.return_value.status_kanban.return_value = {}
-            response = client.get('/api/sm/agendamentos/')
+            response = client.get('/api/sm/v1/agendamentos/')
         assert response.data['results'][0]['origem'] == 'kanban'
 
     def test_agendamento_de_agenda_tem_status_kanban_nulo(self, api_autenticado):
@@ -234,10 +234,10 @@ class TestStatusKanbanNaAgendaAPI:
             origem='agenda', negocio_nome='Barbearia X', data_hora=timezone.now(),
             duracao_total=30, valor_total='50.00', status='agendado',
         )
-        response = client.get('/api/sm/agendamentos/')
+        response = client.get('/api/sm/v1/agendamentos/')
         assert response.data['results'][0]['status_kanban'] is None
 
     def test_sem_auth_retorna_401(self, patch_public_middleware):
         client = APIClient()
-        response = client.get('/api/sm/agendamentos/')
+        response = client.get('/api/sm/v1/agendamentos/')
         assert response.status_code == 401

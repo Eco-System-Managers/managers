@@ -81,7 +81,7 @@ def api_autenticado(patch_public_middleware, consumidor):
 @pytest.mark.django_db
 class TestNegociosPublicos:
     def test_lista_somente_negocios_ativos(self, api, negocio, negocio_inativo):
-        response = api.get('/api/sm/negocios/')
+        response = api.get('/api/sm/v1/negocios/')
         assert response.status_code == 200
         nomes = [n['nome'] for n in response.data['results']]
         assert 'Barbearia X' in nomes
@@ -96,20 +96,20 @@ class TestNegociosPublicos:
             schema_name='barbearia_z', nome='Barbearia Z', nicho='Barbearia',
             latitude='-23.5', longitude='-46.6', ativo=True,
         )
-        response = api.get('/api/sm/negocios/?nicho=Barbearia')
+        response = api.get('/api/sm/v1/negocios/?nicho=Barbearia')
         assert response.status_code == 200
         schemas = [n['schema_name'] for n in response.data['results']]
         assert 'barbearia_z' in schemas
         assert 'lavacao_y' not in schemas
 
     def test_lista_vazia_sem_negocios_ativos(self, api, negocio_inativo):
-        response = api.get('/api/sm/negocios/')
+        response = api.get('/api/sm/v1/negocios/')
         assert response.status_code == 200
         schemas = [n['schema_name'] for n in response.data['results']]
         assert negocio_inativo.schema_name not in schemas
 
     def test_endpoint_publico_sem_auth(self, api, negocio):
-        response = api.get('/api/sm/negocios/')
+        response = api.get('/api/sm/v1/negocios/')
         assert response.status_code == 200
 
 
@@ -139,36 +139,36 @@ class TestBuscaDeNegocios:
         return {n['schema_name'] for n in response.data['results']}
 
     def test_busca_por_nome(self, api, vitrine_variada):
-        response = api.get('/api/sm/negocios/?search=barbearia do')
+        response = api.get('/api/sm/v1/negocios/?search=barbearia do')
         assert self._schemas(response) == {'barbearia_do_ze'}
 
     def test_busca_por_cidade(self, api, vitrine_variada):
-        response = api.get('/api/sm/negocios/?search=santos')
+        response = api.get('/api/sm/v1/negocios/?search=santos')
         assert self._schemas(response) == {'banho_feliz'}
 
     def test_busca_por_nicho(self, api, vitrine_variada):
-        response = api.get('/api/sm/negocios/?search=banho')
+        response = api.get('/api/sm/v1/negocios/?search=banho')
         assert self._schemas(response) == {'banho_feliz'}
 
     def test_busca_ignora_maiusculas(self, api, vitrine_variada):
-        response = api.get('/api/sm/negocios/?search=LAVA')
+        response = api.get('/api/sm/v1/negocios/?search=LAVA')
         assert self._schemas(response) == {'lava_jato_sp'}
 
     def test_busca_vazia_retorna_todos(self, api, vitrine_variada):
-        response = api.get('/api/sm/negocios/?search=')
+        response = api.get('/api/sm/v1/negocios/?search=')
         assert len(response.data['results']) == 3
 
     def test_busca_sem_resultado_retorna_lista_vazia(self, api, vitrine_variada):
-        response = api.get('/api/sm/negocios/?search=inexistente')
+        response = api.get('/api/sm/v1/negocios/?search=inexistente')
         assert response.data['results'] == []
 
     def test_busca_combina_com_filtro_de_nicho(self, api, vitrine_variada):
         """Chip de nicho e caixa de busca sao filtros independentes e somam."""
-        response = api.get('/api/sm/negocios/?search=campinas&nicho=lava_rapido')
+        response = api.get('/api/sm/v1/negocios/?search=campinas&nicho=lava_rapido')
         assert self._schemas(response) == {'lava_jato_sp'}
 
     def test_nao_retorna_negocio_inativo(self, api, vitrine_variada, negocio_inativo):
-        response = api.get('/api/sm/negocios/?search=fechada')
+        response = api.get('/api/sm/v1/negocios/?search=fechada')
         assert response.data['results'] == []
 
 
@@ -195,27 +195,27 @@ class TestFiltroPorArea:
         return {n['schema_name'] for n in response.data['results']}
 
     def test_raio_curto_traz_so_o_que_esta_perto(self, api):
-        response = api.get('/api/sm/negocios/?lat=-23.55&lng=-46.633&raio_km=20')
+        response = api.get('/api/sm/v1/negocios/?lat=-23.55&lng=-46.633&raio_km=20')
         assert self._schemas(response) == {'sp_centro'}
 
     def test_raio_maior_alcanca_a_cidade_vizinha(self, api):
-        response = api.get('/api/sm/negocios/?lat=-23.55&lng=-46.633&raio_km=120')
+        response = api.get('/api/sm/v1/negocios/?lat=-23.55&lng=-46.633&raio_km=120')
         assert self._schemas(response) == {'sp_centro', 'campinas'}
 
     def test_raio_nunca_alcanca_o_outro_lado_do_pais(self, api):
-        response = api.get('/api/sm/negocios/?lat=-23.55&lng=-46.633&raio_km=200')
+        response = api.get('/api/sm/v1/negocios/?lat=-23.55&lng=-46.633&raio_km=200')
         assert 'recife' not in self._schemas(response)
 
     def test_raio_padrao_quando_nao_informado(self, api):
-        response = api.get('/api/sm/negocios/?lat=-23.55&lng=-46.633')
+        response = api.get('/api/sm/v1/negocios/?lat=-23.55&lng=-46.633')
         assert self._schemas(response) == {'sp_centro'}
 
     def test_sem_coordenadas_nao_filtra(self, api):
-        response = api.get('/api/sm/negocios/')
+        response = api.get('/api/sm/v1/negocios/')
         assert len(response.data['results']) == 3
 
     def test_lat_sem_lng_e_ignorado(self, api):
-        response = api.get('/api/sm/negocios/?lat=-23.55')
+        response = api.get('/api/sm/v1/negocios/?lat=-23.55')
         assert len(response.data['results']) == 3
 
     def test_area_combina_com_nicho(self, api):
@@ -223,22 +223,22 @@ class TestFiltroPorArea:
             schema_name='sp_pet', nome='SP Pet', nicho='banho_tosa',
             cidade='São Paulo', latitude='-23.551000', longitude='-46.634000', ativo=True,
         )
-        response = api.get('/api/sm/negocios/?lat=-23.55&lng=-46.633&raio_km=20&nicho=banho_tosa')
+        response = api.get('/api/sm/v1/negocios/?lat=-23.55&lng=-46.633&raio_km=20&nicho=banho_tosa')
         assert self._schemas(response) == {'sp_pet'}
 
     def test_coordenada_invalida_retorna_400(self, api):
-        assert api.get('/api/sm/negocios/?lat=abc&lng=-46.6').status_code == 400
+        assert api.get('/api/sm/v1/negocios/?lat=abc&lng=-46.6').status_code == 400
 
     def test_latitude_fora_do_intervalo_retorna_400(self, api):
-        assert api.get('/api/sm/negocios/?lat=120&lng=-46.6').status_code == 400
+        assert api.get('/api/sm/v1/negocios/?lat=120&lng=-46.6').status_code == 400
 
     def test_raio_negativo_retorna_400(self, api):
-        assert api.get('/api/sm/negocios/?lat=-23.55&lng=-46.633&raio_km=-5').status_code == 400
+        assert api.get('/api/sm/v1/negocios/?lat=-23.55&lng=-46.633&raio_km=-5').status_code == 400
 
 
 @pytest.mark.django_db
 class TestNichosDaVitrine:
-    URL = '/api/sm/negocios/nichos/'
+    URL = '/api/sm/v1/negocios/nichos/'
 
     def test_lista_nichos_distintos_ordenados(self, api, vitrine_variada):
         response = api.get(self.URL)
@@ -282,30 +282,30 @@ class TestNichosDaVitrine:
 @pytest.mark.django_db
 class TestNegocioPublicoDetalhe:
     def test_retorna_o_negocio_pelo_schema(self, api, negocio):
-        response = api.get(f'/api/sm/negocios/{negocio.schema_name}/')
+        response = api.get(f'/api/sm/v1/negocios/{negocio.schema_name}/')
         assert response.status_code == 200
         assert response.data['schema_name'] == negocio.schema_name
 
     def test_negocio_inexistente_retorna_404(self, api, db):
-        response = api.get('/api/sm/negocios/nao_existe/')
+        response = api.get('/api/sm/v1/negocios/nao_existe/')
         assert response.status_code == 404
 
     def test_negocio_inativo_retorna_404(self, api, negocio_inativo):
-        response = api.get(f'/api/sm/negocios/{negocio_inativo.schema_name}/')
+        response = api.get(f'/api/sm/v1/negocios/{negocio_inativo.schema_name}/')
         assert response.status_code == 404
 
     def test_schema_invalido_retorna_400(self, api, db):
-        response = api.get('/api/sm/negocios/Schema-Invalido/')
+        response = api.get('/api/sm/v1/negocios/Schema-Invalido/')
         assert response.status_code == 400
 
     def test_endpoint_publico_sem_auth(self, api, negocio):
-        response = api.get(f'/api/sm/negocios/{negocio.schema_name}/')
+        response = api.get(f'/api/sm/v1/negocios/{negocio.schema_name}/')
         assert response.status_code == 200
 
     def test_rota_de_cidades_nao_e_capturada_pelo_detalhe(self, api, negocio):
         """A rota nova casa qualquer <schema_name>, entao 'cidades' passaria a
         cair nela se a ordem no urlpatterns estivesse errada."""
-        response = api.get('/api/sm/negocios/cidades/')
+        response = api.get('/api/sm/v1/negocios/cidades/')
         assert response.status_code == 200
         assert isinstance(response.data, list)
 
@@ -323,22 +323,22 @@ class TestServicosNegocio:
         ]
         with patch('apps_serv.vitrine.views.CrossTenantQueryService') as MockSvc:
             MockSvc.return_value.listar_servicos.return_value = servicos_mock
-            response = api.get(f'/api/sm/negocios/{negocio.schema_name}/servicos/')
+            response = api.get(f'/api/sm/v1/negocios/{negocio.schema_name}/servicos/')
         assert response.status_code == 200
         assert len(response.data['results']) == 2
 
     def test_negocio_inexistente_retorna_404(self, api, db):
-        response = api.get('/api/sm/negocios/schema_inexistente/servicos/')
+        response = api.get('/api/sm/v1/negocios/schema_inexistente/servicos/')
         assert response.status_code == 404
 
     def test_negocio_inativo_retorna_404(self, api, negocio_inativo):
-        response = api.get(f'/api/sm/negocios/{negocio_inativo.schema_name}/servicos/')
+        response = api.get(f'/api/sm/v1/negocios/{negocio_inativo.schema_name}/servicos/')
         assert response.status_code == 404
 
     def test_endpoint_publico_sem_auth(self, api, negocio):
         with patch('apps_serv.vitrine.views.CrossTenantQueryService') as MockSvc:
             MockSvc.return_value.listar_servicos.return_value = []
-            response = api.get(f'/api/sm/negocios/{negocio.schema_name}/servicos/')
+            response = api.get(f'/api/sm/v1/negocios/{negocio.schema_name}/servicos/')
         assert response.status_code == 200
 
 
@@ -354,7 +354,7 @@ class TestDisponibilidade:
         with patch('apps_serv.vitrine.views.CrossTenantQueryService') as MockSvc:
             MockSvc.return_value.listar_disponibilidade.return_value = slots_mock
             response = api.get(
-                f'/api/sm/negocios/{negocio.schema_name}/disponibilidade/',
+                f'/api/sm/v1/negocios/{negocio.schema_name}/disponibilidade/',
                 {'data': data_futura, 'servico_id': 1},
             )
         assert response.status_code == 200
@@ -363,28 +363,28 @@ class TestDisponibilidade:
 
     def test_data_ausente_retorna_400(self, api, negocio):
         response = api.get(
-            f'/api/sm/negocios/{negocio.schema_name}/disponibilidade/',
+            f'/api/sm/v1/negocios/{negocio.schema_name}/disponibilidade/',
             {'servico_id': 1},
         )
         assert response.status_code == 400
 
     def test_servico_id_ausente_retorna_400(self, api, negocio):
         response = api.get(
-            f'/api/sm/negocios/{negocio.schema_name}/disponibilidade/',
+            f'/api/sm/v1/negocios/{negocio.schema_name}/disponibilidade/',
             {'data': '2025-07-10'},
         )
         assert response.status_code == 400
 
     def test_formato_de_data_invalido_retorna_400(self, api, negocio):
         response = api.get(
-            f'/api/sm/negocios/{negocio.schema_name}/disponibilidade/',
+            f'/api/sm/v1/negocios/{negocio.schema_name}/disponibilidade/',
             {'data': '10-07-2025', 'servico_id': 1},
         )
         assert response.status_code == 400
 
     def test_data_no_passado_retorna_400(self, api, negocio):
         response = api.get(
-            f'/api/sm/negocios/{negocio.schema_name}/disponibilidade/',
+            f'/api/sm/v1/negocios/{negocio.schema_name}/disponibilidade/',
             {'data': '2000-01-01', 'servico_id': 1},
         )
         assert response.status_code == 400
@@ -392,7 +392,7 @@ class TestDisponibilidade:
     def test_negocio_inexistente_retorna_404(self, api, db):
         data_futura = (timezone.now() + timedelta(days=30)).strftime('%Y-%m-%d')
         response = api.get(
-            '/api/sm/negocios/nao_existe/disponibilidade/',
+            '/api/sm/v1/negocios/nao_existe/disponibilidade/',
             {'data': data_futura, 'servico_id': 1},
         )
         assert response.status_code == 404
@@ -425,14 +425,14 @@ class TestCriarAgendamento:
             MockSvc.return_value.criar.return_value = mock_agendamento
             with patch('apps_serv.vitrine.views.AgendamentoConsumidorSerializer') as MockSer:
                 MockSer.return_value.data = {'id': 1, 'status': 'agendado'}
-                response = client.post(f'/api/sm/negocios/{negocio.schema_name}/agendamentos/', {
+                response = client.post(f'/api/sm/v1/negocios/{negocio.schema_name}/agendamentos/', {
                     'servico_ids': [1],
                     'data_hora': (timezone.now() + timedelta(hours=2)).isoformat(),
                 })
         assert response.status_code == 201
 
     def test_sem_auth_retorna_401(self, api, negocio):
-        response = api.post(f'/api/sm/negocios/{negocio.schema_name}/agendamentos/', {
+        response = api.post(f'/api/sm/v1/negocios/{negocio.schema_name}/agendamentos/', {
             'servico_ids': [1],
             'data_hora': (timezone.now() + timedelta(hours=2)).isoformat(),
         })
@@ -440,7 +440,7 @@ class TestCriarAgendamento:
 
     def test_negocio_inexistente_retorna_404(self, api_autenticado):
         client, _ = api_autenticado
-        response = client.post('/api/sm/negocios/nao_existe/agendamentos/', {
+        response = client.post('/api/sm/v1/negocios/nao_existe/agendamentos/', {
             'servico_ids': [1],
             'data_hora': (timezone.now() + timedelta(hours=2)).isoformat(),
         })
@@ -448,12 +448,12 @@ class TestCriarAgendamento:
 
     def test_campos_obrigatorios_ausentes_retorna_400(self, api_autenticado, negocio):
         client, _ = api_autenticado
-        response = client.post(f'/api/sm/negocios/{negocio.schema_name}/agendamentos/', {})
+        response = client.post(f'/api/sm/v1/negocios/{negocio.schema_name}/agendamentos/', {})
         assert response.status_code == 400
 
     def test_data_hora_no_passado_retorna_400(self, api_autenticado, negocio):
         client, _ = api_autenticado
-        response = client.post(f'/api/sm/negocios/{negocio.schema_name}/agendamentos/', {
+        response = client.post(f'/api/sm/v1/negocios/{negocio.schema_name}/agendamentos/', {
             'servico_ids': [1],
             'data_hora': (timezone.now() - timedelta(hours=1)).isoformat(),
         })
@@ -463,7 +463,7 @@ class TestCriarAgendamento:
         client, _ = api_autenticado
         with patch('apps_serv.vitrine.views.AgendamentoTenantService') as MockSvc:
             MockSvc.return_value.criar.side_effect = ValueError('Nenhum serviço válido encontrado.')
-            response = client.post(f'/api/sm/negocios/{negocio.schema_name}/agendamentos/', {
+            response = client.post(f'/api/sm/v1/negocios/{negocio.schema_name}/agendamentos/', {
                 'servico_ids': [1],
                 'data_hora': (timezone.now() + timedelta(hours=2)).isoformat(),
             })

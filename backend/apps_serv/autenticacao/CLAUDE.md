@@ -12,7 +12,7 @@ diferentes: lá o usuário é um `User` do Django dentro de um tenant; aqui é u
 |---|---|
 | `authentication.py` | O coração. Gera e valida o JWT do consumidor, com PyJWT direto — não usa SimpleJWT. `ConsumidorJWTAuthentication` é a classe que o DRF chama para popular `request.user` com um `Consumidor` |
 | `views.py` | Os sete endpoints do fluxo de conta: cadastro, login, refresh, logout e as três etapas de recuperação de senha. Views finas — a regra está em `consumidores/services.py` |
-| `urls.py` | Rotas sob `/api/sm/auth/` |
+| `urls.py` | Rotas sob `/api/sm/v1/auth/` |
 | `apps.py` | Registro do app. Sem sinais |
 
 **Não tem `models.py`.** O `Consumidor`, o código de recuperação e o

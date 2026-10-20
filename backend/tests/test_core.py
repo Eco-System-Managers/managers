@@ -52,7 +52,7 @@ class TestJWTTenantMiddleware:
         token = AccessToken.for_user(usuario)
         token['schema_name'] = 'empresa_abc'
 
-        request = RequestFactory().get('/api/sm/me/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
+        request = RequestFactory().get('/api/sm/v1/me/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
         middleware = JWTTenantMiddleware(MagicMock(return_value=MagicMock()))
 
         with patch('core.middleware.connection') as mock_conn:
@@ -97,32 +97,32 @@ class TestAssinaturaBloqueadaMiddleware:
         return resposta, get_response
 
     def test_nao_age_no_schema_public(self, tenant):
-        resposta, get_response = self._chamar('/api/servicos/', 'public')
+        resposta, get_response = self._chamar('/api/v1/servicos/', 'public')
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_nao_age_fora_do_prefixo_api(self, tenant):
-        resposta, get_response = self._chamar('/auth/login/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/auth/login/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_nao_age_em_rotas_de_billing(self, tenant):
-        resposta, get_response = self._chamar('/api/billing/assinatura/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/billing/assinatura/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_nao_age_em_colaboradores_me(self, tenant):
-        resposta, get_response = self._chamar('/api/colaboradores/me/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/colaboradores/me/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_nao_age_em_empresa_config(self, tenant):
-        resposta, get_response = self._chamar('/api/empresa/config/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/empresa/config/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
     def test_bloqueia_quando_sem_nenhuma_assinatura(self, tenant):
-        resposta, get_response = self._chamar('/api/servicos/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/servicos/', tenant.schema_name)
         assert resposta.status_code == 402
         get_response.assert_not_called()
 
@@ -133,7 +133,7 @@ class TestAssinaturaBloqueadaMiddleware:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
             trial_fim=datetime.date.today() - datetime.timedelta(days=1),
         )
-        resposta, get_response = self._chamar('/api/servicos/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/servicos/', tenant.schema_name)
         assert resposta.status_code == 402
         get_response.assert_not_called()
 
@@ -143,7 +143,7 @@ class TestAssinaturaBloqueadaMiddleware:
             tenant=tenant, plano=plano, status='ativa',
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
         )
-        resposta, get_response = self._chamar('/api/servicos/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/servicos/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
@@ -154,7 +154,7 @@ class TestAssinaturaBloqueadaMiddleware:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
             trial_fim=datetime.date.today() + datetime.timedelta(days=1),
         )
-        resposta, get_response = self._chamar('/api/servicos/', tenant.schema_name)
+        resposta, get_response = self._chamar('/api/v1/servicos/', tenant.schema_name)
         assert resposta == 'ok'
         get_response.assert_called_once()
 
@@ -163,7 +163,7 @@ class TestAssinaturaBloqueadaMiddleware:
 # Decodificacao compartilhada do token
 # ---------------------------------------------------------------------------
 
-def _request_com_token(token_str, path='/api/servicos/'):
+def _request_com_token(token_str, path='/api/v1/servicos/'):
     return RequestFactory().get(path, HTTP_AUTHORIZATION=f'Bearer {token_str}')
 
 
@@ -187,7 +187,7 @@ class TestTokenDoRequest:
         assert _token_do_request(_request_com_token('nao-e-um-jwt')) is None
 
     def test_sem_authorization_devolve_none(self):
-        assert _token_do_request(RequestFactory().get('/api/servicos/')) is None
+        assert _token_do_request(RequestFactory().get('/api/v1/servicos/')) is None
 
     def test_none_tambem_fica_memorizado(self):
         """Requisicao anonima nao pode tentar decodificar duas vezes."""
@@ -275,7 +275,7 @@ class TestCacheDaAssinatura:
     def _chamar(self, schema_name):
         get_response = MagicMock(return_value='ok')
         middleware = AssinaturaBloqueadaMiddleware(get_response)
-        request = RequestFactory().get('/api/servicos/')
+        request = RequestFactory().get('/api/v1/servicos/')
         with patch('core.middleware.connection') as mock_conn:
             mock_conn.schema_name = schema_name
             return middleware(request), get_response
@@ -362,12 +362,12 @@ class TestCustoPorRequisicao:
         )
         client = self._cliente_autenticado(tenant, usuario)
         # Aquece: primeira chamada cria o LastActivity e memoriza a assinatura.
-        client.get('/api/servicos/')
+        client.get('/api/v1/servicos/')
         return client
 
     def _queries(self, client):
         with CaptureQueriesContext(connection) as ctx:
-            resposta = client.get('/api/servicos/')
+            resposta = client.get('/api/v1/servicos/')
         assert resposta.status_code == 200
         return [q['sql'] for q in ctx.captured_queries]
 

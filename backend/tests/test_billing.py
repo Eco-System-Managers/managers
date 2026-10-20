@@ -548,7 +548,7 @@ class TestRetornoCheckoutView:
     def test_redireciona_para_frontend_com_query_string(self, settings):
         settings.FRONTEND_URL = 'http://localhost:5173'
         factory = RequestFactory()
-        request = factory.get('/api/billing/retorno/?preapproval_id=abc-123')
+        request = factory.get('/api/v1/billing/retorno/?preapproval_id=abc-123')
 
         resposta = RetornoCheckoutView.as_view()(request)
 
@@ -558,7 +558,7 @@ class TestRetornoCheckoutView:
     def test_redireciona_sem_query_string(self, settings):
         settings.FRONTEND_URL = 'http://localhost:5173'
         factory = RequestFactory()
-        request = factory.get('/api/billing/retorno/')
+        request = factory.get('/api/v1/billing/retorno/')
 
         resposta = RetornoCheckoutView.as_view()(request)
 
@@ -593,7 +593,7 @@ class TestPagamentosListView:
         )
         Pagamento.objects.create(assinatura=outra_assinatura, valor='69.90', status='pago', data=datetime.date.today())
 
-        response = client_autenticado.get('/api/billing/pagamentos/')
+        response = client_autenticado.get('/api/v1/billing/pagamentos/')
         assert response.status_code == 200
         assert response.data['count'] == 1
 
@@ -605,7 +605,7 @@ class TestPagamentosListView:
         )
         Pagamento.objects.create(assinatura=assinatura, valor='69.90', status='pago', data=datetime.date.today())
 
-        response = client_autenticado.get('/api/billing/pagamentos/')
+        response = client_autenticado.get('/api/v1/billing/pagamentos/')
         datas = [p['data'] for p in response.data['results']]
         assert datas[0] == str(datetime.date.today())
 
@@ -614,5 +614,5 @@ class TestPagamentosListView:
 
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get('/api/billing/pagamentos/')
+        response = client.get('/api/v1/billing/pagamentos/')
         assert response.status_code == 401

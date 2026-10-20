@@ -15,7 +15,7 @@ passa por aqui.
 | `views.py` | Endpoints públicos (mapa, busca, perfil do negócio) e autenticados (vincular, agendar). Inclui o recorte geográfico `_filtrar_por_area` |
 | `handlers.py` | A ponte de volta: escuta sinais do lado do negócio e reflete no público |
 | `serializers.py` | Representação do `NegocioPublico` |
-| `urls.py` | Rotas sob `/api/sm/negocios/` |
+| `urls.py` | Rotas sob `/api/sm/v1/negocios/` |
 
 ## As quatro classes de `services.py`
 

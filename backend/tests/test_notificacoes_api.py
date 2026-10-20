@@ -25,37 +25,37 @@ def notificacao_lida(patch_tenant_middleware):
 @pytest.mark.django_db
 class TestNotificacaoAPI:
     def test_listar_retorna_200_paginado(self, client_autenticado, notificacao_nao_lida, notificacao_lida):
-        response = client_autenticado.get('/api/notificacoes/')
+        response = client_autenticado.get('/api/v1/notificacoes/')
         assert response.status_code == 200
         assert 'results' in response.data
         assert response.data['count'] == 2
 
     def test_listar_ordena_mais_recente_primeiro(self, client_autenticado, notificacao_nao_lida, notificacao_lida):
-        response = client_autenticado.get('/api/notificacoes/')
+        response = client_autenticado.get('/api/v1/notificacoes/')
         titulos = [n['titulo'] for n in response.data['results']]
         assert titulos[0] == notificacao_lida.titulo  # criada por último
 
     def test_sem_autenticacao_retorna_401(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get('/api/notificacoes/')
+        response = client.get('/api/v1/notificacoes/')
         assert response.status_code == 401
 
     def test_nao_lidas_conta_corretamente(self, client_autenticado, notificacao_nao_lida, notificacao_lida):
-        response = client_autenticado.get('/api/notificacoes/nao-lidas/')
+        response = client_autenticado.get('/api/v1/notificacoes/nao-lidas/')
         assert response.status_code == 200
         assert response.data['total'] == 1
 
     def test_marcar_lida_atualiza_notificacao(self, client_autenticado, notificacao_nao_lida):
-        response = client_autenticado.post(f'/api/notificacoes/{notificacao_nao_lida.id}/marcar-lida/')
+        response = client_autenticado.post(f'/api/v1/notificacoes/{notificacao_nao_lida.id}/marcar-lida/')
         assert response.status_code == 200
         notificacao_nao_lida.refresh_from_db()
         assert notificacao_nao_lida.lida is True
 
     def test_marcar_todas_lidas_zera_contagem(self, client_autenticado, notificacao_nao_lida):
         Notificacao.objects.create(tipo='cliente_vinculado', titulo='Outra')
-        response = client_autenticado.post('/api/notificacoes/marcar-todas-lidas/')
+        response = client_autenticado.post('/api/v1/notificacoes/marcar-todas-lidas/')
         assert response.status_code == 200
 
-        contagem = client_autenticado.get('/api/notificacoes/nao-lidas/')
+        contagem = client_autenticado.get('/api/v1/notificacoes/nao-lidas/')
         assert contagem.data['total'] == 0

@@ -81,28 +81,28 @@ class TestDiasComRegistroService:
 @pytest.mark.django_db
 class TestDiasComRegistroAPI:
     def test_retorna_200(self, client_autenticado):
-        response = client_autenticado.get('/api/agenda/dias-com-registro/?ano=2026&mes=6')
+        response = client_autenticado.get('/api/v1/agenda/dias-com-registro/?ano=2026&mes=6')
         assert response.status_code == 200
 
     def test_retorna_datas_do_mes(self, client_autenticado):
         _agendamento(15)
-        response = client_autenticado.get('/api/agenda/dias-com-registro/?ano=2026&mes=6')
+        response = client_autenticado.get('/api/v1/agenda/dias-com-registro/?ano=2026&mes=6')
         assert response.data == ['2026-06-15']
 
     def test_sem_parametros_retorna_400(self, client_autenticado):
-        response = client_autenticado.get('/api/agenda/dias-com-registro/')
+        response = client_autenticado.get('/api/v1/agenda/dias-com-registro/')
         assert response.status_code == 400
 
     def test_parametro_nao_numerico_retorna_400(self, client_autenticado):
-        response = client_autenticado.get('/api/agenda/dias-com-registro/?ano=abc&mes=6')
+        response = client_autenticado.get('/api/v1/agenda/dias-com-registro/?ano=abc&mes=6')
         assert response.status_code == 400
 
     def test_mes_fora_do_intervalo_retorna_400(self, client_autenticado):
-        response = client_autenticado.get('/api/agenda/dias-com-registro/?ano=2026&mes=13')
+        response = client_autenticado.get('/api/v1/agenda/dias-com-registro/?ano=2026&mes=13')
         assert response.status_code == 400
 
     def test_sem_autenticacao_retorna_401(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get('/api/agenda/dias-com-registro/?ano=2026&mes=6')
+        response = client.get('/api/v1/agenda/dias-com-registro/?ano=2026&mes=6')
         assert response.status_code == 401

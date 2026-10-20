@@ -13,7 +13,7 @@ dentro de um tenant; lá é um `Consumidor` no schema público.
 | `views.py` | Cadastro, login, refresh por cookie, logout e as três etapas de recuperação de senha |
 | `models.py` | `LastActivity` (relógio de inatividade) e `CodigoRecuperacao` |
 | `serializers.py` | Validação do cadastro, incluindo o slug do schema a partir do nome da empresa |
-| `urls.py` | Rotas sob `/auth/` — fora do prefixo `/api/` |
+| `urls.py` | Rotas sob `/api/v1/auth/` — isentas do bloqueio de assinatura |
 
 ## Tabelas
 
@@ -94,7 +94,7 @@ convite. Os tokens são assinados com chave própria do Work Manage
 O refresh vai **ou** no cookie httpOnly (web) **ou** no corpo (mobile), nunca
 nos dois. O app mobile se identifica com `X-Client-Platform: mobile` e manda o
 refresh no corpo; sem o cabeçalho, o refresh só é lido do cookie
-(`core/sessao.py`). Só existe uma rota de refresh: `/auth/token-refresh/`.
+(`core/sessao.py`). Só existe uma rota de refresh: `/api/v1/auth/token-refresh/`.
 
 ## `LastActivity`
 

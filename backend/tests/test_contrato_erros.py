@@ -112,14 +112,14 @@ class TestDePontaAPonta:
         from rest_framework.test import APIClient
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        resposta = client.get('/api/colaboradores/')
+        resposta = client.get('/api/v1/colaboradores/')
         assert resposta.status_code == 401
         assert resposta.json()['code'] == 'nao_autenticado'
 
     def test_erro_de_negocio_do_service_chega_com_code(self, api, proprietario):
         from apps_work.usuarios.models import Colaborador
         dono = Colaborador.objects.create(user=proprietario, role='proprietario')
-        resposta = api.post(f'/api/colaboradores/{dono.id}/desativar/')
+        resposta = api.post(f'/api/v1/colaboradores/{dono.id}/desativar/')
         assert resposta.status_code == 400
         assert resposta.json() == {
             'detail': 'O proprietário não pode ser desativado nem removido.',
@@ -127,13 +127,13 @@ class TestDePontaAPonta:
         }
 
     def test_erro_de_campo_de_serializer(self, api):
-        resposta = api.post('/api/convites/', {'email': 'nao-e-email'})
+        resposta = api.post('/api/v1/convites/', {'email': 'nao-e-email'})
         assert resposta.status_code == 400
         corpo = resposta.json()
         assert corpo['code'] == 'invalido'
         assert 'email' in corpo['fields']
 
     def test_404_tem_code(self, api):
-        resposta = api.get('/api/colaboradores/999999/')
+        resposta = api.get('/api/v1/colaboradores/999999/')
         assert resposta.status_code == 404
         assert resposta.json()['code'] == 'nao_encontrado'

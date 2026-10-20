@@ -15,7 +15,7 @@ do profissional": existe uma fila de etapas, e o atendimento anda por ela.
 | `views.py` | Os dois ViewSets, mais as ações `mover`, `cobrar`, `desfazer_cobranca` e `marcar_falta` |
 | `serializers.py` | Representação do quadro |
 | `signals.py` | Declara `atendimento_kanban_falta_alterada`, escutado pela vitrine |
-| `urls.py` | Rotas sob `/api/kanban/` |
+| `urls.py` | Rotas sob `/api/v1/kanban/` |
 
 ## Tabelas
 

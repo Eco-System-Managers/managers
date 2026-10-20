@@ -57,7 +57,7 @@ class TestEscaladaParaProprietario:
     def test_colaborador_nao_se_promove_via_put(self, colaborador):
         client = _cliente_com_token(colaborador.user)
         response = client.put(
-            f'/api/colaboradores/{colaborador.id}/',
+            f'/api/v1/colaboradores/{colaborador.id}/',
             {'role': 'proprietario', 'funcao': 'Dono'},
         )
         assert response.status_code == 403
@@ -67,30 +67,30 @@ class TestEscaladaParaProprietario:
 
     def test_colaborador_nao_edita_via_patch(self, colaborador):
         client = _cliente_com_token(colaborador.user)
-        response = client.patch(f'/api/colaboradores/{colaborador.id}/', {'role': 'proprietario'})
+        response = client.patch(f'/api/v1/colaboradores/{colaborador.id}/', {'role': 'proprietario'})
         assert response.status_code == 403
 
     def test_colaborador_nao_desativa_o_dono_via_put(self, colaborador, dono):
         client = _cliente_com_token(colaborador.user)
-        response = client.put(f'/api/colaboradores/{dono.colaborador.id}/', {'ativo': False})
+        response = client.put(f'/api/v1/colaboradores/{dono.colaborador.id}/', {'ativo': False})
         assert response.status_code == 403
         dono.refresh_from_db()
         assert dono.is_active is True
 
     def test_colaborador_nao_desativa_o_dono_via_action(self, colaborador, dono):
         client = _cliente_com_token(colaborador.user)
-        response = client.post(f'/api/colaboradores/{dono.colaborador.id}/desativar/')
+        response = client.post(f'/api/v1/colaboradores/{dono.colaborador.id}/desativar/')
         assert response.status_code == 403
         dono.refresh_from_db()
         assert dono.is_active is True
 
     def test_colaborador_continua_listando_a_equipe(self, colaborador):
         client = _cliente_com_token(colaborador.user)
-        assert client.get('/api/colaboradores/').status_code == 200
+        assert client.get('/api/v1/colaboradores/').status_code == 200
 
     def test_proprietario_edita_funcao_com_token_real(self, dono, colaborador):
         client = _cliente_com_token(dono)
-        response = client.patch(f'/api/colaboradores/{colaborador.id}/', {'funcao': 'Barbeiro'})
+        response = client.patch(f'/api/v1/colaboradores/{colaborador.id}/', {'funcao': 'Barbeiro'})
         assert response.status_code == 200
         colaborador.refresh_from_db()
         assert colaborador.funcao == 'Barbeiro'
@@ -100,21 +100,21 @@ class TestEscaladaParaProprietario:
 class TestProprietarioNaoSeTrancaParaFora:
     def test_nao_desativa_a_si_mesmo(self, dono):
         client = _cliente_com_token(dono)
-        response = client.post(f'/api/colaboradores/{dono.colaborador.id}/desativar/')
+        response = client.post(f'/api/v1/colaboradores/{dono.colaborador.id}/desativar/')
         assert response.status_code == 400
         dono.refresh_from_db()
         assert dono.is_active is True
 
     def test_nao_desativa_a_si_mesmo_via_delete(self, dono):
         client = _cliente_com_token(dono)
-        response = client.delete(f'/api/colaboradores/{dono.colaborador.id}/')
+        response = client.delete(f'/api/v1/colaboradores/{dono.colaborador.id}/')
         assert response.status_code == 400
         dono.refresh_from_db()
         assert dono.is_active is True
 
     def test_nao_remove_a_si_mesmo(self, dono):
         client = _cliente_com_token(dono)
-        response = client.delete(f'/api/colaboradores/{dono.colaborador.id}/remover/')
+        response = client.delete(f'/api/v1/colaboradores/{dono.colaborador.id}/remover/')
         assert response.status_code == 400
         assert User.objects.filter(pk=dono.pk).exists()
 
@@ -124,7 +124,7 @@ class TestProprietarioNaoSeTrancaParaFora:
         colab_socio = Colaborador.objects.create(user=socio, role='proprietario')
 
         client = _cliente_com_token(dono)
-        response = client.post(f'/api/colaboradores/{colab_socio.id}/desativar/')
+        response = client.post(f'/api/v1/colaboradores/{colab_socio.id}/desativar/')
         assert response.status_code == 400
         socio.refresh_from_db()
         assert socio.is_active is True
@@ -139,8 +139,8 @@ class TestAcessoCruzadoEntreTenants:
         UserTenant.objects.create(user=user, tenant=outra_empresa, role='proprietario')
 
         client = _cliente_com_token(user, schema_name='outra_empresa')
-        assert client.get('/api/colaboradores/').status_code == 401
-        assert client.get('/api/servicos/').status_code == 401
+        assert client.get('/api/v1/colaboradores/').status_code == 401
+        assert client.get('/api/v1/servicos/').status_code == 401
 
     def test_usuario_sem_vinculo_com_o_tenant_e_recusado(self, outra_empresa):
         # Mesmo com o schema_name do token batendo, sem UserTenant não entra.
@@ -148,11 +148,11 @@ class TestAcessoCruzadoEntreTenants:
         UserTenant.objects.create(user=user, tenant=outra_empresa, role='proprietario')
 
         client = _cliente_com_token(user, schema_name='test_empresa')
-        assert client.get('/api/colaboradores/').status_code == 401
+        assert client.get('/api/v1/colaboradores/').status_code == 401
 
     def test_token_sem_schema_e_recusado(self, patch_tenant_middleware, proprietario):
         client = _cliente_com_token(proprietario, schema_name=None)
-        assert client.get('/api/colaboradores/').status_code == 401
+        assert client.get('/api/v1/colaboradores/').status_code == 401
 
     def test_proprietario_de_outro_tenant_nao_e_proprietario_aqui(self, outra_empresa, colaborador):
         # Dono de outra empresa não vira dono desta por ter um papel lá.
@@ -160,7 +160,7 @@ class TestAcessoCruzadoEntreTenants:
         UserTenant.objects.create(user=colaborador.user, tenant=outra_empresa, role='proprietario')
 
         client = _cliente_com_token(colaborador.user)
-        response = client.post('/api/servicos/', {'nome': 'Corte', 'duracao': 30, 'preco': '50.00'})
+        response = client.post('/api/v1/servicos/', {'nome': 'Corte', 'duracao': 30, 'preco': '50.00'})
         assert response.status_code == 401
 
 
@@ -173,7 +173,7 @@ class TestConvitePorIdSequencial:
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
 
-        response = client.post(f'/api/convites/{convite.pk}/aceitar/', {'senha': 'SenhaForte@2024!'})
+        response = client.post(f'/api/v1/convites/{convite.pk}/aceitar/', {'senha': 'SenhaForte@2024!'})
 
         assert response.status_code == 404
         convite.refresh_from_db()

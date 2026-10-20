@@ -63,18 +63,18 @@ def agendamento_com_servico(agendamento, servico):
 @pytest.mark.django_db
 class TestAgendamentoAPI:
     def test_listar_agendamentos_retorna_200(self, client_autenticado, agendamento):
-        response = client_autenticado.get('/api/agendamentos/')
+        response = client_autenticado.get('/api/v1/agendamentos/')
         assert response.status_code == 200
         assert response.data['count'] == 1
 
     def test_grade_do_dia_vem_no_mesmo_formato_paginado(self, client_autenticado, agendamento):
         """O formato não muda com ?data= (antes virava array): o client gerado
         do OpenAPI tem um tipo só para a rota."""
-        response = client_autenticado.get('/api/agendamentos/?data=2024-06-10')
+        response = client_autenticado.get('/api/v1/agendamentos/?data=2024-06-10')
         assert set(response.data) >= {'count', 'next', 'previous', 'results'}
 
     def test_historico_por_cliente_vem_paginado(self, client_autenticado, cliente):
-        response = client_autenticado.get(f'/api/agendamentos/?cliente={cliente.id}')
+        response = client_autenticado.get(f'/api/v1/agendamentos/?cliente={cliente.id}')
         assert set(response.data) >= {'count', 'next', 'previous', 'results'}
 
     def test_historico_por_cliente_traz_no_maximo_vinte(self, client_autenticado, cliente):
@@ -83,7 +83,7 @@ class TestAgendamentoAPI:
                 cliente=cliente,
                 data_hora=datetime(2024, 6, 10, 0, 0, tzinfo=timezone.utc) + timedelta(hours=hora),
             )
-        response = client_autenticado.get(f'/api/agendamentos/?cliente={cliente.id}')
+        response = client_autenticado.get(f'/api/v1/agendamentos/?cliente={cliente.id}')
         assert response.data['count'] == 25
         assert len(response.data['results']) == 20
         assert response.data['next'] is not None
@@ -101,13 +101,13 @@ class TestAgendamentoAPI:
             )
         # A grade monta a linha do tempo com o dia inteiro: pede página grande e
         # confere que não há próxima — senão horário sumiria sem erro.
-        response = client_autenticado.get('/api/agendamentos/?data=2024-06-10&page_size=100')
+        response = client_autenticado.get('/api/v1/agendamentos/?data=2024-06-10&page_size=100')
         assert len(response.data['results']) == 25
         assert response.data['next'] is None
 
     def test_criar_agendamento_retorna_201(self, client_autenticado, cliente):
         payload = {'cliente': cliente.id, 'data_hora': '2024-06-15T10:00:00Z'}
-        response = client_autenticado.post('/api/agendamentos/', payload)
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 201
         assert response.data['cliente'] == cliente.id
 
@@ -117,7 +117,7 @@ class TestAgendamentoAPI:
             'data_hora': '2024-06-15T10:00:00Z',
             'servico_id': servico.id,
         }
-        response = client_autenticado.post('/api/agendamentos/', payload)
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 201
         assert AgendamentoServico.objects.filter(agendamento_id=response.data['id']).count() == 1
 
@@ -127,42 +127,42 @@ class TestAgendamentoAPI:
             'data_hora': '2024-06-15T10:00:00Z',
             'servico_id': 99999,
         }
-        response = client_autenticado.post('/api/agendamentos/', payload)
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 201
         assert AgendamentoServico.objects.filter(agendamento_id=response.data['id']).count() == 0
 
     def test_detalhar_agendamento_retorna_200(self, client_autenticado, agendamento):
-        response = client_autenticado.get(f'/api/agendamentos/{agendamento.id}/')
+        response = client_autenticado.get(f'/api/v1/agendamentos/{agendamento.id}/')
         assert response.status_code == 200
         assert response.data['id'] == agendamento.id
 
     def test_atualizar_status_retorna_200(self, client_autenticado, agendamento):
-        response = client_autenticado.patch(f'/api/agendamentos/{agendamento.id}/', {'status': 'confirmado'})
+        response = client_autenticado.patch(f'/api/v1/agendamentos/{agendamento.id}/', {'status': 'confirmado'})
         assert response.status_code == 200
         assert response.data['status'] == 'confirmado'
 
     def test_deletar_agendamento_retorna_204(self, client_autenticado, agendamento):
-        response = client_autenticado.delete(f'/api/agendamentos/{agendamento.id}/')
+        response = client_autenticado.delete(f'/api/v1/agendamentos/{agendamento.id}/')
         assert response.status_code == 204
         assert Agendamento.objects.filter(pk=agendamento.pk).count() == 0
 
     def test_sem_autenticacao_retorna_401(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
-        response = client.get('/api/agendamentos/')
+        response = client.get('/api/v1/agendamentos/')
         assert response.status_code == 401
 
     def test_filtrar_por_data_retorna_apenas_do_dia(self, client_autenticado, cliente):
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 10, 9, 0, tzinfo=timezone.utc))
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 11, 9, 0, tzinfo=timezone.utc))
-        response = client_autenticado.get('/api/agendamentos/?data=2024-06-10')
+        response = client_autenticado.get('/api/v1/agendamentos/?data=2024-06-10')
         assert response.status_code == 200
         assert len(response.data['results']) == 1
 
     def test_filtrar_por_colaborador_retorna_do_colaborador(self, client_autenticado, cliente, colaborador):
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 10, 9, 0, tzinfo=timezone.utc), colaborador=colaborador)
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 10, 10, 0, tzinfo=timezone.utc))
-        response = client_autenticado.get(f'/api/agendamentos/?colaborador={colaborador.id}')
+        response = client_autenticado.get(f'/api/v1/agendamentos/?colaborador={colaborador.id}')
         assert response.status_code == 200
         assert response.data['count'] == 1
         assert response.data['results'][0]['colaborador'] == colaborador.id
@@ -173,14 +173,14 @@ class TestAgendamentoAPI:
             data_hora=datetime(2024, 6, 10, 9, 0, tzinfo=timezone.utc),
             status='cancelado',
         )
-        response = client_autenticado.get('/api/agendamentos/')
+        response = client_autenticado.get('/api/v1/agendamentos/')
         assert response.status_code == 200
         assert response.data['count'] == 0
 
     def test_cancelado_nao_aparece_junto_com_agendados(self, client_autenticado, cliente):
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 10, 9, 0, tzinfo=timezone.utc), status='agendado')
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 10, 10, 0, tzinfo=timezone.utc), status='cancelado')
-        response = client_autenticado.get('/api/agendamentos/')
+        response = client_autenticado.get('/api/v1/agendamentos/')
         assert response.status_code == 200
         assert response.data['count'] == 1
         assert response.data['results'][0]['status'] == 'agendado'
@@ -189,19 +189,19 @@ class TestAgendamentoAPI:
         outro_cliente = Cliente.objects.create(nome='João Souza')
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 10, 9, 0, tzinfo=timezone.utc))
         Agendamento.objects.create(cliente=outro_cliente, data_hora=datetime(2024, 6, 10, 10, 0, tzinfo=timezone.utc))
-        response = client_autenticado.get(f'/api/agendamentos/?cliente={cliente.id}')
+        response = client_autenticado.get(f'/api/v1/agendamentos/?cliente={cliente.id}')
         assert response.status_code == 200
         assert response.data['count'] == 1
         assert response.data['results'][0]['cliente'] == cliente.id
 
     def test_filtrar_por_cliente_nao_retorna_cancelados(self, client_autenticado, cliente):
         Agendamento.objects.create(cliente=cliente, data_hora=datetime(2024, 6, 10, 9, 0, tzinfo=timezone.utc), status='cancelado')
-        response = client_autenticado.get(f'/api/agendamentos/?cliente={cliente.id}')
+        response = client_autenticado.get(f'/api/v1/agendamentos/?cliente={cliente.id}')
         assert response.status_code == 200
         assert response.data['count'] == 0
 
     def test_listar_retorna_campos_nested(self, client_autenticado, agendamento_com_servico):
-        response = client_autenticado.get('/api/agendamentos/')
+        response = client_autenticado.get('/api/v1/agendamentos/')
         assert response.status_code == 200
         data = response.data['results'][0]
         assert data['cliente_nome'] == 'Ana Lima'
@@ -222,7 +222,7 @@ class TestAgendamentoConflitoHorario:
             'cliente': cliente.id, 'colaborador': colaborador.id,
             'data_hora': '2024-06-15T10:15:00Z', 'servico_id': servico.id,
         }
-        response = client_autenticado.post('/api/agendamentos/', payload)
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 400
         assert response.data['code'] == 'horario_conflito'
 
@@ -238,7 +238,7 @@ class TestAgendamentoConflitoHorario:
             'cliente': cliente.id, 'colaborador': colaborador.id,
             'data_hora': '2024-06-15T10:30:00Z',
         }
-        response = client_autenticado.post('/api/agendamentos/', payload)
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 201
 
     def test_criar_sem_colaborador_nao_verifica_conflito(self, client_autenticado, cliente, colaborador):
@@ -247,7 +247,7 @@ class TestAgendamentoConflitoHorario:
             data_hora=datetime(2024, 6, 15, 10, 0, tzinfo=timezone.utc),
         )
         payload = {'cliente': cliente.id, 'data_hora': '2024-06-15T10:15:00Z'}
-        response = client_autenticado.post('/api/agendamentos/', payload)
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 201
 
     def test_criar_para_colaborador_diferente_nao_conflita(self, client_autenticado, cliente, colaborador):
@@ -262,7 +262,7 @@ class TestAgendamentoConflitoHorario:
             'cliente': cliente.id, 'colaborador': outro_colaborador.id,
             'data_hora': '2024-06-15T10:15:00Z',
         }
-        response = client_autenticado.post('/api/agendamentos/', payload)
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 201
 
     def test_atualizar_para_horario_sobreposto_retorna_400(self, client_autenticado, cliente, colaborador):
@@ -274,7 +274,7 @@ class TestAgendamentoConflitoHorario:
             cliente=cliente, colaborador=colaborador,
             data_hora=datetime(2024, 6, 15, 14, 0, tzinfo=timezone.utc),
         )
-        response = client_autenticado.patch(f'/api/agendamentos/{outro.id}/', {'data_hora': '2024-06-15T10:15:00Z'})
+        response = client_autenticado.patch(f'/api/v1/agendamentos/{outro.id}/', {'data_hora': '2024-06-15T10:15:00Z'})
         assert response.status_code == 400
         assert response.data['code'] == 'horario_conflito'
 
@@ -283,7 +283,7 @@ class TestAgendamentoConflitoHorario:
             cliente=cliente, colaborador=colaborador,
             data_hora=datetime(2024, 6, 15, 10, 0, tzinfo=timezone.utc),
         )
-        response = client_autenticado.patch(f'/api/agendamentos/{agendamento.id}/', {'status': 'confirmado'})
+        response = client_autenticado.patch(f'/api/v1/agendamentos/{agendamento.id}/', {'status': 'confirmado'})
         assert response.status_code == 200
 
     def test_criar_em_dia_diferente_no_mesmo_horario_nao_conflita(self, client_autenticado, cliente, colaborador):
@@ -295,7 +295,7 @@ class TestAgendamentoConflitoHorario:
             'cliente': cliente.id, 'colaborador': colaborador.id,
             'data_hora': '2024-06-16T10:00:00Z',
         }
-        response = client_autenticado.post('/api/agendamentos/', payload)
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 201
 
 
@@ -303,7 +303,7 @@ class TestAgendamentoConflitoHorario:
 class TestAgendamentoCobrar:
     def test_cobrar_sem_pagamentos_retorna_400(self, client_autenticado, agendamento_com_servico):
         response = client_autenticado.post(
-            f'/api/agendamentos/{agendamento_com_servico.pk}/cobrar/',
+            f'/api/v1/agendamentos/{agendamento_com_servico.pk}/cobrar/',
             {'desconto': '0.00', 'pagamentos': []},
             format='json',
         )
@@ -316,7 +316,7 @@ class TestAgendamentoCobrar:
             'pagamentos': [{'forma': 'dinheiro', 'valor': '50.00'}],
         }
         response = client_autenticado.post(
-            f'/api/agendamentos/{agendamento_com_servico.pk}/cobrar/',
+            f'/api/v1/agendamentos/{agendamento_com_servico.pk}/cobrar/',
             payload,
             format='json',
         )
@@ -329,7 +329,7 @@ class TestAgendamentoCobrar:
             'pagamentos': [{'forma': 'dinheiro', 'valor': '10.00'}],
         }
         response = client_autenticado.post(
-            f'/api/agendamentos/{agendamento_com_servico.pk}/cobrar/',
+            f'/api/v1/agendamentos/{agendamento_com_servico.pk}/cobrar/',
             payload,
             format='json',
         )

@@ -54,9 +54,9 @@ ordenada do maior gasto para o menor. O resultado do período
 (receita − despesa) é calculado no cliente, cruzando este total com o
 `CaixaService`.
 
-CRUD em `/api/financeiro/despesas/` (`DespesaViewSet`, paginado pela paginação padrão),
+CRUD em `/api/v1/financeiro/despesas/` (`DespesaViewSet`, paginado pela paginação padrão),
 com filtros de query `data_inicio`/`data_fim`/`categoria`; o resumo em
-`/api/financeiro/despesas/resumo/`. Escrita exige `IsProprietario`.
+`/api/v1/financeiro/despesas/resumo/`. Escrita exige `IsProprietario`.
 
 ## Como o saldo funciona
 

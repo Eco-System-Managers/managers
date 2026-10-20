@@ -87,6 +87,6 @@ de SigV4 documentados lá.
   é aviso, nunca bloqueio.
 - **`EmpresaConfig` é linha única** — `get_object` busca `pk=1`. Não existe
   listagem.
-- **Escrita só do proprietário**, leitura liberada. `/api/empresa/config/` é
+- **Escrita só do proprietário**, leitura liberada. `/api/v1/empresa/config/` é
   isento do bloqueio por assinatura, senão tenant bloqueado não conseguiria nem
   carregar a tela que resolve a pendência.
