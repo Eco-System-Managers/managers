@@ -246,7 +246,7 @@ class DisponibilidadeView(APIView):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
 
         data_str = request.query_params.get('data')
-        servico_ids = request.query_params.getlist('servico_id') or request.query_params.getlist('servico_id[]')
+        servico_ids = request.query_params.getlist('servico_id')
         colaborador_id = request.query_params.get('colaborador_id')
 
         if not data_str or not servico_ids:
