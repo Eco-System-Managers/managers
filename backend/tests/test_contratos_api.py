@@ -105,7 +105,7 @@ class TestEnviarContrato:
         assert response.data['status'] == StatusContrato.ENVIADO
         assert len(mailoutbox) == 1
         assert mailoutbox[0].to == ['ana@email.com']
-        assert str(contrato.token) in mailoutbox[0].body
+        assert f'/contrato/test_empresa/{contrato.token}' in mailoutbox[0].body
         assert mailoutbox[0].alternatives  # versão HTML
 
     def test_falha_no_smtp_nao_vira_500(self, client_autenticado, cliente):

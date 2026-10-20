@@ -22,6 +22,7 @@ from .services import (
     WebhookInvalidoError,
 )
 from core.excecoes import erro
+from core.links import link_retorno_pagamento
 
 
 class MinhaAssinaturaView(APIView):
@@ -71,8 +72,7 @@ class RetornoCheckoutView(APIView):
     )
     def get(self, request):
         query = request.META.get('QUERY_STRING', '')
-        destino = f'{settings.FRONTEND_URL}/app/pagamentos' + (f'?{query}' if query else '')
-        return HttpResponseRedirect(destino)
+        return HttpResponseRedirect(link_retorno_pagamento(query))
 
 
 class ConfirmarAssinaturaView(APIView):

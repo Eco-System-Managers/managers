@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -9,6 +8,7 @@ from datetime import timedelta
 from tenants.models import Papel, Tenant, Membro
 from apps_work.autenticacao.models import UltimaAtividade
 from core.email import enviar_email
+from core.links import link_convite
 from .models import Colaborador, ConviteColaborador
 from core.excecoes import ErroDeNegocio
 
@@ -113,7 +113,7 @@ class ConviteService:
         return convite
 
     def _enviar_email(self, convite, tenant_nome: str) -> None:
-        link = f'{settings.FRONTEND_URL}/convite/{convite.token}'
+        link = link_convite(convite.token)
         saudacao = f'Olá, {convite.nome}!' if convite.nome else 'Olá!'
         enviar_email.enqueue(
             assunto=f'Você foi convidado para o {tenant_nome} — Work Manage',

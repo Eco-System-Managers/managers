@@ -1,8 +1,8 @@
-from django.conf import settings
 from django.utils import timezone
 
 from .models import Contrato, ModeloContrato, StatusContrato
 from core.email import enviar_email
+from core.links import link_contrato
 from core.excecoes import ErroDeNegocio
 
 
@@ -50,8 +50,7 @@ class ContratoService:
         if contrato.status == StatusContrato.ASSINADO:
             raise ErroDeNegocio('Este contrato já foi assinado.', 'contrato_ja_assinado')
 
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
-        link = f'{frontend_url}/contratos/{schema_name}/{contrato.token}'
+        link = link_contrato(schema_name, contrato.token)
 
         corpo_email = (
             f'Olá, {contrato.cliente.nome}!\n\n'

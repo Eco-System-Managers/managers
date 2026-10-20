@@ -80,7 +80,7 @@ class TestConviteService:
             nome='Ana Lima', email='ana@email.com', tenant_nome='Empresa Teste'
         )
         _, kwargs = mock_mail.call_args
-        assert str(convite.token) in kwargs['message']
+        assert f'/convite/{convite.token}' in kwargs['message']
 
     def test_criar_convite_com_email_ja_vinculado_a_conta_lanca_excecao(self, patch_tenant_middleware):
         User.objects.create_user(username='ana@email.com', email='ana@email.com', password='senha123')

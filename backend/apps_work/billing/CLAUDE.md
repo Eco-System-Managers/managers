@@ -105,5 +105,5 @@ driblar.
 - **Rotas de billing são isentas do bloqueio**, junto com `/colaboradores/me/` e
   `/empresa/config/` — senão o tenant bloqueado não alcança a tela que resolve.
 - **O `back_url` do preapproval é fixado na criação do plano** e aponta para o
-  `FRONTEND_URL`. Por isso o checkout do app mobile retorna pela web, com um
+  `LINKS_BASE_URL` (`core/links.py`). Por isso o checkout do app mobile retorna pela web, com um
   botão que abre o app de volta.

@@ -327,8 +327,10 @@ CACHES = {
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
-# Trocar e colocar o seu dominio para ir para a produção
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+# Base de todo link público (convite, contrato, volta do checkout) — ver
+# core/links.py. No deploy, o domínio que também publica os arquivos de App
+# Link/Universal Link. FRONTEND_URL ainda é lido para não quebrar .env antigos.
+LINKS_BASE_URL = os.getenv('LINKS_BASE_URL') or os.getenv('FRONTEND_URL', 'http://localhost:5173')
 
 # Tasks rodam numa thread depois do commit (core/tasks.py). Trocar por um
 # backend com worker não exige mudar quem chama .enqueue().
@@ -353,7 +355,7 @@ MERCADOPAGO_ACCESS_TOKEN = os.getenv('MERCADOPAGO_ACCESS_TOKEN', '')
 MERCADOPAGO_PUBLIC_KEY = os.getenv('MERCADOPAGO_PUBLIC_KEY', '')
 MERCADOPAGO_WEBHOOK_SECRET = os.getenv('MERCADOPAGO_WEBHOOK_SECRET', '')
 # O Mercado Pago exige uma URL https válida pro back_url (redirecionamento pós-checkout) —
-# não aceita http://localhost, então não dá pra reaproveitar FRONTEND_URL em dev.
+# não aceita http://localhost, então não dá pra reaproveitar LINKS_BASE_URL em dev.
 MERCADOPAGO_BACK_URL = os.getenv('MERCADOPAGO_BACK_URL', 'https://workmanage.com.br')
 
 # OpenAPI (drf-spectacular). Título e filtro de rotas vêm de cada produto

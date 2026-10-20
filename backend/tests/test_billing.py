@@ -546,7 +546,7 @@ class TestMercadoPagoGatewayWebhook:
 
 class TestRetornoCheckoutView:
     def test_redireciona_para_frontend_com_query_string(self, settings):
-        settings.FRONTEND_URL = 'http://localhost:5173'
+        settings.LINKS_BASE_URL = 'http://localhost:5173'
         factory = RequestFactory()
         request = factory.get('/api/v1/billing/retorno/?preapproval_id=abc-123')
 
@@ -556,7 +556,7 @@ class TestRetornoCheckoutView:
         assert resposta.url == 'http://localhost:5173/app/pagamentos?preapproval_id=abc-123'
 
     def test_redireciona_sem_query_string(self, settings):
-        settings.FRONTEND_URL = 'http://localhost:5173'
+        settings.LINKS_BASE_URL = 'http://localhost:5173'
         factory = RequestFactory()
         request = factory.get('/api/v1/billing/retorno/')
 
