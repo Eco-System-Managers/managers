@@ -1,5 +1,4 @@
 from datetime import date as date_type
-from decimal import Decimal
 from rest_framework import viewsets, status as drf_status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -15,6 +14,7 @@ from .services import (
     PendenciasCobrancaService,
     SlotsAgendaService,
 )
+from apps_work.financeiro.serializers import CobrancaSerializer
 from core.excecoes import erro
 
 
@@ -121,21 +121,18 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
         serializer.save()
         AgendamentoService().notificar_mudanca_de_status(serializer.instance, status_anterior)
 
+    @extend_schema(request=CobrancaSerializer, responses=AgendamentoSerializer, summary='Cobrar o atendimento')
     @action(detail=True, methods=['post'])
     def cobrar(self, request, pk=None):
         agendamento = self.get_object()
-        desconto = Decimal(str(request.data.get('desconto', 0)))
-        pagamentos = request.data.get('pagamentos', [])
-        credito_aplicado = Decimal(str(request.data.get('credito_aplicado', 0)))
-        troco_credito = Decimal(str(request.data.get('troco_credito', 0)))
-
-        if not pagamentos:
-            return erro('Pelo menos uma forma de pagamento é obrigatória.', 'sem_pagamentos', drf_status.HTTP_400_BAD_REQUEST)
+        entrada = CobrancaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        dados = entrada.validated_data
 
         agendamento = AgendamentoService().cobrar(
-            agendamento, desconto, pagamentos,
-            credito_aplicado=credito_aplicado,
-            troco_credito=troco_credito,
+            agendamento, dados['desconto'], dados['pagamentos'],
+            credito_aplicado=dados['credito_aplicado'],
+            troco_credito=dados['troco_credito'],
         )
 
         return Response(AgendamentoSerializer(agendamento).data)

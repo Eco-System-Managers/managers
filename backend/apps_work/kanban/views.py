@@ -1,5 +1,4 @@
 from datetime import date as date_type
-from decimal import Decimal
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -12,6 +11,7 @@ from core.permissions import IsProprietario
 from .models import AtendimentoKanban, EtapaKanban
 from .serializers import AtendimentoKanbanSerializer, EtapaKanbanSerializer
 from .services import AtendimentoKanbanService, EtapaService, SlotService
+from apps_work.financeiro.serializers import CobrancaSerializer
 from core.excecoes import erro
 
 
@@ -77,21 +77,18 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
         atendimento = AtendimentoKanbanService().mover(atendimento, etapa)
         return Response(AtendimentoKanbanSerializer(atendimento).data)
 
+    @extend_schema(request=CobrancaSerializer, responses=AtendimentoKanbanSerializer, summary='Cobrar o atendimento')
     @action(detail=True, methods=['post'])
     def cobrar(self, request, pk=None):
         atendimento = self.get_object()
-        desconto = Decimal(str(request.data.get('desconto', 0)))
-        pagamentos = request.data.get('pagamentos', [])
-        credito_aplicado = Decimal(str(request.data.get('credito_aplicado', 0)))
-        troco_credito = Decimal(str(request.data.get('troco_credito', 0)))
-
-        if not pagamentos:
-            return erro('Pelo menos uma forma de pagamento é obrigatória.', 'sem_pagamentos', status.HTTP_400_BAD_REQUEST)
+        entrada = CobrancaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        dados = entrada.validated_data
 
         atendimento = AtendimentoKanbanService().cobrar(
-            atendimento, desconto, pagamentos,
-            credito_aplicado=credito_aplicado,
-            troco_credito=troco_credito,
+            atendimento, dados['desconto'], dados['pagamentos'],
+            credito_aplicado=dados['credito_aplicado'],
+            troco_credito=dados['troco_credito'],
         )
 
         return Response(AtendimentoKanbanSerializer(atendimento).data)

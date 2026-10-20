@@ -1,4 +1,10 @@
+from decimal import Decimal
+
 from rest_framework import serializers
+
+from apps_work.agenda.models import FORMAS_PAGAMENTO
+from core.excecoes import ErroDeNegocio
+
 from .models import Despesa, TransacaoCredito
 
 
@@ -69,4 +75,30 @@ class ResumoCategoriaSerializer(serializers.Serializer):
 class ResumoDespesasSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
     por_categoria = ResumoCategoriaSerializer(many=True)
+
+
+# ---------------------------------------------------------------------------
+# Cobrança de atendimento (agenda e kanban)
+# ---------------------------------------------------------------------------
+
+class PagamentoCobrancaSerializer(serializers.Serializer):
+    forma = serializers.ChoiceField(choices=FORMAS_PAGAMENTO)
+    valor = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class CobrancaSerializer(serializers.Serializer):
+    """Entrada do `cobrar` da agenda e do kanban.
+
+    Antes cada view fazia `Decimal(str(...))` direto no corpo: valor inválido
+    virava 500 (InvalidOperation). Aqui vira 400 com o campo apontado.
+    """
+    desconto = serializers.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+    pagamentos = PagamentoCobrancaSerializer(many=True)
+    credito_aplicado = serializers.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+    troco_credito = serializers.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+
+    def validate_pagamentos(self, valor):
+        if not valor:
+            raise ErroDeNegocio('Pelo menos uma forma de pagamento é obrigatória.', 'sem_pagamentos')
+        return valor
 

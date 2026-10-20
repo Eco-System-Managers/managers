@@ -510,6 +510,7 @@ paths:
   /api/v1/agendamentos/{id}/cobrar/:
     post:
       operationId: agendamentos_cobrar_create
+      summary: Cobrar o atendimento
       parameters:
       - in: path
         name: id
@@ -523,13 +524,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AgendamentoRequest'
+              $ref: '#/components/schemas/CobrancaRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/AgendamentoRequest'
+              $ref: '#/components/schemas/CobrancaRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/AgendamentoRequest'
+              $ref: '#/components/schemas/CobrancaRequest'
         required: true
       security:
       - workmanageJWT: []
@@ -5115,6 +5116,7 @@ paths:
   /api/v1/kanban/atendimentos/{id}/cobrar/:
     post:
       operationId: kanban_atendimentos_cobrar_create
+      summary: Cobrar o atendimento
       parameters:
       - in: path
         name: id
@@ -5128,13 +5130,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
+              $ref: '#/components/schemas/CobrancaRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
+              $ref: '#/components/schemas/CobrancaRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/AtendimentoKanbanRequest'
+              $ref: '#/components/schemas/CobrancaRequest'
         required: true
       security:
       - workmanageJWT: []
@@ -7700,6 +7702,35 @@ components:
       required:
       - nome
       - telefone
+    CobrancaRequest:
+      type: object
+      description: |-
+        Entrada do `cobrar` da agenda e do kanban.
+
+        Antes cada view fazia `Decimal(str(...))` direto no corpo: valor inválido
+        virava 500 (InvalidOperation). Aqui vira 400 com o campo apontado.
+      properties:
+        desconto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          default: '0.00'
+        pagamentos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PagamentoCobrancaRequest'
+        credito_aplicado:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          default: '0.00'
+        troco_credito:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          default: '0.00'
+      required:
+      - pagamentos
     Colaborador:
       type: object
       properties:
@@ -8531,6 +8562,18 @@ components:
           format: date
       required:
       - data
+      - valor
+    PagamentoCobrancaRequest:
+      type: object
+      properties:
+        forma:
+          $ref: '#/components/schemas/FormaEnum'
+        valor:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - forma
       - valor
     PagamentoKanban:
       type: object

@@ -67,18 +67,34 @@ class SaldoService:
         )
 
 
+def pagamentos_efetivados():
+    """Pagamentos que contam como receita, nos dois modos de agenda.
+
+    Kanban: atendimento pago. Agenda: agendamento concluído. Fora disso, o
+    pagamento é provisório — a vitrine cria um assim que o cliente agenda pelo
+    app — e não pode entrar no faturamento. Caixa e dashboard leem daqui para
+    não divergirem.
+    """
+    from apps_work.agenda.models import Pagamento
+    from apps_work.kanban.models import PagamentoKanban
+    return (
+        PagamentoKanban.objects.filter(atendimento__pago=True),
+        Pagamento.objects.filter(agendamento__status='concluido'),
+    )
+
+
 class CaixaService:
     def obter_dados(self, data_inicio: date, data_fim: date, colaborador_id: int | None = None) -> dict:
         from apps_work.kanban.models import PagamentoKanban
-        from apps_work.agenda.models import Pagamento
+
+        kanban_efetivados, agenda_efetivados = pagamentos_efetivados()
 
         # Atendimentos do Kanban não têm colaborador vinculado — filtrar por
         # colaborador exclui esses registros por completo.
         if colaborador_id is None:
-            pk_qs = PagamentoKanban.objects.filter(
+            pk_qs = kanban_efetivados.filter(
                 atendimento__criado_em__date__gte=data_inicio,
                 atendimento__criado_em__date__lte=data_fim,
-                atendimento__pago=True,
             ).select_related(
                 'atendimento__objeto__cliente',
                 'atendimento__servico',
@@ -86,10 +102,9 @@ class CaixaService:
         else:
             pk_qs = PagamentoKanban.objects.none()
 
-        pa_qs = Pagamento.objects.filter(
+        pa_qs = agenda_efetivados.filter(
             agendamento__data_hora__date__gte=data_inicio,
             agendamento__data_hora__date__lte=data_fim,
-            agendamento__status='concluido',
         ).select_related('agendamento__cliente', 'agendamento__colaborador__user').prefetch_related(
             'agendamento__servicos__servico',
         )
