@@ -9,6 +9,7 @@ from .models import EmpresaConfig, HorarioFuncionamento
 from .serializers import EmpresaConfigSerializer, HorarioFuncionamentoSerializer
 from .signals import empresa_config_atualizada
 from apps_work.usuarios.models import Colaborador
+from core.excecoes import erro
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,7 @@ class GeocodificarView(APIView):
         uf = request.query_params.get('uf', '').strip()
 
         if not endereco and not cidade:
-            return Response({'detail': 'Informe ao menos o endereço ou a cidade.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return erro('Informe ao menos o endereço ou a cidade.', status_code=status.HTTP_400_BAD_REQUEST)
 
         from .services import GeocodificacaoService
         try:
@@ -54,12 +54,10 @@ class RuaNoPontoView(APIView):
             latitude = float(request.query_params.get('lat', ''))
             longitude = float(request.query_params.get('lng', ''))
         except (TypeError, ValueError):
-            return Response({'detail': 'Coordenada inválida.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return erro('Coordenada inválida.', status_code=status.HTTP_400_BAD_REQUEST)
 
         if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
-            return Response({'detail': 'Coordenada fora dos limites.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return erro('Coordenada fora dos limites.', status_code=status.HTTP_400_BAD_REQUEST)
 
         from .services import GeocodificacaoService
         try:
@@ -148,13 +146,13 @@ class UploadLogoView(APIView):
 
         arquivo = request.FILES.get('logo')
         if not arquivo:
-            return Response({'detail': 'Nenhum arquivo enviado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Nenhum arquivo enviado.', status_code=status.HTTP_400_BAD_REQUEST)
 
         servico = ArmazenamentoImagemService()
         try:
             servico.validar(arquivo)
         except ImagemInvalidaError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         try:
             caminho = servico.salvar(
@@ -169,10 +167,7 @@ class UploadLogoView(APIView):
             # A mensagem do provedor pode carregar detalhe de infraestrutura;
             # ela vai para o log, e o cliente recebe algo genérico.
             logger.exception('Falha ao enviar a logo', extra={'schema_name': connection.schema_name})
-            return Response(
-                {'detail': 'Não foi possível enviar a imagem. Tente novamente.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return erro('Não foi possível enviar a imagem. Tente novamente.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         config, _ = EmpresaConfig.objects.get_or_create(pk=1)
         config.logo_url = url

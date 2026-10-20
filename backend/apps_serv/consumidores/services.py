@@ -8,6 +8,7 @@ from core.email import enviar_email
 from core.limites import login_servicemanage
 
 from .models import CodigoRecuperacaoConsumidor, Consumidor
+from core.excecoes import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class RegistroConsumidorService:
         email = email.strip().lower()
 
         if Consumidor.objects.filter(email=email).exists():
-            raise ValueError('Já existe uma conta com este e-mail.')
+            raise ErroDeNegocio('Já existe uma conta com este e-mail.', 'email_ja_cadastrado')
 
         with transaction.atomic():
             consumidor = Consumidor(nome=nome, email=email, telefone=telefone)
@@ -40,11 +41,11 @@ class LoginConsumidorService:
             make_password(senha)
         if consumidor is None or not consumidor.check_password(senha):
             login_servicemanage.registrar_falha(email)
-            raise ValueError('E-mail ou senha inválidos.')
+            raise ErroDeNegocio('E-mail ou senha inválidos.', 'credenciais_invalidas')
         login_servicemanage.limpar(email)
 
         if not consumidor.is_active:
-            raise ValueError('Conta inativa. Entre em contato com o suporte.')
+            raise ErroDeNegocio('Conta inativa. Entre em contato com o suporte.', 'conta_inativa')
 
         return consumidor
 
@@ -95,11 +96,11 @@ class RecuperacaoSenhaConsumidorService:
         try:
             consumidor = Consumidor.objects.get(email=email.strip().lower())
         except Consumidor.DoesNotExist:
-            raise ValueError('Código inválido.')
+            raise ErroDeNegocio('Código inválido.', 'codigo_invalido')
 
         registro = self._codigo_vigente(consumidor)
         if registro is None or not self._conferir(registro, codigo):
-            raise ValueError('Código inválido ou expirado.')
+            raise ErroDeNegocio('Código inválido ou expirado.', 'codigo_invalido')
 
         consumidor.set_password(nova_senha)
         # Derruba todas as sessões abertas: quem pediu a recuperação pode

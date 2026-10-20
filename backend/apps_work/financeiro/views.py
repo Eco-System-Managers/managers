@@ -13,6 +13,7 @@ from apps_work.clientes.models import Cliente
 from .models import Despesa, TransacaoCredito
 from .serializers import DespesaSerializer, TransacaoCreditoSerializer
 from .services import CaixaService, DespesaService
+from core.excecoes import erro
 
 
 class SaldoClienteView(APIView):
@@ -20,7 +21,7 @@ class SaldoClienteView(APIView):
 
     def get(self, request, cliente_id):
         if not Cliente.objects.filter(id=cliente_id).exists():
-            return Response({'detail': 'Cliente não encontrado.'}, status=http_status.HTTP_404_NOT_FOUND)
+            return erro('Cliente não encontrado.', status_code=http_status.HTTP_404_NOT_FOUND)
 
         transacoes = list(TransacaoCredito.objects.filter(cliente_id=cliente_id))
         saldo = sum(
@@ -42,7 +43,7 @@ class CaixaView(APIView):
             data_inicio = date.fromisoformat(data_inicio_str) if data_inicio_str else date.today()
             data_fim = date.fromisoformat(data_fim_str) if data_fim_str else date.today()
         except ValueError:
-            return Response({'detail': 'Data inválida.'}, status=http_status.HTTP_400_BAD_REQUEST)
+            return erro('Data inválida.', status_code=http_status.HTTP_400_BAD_REQUEST)
 
         colaborador_str = request.query_params.get('colaborador')
         colaborador_id = None
@@ -50,7 +51,7 @@ class CaixaView(APIView):
             try:
                 colaborador_id = int(colaborador_str)
             except ValueError:
-                return Response({'detail': 'Colaborador inválido.'}, status=http_status.HTTP_400_BAD_REQUEST)
+                return erro('Colaborador inválido.', status_code=http_status.HTTP_400_BAD_REQUEST)
 
         dados = CaixaService().obter_dados(data_inicio, data_fim, colaborador_id)
         return Response(dados)
@@ -92,6 +93,6 @@ class DespesaViewSet(viewsets.ModelViewSet):
             data_inicio = date.fromisoformat(data_inicio_str) if data_inicio_str else date.today()
             data_fim = date.fromisoformat(data_fim_str) if data_fim_str else date.today()
         except ValueError:
-            return Response({'detail': 'Data inválida.'}, status=http_status.HTTP_400_BAD_REQUEST)
+            return erro('Data inválida.', status_code=http_status.HTTP_400_BAD_REQUEST)
 
         return Response(DespesaService().resumo(data_inicio, data_fim))

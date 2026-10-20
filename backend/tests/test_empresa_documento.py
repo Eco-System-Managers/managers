@@ -131,7 +131,7 @@ class TestDocumentoNaConfigAPI:
         )
         # O DRF embrulha cada valor do dict de erro numa lista — mesmo formato
         # que o resto da API já devolve (ver AgendamentoService.cobrar).
-        assert response.data['code'][0] == 'documento_obrigatorio'
+        assert response.data['code'] == 'documento_obrigatorio'
 
     def test_concluir_onboarding_com_documento_retorna_200(self, client_autenticado):
         response = client_autenticado.patch(
@@ -224,4 +224,4 @@ class TestNegocioConcluidoSemDocumento:
             {'documento': '', 'tipo_documento': ''},
             format='json',
         )
-        assert response.data['code'][0] == 'documento_obrigatorio'
+        assert response.data['code'] == 'documento_obrigatorio'

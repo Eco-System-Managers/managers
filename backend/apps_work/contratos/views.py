@@ -16,6 +16,7 @@ from .serializers import (
     ModeloContratoSerializer,
 )
 from .services import ContratoService
+from core.excecoes import erro
 
 
 class ModeloContratoViewSet(viewsets.ModelViewSet):
@@ -55,19 +56,13 @@ class ContratoViewSet(viewsets.ModelViewSet):
         try:
             modelo = ModeloContrato.objects.get(pk=serializer.validated_data['modelo_id'])
         except ModeloContrato.DoesNotExist:
-            return Response(
-                {'detail': 'Modelo não encontrado.', 'code': 'modelo_nao_encontrado'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return erro('Modelo não encontrado.', 'modelo_nao_encontrado', status.HTTP_404_NOT_FOUND)
 
         from apps_work.clientes.models import Cliente
         try:
             cliente = Cliente.objects.get(pk=serializer.validated_data['cliente_id'])
         except Cliente.DoesNotExist:
-            return Response(
-                {'detail': 'Cliente não encontrado.', 'code': 'cliente_nao_encontrado'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return erro('Cliente não encontrado.', 'cliente_nao_encontrado', status.HTTP_404_NOT_FOUND)
 
         contrato = ContratoService().gerar(modelo, cliente)
         return Response(ContratoSerializer(contrato).data, status=status.HTTP_201_CREATED)
@@ -79,10 +74,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
         try:
             ContratoService().enviar(contrato, schema_name)
         except ValueError as e:
-            return Response(
-                {'detail': str(e), 'code': 'envio_invalido'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return erro(str(e), getattr(e, 'code', 'envio_invalido'), status.HTTP_400_BAD_REQUEST)
         return Response(ContratoSerializer(contrato).data)
 
 
@@ -104,10 +96,7 @@ class ContratoPublicoView(APIView):
     def get(self, request, schema_name: str, token: str):
         contrato = self._get_contrato(schema_name, token)
         if not contrato:
-            return Response(
-                {'detail': 'Contrato não encontrado.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return erro('Contrato não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
         with schema_context(schema_name):
             data = ContratoPublicoSerializer(contrato).data
         return Response(data)
@@ -115,17 +104,11 @@ class ContratoPublicoView(APIView):
     def post(self, request, schema_name: str, token: str):
         acao = request.data.get('acao')
         if acao not in ('assinar', 'recusar'):
-            return Response(
-                {'detail': 'Ação inválida. Use "assinar" ou "recusar".'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Ação inválida. Use "assinar" ou "recusar".', status_code=status.HTTP_400_BAD_REQUEST)
 
         contrato = self._get_contrato(schema_name, token)
         if not contrato:
-            return Response(
-                {'detail': 'Contrato não encontrado.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return erro('Contrato não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         service = ContratoService()
 
@@ -146,9 +129,6 @@ class ContratoPublicoView(APIView):
                 else:
                     contrato = service.recusar(contrato)
             except ValueError as e:
-                return Response(
-                    {'detail': str(e), 'code': 'acao_invalida'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return erro(str(e), getattr(e, 'code', 'acao_invalida'), status.HTTP_400_BAD_REQUEST)
 
         return Response(ContratoPublicoSerializer(contrato).data)

@@ -11,6 +11,7 @@ from core.throttling import RecuperacaoPorEmailThrottle
 from tenants.models import UserTenant
 from .models import LastActivity
 from .serializers import CadastroSerializer
+from core.excecoes import erro
 
 REFRESH_COOKIE = 'refresh_token'
 REFRESH_COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 dias
@@ -75,10 +76,7 @@ class LoginView(APIView):
         try:
             login_work.verificar(email)
         except MuitasTentativas as e:
-            return Response(
-                {'detail': str(e), 'code': 'muitas_tentativas'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
+            return erro(str(e), 'muitas_tentativas', status.HTTP_429_TOO_MANY_REQUESTS)
 
         user = User.objects.filter(username=email).first()
         if user is None:
@@ -87,27 +85,15 @@ class LoginView(APIView):
             User().set_password(senha)
         if user is None or not user.check_password(senha):
             login_work.registrar_falha(email)
-            return Response(
-                {'detail': 'E-mail ou senha inválidos.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            return erro('E-mail ou senha inválidos.', status_code=status.HTTP_401_UNAUTHORIZED)
         login_work.limpar(email)
 
         if not user.is_active:
-            return Response(
-                {
-                    'detail': 'Você está inativo. Entre em contato com o proprietário do sistema.',
-                    'code': 'user_inactive',
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return erro('Você está inativo. Entre em contato com o proprietário do sistema.', 'user_inactive', status.HTTP_403_FORBIDDEN)
 
         user_tenant = UserTenant.objects.filter(user=user).select_related('tenant').first()
         if not user_tenant:
-            return Response(
-                {'detail': 'Usuário não vinculado a nenhuma empresa.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Usuário não vinculado a nenhuma empresa.', status_code=status.HTTP_400_BAD_REQUEST)
 
         tenant = user_tenant.tenant
 
@@ -144,7 +130,7 @@ class VerificarCodigoView(APIView):
         codigo = request.data.get('codigo', '').strip()
 
         if not RecuperacaoSenhaService().verificar_codigo(email, codigo):
-            return Response({'detail': 'Código inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Código inválido ou expirado.', status_code=status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Código válido.'})
 
@@ -164,7 +150,7 @@ class NovaSenhaView(APIView):
         try:
             RecuperacaoSenhaService().redefinir_senha(email, codigo, nova_senha)
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Senha redefinida com sucesso.'})
 
@@ -182,10 +168,7 @@ class CookieTokenRefreshView(APIView):
                 raise SessaoInvalida()
             refresh = SessaoService().renovar(token_str)
         except SessaoInvalida:
-            response = Response(
-                {'detail': 'Sessão expirada. Faça login novamente.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            response = erro('Sessão expirada. Faça login novamente.', status_code=status.HTTP_401_UNAUTHORIZED)
             delete_refresh_cookie(response)
             return response
         return responder_sessao(request, refresh)

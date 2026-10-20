@@ -10,6 +10,7 @@ from core.permissions import IsProprietario
 from .models import Colaborador, ConviteColaborador
 from .serializers import ColaboradorSerializer, ConviteColaboradorSerializer
 from .services import AceitarConviteService, ColaboradorService, ConviteService
+from core.excecoes import erro
 
 
 class ColaboradorViewSet(viewsets.ModelViewSet):
@@ -42,7 +43,7 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
         try:
             ColaboradorService().desativar(colaborador)
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'], url_path='ativar')
@@ -61,7 +62,7 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
         try:
             colaborador = request.user.colaborador
         except Colaborador.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return erro('Usuário sem perfil de colaborador.', 'sem_colaborador', status.HTTP_404_NOT_FOUND)
         return Response(ColaboradorSerializer(colaborador).data)
 
     @action(detail=True, methods=['delete'], url_path='remover')
@@ -70,7 +71,7 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
         try:
             ColaboradorService().remover(colaborador)
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -107,18 +108,14 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         from django.db import connection
-        from rest_framework.exceptions import ValidationError
         from tenants.models import Tenant
         tenant = Tenant.objects.get(schema_name=connection.schema_name)
-        try:
-            convite = ConviteService().criar_e_enviar(
-                nome=serializer.validated_data.get('nome', ''),
-                email=serializer.validated_data['email'],
-                tenant_nome=tenant.name,
-            )
-        except ValueError as e:
-            raise ValidationError({'detail': str(e)})
-        serializer.instance = convite
+        # Regra violada levanta ErroDeNegocio, que o handler transforma em 400.
+        serializer.instance = ConviteService().criar_e_enviar(
+            nome=serializer.validated_data.get('nome', ''),
+            email=serializer.validated_data['email'],
+            tenant_nome=tenant.name,
+        )
 
     @action(detail=False, methods=['get'], url_path=r'info/(?P<token>[^/.]+)', permission_classes=[AllowAny])
     def info(self, request, token=None):
@@ -128,22 +125,22 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         try:
             index = ConviteIndex.objects.get(token=token)
         except ConviteIndex.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         try:
             tenant = Tenant.objects.get(schema_name=index.schema_name)
         except Tenant.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         connection.set_tenant(tenant)
 
         try:
             convite = ConviteColaborador.objects.get(token=token, aceito=False)
         except ConviteColaborador.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado ou já utilizado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Convite não encontrado ou já utilizado.', status_code=status.HTTP_404_NOT_FOUND)
 
         if convite.expira_em < timezone.now():
-            return Response({'detail': 'Este convite expirou.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Este convite expirou.', status_code=status.HTTP_400_BAD_REQUEST)
 
         return Response({'nome': convite.nome, 'email': convite.email, 'expira_em': convite.expira_em})
 
@@ -155,29 +152,29 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         try:
             index = ConviteIndex.objects.get(token=token)
         except ConviteIndex.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         try:
             tenant = Tenant.objects.get(schema_name=index.schema_name)
         except Tenant.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         connection.set_tenant(tenant)
 
         try:
             convite = ConviteColaborador.objects.get(token=token)
         except ConviteColaborador.DoesNotExist:
-            return Response({'detail': 'Convite não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         if convite.aceito:
-            return Response({'detail': 'Convite já foi aceito.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Convite já foi aceito.', status_code=status.HTTP_400_BAD_REQUEST)
 
         senha = request.data.get('senha', '').strip()
         if not senha:
-            return Response({'detail': 'A senha é obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('A senha é obrigatória.', status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
             refresh = AceitarConviteService().aceitar(convite, senha)
             return responder_sessao(request, refresh, status.HTTP_201_CREATED)
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)

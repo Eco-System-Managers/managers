@@ -239,6 +239,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Contrato único de erro: {detail, code, fields?} (core/excecoes.py).
+    'EXCEPTION_HANDLER': 'core.excecoes.tratar_excecao',
     # Valem para toda view que não declara throttle_classes própria. O
     # ScopedRateThrottle só age onde a view define throttle_scope.
     'DEFAULT_THROTTLE_CLASSES': (

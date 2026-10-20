@@ -9,6 +9,7 @@ from datetime import timedelta
 from tenants.models import Tenant, UserTenant
 from apps_work.autenticacao.models import LastActivity
 from .models import Colaborador, ConviteColaborador
+from core.excecoes import ErroDeNegocio
 
 
 class ColaboradorService:
@@ -20,7 +21,7 @@ class ColaboradorService:
         # Desativar ou remover o dono — inclusive ele mesmo — deixaria o tenant
         # sem ninguém capaz de reativá-lo.
         if UserTenant.papel_no_schema(colaborador.user, connection.schema_name) == 'proprietario':
-            raise ValueError('O proprietário não pode ser desativado nem removido.')
+            raise ErroDeNegocio('O proprietário não pode ser desativado nem removido.', 'proprietario_protegido')
 
     def desativar(self, colaborador: Colaborador) -> None:
         self._garantir_que_nao_e_proprietario(colaborador)
@@ -66,11 +67,11 @@ class ConviteService:
         email = email.lower().strip()
         config = EmpresaConfig.objects.filter(pk=1).first()
         if config and config.tipo_agenda == 'kanban':
-            raise ValueError('Empresas com agenda por esteira não podem ter colaboradores.')
+            raise ErroDeNegocio('Empresas com agenda por esteira não podem ter colaboradores.', 'esteira_sem_colaboradores')
         if User.objects.filter(email=email).exists():
-            raise ValueError('Este e-mail já está vinculado a uma conta.')
+            raise ErroDeNegocio('Este e-mail já está vinculado a uma conta.', 'email_ja_cadastrado')
         if ConviteColaborador.objects.filter(email=email, aceito=False, expira_em__gt=timezone.now()).exists():
-            raise ValueError('Já existe um convite pendente para este e-mail.')
+            raise ErroDeNegocio('Já existe um convite pendente para este e-mail.', 'convite_pendente')
         expira_em = timezone.now() + timedelta(days=self.EXPIRACAO_DIAS)
         convite = ConviteColaborador.objects.create(nome=nome, email=email, expira_em=expira_em)
         ConviteIndex.objects.create(token=convite.token, schema_name=connection.schema_name)
@@ -101,7 +102,7 @@ class AceitarConviteService:
         # `aceito` e o segundo terminaria em IntegrityError ao criar o User.
         convite = ConviteColaborador.objects.select_for_update().get(pk=convite.pk)
         if convite.aceito:
-            raise ValueError('Convite já foi aceito.')
+            raise ErroDeNegocio('Convite já foi aceito.', 'convite_ja_aceito')
         self._validar_senha(senha)
         self._validar_expiracao(convite)
 
@@ -111,7 +112,7 @@ class AceitarConviteService:
 
         try:
             if User.objects.filter(email=convite.email).exists():
-                raise ValueError('Este e-mail já está vinculado a uma conta.')
+                raise ErroDeNegocio('Este e-mail já está vinculado a uma conta.', 'email_ja_cadastrado')
 
             partes = convite.nome.strip().split(' ', 1) if convite.nome else []
             user = User.objects.create_user(
@@ -143,11 +144,11 @@ class AceitarConviteService:
         try:
             validate_password(senha)
         except DjangoValidationError as e:
-            raise ValueError(' '.join(e.messages))
+            raise ErroDeNegocio(' '.join(e.messages), 'senha_fraca')
 
     def _validar_expiracao(self, convite) -> None:
         if convite.expira_em < timezone.now():
-            raise ValueError('Este convite expirou.')
+            raise ErroDeNegocio('Este convite expirou.', 'convite_expirado')
 
     def _gerar_tokens(self, user, tenant):
         from apps_work.autenticacao.services import SessaoService

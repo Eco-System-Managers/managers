@@ -3,7 +3,6 @@ from decimal import Decimal
 from rest_framework import viewsets, status as drf_status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Agendamento
@@ -14,6 +13,7 @@ from .services import (
     PendenciasCobrancaService,
     SlotsAgendaService,
 )
+from core.excecoes import erro
 
 
 class PendenciasCobrancaView(APIView):
@@ -29,13 +29,7 @@ class SlotsAgendaView(APIView):
             # Obrigatório: a agenda é individual, não existe grade sem dono.
             colaborador_id = int(request.query_params['colaborador'])
         except (KeyError, ValueError):
-            return Response(
-                {
-                    'detail': 'Parâmetros obrigatórios: data (YYYY-MM-DD), servico e colaborador.',
-                    'code': 'parametros_invalidos',
-                },
-                status=drf_status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Parâmetros obrigatórios: data (YYYY-MM-DD), servico e colaborador.', 'parametros_invalidos', drf_status.HTTP_400_BAD_REQUEST)
 
         return Response(SlotsAgendaService().listar(data, servico_id, colaborador_id))
 
@@ -46,16 +40,10 @@ class DiasComRegistroView(APIView):
             ano = int(request.query_params['ano'])
             mes = int(request.query_params['mes'])
         except (KeyError, ValueError):
-            return Response(
-                {'detail': 'Parâmetros obrigatórios: ano e mes (números).', 'code': 'parametros_invalidos'},
-                status=drf_status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Parâmetros obrigatórios: ano e mes (números).', 'parametros_invalidos', drf_status.HTTP_400_BAD_REQUEST)
 
         if not 1 <= mes <= 12:
-            return Response(
-                {'detail': 'Mês deve estar entre 1 e 12.', 'code': 'mes_invalido'},
-                status=drf_status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Mês deve estar entre 1 e 12.', 'mes_invalido', drf_status.HTTP_400_BAD_REQUEST)
 
         return Response(DiasComRegistroService().listar(ano, mes))
 
@@ -137,18 +125,12 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
         troco_credito = Decimal(str(request.data.get('troco_credito', 0)))
 
         if not pagamentos:
-            return Response(
-                {'detail': 'Pelo menos uma forma de pagamento é obrigatória.', 'code': 'sem_pagamentos'},
-                status=drf_status.HTTP_400_BAD_REQUEST,
-            )
+            return erro('Pelo menos uma forma de pagamento é obrigatória.', 'sem_pagamentos', drf_status.HTTP_400_BAD_REQUEST)
 
-        try:
-            agendamento = AgendamentoService().cobrar(
-                agendamento, desconto, pagamentos,
-                credito_aplicado=credito_aplicado,
-                troco_credito=troco_credito,
-            )
-        except ValidationError as e:
-            return Response(e.detail, status=drf_status.HTTP_400_BAD_REQUEST)
+        agendamento = AgendamentoService().cobrar(
+            agendamento, desconto, pagamentos,
+            credito_aplicado=credito_aplicado,
+            troco_credito=troco_credito,
+        )
 
         return Response(AgendamentoSerializer(agendamento).data)

@@ -207,7 +207,7 @@ class TestSchemaNoCadastro:
             'nome_empresa': '!!!', 'nome': 'Ana', 'email': 'ana@x.com', 'senha': 'SenhaForte123!',
         })
         assert response.status_code == 400
-        assert 'nome_empresa' in response.data
+        assert 'nome_empresa' in response.data['fields']
 
     def test_cadastro_cria_dominio_valido(self, api):
         response = api.post('/auth/cadastro/', {

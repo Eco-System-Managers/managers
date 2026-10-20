@@ -17,6 +17,7 @@ from .serializers import (
     ConsumidorUpdateSerializer,
     ObjetoConsumidorSerializer,
 )
+from core.excecoes import erro
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +58,13 @@ class FotoPerfilView(APIView):
 
         arquivo = request.FILES.get('foto')
         if not arquivo:
-            return Response({'detail': 'Nenhum arquivo enviado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Nenhum arquivo enviado.', status_code=status.HTTP_400_BAD_REQUEST)
 
         servico = ArmazenamentoImagemService()
         try:
             servico.validar(arquivo)
         except ImagemInvalidaError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         consumidor = request.user
         anterior = consumidor.foto_chave
@@ -78,10 +79,7 @@ class FotoPerfilView(APIView):
             )
         except Exception:
             logger.exception('Falha ao enviar a foto do consumidor', extra={'consumidor_id': consumidor.id})
-            return Response(
-                {'detail': 'Não foi possível enviar a imagem. Tente novamente.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return erro('Não foi possível enviar a imagem. Tente novamente.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         consumidor.foto_chave = caminho
         consumidor.save(update_fields=['foto_chave'])
@@ -224,14 +222,11 @@ class ObjetosConsumidorView(APIView):
         dados = request.data.get('dados', {})
 
         if tipo not in _CAMPOS_OBRIGATORIOS:
-            return Response({'detail': 'Tipo inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Tipo inválido.', status_code=status.HTTP_400_BAD_REQUEST)
 
         ausentes = [c for c in _CAMPOS_OBRIGATORIOS[tipo] if not dados.get(c)]
         if ausentes:
-            return Response(
-                {'detail': f"Campos obrigatórios: {', '.join(ausentes)}."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return erro(f"Campos obrigatórios: {', '.join(ausentes)}.", status_code=status.HTTP_400_BAD_REQUEST)
 
         nome_exibicao = _NOME_EXIBICAO[tipo](dados)
         obj = ObjetoConsumidor.objects.create(
@@ -251,7 +246,7 @@ class ObjetoConsumidorDetailView(APIView):
         try:
             obj = ObjetoConsumidor.objects.get(id=objeto_id, consumidor=request.user)
         except ObjetoConsumidor.DoesNotExist:
-            return Response({'detail': 'Não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -264,13 +259,13 @@ class CancelarAgendamentoView(APIView):
         try:
             agendamento = AgendamentoConsumidor.objects.get(id=agendamento_id, consumidor=request.user)
         except AgendamentoConsumidor.DoesNotExist:
-            return Response({'detail': 'Agendamento não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Agendamento não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
         from apps_serv.vitrine.services import CancelarAgendamentoService
         try:
             resultado = CancelarAgendamentoService().cancelar(agendamento, request.user)
         except (ValueError, PermissionError) as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         return Response({
             'detail': 'Agendamento cancelado.',

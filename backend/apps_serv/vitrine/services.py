@@ -9,6 +9,7 @@ from django_tenants.utils import schema_context
 
 from apps_serv.identidade import cliente_do_consumidor
 from apps_serv.vitrine.models import NegocioPublico
+from core.excecoes import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
 
@@ -207,10 +208,10 @@ class AgendamentoTenantService:
                     obj = ObjetoConsumidor.objects.get(id=objeto_id, consumidor=consumidor)
                     objeto_dados = {'tipo': obj.tipo, 'nome_exibicao': obj.nome_exibicao, **obj.dados}
                 except ObjetoConsumidor.DoesNotExist:
-                    raise ValueError('Objeto não encontrado.')
+                    raise ErroDeNegocio('Objeto não encontrado.', 'objeto_nao_encontrado')
 
             if origem == 'kanban' and not objeto_dados:
-                raise ValueError('Selecione um pet ou veículo para agendar.')
+                raise ErroDeNegocio('Selecione um pet ou veículo para agendar.', 'objeto_obrigatorio')
 
             with schema_context(schema_name):
                 from apps_work.servicos.models import Servico
@@ -218,7 +219,7 @@ class AgendamentoTenantService:
 
                 servicos = list(Servico.objects.filter(id__in=servico_ids, ativo=True))
                 if not servicos:
-                    raise ValueError('Nenhum serviço válido encontrado.')
+                    raise ErroDeNegocio('Nenhum serviço válido encontrado.', 'servico_invalido')
 
                 valor_total = sum(s.preco for s in servicos)
                 duracao_total = sum(s.duracao for s in servicos)
@@ -336,11 +337,11 @@ class AgendamentoTenantService:
                     porte=porte_map.get(objeto_dados.get('porte', '').strip().lower(), ''),
                 )
         else:
-            raise ValueError('Tipo de objeto inválido para agendamento por esteira.')
+            raise ErroDeNegocio('Tipo de objeto inválido para agendamento por esteira.', 'objeto_invalido')
 
         etapa = EtapaKanban.objects.order_by('ordem').first()
         if etapa is None:
-            raise ValueError('Este negócio ainda não configurou as etapas de atendimento.')
+            raise ErroDeNegocio('Este negócio ainda não configurou as etapas de atendimento.', 'esteira_nao_configurada')
 
         atendimento = AtendimentoKanbanService().criar(
             etapa=etapa,
@@ -358,10 +359,10 @@ class CancelarAgendamentoService:
             raise PermissionError('Agendamento não pertence a este consumidor.')
 
         if agendamento_consumidor.status == 'cancelado':
-            raise ValueError('Agendamento já cancelado.')
+            raise ErroDeNegocio('Agendamento já cancelado.', 'agendamento_ja_cancelado')
 
         if agendamento_consumidor.status == 'concluido':
-            raise ValueError('Não é possível cancelar um agendamento concluído.')
+            raise ErroDeNegocio('Não é possível cancelar um agendamento concluído.', 'agendamento_concluido')
 
         dentro_prazo = self._dentro_prazo(agendamento_consumidor)
         taxa = Decimal('0') if dentro_prazo else agendamento_consumidor.valor_taxa_cancelamento
@@ -505,7 +506,7 @@ class VincularNegocioService:
 
         if vinculo_existente:
             if vinculo_existente.ativo:
-                raise ValueError('Você já está vinculado a este negócio.')
+                raise ErroDeNegocio('Você já está vinculado a este negócio.', 'vinculo_existente')
             # Reativar vínculo anterior (consumidor havia se desvinculado)
             vinculo_existente.ativo = True
             vinculo_existente.desvinculado_em = None
@@ -530,7 +531,7 @@ class VincularNegocioService:
                 consumidor=consumidor, schema_name=schema_name, ativo=True
             )
         except VinculoConsumidor.DoesNotExist:
-            raise ValueError('Vínculo não encontrado.')
+            raise ErroDeNegocio('Vínculo não encontrado.', 'vinculo_nao_encontrado')
 
         vinculo.ativo = False
         vinculo.desvinculado_em = timezone.now()

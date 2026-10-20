@@ -18,6 +18,7 @@ from core.sessao import entregar_refresh, refresh_da_requisicao
 from core.throttling import RecuperacaoConsumidorPorEmailThrottle
 
 from .authentication import gerar_tokens, renovar_tokens, revogar_refresh
+from core.excecoes import erro
 
 REFRESH_COOKIE = 'sm_refresh_token'
 REFRESH_COOKIE_MAX_AGE = 7 * 24 * 3600
@@ -58,7 +59,7 @@ class CadastroConsumidorView(APIView):
                 telefone=serializer.validated_data.get('telefone', ''),
             )
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         access, refresh = gerar_tokens(consumidor)
         response = Response(
@@ -82,12 +83,9 @@ class LoginConsumidorView(APIView):
         try:
             consumidor = LoginConsumidorService().autenticar(email=email, senha=senha)
         except MuitasTentativas as e:
-            return Response(
-                {'detail': str(e), 'code': 'muitas_tentativas'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
+            return erro(str(e), 'muitas_tentativas', status.HTTP_429_TOO_MANY_REQUESTS)
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_401_UNAUTHORIZED)
 
         access, refresh = gerar_tokens(consumidor)
         response = Response({
@@ -105,12 +103,12 @@ class RefreshConsumidorView(APIView):
     def post(self, request):
         token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
         if not token_str:
-            return Response({'detail': 'Sessão expirada. Faça login novamente.'}, status=status.HTTP_401_UNAUTHORIZED)
+            return erro('Sessão expirada. Faça login novamente.', status_code=status.HTTP_401_UNAUTHORIZED)
 
         try:
             access, refresh, _ = renovar_tokens(token_str)
         except AuthenticationFailed as e:
-            response = Response({'detail': str(e.detail)}, status=status.HTTP_401_UNAUTHORIZED)
+            response = erro(str(e.detail), status_code=status.HTTP_401_UNAUTHORIZED)
             _delete_refresh_cookie(response)
             return response
 
@@ -155,7 +153,7 @@ class VerificarCodigoConsumidorView(APIView):
         codigo = request.data.get('codigo', '').strip()
 
         if not RecuperacaoSenhaConsumidorService().verificar_codigo(email, codigo):
-            return Response({'detail': 'Código inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Código inválido ou expirado.', status_code=status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Código válido.'})
 
@@ -174,11 +172,11 @@ class NovaSenhaConsumidorView(APIView):
         try:
             validate_password(nova_senha)
         except DjangoValidationError as e:
-            return Response({'detail': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(' '.join(e.messages), status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
             RecuperacaoSenhaConsumidorService().redefinir_senha(email, codigo, nova_senha)
         except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Senha redefinida com sucesso.'})

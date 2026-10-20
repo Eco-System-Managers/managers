@@ -18,6 +18,7 @@ from .services import (
     PreapprovalInvalidoError,
     WebhookInvalidoError,
 )
+from core.excecoes import erro
 
 
 class MinhaAssinaturaView(APIView):
@@ -30,7 +31,7 @@ class MinhaAssinaturaView(APIView):
         try:
             assinatura = tenant.assinatura
         except Assinatura.DoesNotExist:
-            return Response({'detail': 'Este negócio ainda não tem assinatura.'}, status=status.HTTP_404_NOT_FOUND)
+            return erro('Este negócio ainda não tem assinatura.', status_code=status.HTTP_404_NOT_FOUND)
 
         return Response(AssinaturaSerializer(assinatura).data)
 
@@ -41,12 +42,12 @@ class IniciarAssinaturaView(APIView):
     def post(self, request):
         plano = Plano.objects.filter(nome='pro', ativo=True).first()
         if plano is None:
-            return Response({'detail': 'Plano Pro não está configurado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('Plano Pro não está configurado.', status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
             init_point = MercadoPagoService().obter_link_assinatura(plano)
         except AssinaturaInvalidaError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         return Response({'init_point': init_point})
 
@@ -72,7 +73,7 @@ class ConfirmarAssinaturaView(APIView):
     def post(self, request):
         preapproval_id = request.data.get('preapproval_id')
         if not preapproval_id:
-            return Response({'detail': 'preapproval_id é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+            return erro('preapproval_id é obrigatório.', status_code=status.HTTP_400_BAD_REQUEST)
 
         from tenants.models import Tenant
 
@@ -80,7 +81,7 @@ class ConfirmarAssinaturaView(APIView):
         try:
             assinatura = MercadoPagoService().confirmar_assinatura(tenant, preapproval_id)
         except PreapprovalInvalidoError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         return Response(AssinaturaSerializer(assinatura).data)
 
@@ -95,7 +96,7 @@ class CancelarAssinaturaView(APIView):
         try:
             assinatura = MercadoPagoService().cancelar_assinatura(tenant)
         except PreapprovalInvalidoError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
 
         return Response(AssinaturaSerializer(assinatura).data)
 
@@ -138,6 +139,6 @@ class MercadoPagoWebhookView(APIView):
                 x_request_id=request.headers.get('x-request-id', ''),
             )
         except WebhookInvalidoError:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+            return erro('Assinatura do webhook inválida.', 'assinatura_invalida', status.HTTP_401_UNAUTHORIZED)
 
         return Response(status=status.HTTP_200_OK)

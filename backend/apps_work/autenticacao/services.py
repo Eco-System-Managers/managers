@@ -14,6 +14,7 @@ from rest_framework_simplejwt.utils import get_md5_hash_password
 from core.email import enviar_email
 
 from .models import CodigoRecuperacao
+from core.excecoes import ErroDeNegocio
 
 
 def dominio_do_schema(schema_name: str) -> str:
@@ -115,11 +116,11 @@ class RecuperacaoSenhaService:
         try:
             validate_password(nova_senha, user)
         except DjangoValidationError as e:
-            raise ValueError(' '.join(e.messages))
+            raise ErroDeNegocio(' '.join(e.messages), 'senha_fraca')
 
         registro = self._codigo_vigente(user) if user else None
         if registro is None or not self._conferir(registro, codigo):
-            raise ValueError('Código inválido ou expirado.')
+            raise ErroDeNegocio('Código inválido ou expirado.', 'codigo_invalido')
 
         user.set_password(nova_senha)
         user.save(update_fields=['password'])
