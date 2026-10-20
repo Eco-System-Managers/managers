@@ -142,7 +142,8 @@ class TestCadastro:
         assert assinatura.trial_fim == date.today() + timedelta(days=28)
         assert assinatura.plano.nome == 'pro'
 
-    def test_cadastro_funciona_sem_plano_pro_configurado(self, api, db):
+    def test_banco_sem_plano_cria_o_plano_e_o_trial_no_cadastro(self, api, db):
+        """Antes, sem o plano, a empresa nascia sem assinatura e a API inteira dava 402."""
         from django.db import connection
         from apps_work.billing.models import Assinatura, Plano
 
@@ -162,7 +163,10 @@ class TestCadastro:
         assert response.status_code == 201
 
         connection.set_schema_to_public()
-        assert not Assinatura.objects.filter(tenant__schema_name=response.data['schema_name']).exists()
+        assinatura = Assinatura.objects.get(tenant__schema_name=response.data['schema_name'])
+        assert assinatura.status == 'trial'
+        assert assinatura.plano.nome == 'pro'
+        assert str(assinatura.plano.preco_mensal) == '69.90'
 
 
 @pytest.mark.django_db

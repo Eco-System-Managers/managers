@@ -672,8 +672,10 @@ class TestAssinaturaPeloGateway:
 
 
 @pytest.mark.django_db
-def test_fixture_de_planos_carrega():
-    """A fixture que semeia o plano padrão acompanha o model."""
-    from django.core.management import call_command
-    call_command('loaddata', 'planos', verbosity=0)
-    assert Plano.objects.filter(nome='pro', ativo=True).exists()
+def test_plano_padrao_e_criado_uma_vez_e_reaproveitado(settings):
+    from apps_work.billing.services import plano_padrao
+    settings.PLANO_PADRAO = 'business'
+    Plano.objects.filter(nome='business').delete()
+    primeiro = plano_padrao()
+    assert (primeiro.nome, str(primeiro.preco_mensal)) == ('business', '99.90')
+    assert plano_padrao().pk == primeiro.pk

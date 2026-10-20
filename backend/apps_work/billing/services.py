@@ -9,7 +9,7 @@ import requests
 from django.conf import settings
 from django.urls import reverse
 
-from .models import Assinatura, Gateway, PagamentoAssinatura, Plano, StatusAssinatura, StatusPagamento
+from .models import Assinatura, Gateway, PagamentoAssinatura, Plano, StatusAssinatura, StatusPagamento, TipoPlano
 from tenants.models import Papel
 
 
@@ -337,3 +337,25 @@ def gateway_de_pagamento() -> GatewayPagamento:
     """O gateway configurado em BILLING_GATEWAY."""
     return GATEWAYS[settings.BILLING_GATEWAY]()
 
+
+
+# Preço com que o plano padrão nasce num banco novo. Depois de criado, o preço
+# é o que estiver no banco (o admin muda ali).
+PRECO_INICIAL_PLANO = {
+    TipoPlano.PRO: Decimal('69.90'),
+    TipoPlano.BUSINESS: Decimal('99.90'),
+    TipoPlano.ENTERPRISE: Decimal('199.90'),
+}
+
+
+def plano_padrao() -> Plano:
+    """O plano de PLANO_PADRAO, criado na primeira vez que alguém precisa dele.
+
+    Sem isso, um banco recém-criado aceitava o cadastro, mas a empresa nascia
+    sem assinatura de trial e toda a API respondia 402.
+    """
+    plano, _ = Plano.objects.get_or_create(
+        nome=settings.PLANO_PADRAO,
+        defaults={'preco_mensal': PRECO_INICIAL_PLANO[settings.PLANO_PADRAO], 'ativo': True},
+    )
+    return plano

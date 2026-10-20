@@ -36,11 +36,8 @@ class Command(BaseCommand):
         ))
 
     def _garantir_plano(self):
-        from apps_work.billing.models import Plano
-        plano, _ = Plano.objects.get_or_create(
-            nome=settings.PLANO_PADRAO, defaults={'preco_mensal': '69.90', 'ativo': True},
-        )
-        return plano
+        from apps_work.billing.services import plano_padrao
+        return plano_padrao()
 
     def _criar_empresa(self, empresa, nome, email, senha):
         # O mesmo caminho do cadastro pela API: valida o nome e gera o schema.

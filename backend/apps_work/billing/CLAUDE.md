@@ -28,12 +28,11 @@ negócio e os clientes dele. Este é o dinheiro entre o negócio e **nós**.
 | `id_externo` | `CharField(100)` vazio | O id do plano no gateway, preenchido na primeira criação |
 | `link_checkout` | `URLField(500)` vazio | O link de checkout hospedado pelo gateway. Reaproveitado pela web e pelo app |
 
-**Ambiente novo precisa do plano `pro` semeado.** `OnboardingService` só cria a
-`Assinatura` de trial se existir o plano de `PLANO_PADRAO` (`pro` por padrão) ativo — sem ele o
-tenant nasce sem assinatura e o `AssinaturaBloqueadaMiddleware` responde 402 em
-toda a API. Rodar uma vez, após `migrate_schemas --shared`:
-`python manage.py loaddata planos` (fixture em `billing/fixtures/planos.json`,
-idempotente).
+**O plano padrão nasce sozinho.** `OnboardingService` cria a `Assinatura` de
+trial com `plano_padrao()` (`billing/services.py`), que cria o plano de
+`PLANO_PADRAO` (`pro` por padrão) na primeira vez, com o preço de
+`PRECO_INICIAL_PLANO`. Banco novo não precisa de seed para o cadastro funcionar
+— antes, sem o plano, o tenant nascia sem assinatura e a API inteira respondia 402.
 
 Em desenvolvimento, `python manage.py popular_dev` faz tudo de uma vez: garante
 o plano padrão e cria uma empresa de exemplo com o dono e o onboarding concluído

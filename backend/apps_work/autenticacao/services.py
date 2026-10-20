@@ -56,18 +56,17 @@ class OnboardingService:
             )
             Membro.objects.create(user=user, tenant=tenant, papel=Papel.PROPRIETARIO)
 
-            from apps_work.billing.models import Assinatura, Plano, StatusAssinatura
+            from apps_work.billing.models import Assinatura, StatusAssinatura
+            from apps_work.billing.services import plano_padrao
 
-            plano_pro = Plano.objects.filter(nome=settings.PLANO_PADRAO, ativo=True).first()
-            if plano_pro:
-                Assinatura.objects.create(
-                    tenant=tenant,
-                    plano=plano_pro,
-                    status=StatusAssinatura.TRIAL,
-                    inicio=date.today(),
-                    trial_fim=date.today() + timedelta(days=28),
-                    proximo_vencimento=date.today() + timedelta(days=28),
-                )
+            Assinatura.objects.create(
+                tenant=tenant,
+                plano=plano_padrao(),
+                status=StatusAssinatura.TRIAL,
+                inicio=date.today(),
+                trial_fim=date.today() + timedelta(days=28),
+                proximo_vencimento=date.today() + timedelta(days=28),
+            )
 
         # Começa o relógio de inatividade junto com a conta.
         UltimaAtividade.objects.create(user=user, ultimo_acesso=timezone.now())
