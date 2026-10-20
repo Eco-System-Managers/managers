@@ -55,7 +55,7 @@ def convite_aceito(patch_tenant_middleware):
 
 @pytest.mark.django_db
 class TestConviteService:
-    @patch('apps_work.usuarios.services.send_mail')
+    @patch('core.email.send_mail')
     def test_criar_e_enviar_cria_convite_com_dados_corretos(self, mock_mail, patch_tenant_middleware):
         convite = ConviteService().criar_e_enviar(
             nome='Ana Lima', email='ana@email.com', tenant_nome='Empresa Teste'
@@ -65,7 +65,7 @@ class TestConviteService:
         assert convite.nome == 'Ana Lima'
         assert convite.expira_em > timezone.now()
 
-    @patch('apps_work.usuarios.services.send_mail')
+    @patch('core.email.send_mail')
     def test_criar_e_enviar_bloqueia_agenda_kanban(self, mock_mail, patch_tenant_middleware):
         from apps_work.empresa.models import EmpresaConfig
         EmpresaConfig.objects.create(pk=1, tipo_agenda='kanban')
@@ -74,7 +74,7 @@ class TestConviteService:
                 nome='Ana', email='ana@email.com', tenant_nome='Empresa'
             )
 
-    @patch('apps_work.usuarios.services.send_mail')
+    @patch('core.email.send_mail')
     def test_enviar_email_usa_link_com_token(self, mock_mail, patch_tenant_middleware):
         convite = ConviteService().criar_e_enviar(
             nome='Ana Lima', email='ana@email.com', tenant_nome='Empresa Teste'
@@ -95,14 +95,14 @@ class TestConviteService:
                 nome='Ana Lima', email=convite_valido.email, tenant_nome='Empresa'
             )
 
-    @patch('apps_work.usuarios.services.send_mail')
+    @patch('core.email.send_mail')
     def test_criar_convite_permite_apos_expiracao(self, mock_mail, convite_expirado, patch_tenant_middleware):
         convite = ConviteService().criar_e_enviar(
             nome='Carlos', email=convite_expirado.email, tenant_nome='Empresa'
         )
         assert convite.pk is not None
 
-    @patch('apps_work.usuarios.services.send_mail')
+    @patch('core.email.send_mail')
     def test_criar_convite_permite_apos_aceito(self, mock_mail, convite_aceito, patch_tenant_middleware):
         convite = ConviteService().criar_e_enviar(
             nome='Pedro', email=convite_aceito.email, tenant_nome='Empresa'
@@ -332,14 +332,21 @@ class TestConviteAPI:
         assert response.status_code == 200
         assert len(response.data['results']) == 0
 
-    @patch('apps_work.usuarios.services.send_mail')
+    @patch('core.email.send_mail')
     def test_criar_convite_retorna_201(self, mock_mail, client_autenticado):
         payload = {'nome': 'Maria', 'email': 'maria@email.com'}
         response = client_autenticado.post('/api/v1/convites/', payload)
         assert response.status_code == 201
         assert response.data['email'] == 'maria@email.com'
 
-    @patch('apps_work.usuarios.services.send_mail')
+    def test_criar_convite_com_falha_no_smtp_retorna_201(self, client_autenticado):
+        """O e-mail sai por task: erro de SMTP não desfaz o convite nem vira 500."""
+        with patch('core.email.send_mail', side_effect=OSError('smtp fora')):
+            response = client_autenticado.post('/api/v1/convites/', {'nome': 'Maria', 'email': 'maria@email.com'})
+        assert response.status_code == 201
+        assert ConviteColaborador.objects.filter(email='maria@email.com').exists()
+
+    @patch('core.email.send_mail')
     def test_criar_convite_respeita_rate_limit(self, mock_mail, client_autenticado):
         from django.core.cache import cache
         cache.clear()
@@ -355,13 +362,13 @@ class TestConviteAPI:
         assert response.status_code == 400
         assert 'pendente' in response.data['detail'].lower()
 
-    @patch('apps_work.usuarios.services.send_mail')
+    @patch('core.email.send_mail')
     def test_criar_convite_apos_expiracao_retorna_201(self, mock_mail, client_autenticado, convite_expirado):
         payload = {'nome': 'Carlos', 'email': convite_expirado.email}
         response = client_autenticado.post('/api/v1/convites/', payload)
         assert response.status_code == 201
 
-    @patch('apps_work.usuarios.services.send_mail')
+    @patch('core.email.send_mail')
     def test_criar_convite_apos_aceito_retorna_201(self, mock_mail, client_autenticado, convite_aceito):
         payload = {'nome': 'Pedro', 'email': convite_aceito.email}
         response = client_autenticado.post('/api/v1/convites/', payload)

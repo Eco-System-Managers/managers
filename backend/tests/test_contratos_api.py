@@ -89,3 +89,31 @@ class TestContratoAPI:
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
         assert client.get(self.URL).status_code == 401
+
+
+@pytest.mark.django_db
+class TestEnviarContrato:
+    def _url(self, contrato):
+        return f'/api/v1/contratos/{contrato.pk}/enviar/'
+
+    def test_envia_email_com_link_de_assinatura(self, client_autenticado, cliente, mailoutbox):
+        cliente.email = 'ana@email.com'
+        cliente.save()
+        contrato = _contrato(cliente)
+        response = client_autenticado.post(self._url(contrato))
+        assert response.status_code == 200
+        assert response.data['status'] == StatusContrato.ENVIADO
+        assert len(mailoutbox) == 1
+        assert mailoutbox[0].to == ['ana@email.com']
+        assert str(contrato.token) in mailoutbox[0].body
+        assert mailoutbox[0].alternatives  # versão HTML
+
+    def test_falha_no_smtp_nao_vira_500(self, client_autenticado, cliente):
+        """O e-mail sai por task: erro de SMTP fica fora da resposta."""
+        from unittest.mock import patch
+        cliente.email = 'ana@email.com'
+        cliente.save()
+        contrato = _contrato(cliente)
+        with patch('core.email.send_mail', side_effect=OSError('smtp fora')):
+            response = client_autenticado.post(self._url(contrato))
+        assert response.status_code == 200

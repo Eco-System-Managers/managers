@@ -1,8 +1,8 @@
 from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
 
 from .models import Contrato, ModeloContrato, StatusContrato
+from core.email import enviar_email
 from core.excecoes import ErroDeNegocio
 
 
@@ -80,13 +80,11 @@ class ContratoService:
         </p>
         """
 
-        send_mail(
-            subject=f'[Contrato] {contrato.titulo}',
-            message=corpo_email,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[contrato.cliente.email],
-            html_message=corpo_html,
-            fail_silently=False,
+        enviar_email.enqueue(
+            assunto=f'[Contrato] {contrato.titulo}',
+            mensagem=corpo_email,
+            destinatario=contrato.cliente.email,
+            html=corpo_html,
         )
 
         contrato.status = StatusContrato.ENVIADO

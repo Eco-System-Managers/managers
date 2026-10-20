@@ -2,13 +2,13 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from django.db import connection, transaction
 from django.utils import timezone
 from django_tenants.utils import schema_context
 from datetime import timedelta
 from tenants.models import Papel, Tenant, Membro
 from apps_work.autenticacao.models import UltimaAtividade
+from core.email import enviar_email
 from .models import Colaborador, ConviteColaborador
 from core.excecoes import ErroDeNegocio
 
@@ -115,17 +115,16 @@ class ConviteService:
     def _enviar_email(self, convite, tenant_nome: str) -> None:
         link = f'{settings.FRONTEND_URL}/convite/{convite.token}'
         saudacao = f'Olá, {convite.nome}!' if convite.nome else 'Olá!'
-        send_mail(
-            subject=f'Você foi convidado para o {tenant_nome} — Work Manage',
-            message=(
+        enviar_email.enqueue(
+            assunto=f'Você foi convidado para o {tenant_nome} — Work Manage',
+            mensagem=(
                 f'{saudacao}\n\n'
                 f'Você foi convidado para fazer parte da equipe {tenant_nome} no Work Manage.\n\n'
                 f'Clique no link abaixo para criar sua senha e acessar o sistema:\n'
                 f'{link}\n\n'
                 f'Este link expira em {self.EXPIRACAO_DIAS} dias.'
             ),
-            from_email=None,
-            recipient_list=[convite.email],
+            destinatario=convite.email,
         )
 
 
