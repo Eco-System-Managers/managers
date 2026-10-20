@@ -74,12 +74,16 @@ SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
 TENANT_DOMAIN_SUFFIX = os.getenv('TENANT_DOMAIN_SUFFIX', 'localhost')
 
 MIDDLEWARE = [
+    # Security e CORS antes de tudo que pode responder sozinho: assim as
+    # respostas 401/402 dos middlewares abaixo saem com cabeçalho CORS (o front
+    # consegue ler o erro), e o preflight (OPTIONS) é respondido pelo CORS antes
+    # de cair no bloqueio de assinatura. Nenhum dos dois depende do schema.
+    'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django_tenants.middleware.main.TenantMainMiddleware',
     'core.middleware.JWTTenantMiddleware',
     'core.middleware.AssinaturaBloqueadaMiddleware',
     'core.middleware.InactivityMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -89,6 +93,25 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'core.urls'
+
+# HTTPS — ligado só com HTTPS=True. Não depende de DEBUG: os testes rodam com
+# DEBUG=False (o redirect daria 301 em toda requisição), e DEBUG já é False por
+# padrão aqui, então o runserver sem .env mandaria tudo para https://localhost.
+HTTPS = os.getenv('HTTPS', 'False') == 'True'
+if HTTPS:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # Curto de propósito até o HTTPS estar estável: o navegador recusa HTTP
+    # pelo tempo inteiro, em todos os subdomínios (as empresas).
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '3600'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # Sem preload de propósito: entrar na lista dos navegadores é praticamente
+    # irreversível. O check --deploy avisa (W021); o aviso é silenciado.
+    SILENCED_SYSTEM_CHECKS = ['security.W021']
+    if int(os.getenv('NUM_PROXIES', '0')) > 0:
+        # Atrás de proxy a conexão chega em HTTP; o proxy diz qual era o esquema.
+        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 TEMPLATES = [
     {
