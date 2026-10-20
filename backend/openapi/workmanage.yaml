@@ -9351,9 +9351,9 @@ components:
     PendenciaServico:
       type: object
       properties:
-        id:
+        servico_id:
           type: integer
-          description: Na agenda, o id do AgendamentoServico; no kanban, o id do Servico.
+          description: Id do Servico, na agenda e no kanban.
         nome:
           type: string
         preco:
@@ -9361,9 +9361,9 @@ components:
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
       required:
-      - id
       - nome
       - preco
+      - servico_id
     Pet:
       type: object
       properties:

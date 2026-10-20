@@ -216,3 +216,15 @@ class TestDescartePendenciaComConflito:
         )
 
         assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_servicos_trazem_o_id_do_servico_na_agenda_e_no_kanban(patch_tenant_middleware, servico):
+    """Antes o `id` era o do AgendamentoServico na agenda e o do Servico no kanban."""
+    _agendamento(10, servico=servico)
+    _atendimento(11, servico=servico)
+    pendencias = PendenciasCobrancaService().listar(HOJE)
+    assert {p['origem'] for p in pendencias} == {'agenda', 'kanban'}
+    for p in pendencias:
+        assert [s['servico_id'] for s in p['servicos']] == [servico.pk]
+        assert 'id' not in p['servicos'][0]

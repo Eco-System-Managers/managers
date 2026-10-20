@@ -72,7 +72,7 @@ class PendenciasCobrancaService:
                 # No formato que o CobrancaModal consome, pra cobrar direto da
                 # lista sem precisar abrir a agenda naquele dia.
                 'servicos': [
-                    {'id': s.pk, 'nome': s.servico.nome, 'preco': str(s.preco_cobrado)}
+                    {'servico_id': s.servico_id, 'nome': s.servico.nome, 'preco': str(s.preco_cobrado)}
                     for s in servicos
                 ],
             })
@@ -92,7 +92,7 @@ class PendenciasCobrancaService:
                 'servico_nome': at.servico.nome,
                 'valor': str(at.servico.preco - at.desconto),
                 'servicos': [
-                    {'id': at.servico_id, 'nome': at.servico.nome, 'preco': str(at.servico.preco)}
+                    {'servico_id': at.servico_id, 'nome': at.servico.nome, 'preco': str(at.servico.preco)}
                 ],
             })
 

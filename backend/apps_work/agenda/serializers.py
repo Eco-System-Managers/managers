@@ -60,9 +60,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 class PendenciaServicoSerializer(serializers.Serializer):
-    id = serializers.IntegerField(
-        help_text='Na agenda, o id do AgendamentoServico; no kanban, o id do Servico.',
-    )
+    servico_id = serializers.IntegerField(help_text='Id do Servico, na agenda e no kanban.')
     nome = serializers.CharField()
     preco = serializers.DecimalField(max_digits=10, decimal_places=2)
 
