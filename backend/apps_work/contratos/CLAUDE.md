@@ -64,6 +64,11 @@ A assinatura registra nome e IP de quem assinou, mais o horário.
 
 ## O que é fácil errar aqui
 
+- **O `schema_name` da rota pública é entrada do usuário.** `ContratoPublicoView`
+  só troca de schema se ele passar em `core.schemas.schema_valido` (formato, e
+  nunca `public`) e existir um `Tenant` com ele; senão responde 404. Antes, um
+  schema inexistente dava 500.
+
 - **A view pública recebe `schema_name` da URL** e troca de schema com ele. É
   entrada de usuário e precisa ser tratada como tal.
 - **O token é a única credencial** do contrato público. Ele é UUID e único —

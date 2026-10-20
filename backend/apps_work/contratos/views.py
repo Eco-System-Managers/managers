@@ -16,6 +16,7 @@ from .serializers import (
 )
 from .services import ContratoService
 from core.excecoes import erro
+from core.schemas import schema_valido
 
 
 class ModeloContratoViewSet(viewsets.ModelViewSet):
@@ -80,6 +81,11 @@ class ContratoPublicoView(APIView):
     permission_classes = [AllowAny]
 
     def _get_contrato(self, schema_name: str, token: str):
+        # schema_name vem da URL pública: sem checar, schema inexistente dava
+        # 500 e o público era alcançável.
+        from tenants.models import Tenant
+        if not schema_valido(schema_name) or not Tenant.objects.filter(schema_name=schema_name).exists():
+            return None
         try:
             with schema_context(schema_name):
                 return Contrato.objects.select_related('cliente').get(token=token)

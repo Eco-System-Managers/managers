@@ -308,10 +308,10 @@ class TestCancelarAgendamento:
         client, consumidor = api_autenticado
         # Patch no módulo de origem pois a view faz import local dentro do método
         with patch('apps_serv.vitrine.services.CancelarAgendamentoService') as MockSvc:
-            MockSvc.return_value.cancelar.return_value = {'taxa': 0.0}
+            MockSvc.return_value.cancelar.return_value = {'taxa': '0.00'}
             response = client.post(f'/api/sm/agendamentos/{agendamento_ativo.id}/cancelar/')
         assert response.status_code == 200
-        assert response.data['taxa'] == 0.0
+        assert response.data['taxa'] == '0.00'
 
     def test_cancelar_agendamento_inexistente_retorna_404(self, api_autenticado):
         client, _ = api_autenticado

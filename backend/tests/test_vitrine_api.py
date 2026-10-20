@@ -511,7 +511,7 @@ class TestCancelarAgendamentoService:
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
-        assert resultado['taxa'] == 0.0
+        assert resultado['taxa'] == '0.00'
         assert 'reembolso' not in resultado
 
     def test_cancela_fora_prazo_com_taxa_configurada_registra_pendencia(self, db):
@@ -531,7 +531,7 @@ class TestCancelarAgendamentoService:
             MockCliente.objects.filter.return_value.first.return_value = mock_cliente
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
-        assert resultado['taxa'] == 20.0
+        assert resultado['taxa'] == '20.00'
         assert 'reembolso' not in resultado
         MockSaldoService.return_value.registrar_taxa_cancelamento.assert_called_once()
         args, _kwargs = MockSaldoService.return_value.registrar_taxa_cancelamento.call_args
@@ -548,7 +548,7 @@ class TestCancelarAgendamentoService:
              patch('apps_work.financeiro.services.SaldoService') as MockSaldoService:
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
-        assert resultado['taxa'] == 0.0
+        assert resultado['taxa'] == '0.00'
         MockSaldoService.return_value.registrar_taxa_cancelamento.assert_not_called()
 
     def test_cancela_agendamento_ja_cancelado_levanta_value_error(self, db):

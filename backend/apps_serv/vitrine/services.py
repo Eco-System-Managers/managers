@@ -11,6 +11,11 @@ from apps_serv.identidade import cliente_do_consumidor
 from apps_serv.vitrine.models import NegocioPublico
 from core.excecoes import ErroDeNegocio
 
+
+def _dinheiro(valor) -> str:
+    """Valor monetário no formato da API: string com duas casas ("12.50")."""
+    return str(Decimal(str(valor)).quantize(Decimal('0.01')))
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,8 +30,10 @@ class CrossTenantQueryService:
                     'nome': s.nome,
                     'descricao': s.descricao,
                     'duracao': s.duracao,
-                    'preco': s.preco,
-                    'taxa_cancelamento': s.calcular_taxa_cancelamento(),
+                    # Dinheiro sai como string, como nos serializers ("12.50"):
+                    # Decimal cru viraria número (float) no JSON.
+                    'preco': _dinheiro(s.preco),
+                    'taxa_cancelamento': _dinheiro(s.calcular_taxa_cancelamento()),
                 }
                 for s in Servico.objects.filter(ativo=True)
             ]
@@ -276,8 +283,8 @@ class AgendamentoTenantService:
 
                 servicos_snapshot = [
                     {
-                        'nome': s.nome, 'duracao': s.duracao, 'preco': float(s.preco),
-                        'taxa_cancelamento': float(s.calcular_taxa_cancelamento()),
+                        'nome': s.nome, 'duracao': s.duracao, 'preco': _dinheiro(s.preco),
+                        'taxa_cancelamento': _dinheiro(s.calcular_taxa_cancelamento()),
                     }
                     for s in servicos
                 ]
@@ -392,7 +399,7 @@ class CancelarAgendamentoService:
             agendamento_consumidor.status = 'cancelado'
             agendamento_consumidor.save(update_fields=['status'])
 
-        return {'taxa': float(taxa)}
+        return {'taxa': _dinheiro(taxa)}
 
     def _dentro_prazo(self, agendamento) -> bool:
         duracao = agendamento.duracao_total

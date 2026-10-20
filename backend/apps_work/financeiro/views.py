@@ -12,7 +12,7 @@ from apps_work.clientes.models import Cliente
 from .models import Despesa, TransacaoCredito
 from .serializers import DespesaSerializer, TransacaoCreditoSerializer
 from .services import CaixaService, DespesaService
-from core.excecoes import erro
+from core.excecoes import ErroDeNegocio, erro
 
 
 class SaldoClienteView(APIView):
@@ -73,7 +73,8 @@ class DespesaViewSet(viewsets.ModelViewSet):
             if data_fim:
                 qs = qs.filter(data__lte=date.fromisoformat(data_fim))
         except ValueError:
-            return Despesa.objects.none()
+            # Antes devolvia página vazia, indistinguível de "sem despesas".
+            raise ErroDeNegocio('Data inválida. Use o formato YYYY-MM-DD.', 'data_invalida')
         if categoria:
             qs = qs.filter(categoria=categoria)
 

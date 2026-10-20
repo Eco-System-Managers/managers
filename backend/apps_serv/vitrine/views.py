@@ -1,5 +1,4 @@
 import math
-import re
 from datetime import datetime
 
 from django.db.models import Q
@@ -16,12 +15,10 @@ from .serializers import NegocioPublicoSerializer
 from .services import AgendamentoTenantService, CrossTenantQueryService, VincularNegocioService
 from core.excecoes import ErroDeNegocio, erro
 from core.paginacao import resposta_paginada
-
-_SCHEMA_NAME_RE = re.compile(r'^[a-z0-9_]+$')
-
+from core.schemas import schema_valido
 
 def _schema_valido(schema_name: str) -> bool:
-    return bool(_SCHEMA_NAME_RE.match(schema_name))
+    return schema_valido(schema_name)
 
 
 _RAIO_PADRAO_KM = 50.0
@@ -222,11 +219,18 @@ class DisponibilidadeView(APIView):
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
             return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
+        try:
+            servico_ids = [int(i) for i in servico_ids]
+            colaborador_id = int(colaborador_id) if colaborador_id else None
+        except ValueError:
+            # Rota pública: valor não numérico dava 500.
+            return erro('servico_id e colaborador_id devem ser números.', 'parametros_invalidos')
+
         slots = CrossTenantQueryService().listar_disponibilidade(
             schema_name=schema_name,
             data=data,
-            servico_ids=[int(i) for i in servico_ids],
-            colaborador_id=int(colaborador_id) if colaborador_id else None,
+            servico_ids=servico_ids,
+            colaborador_id=colaborador_id,
         )
         return Response({'data': data_str, 'slots': slots})
 
