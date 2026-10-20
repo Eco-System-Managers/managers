@@ -219,6 +219,12 @@ class TestSessoesB2C:
         novo = _renovar_sm(api_sm, refresh).data['refresh']
         assert _renovar_sm(api_sm, novo).status_code == 200
 
+    def test_renovacao_devolve_o_consumidor_como_o_login(self, api_sm, consumidor):
+        _, refresh = _login_sm(api_sm)
+        response = _renovar_sm(api_sm, refresh)
+        assert response.data['consumidor']['id'] == consumidor.id
+        assert response.data['consumidor']['email'] == consumidor.email
+
     def test_logout_revoga_o_refresh(self, api_sm, consumidor):
         _, refresh = _login_sm(api_sm)
         assert api_sm.post('/api/sm/v1/auth/logout/', {'refresh': refresh}, **MOBILE).status_code == 200

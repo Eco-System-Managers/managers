@@ -13,17 +13,9 @@ class LoginConsumidorSerializer(serializers.Serializer):
 
 
 class SessaoConsumidorSerializer(serializers.Serializer):
-    """Resposta de cadastro e login do Service Manage."""
+    """Resposta de cadastro, login e renovação do Service Manage."""
     access = serializers.CharField()
     consumidor = ConsumidorSerializer()
-    refresh = serializers.CharField(
-        required=False, help_text='Só para o app mobile (cabeçalho X-Client-Platform: mobile).',
-    )
-
-
-class RenovacaoConsumidorSerializer(serializers.Serializer):
-    """Resposta da renovação: um access novo (e o refresh novo, no mobile)."""
-    access = serializers.CharField()
     refresh = serializers.CharField(
         required=False, help_text='Só para o app mobile (cabeçalho X-Client-Platform: mobile).',
     )

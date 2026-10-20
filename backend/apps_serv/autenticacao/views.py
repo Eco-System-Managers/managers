@@ -22,7 +22,6 @@ from .serializers import (
     NovaSenhaConsumidorSerializer,
     RecuperarSenhaConsumidorSerializer,
     RefreshConsumidorSerializer,
-    RenovacaoConsumidorSerializer,
     SessaoConsumidorSerializer,
     VerificarCodigoConsumidorSerializer,
 )
@@ -95,7 +94,7 @@ class RefreshConsumidorView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
-        request=RefreshConsumidorSerializer, responses=RenovacaoConsumidorSerializer, parameters=[PLATAFORMA],
+        request=RefreshConsumidorSerializer, responses=SessaoConsumidorSerializer, parameters=[PLATAFORMA],
         summary='Renovar a sessão (o refresh usado deixa de valer)',
     )
     def post(self, request):
@@ -104,13 +103,13 @@ class RefreshConsumidorView(APIView):
             return erro('Sessão expirada. Faça login novamente.', status_code=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            access, refresh, _ = renovar_tokens(token_str)
+            access, refresh, consumidor = renovar_tokens(token_str)
         except AuthenticationFailed as e:
             response = erro(str(e.detail), status_code=status.HTTP_401_UNAUTHORIZED)
             COOKIE_SERVICEMANAGE.apagar(response)
             return response
 
-        response = Response({'access': access})
+        response = Response({'access': access, 'consumidor': ConsumidorSerializer(consumidor).data})
         COOKIE_SERVICEMANAGE.entregar(request, response, refresh)
         return response
 
