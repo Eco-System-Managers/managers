@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from django.contrib.auth.hashers import make_password
 from django.db import transaction
@@ -7,7 +8,11 @@ from django.utils import timezone
 from core.recuperacao import RecuperacaoSenhaBase
 from core.limites import login_servicemanage
 
-from .models import CodigoRecuperacaoConsumidor, Consumidor
+from apps_work.clientes.models import TipoObjeto
+from apps_work.clientes.validators import validar_placa_br
+from rest_framework.exceptions import ValidationError as DRFValidationError
+
+from .models import CodigoRecuperacaoConsumidor, Consumidor, ObjetoConsumidor
 from core.excecoes import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
@@ -65,6 +70,87 @@ class RecuperacaoSenhaConsumidorService(RecuperacaoSenhaBase):
         # Todo token emitido antes de agora deixa de valer, inclusive access.
         consumidor.sessoes_validas_desde = timezone.now()
         consumidor.save(update_fields=['sessoes_validas_desde'])
+
+
+class ObjetoConsumidorService:
+    """Pets e veículos do consumidor: o que cada tipo exige e como aparece."""
+
+    CAMPOS_OBRIGATORIOS = {
+        TipoObjeto.VEICULO: ['placa', 'marca', 'modelo'],
+        TipoObjeto.PET: ['nome', 'especie', 'porte'],
+    }
+
+    def cadastrar(self, consumidor, tipo: str, dados: dict) -> ObjetoConsumidor:
+        if tipo not in self.CAMPOS_OBRIGATORIOS:
+            raise ErroDeNegocio('Tipo inválido.', 'tipo_invalido')
+
+        ausentes = [c for c in self.CAMPOS_OBRIGATORIOS[tipo] if not dados.get(c)]
+        if ausentes:
+            raise ErroDeNegocio(f"Campos obrigatórios: {', '.join(ausentes)}.", 'campos_obrigatorios')
+
+        dados = dict(dados)
+        if tipo == TipoObjeto.VEICULO:
+            # A mesma validação do veículo cadastrado pelo negócio. Antes havia
+            # uma cópia aqui que nunca era chamada: qualquer placa passava.
+            try:
+                dados['placa'] = validar_placa_br(dados['placa'])
+            except DRFValidationError as e:
+                raise ErroDeNegocio(str(e.detail[0]), 'placa_invalida')
+
+        return ObjetoConsumidor.objects.create(
+            consumidor=consumidor, tipo=tipo, dados=dados, nome_exibicao=self._nome_exibicao(tipo, dados),
+        )
+
+    def _nome_exibicao(self, tipo: str, dados: dict) -> str:
+        if tipo == TipoObjeto.VEICULO:
+            return f"{dados['marca']} {dados['modelo']} · {dados['placa']}"
+        return f"{dados['nome']} ({dados['especie']})"
+
+
+class FotoConsumidorService:
+    """Foto de perfil do consumidor: troca e remoção.
+
+    A imagem vai para o prefixo privado do bucket — a URL de leitura é assinada
+    e expira. A logo do negócio é pública; o rosto do cliente, não.
+    """
+
+    def trocar(self, consumidor, arquivo) -> None:
+        """Levanta ImagemInvalidaError para arquivo recusado; falha do provedor
+        de armazenamento sobe como está (a view responde 500 sem detalhe)."""
+        from apps_work.empresa.services import ArmazenamentoImagemService
+
+        armazenamento = ArmazenamentoImagemService()
+        armazenamento.validar(arquivo)
+        anterior = consumidor.foto_chave
+        # Chave nova a cada envio, e sempre um UUID: id sequencial no endereço
+        # permitiria varrer as fotos de todo mundo por tentativa.
+        consumidor.foto_chave = armazenamento.salvar(
+            arquivo, prefixo=armazenamento.PREFIXO_CONSUMIDORES, chave=str(uuid.uuid4()),
+        )
+        consumidor.save(update_fields=['foto_chave'])
+        # Só depois de gravar a nova: se o envio falhasse no meio, a antiga
+        # ainda seria a válida.
+        self._apagar(armazenamento, anterior)
+        SincronizarClienteService().sincronizar(consumidor)
+
+    def remover(self, consumidor) -> None:
+        from apps_work.empresa.services import ArmazenamentoImagemService
+
+        anterior = consumidor.foto_chave
+        consumidor.foto_chave = ''
+        consumidor.save(update_fields=['foto_chave'])
+        self._apagar(ArmazenamentoImagemService(), anterior)
+        SincronizarClienteService().sincronizar(consumidor)
+
+    def _apagar(self, armazenamento, caminho: str) -> None:
+        """Arquivo órfão no bucket é lixo, não falha: o cadastro já está certo,
+        e não vale derrubar a requisição por isso."""
+        if not caminho:
+            return
+        try:
+            armazenamento.apagar(caminho)
+        except Exception:
+            logger.warning('Nao foi possivel apagar a foto anterior', exc_info=True)
 
 
 class SincronizarClienteService:

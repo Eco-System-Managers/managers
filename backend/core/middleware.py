@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -9,6 +10,8 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from core import rotas
 from core.cache import TTL_ASSINATURA_SEGUNDOS, chave_assinatura_bloqueada
+
+logger = logging.getLogger(__name__)
 
 _INACTIVITY_SKIP = {
     f'{rotas.WORK_AUTH}login/',
@@ -113,6 +116,7 @@ class InactivityMiddleware:
 
             return None
         except Exception:
+            logger.warning('Falha no controle de inatividade', exc_info=True)
             return None
 
 

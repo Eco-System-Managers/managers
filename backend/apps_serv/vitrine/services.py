@@ -281,12 +281,10 @@ class AgendamentoTenantService:
 
                     agendamento_id = agendamento.id
                     if colaborador_id:
-                        try:
-                            from apps_work.usuarios.models import Colaborador
-                            colab = Colaborador.objects.get(id=colaborador_id)
+                        from apps_work.usuarios.models import Colaborador
+                        colab = Colaborador.objects.select_related('user').filter(id=colaborador_id).first()
+                        if colab is not None:
                             profissional_nome = colab.user.get_full_name() or colab.user.username
-                        except Exception:
-                            pass
 
                 servicos_snapshot = [
                     {

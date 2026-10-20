@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 def _on_empresa_config_atualizada(sender, schema_name, instance, **kwargs):
-    try:
-        from .services import SincronizarVitrineService
-        SincronizarVitrineService().sincronizar(schema_name, instance)
-    except Exception:
-        pass
+    # Sem capturar: quem emite (ConfiguracaoEmpresaService.publicar) roda num
+    # savepoint e registra a falha — engolir aqui escondia o erro e, sem
+    # savepoint, deixaria a transação abortada.
+    from .services import SincronizarVitrineService
+    SincronizarVitrineService().sincronizar(schema_name, instance)
 
 
 def _on_cliente_servicemanage_removido(sender, schema_name, email, **kwargs):

@@ -114,3 +114,26 @@ def test_falha_ao_ligar_cliente_nao_aborta_a_transacao(patch_tenant_middleware):
     assert cliente.pk == por_email.pk
     # A transação continua utilizável depois da falha.
     assert Cliente.objects.count() == 2
+
+
+@pytest.mark.django_db
+def test_aceite_de_convite_que_falha_nao_deixa_a_conexao_no_tenant(patch_tenant_middleware):
+    """As views faziam connection.set_tenant() e nunca voltavam: a conexão
+    ficava no schema do convite para o que viesse depois."""
+    from datetime import timedelta
+
+    from apps_work.usuarios.models import ConviteColaborador
+    from apps_work.usuarios.services import AceitarConviteService
+    from core.excecoes import ErroDeNegocio
+    from tenants.models import ConviteIndex
+
+    convite = ConviteColaborador.objects.create(
+        email='novo@x.com', expira_em=timezone.now() - timedelta(days=1),
+    )
+    connection.set_schema_to_public()
+    ConviteIndex.objects.create(token=convite.token, schema_name=patch_tenant_middleware.schema_name)
+
+    with pytest.raises(ErroDeNegocio):
+        AceitarConviteService().aceitar(convite.token, 'SenhaForte@2024!')
+
+    assert connection.schema_name == 'public'

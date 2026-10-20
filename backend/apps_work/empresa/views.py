@@ -7,14 +7,14 @@ from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from core.permissions import IsProprietario
-from .models import EmpresaConfig, HorarioFuncionamento, TipoAgenda
+from .models import EmpresaConfig, HorarioFuncionamento
 from .serializers import (
     CoordenadaSerializer, EmpresaConfigSerializer, HorarioFuncionamentoSerializer, LogoSerializer,
     RuaNoPontoSerializer, UploadLogoSerializer,
 )
-from .signals import empresa_config_atualizada
-from apps_work.usuarios.models import Colaborador
 from core.excecoes import erro
+
+from .services import ConfiguracaoEmpresaService
 
 logger = logging.getLogger(__name__)
 
@@ -104,58 +104,10 @@ class EmpresaConfigView(generics.RetrieveUpdateAPIView):
         return obj
 
     def perform_update(self, serializer):
-        instance = serializer.instance
-        endereco_anterior = instance.endereco
-        cidade_anterior = instance.cidade
-        uf_anterior = instance.uf
-
+        config = serializer.instance
+        endereco_anterior = (config.endereco, config.cidade, config.uf)
         super().perform_update(serializer)
-        instance = serializer.instance
-
-        endereco_mudou = (
-            instance.endereco != endereco_anterior or
-            instance.cidade != cidade_anterior or
-            instance.uf != uf_anterior
-        )
-        # Quem confirmou o ponto no mapa fica de fora: o palpite automático não
-        # pode apagar uma coordenada que o dono apontou à mão. Para os demais, o
-        # geocodificador segue valendo como aproximação inicial.
-        if endereco_mudou and (instance.endereco or instance.cidade) and not instance.localizacao_confirmada:
-            try:
-                from .services import GeocodificacaoService
-                coords = GeocodificacaoService().geocodificar(
-                    instance.endereco, instance.cidade, instance.uf,
-                )
-                if coords:
-                    instance.latitude, instance.longitude = coords
-                    instance.save(update_fields=['latitude', 'longitude'])
-            except Exception:
-                pass
-
-        try:
-            from django.db import connection
-            empresa_config_atualizada.send(
-                sender=EmpresaConfig,
-                schema_name=connection.schema_name,
-                instance=instance,
-            )
-        except Exception:
-            pass
-
-        if serializer.instance.onboarding_concluido:
-            try:
-                Colaborador.objects.get_or_create(
-                    user=self.request.user,
-                    defaults={'ativo': True},
-                )
-            except Exception:
-                pass
-            if serializer.instance.tipo_agenda == TipoAgenda.KANBAN:
-                try:
-                    from apps_work.kanban.services import EtapaService
-                    EtapaService().criar_etapas_padrao()
-                except Exception:
-                    pass
+        ConfiguracaoEmpresaService().apos_salvar(serializer.instance, self.request.user, endereco_anterior)
 
 
 class UploadLogoView(APIView):
@@ -167,45 +119,21 @@ class UploadLogoView(APIView):
     )
     def post(self, request):
         from django.db import connection
-        from .services import ArmazenamentoImagemService, ImagemInvalidaError
+        from .services import ImagemInvalidaError
 
         arquivo = request.FILES.get('logo')
         if not arquivo:
-            return erro('Nenhum arquivo enviado.', status_code=status.HTTP_400_BAD_REQUEST)
+            return erro('Nenhum arquivo enviado.', 'arquivo_obrigatorio')
 
-        servico = ArmazenamentoImagemService()
         try:
-            servico.validar(arquivo)
+            url = ConfiguracaoEmpresaService().trocar_logo(arquivo)
         except ImagemInvalidaError as e:
-            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
-
-        try:
-            caminho = servico.salvar(
-                arquivo,
-                prefixo=ArmazenamentoImagemService.PREFIXO_LOGOS,
-                chave=connection.schema_name,
-            )
-            # A logo é pública e a URL não expira, então dá para guardá-la
-            # pronta. Imagem de pessoa não — ali guarda-se o caminho.
-            url = servico.url(caminho)
+            return erro(str(e), getattr(e, 'code', None) or 'imagem_invalida')
         except Exception:
             # A mensagem do provedor pode carregar detalhe de infraestrutura;
             # ela vai para o log, e o cliente recebe algo genérico.
             logger.exception('Falha ao enviar a logo', extra={'schema_name': connection.schema_name})
             return erro('Não foi possível enviar a imagem. Tente novamente.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        config, _ = EmpresaConfig.objects.get_or_create(pk=1)
-        config.logo_url = url
-        config.save(update_fields=['logo_url'])
-
-        try:
-            empresa_config_atualizada.send(
-                sender=EmpresaConfig,
-                schema_name=connection.schema_name,
-                instance=config,
-            )
-        except Exception:
-            pass
 
         return Response({'logo_url': url})
 

@@ -132,6 +132,9 @@ upload, e um snapshot mostraria a marca antiga para sempre.
 - **O e-mail não é mais a chave de ligação** com o `Cliente` do tenant; quem faz
   isso é `Cliente.consumidor_id`. O e-mail continua bloqueado para edição, mas
   agora por ser credencial de login, não por ser chave.
-- **`ObjetosConsumidorView.post` valida apenas presença dos campos**, não o
-  formato. Existe um `_placa_valida` no arquivo que nunca é chamado — placa
-  inválida cadastrada aqui chega ao banco do negócio sem passar por serializer.
+- **O cadastro de pet/veículo está em `ObjetoConsumidorService`**, com a mesma
+  validação de placa do veículo cadastrado pelo negócio
+  (`clientes.validators.validar_placa_br`) e a placa gravada normalizada. Antes
+  havia uma cópia da validação na view que nunca era chamada.
+- **A foto de perfil está em `FotoConsumidorService`**: troca, remoção, apagar o
+  arquivo anterior e sincronizar com os negócios vinculados.

@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db import connection, transaction
 from django.utils import timezone
+from django_tenants.utils import schema_context
 from datetime import timedelta
 from tenants.models import Papel, Tenant, Membro
 from apps_work.autenticacao.models import UltimaAtividade
@@ -61,6 +62,39 @@ class ColaboradorService:
 class ConviteService:
     EXPIRACAO_DIAS = 2
 
+    def localizar(self, token):
+        """Acha o convite pelo token, sem saber de antemão em que tenant ele está.
+
+        O ConviteIndex (schema público) diz o schema; a leitura do convite roda
+        num `schema_context`, que volta ao schema anterior mesmo se falhar.
+        Devolve (tenant, convite) ou levanta 404.
+        """
+        from tenants.models import ConviteIndex
+
+        index = ConviteIndex.objects.filter(token=token).first()
+        tenant = Tenant.objects.filter(schema_name=index.schema_name).first() if index else None
+        if tenant is None:
+            raise ErroDeNegocio('Convite não encontrado.', 'convite_nao_encontrado', 404)
+        with schema_context(tenant.schema_name):
+            convite = ConviteColaborador.objects.filter(token=token).first()
+        if convite is None:
+            raise ErroDeNegocio('Convite não encontrado.', 'convite_nao_encontrado', 404)
+        return tenant, convite
+
+    def info(self, token) -> dict:
+        """O que a tela de aceite mostra antes de a pessoa definir a senha."""
+        _, convite = self.localizar(token)
+        if convite.aceito:
+            raise ErroDeNegocio('Convite não encontrado ou já utilizado.', 'convite_ja_aceito', 404)
+        if convite.expira_em < timezone.now():
+            raise ErroDeNegocio('Este convite expirou.', 'convite_expirado')
+        return {'nome': convite.nome, 'email': convite.email, 'expira_em': convite.expira_em}
+
+    def cancelar(self, convite: ConviteColaborador) -> None:
+        from tenants.models import ConviteIndex
+        ConviteIndex.objects.filter(token=convite.token).delete()
+        convite.delete()
+
     def criar_e_enviar(self, nome: str, email: str, tenant_nome: str) -> ConviteColaborador:
         from apps_work.empresa.models import EmpresaConfig, TipoAgenda
         from tenants.models import ConviteIndex
@@ -96,21 +130,28 @@ class ConviteService:
 
 
 class AceitarConviteService:
-    @transaction.atomic
-    def aceitar(self, convite, senha: str):
-        # Trava o convite: dois aceites simultâneos passariam pela checagem de
-        # `aceito` e o segundo terminaria em IntegrityError ao criar o User.
-        convite = ConviteColaborador.objects.select_for_update().get(pk=convite.pk)
-        if convite.aceito:
-            raise ErroDeNegocio('Convite já foi aceito.', 'convite_ja_aceito')
-        self._validar_senha(senha)
-        self._validar_expiracao(convite)
+    def aceitar(self, token, senha: str):
+        """Cria a conta do convidado e devolve a sessão (RefreshToken).
 
-        current_schema = connection.schema_name
-        connection.set_schema_to_public()
-        tenant = Tenant.objects.get(schema_name=current_schema)
+        Tudo roda no schema do tenant do convite (`schema_context` restaura o
+        anterior, inclusive em erro). As tabelas compartilhadas — User, Membro,
+        UltimaAtividade, ConviteIndex — ficam no público, que está no
+        search_path de todo tenant, então não é preciso trocar de schema.
+        """
+        from tenants.models import ConviteIndex
 
-        try:
+        tenant, _ = ConviteService().localizar(token)
+        if not senha.strip():
+            raise ErroDeNegocio('A senha é obrigatória.', 'senha_obrigatoria')
+
+        with schema_context(tenant.schema_name), transaction.atomic():
+            # Trava o convite: dois aceites simultâneos passariam pela checagem
+            # de `aceito` e o segundo terminaria em IntegrityError no User.
+            convite = ConviteColaborador.objects.select_for_update().get(token=token)
+            if convite.aceito:
+                raise ErroDeNegocio('Convite já foi aceito.', 'convite_ja_aceito')
+            self._validar_senha(senha)
+            self._validar_expiracao(convite)
             if User.objects.filter(email=convite.email).exists():
                 raise ErroDeNegocio('Este e-mail já está vinculado a uma conta.', 'email_ja_cadastrado')
 
@@ -124,21 +165,13 @@ class AceitarConviteService:
             )
             Membro.objects.create(user=user, tenant=tenant, papel=Papel.COLABORADOR)
             UltimaAtividade.objects.create(user=user, ultimo_acesso=timezone.now())
-
-            connection.set_tenant(tenant)
-
             Colaborador.objects.create(user=user, ativo=True)
 
             convite.aceito = True
-            convite.save()
-
-            from tenants.models import ConviteIndex
+            convite.save(update_fields=['aceito'])
             ConviteIndex.objects.filter(token=convite.token).delete()
 
-            return self._gerar_tokens(user, tenant)
-        except Exception:
-            connection.set_tenant(tenant)
-            raise
+        return self._gerar_tokens(user, tenant)
 
     def _validar_senha(self, senha: str) -> None:
         try:

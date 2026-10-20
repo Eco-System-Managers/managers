@@ -79,6 +79,12 @@ de SigV4 documentados lá.
 
 ## O que é fácil errar aqui
 
+- **Efeitos de salvar a configuração ficam em `ConfiguracaoEmpresaService`**
+  (geocodificar, publicar na vitrine, criar o colaborador do dono e as etapas do
+  kanban ao concluir o onboarding; e a troca da logo). Nenhum deles pode
+  desfazer o salvamento: cada um roda em savepoint próprio e a falha vai para o
+  log (`_sem_derrubar`) — antes eram `except Exception: pass` na view.
+
 - **Salvar a config dispara republicação na vitrine.** É o sinal
   `empresa_config_atualizada`. Mudar por `.update()` no queryset pula o sinal e
   o negócio fica desatualizado no mapa.

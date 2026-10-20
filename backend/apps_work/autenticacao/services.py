@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
+from django_tenants.utils import get_public_schema_name, schema_context
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
@@ -35,8 +36,10 @@ class OnboardingService:
         from django.db import connection
         from tenants.models import Domain, Papel, Tenant, Membro
 
-        with transaction.atomic():
-            connection.set_schema_to_public()
+        # schema_context volta ao schema de quem chamou ao sair, inclusive em
+        # erro. Dentro, a criação do tenant deixa a conexão no schema novo (ao
+        # rodar as migrations dele) — daí a volta explícita ao público.
+        with schema_context(get_public_schema_name()), transaction.atomic():
             tenant = Tenant.objects.create(schema_name=schema_name, nome=nome_empresa)
             connection.set_schema_to_public()
             Domain.objects.create(

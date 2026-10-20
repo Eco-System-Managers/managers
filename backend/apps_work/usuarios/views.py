@@ -109,9 +109,7 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         ).order_by('-criado_em')
 
     def perform_destroy(self, instance):
-        from tenants.models import ConviteIndex
-        ConviteIndex.objects.filter(token=instance.token).delete()
-        instance.delete()
+        ConviteService().cancelar(instance)
 
     def perform_create(self, serializer):
         from django.db import connection
@@ -126,62 +124,10 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path=r'info/(?P<token>[^/.]+)', permission_classes=[AllowAny])
     def info(self, request, token=None):
-        from django.db import connection
-        from tenants.models import ConviteIndex, Tenant
-
-        try:
-            index = ConviteIndex.objects.get(token=token)
-        except ConviteIndex.DoesNotExist:
-            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
-
-        try:
-            tenant = Tenant.objects.get(schema_name=index.schema_name)
-        except Tenant.DoesNotExist:
-            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
-
-        connection.set_tenant(tenant)
-
-        try:
-            convite = ConviteColaborador.objects.get(token=token, aceito=False)
-        except ConviteColaborador.DoesNotExist:
-            return erro('Convite não encontrado ou já utilizado.', status_code=status.HTTP_404_NOT_FOUND)
-
-        if convite.expira_em < timezone.now():
-            return erro('Este convite expirou.', status_code=status.HTTP_400_BAD_REQUEST)
-
-        return Response({'nome': convite.nome, 'email': convite.email, 'expira_em': convite.expira_em})
+        # Convite inexistente, já usado ou expirado levanta ErroDeNegocio.
+        return Response(ConviteService().info(token))
 
     @action(detail=False, methods=['post'], url_path=r'aceitar/(?P<token>[^/.]+)', permission_classes=[AllowAny])
     def aceitar_por_token(self, request, token=None):
-        from django.db import connection
-        from tenants.models import ConviteIndex, Tenant
-
-        try:
-            index = ConviteIndex.objects.get(token=token)
-        except ConviteIndex.DoesNotExist:
-            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
-
-        try:
-            tenant = Tenant.objects.get(schema_name=index.schema_name)
-        except Tenant.DoesNotExist:
-            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
-
-        connection.set_tenant(tenant)
-
-        try:
-            convite = ConviteColaborador.objects.get(token=token)
-        except ConviteColaborador.DoesNotExist:
-            return erro('Convite não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
-
-        if convite.aceito:
-            return erro('Convite já foi aceito.', status_code=status.HTTP_400_BAD_REQUEST)
-
-        senha = request.data.get('senha', '').strip()
-        if not senha:
-            return erro('A senha é obrigatória.', status_code=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            refresh = AceitarConviteService().aceitar(convite, senha)
-            return responder_sessao(request, refresh, status.HTTP_201_CREATED)
-        except ValueError as e:
-            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
+        refresh = AceitarConviteService().aceitar(token, request.data.get('senha', ''))
+        return responder_sessao(request, refresh, status.HTTP_201_CREATED)

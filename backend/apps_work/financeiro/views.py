@@ -1,5 +1,4 @@
 from datetime import date
-from decimal import Decimal
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -11,12 +10,12 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from core.permissions import IsProprietario
 from apps_work.clientes.models import Cliente
-from .models import Despesa, TipoTransacao, TransacaoCredito
+from .models import Despesa, TransacaoCredito
 from .serializers import (
     CaixaSerializer, DespesaSerializer, ResumoDespesasSerializer, SaldoClienteSerializer,
     TransacaoCreditoSerializer,
 )
-from .services import CaixaService, DespesaService
+from .services import CaixaService, DespesaService, SaldoService
 from core.excecoes import ErroDeNegocio, erro
 
 
@@ -28,13 +27,13 @@ class SaldoClienteView(APIView):
         if not Cliente.objects.filter(id=cliente_id).exists():
             return erro('Cliente não encontrado.', status_code=http_status.HTTP_404_NOT_FOUND)
 
-        transacoes = list(TransacaoCredito.objects.filter(cliente_id=cliente_id))
-        saldo = sum(
-            (t.valor if t.tipo == TipoTransacao.CREDITO else -t.valor) for t in transacoes
-        ) or Decimal('0')
+        # O saldo é o do SaldoService — a view recalculava em Python, numa
+        # segunda implementação da mesma regra.
         return Response({
-            'saldo': str(saldo.quantize(Decimal('0.01'))),
-            'transacoes': TransacaoCreditoSerializer(transacoes, many=True).data,
+            'saldo': str(SaldoService().saldo(cliente_id)),
+            'transacoes': TransacaoCreditoSerializer(
+                TransacaoCredito.objects.filter(cliente_id=cliente_id), many=True,
+            ).data,
         })
 
 

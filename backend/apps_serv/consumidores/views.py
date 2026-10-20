@@ -1,6 +1,4 @@
 import logging
-import re
-import uuid
 
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -10,7 +8,7 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from apps_serv.autenticacao.authentication import ConsumidorJWTAuthentication
 from .models import AgendamentoConsumidor, ObjetoConsumidor, VinculoConsumidor
-from .services import SincronizarClienteService
+from .services import FotoConsumidorService, ObjetoConsumidorService, SincronizarClienteService
 from .serializers import (
     AgendamentoConsumidorSerializer,
     CancelamentoAgendamentoSerializer,
@@ -68,68 +66,28 @@ class FotoPerfilView(APIView):
         summary='Enviar foto de perfil',
     )
     def post(self, request):
-        from apps_work.empresa.services import ArmazenamentoImagemService, ImagemInvalidaError
+        from apps_work.empresa.services import ImagemInvalidaError
 
         arquivo = request.FILES.get('foto')
         if not arquivo:
-            return erro('Nenhum arquivo enviado.', status_code=status.HTTP_400_BAD_REQUEST)
+            return erro('Nenhum arquivo enviado.', 'arquivo_obrigatorio')
 
-        servico = ArmazenamentoImagemService()
         try:
-            servico.validar(arquivo)
+            FotoConsumidorService().trocar(request.user, arquivo)
         except ImagemInvalidaError as e:
-            return erro(str(e), getattr(e, 'code', None), status.HTTP_400_BAD_REQUEST)
-
-        consumidor = request.user
-        anterior = consumidor.foto_chave
-
-        try:
-            # Chave nova a cada envio, e sempre um UUID: id sequencial no
-            # endereço permitiria varrer as fotos de todo mundo por tentativa.
-            caminho = servico.salvar(
-                arquivo,
-                prefixo=servico.PREFIXO_CONSUMIDORES,
-                chave=str(uuid.uuid4()),
-            )
+            return erro(str(e), getattr(e, 'code', None) or 'imagem_invalida')
         except Exception:
-            logger.exception('Falha ao enviar a foto do consumidor', extra={'consumidor_id': consumidor.id})
+            # A mensagem do provedor pode carregar detalhe de infraestrutura;
+            # ela vai para o log, e o cliente recebe algo genérico.
+            logger.exception('Falha ao enviar a foto do consumidor', extra={'consumidor_id': request.user.id})
             return erro('Não foi possível enviar a imagem. Tente novamente.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        consumidor.foto_chave = caminho
-        consumidor.save(update_fields=['foto_chave'])
-
-        # Só depois de gravar a nova: se o upload falhasse no meio, a antiga
-        # ainda seria a válida.
-        self._apagar(servico, anterior)
-
-        SincronizarClienteService().sincronizar(consumidor)
-
-        return Response(ConsumidorSerializer(consumidor).data)
+        return Response(ConsumidorSerializer(request.user).data)
 
     @extend_schema(request=None, responses=ConsumidorSerializer, summary='Remover foto de perfil')
     def delete(self, request):
-        from apps_work.empresa.services import ArmazenamentoImagemService
-
-        consumidor = request.user
-        anterior = consumidor.foto_chave
-
-        consumidor.foto_chave = ''
-        consumidor.save(update_fields=['foto_chave'])
-
-        self._apagar(ArmazenamentoImagemService(), anterior)
-        SincronizarClienteService().sincronizar(consumidor)
-
-        return Response(ConsumidorSerializer(consumidor).data)
-
-    def _apagar(self, servico, caminho: str) -> None:
-        """Arquivo órfão no bucket é lixo, não falha: se a remoção não der
-        certo, o cadastro já está correto e não vale derrubar a requisição."""
-        if not caminho:
-            return
-        try:
-            servico.apagar(caminho)
-        except Exception:
-            logger.warning('Nao foi possivel apagar a foto anterior', exc_info=True)
+        FotoConsumidorService().remover(request.user)
+        return Response(ConsumidorSerializer(request.user).data)
 
 
 class MeusAgendamentosView(APIView):
@@ -204,30 +162,6 @@ class MeusVinculosView(APIView):
         return resposta_paginada(request, resultado, self)
 
 
-_PLACA_ANTIGO   = re.compile(r'^[A-Z]{3}\d{4}$')
-_PLACA_MERCOSUL = re.compile(r'^[A-Z]{3}\d[A-Z]\d{2}$')
-
-
-def _normalizar_placa(valor: str) -> str:
-    return re.sub(r'[-\s]', '', valor.strip().upper())
-
-
-def _placa_valida(valor: str) -> bool:
-    norm = _normalizar_placa(valor)
-    return bool(_PLACA_ANTIGO.match(norm) or _PLACA_MERCOSUL.match(norm))
-
-
-_CAMPOS_OBRIGATORIOS = {
-    TipoObjeto.VEICULO: ['placa', 'marca', 'modelo'],
-    TipoObjeto.PET: ['nome', 'especie', 'porte'],
-}
-
-_NOME_EXIBICAO = {
-    TipoObjeto.VEICULO: lambda d: f"{d['marca']} {d['modelo']} · {_normalizar_placa(d['placa'])}",
-    TipoObjeto.PET: lambda d: f"{d['nome']} ({d['especie']})",
-}
-
-
 class ObjetosConsumidorView(APIView):
     authentication_classes = [ConsumidorJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -256,22 +190,9 @@ class ObjetosConsumidorView(APIView):
         ),
     )
     def post(self, request):
-        tipo = request.data.get('tipo')
-        dados = request.data.get('dados', {})
-
-        if tipo not in _CAMPOS_OBRIGATORIOS:
-            return erro('Tipo inválido.', status_code=status.HTTP_400_BAD_REQUEST)
-
-        ausentes = [c for c in _CAMPOS_OBRIGATORIOS[tipo] if not dados.get(c)]
-        if ausentes:
-            return erro(f"Campos obrigatórios: {', '.join(ausentes)}.", status_code=status.HTTP_400_BAD_REQUEST)
-
-        nome_exibicao = _NOME_EXIBICAO[tipo](dados)
-        obj = ObjetoConsumidor.objects.create(
-            consumidor=request.user,
-            tipo=tipo,
-            dados=dados,
-            nome_exibicao=nome_exibicao,
+        # Tipo, campos obrigatórios e placa inválidos levantam ErroDeNegocio.
+        obj = ObjetoConsumidorService().cadastrar(
+            request.user, request.data.get('tipo'), request.data.get('dados') or {},
         )
         return Response(ObjetoConsumidorSerializer(obj).data, status=status.HTTP_201_CREATED)
 
