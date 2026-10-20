@@ -680,6 +680,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Consumidor'
           description: ''
+        '503':
+          description: Armazenamento de imagens indisponível.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
         '400':
           description: Requisição inválida ou regra de negócio violada.
           content:

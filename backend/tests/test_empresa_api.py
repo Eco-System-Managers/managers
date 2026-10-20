@@ -432,5 +432,6 @@ class TestUploadLogoAPI:
         segredo = 'aws SignatureDoesNotMatch api_key=123456'
         with patch(SALVAR_LOGO, side_effect=RuntimeError(segredo)):
             response = client_autenticado.post(self.URL, {'logo': _imagem()}, format='multipart')
-        assert response.status_code == 500
+        assert response.status_code == 503
+        assert response.data['code'] == 'armazenamento_indisponivel'
         assert 'api_key' not in str(response.data)

@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 
 from apps_serv.autenticacao.authentication import ConsumidorJWTAuthentication
 from .models import AgendamentoConsumidor, ObjetoConsumidor, VinculoConsumidor
@@ -62,7 +62,8 @@ class FotoPerfilView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        request={'multipart/form-data': FotoPerfilUploadSerializer}, responses=ConsumidorSerializer,
+        request={'multipart/form-data': FotoPerfilUploadSerializer},
+        responses={200: ConsumidorSerializer, 503: OpenApiResponse(description='Armazenamento de imagens indisponível.')},
         summary='Enviar foto de perfil',
     )
     def post(self, request):
@@ -80,7 +81,10 @@ class FotoPerfilView(APIView):
             # A mensagem do provedor pode carregar detalhe de infraestrutura;
             # ela vai para o log, e o cliente recebe algo genérico.
             logger.exception('Falha ao enviar a foto do consumidor', extra={'consumidor_id': request.user.id})
-            return erro('Não foi possível enviar a imagem. Tente novamente.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return erro(
+                'Não foi possível enviar a imagem. Tente novamente.', 'armazenamento_indisponivel',
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response(ConsumidorSerializer(request.user).data)
 

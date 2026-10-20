@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from core.permissions import IsProprietario
 from .models import EmpresaConfig, HorarioFuncionamento
 from .serializers import (
@@ -114,7 +114,8 @@ class UploadLogoView(APIView):
     permission_classes = [IsAuthenticated, IsProprietario]
 
     @extend_schema(
-        request={'multipart/form-data': UploadLogoSerializer}, responses=LogoSerializer,
+        request={'multipart/form-data': UploadLogoSerializer},
+        responses={200: LogoSerializer, 503: OpenApiResponse(description='Armazenamento de imagens indisponível.')},
         summary='Enviar a logo do negócio',
     )
     def post(self, request):
@@ -133,7 +134,10 @@ class UploadLogoView(APIView):
             # A mensagem do provedor pode carregar detalhe de infraestrutura;
             # ela vai para o log, e o cliente recebe algo genérico.
             logger.exception('Falha ao enviar a logo', extra={'schema_name': connection.schema_name})
-            return erro('Não foi possível enviar a imagem. Tente novamente.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return erro(
+                'Não foi possível enviar a imagem. Tente novamente.', 'armazenamento_indisponivel',
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response({'logo_url': url})
 

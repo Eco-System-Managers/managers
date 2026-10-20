@@ -352,6 +352,14 @@ class TestFotoPerfilAPI:
         pdf = _arquivo_imagem(nome='doc.pdf', tipo='application/pdf')
         assert client.post(self.URL, {'foto': pdf}, format='multipart').status_code == 400
 
+    def test_falha_no_armazenamento_responde_503(self, api_autenticado):
+        client, _ = api_autenticado
+        with patch(SALVAR_FOTO, side_effect=RuntimeError('aws api_key=123')):
+            resposta = client.post(self.URL, {'foto': _arquivo_imagem()}, format='multipart')
+        assert resposta.status_code == 503
+        assert resposta.data['code'] == 'armazenamento_indisponivel'
+        assert 'api_key' not in str(resposta.data)
+
     def test_upload_guarda_a_chave_e_nao_a_url(self, api_autenticado):
         """Guardar a URL faria a foto parar de abrir quando a assinatura vence."""
         client, consumidor = api_autenticado

@@ -89,6 +89,10 @@ def adicionar_erros(result, generator, request, public):
             respostas = operacao.setdefault('responses', {})
             for codigo, descricao in _STATUS_DE_ERRO.items():
                 respostas.setdefault(codigo, {'description': descricao, **ref})
+            # Erros declarados na própria operação (ex.: 503) também usam o contrato.
+            for codigo, resposta in respostas.items():
+                if codigo >= '400' and 'content' not in resposta:
+                    resposta.update(ref)
     return result
 
 
