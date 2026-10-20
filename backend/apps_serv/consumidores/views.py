@@ -188,10 +188,7 @@ class ObjetosConsumidorView(APIView):
     @extend_schema(
         request=ObjetoConsumidorSerializer, responses={201: ObjetoConsumidorSerializer},
         summary='Cadastrar pet ou veículo',
-        description=(
-            '`dados` é livre, mas exige por tipo: veiculo → placa, marca, modelo; '
-            'pet → nome, especie, porte.'
-        ),
+        description='`dados` segue o `tipo`: veiculo → DadosVeiculo; pet → DadosPet.',
     )
     def post(self, request):
         # Tipo, campos obrigatórios e placa inválidos levantam ErroDeNegocio.

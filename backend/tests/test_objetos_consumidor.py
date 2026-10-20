@@ -64,3 +64,30 @@ class TestCadastroDeObjetos:
         resposta = api.post(URL, {'tipo': 'barco', 'dados': {}}, format='json')
         assert resposta.status_code == 400
         assert resposta.json()['code'] == 'tipo_invalido'
+
+    def test_campos_desconhecidos_ficam_de_fora(self, api):
+        dados = {'nome': 'Rex', 'especie': 'cão', 'porte': 'medio', 'senha': 'x'}
+        resposta = api.post(URL, {'tipo': 'pet', 'dados': dados}, format='json')
+        assert resposta.status_code == 201
+        assert resposta.json()['dados'] == {'nome': 'Rex', 'especie': 'cão', 'porte': 'medio', 'raca': ''}
+
+    def test_porte_pelo_rotulo_vira_o_valor_do_enum(self, api):
+        dados = {'nome': 'Rex', 'especie': 'cão', 'porte': 'Médio'}
+        resposta = api.post(URL, {'tipo': 'pet', 'dados': dados}, format='json')
+        assert resposta.json()['dados']['porte'] == 'medio'
+
+    def test_porte_invalido(self, api):
+        dados = {'nome': 'Rex', 'especie': 'cão', 'porte': 'enorme'}
+        resposta = api.post(URL, {'tipo': 'pet', 'dados': dados}, format='json')
+        assert resposta.status_code == 400
+        assert resposta.json()['code'] == 'porte_invalido'
+
+
+@pytest.mark.parametrize('entrada, esperado', [
+    ('medio', 'medio'), ('Médio', 'medio'), (' GRANDE ', 'grande'), ('enorme', ''), ('', ''), (None, ''),
+])
+def test_normalizar_porte(entrada, esperado):
+    """A cópia do pet para o negócio só reconhecia 'médio' com acento: o valor
+    do enum ('medio') chegava sem porte."""
+    from apps_work.clientes.validators import normalizar_porte
+    assert normalizar_porte(entrada) == esperado

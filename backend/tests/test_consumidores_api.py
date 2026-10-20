@@ -59,7 +59,7 @@ def agendamento_ativo(consumidor):
         schema_name='barbearia_teste',
         agendamento_id=99,
         negocio_nome='Barbearia Teste',
-        servicos=[{'nome': 'Corte', 'duracao': 30, 'preco': 50.0}],
+        servicos=[{'nome': 'Corte', 'duracao': 30, 'preco': 50.0, 'taxa_cancelamento': 0.0}],
         data_hora=timezone.now() + timedelta(hours=12),
         duracao_total=30,
         valor_total=Decimal('50.00'),
@@ -198,6 +198,13 @@ class TestMeusAgendamentos:
         assert response.status_code == 200
         assert response.data['count'] == 1
         assert response.data['results'][0]['negocio_nome'] == 'Barbearia Teste'
+
+    def test_preco_guardado_como_float_sai_como_string(self, api_autenticado, agendamento_ativo):
+        """Agendamentos anteriores à #6 guardaram float no JSON."""
+        client, _ = api_autenticado
+        servico = client.get('/api/sm/v1/agendamentos/').data['results'][0]['servicos'][0]
+        assert servico['preco'] == '50.00'
+        assert servico['taxa_cancelamento'] == '0.00'
 
     def test_logo_url_vem_do_negocio_publico(self, api_autenticado, agendamento_ativo):
         client, _ = api_autenticado

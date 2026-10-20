@@ -12,7 +12,8 @@ from apps_serv.vitrine.models import NegocioPublico
 from core.excecoes import ErroDeNegocio
 from tenants.models import Membro
 from apps_work.agenda.models import FormaPagamento, OrigemAtendimento, StatusAgendamento
-from apps_work.clientes.models import OrigemCliente, PortePet, TipoObjeto
+from apps_work.clientes.models import OrigemCliente, TipoObjeto
+from apps_work.clientes.validators import normalizar_porte
 from apps_work.empresa.models import TipoAgenda
 from apps_work.notificacoes.models import TipoNotificacao
 
@@ -338,10 +339,6 @@ class AgendamentoTenantService:
                 )
         elif tipo == TipoObjeto.PET:
             from apps_work.clientes.models import Pet
-            porte_map = {
-                'pequeno': PortePet.PEQUENO, 'médio': PortePet.MEDIO,
-                'grande': PortePet.GRANDE, 'gigante': PortePet.GIGANTE,
-            }
             objeto = Pet.objects.filter(cliente=cliente, nome=objeto_dados.get('nome', '')).first()
             if objeto is None:
                 objeto = Pet.objects.create(
@@ -349,7 +346,7 @@ class AgendamentoTenantService:
                     nome=objeto_dados.get('nome', ''),
                     especie=objeto_dados.get('especie', ''),
                     raca=objeto_dados.get('raca', ''),
-                    porte=porte_map.get(objeto_dados.get('porte', '').strip().lower(), ''),
+                    porte=normalizar_porte(objeto_dados.get('porte', '')),
                 )
         else:
             raise ErroDeNegocio('Tipo de objeto inválido para agendamento por esteira.', 'objeto_invalido')

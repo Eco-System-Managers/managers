@@ -1485,8 +1485,7 @@ paths:
                 $ref: '#/components/schemas/Erro'
     post:
       operationId: objetos_create
-      description: '`dados` é livre, mas exige por tipo: veiculo → placa, marca, modelo;
-        pet → nome, especie, porte.'
+      description: '`dados` segue o `tipo`: veiculo → DadosVeiculo; pet → DadosPet.'
       summary: Cadastrar pet ou veículo
       tags:
       - objetos
@@ -1676,11 +1675,18 @@ components:
         nicho:
           type: string
           maxLength: 50
-        servicos: {}
+        servicos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServicoAgendado'
+          readOnly: true
         profissional_nome:
           type: string
           maxLength: 255
         objeto_dados:
+          allOf:
+          - $ref: '#/components/schemas/ObjetoAgendado'
+          readOnly: true
           nullable: true
         data_hora:
           type: string
@@ -1725,7 +1731,9 @@ components:
       - id
       - logo_url
       - negocio_nome
+      - objeto_dados
       - schema_name
+      - servicos
       - status_kanban
       - valor_total
     BlankEnum:
@@ -1835,6 +1843,97 @@ components:
       required:
       - data_hora
       - servico_ids
+    DadosObjeto:
+      oneOf:
+      - $ref: '#/components/schemas/DadosPet'
+      - $ref: '#/components/schemas/DadosVeiculo'
+    DadosObjetoRequest:
+      oneOf:
+      - $ref: '#/components/schemas/DadosPetRequest'
+      - $ref: '#/components/schemas/DadosVeiculoRequest'
+    DadosPet:
+      type: object
+      properties:
+        nome:
+          type: string
+          maxLength: 100
+        especie:
+          type: string
+          maxLength: 50
+        porte:
+          $ref: '#/components/schemas/PorteEnum'
+        raca:
+          type: string
+          default: ''
+          maxLength: 100
+      required:
+      - especie
+      - nome
+      - porte
+    DadosPetRequest:
+      type: object
+      properties:
+        nome:
+          type: string
+          minLength: 1
+          maxLength: 100
+        especie:
+          type: string
+          minLength: 1
+          maxLength: 50
+        porte:
+          $ref: '#/components/schemas/PorteEnum'
+        raca:
+          type: string
+          default: ''
+          maxLength: 100
+      required:
+      - especie
+      - nome
+      - porte
+    DadosVeiculo:
+      type: object
+      properties:
+        placa:
+          type: string
+          maxLength: 10
+        marca:
+          type: string
+          maxLength: 50
+        modelo:
+          type: string
+          maxLength: 100
+        cor:
+          type: string
+          default: ''
+          maxLength: 50
+      required:
+      - marca
+      - modelo
+      - placa
+    DadosVeiculoRequest:
+      type: object
+      properties:
+        placa:
+          type: string
+          minLength: 1
+          maxLength: 10
+        marca:
+          type: string
+          minLength: 1
+          maxLength: 50
+        modelo:
+          type: string
+          minLength: 1
+          maxLength: 100
+        cor:
+          type: string
+          default: ''
+          maxLength: 50
+      required:
+      - marca
+      - modelo
+      - placa
     Disponibilidade:
       type: object
       properties:
@@ -1988,6 +2087,34 @@ components:
     NullEnum:
       enum:
       - null
+    ObjetoAgendado:
+      type: object
+      description: 'Pet ou veículo levado ao atendimento: tipo, nome de exibição e
+        os dados do tipo.'
+      properties:
+        tipo:
+          type: string
+        nome_exibicao:
+          type: string
+        placa:
+          type: string
+        marca:
+          type: string
+        modelo:
+          type: string
+        cor:
+          type: string
+        nome:
+          type: string
+        especie:
+          type: string
+        porte:
+          type: string
+        raca:
+          type: string
+      required:
+      - nome_exibicao
+      - tipo
     ObjetoConsumidor:
       type: object
       properties:
@@ -1996,7 +2123,8 @@ components:
           readOnly: true
         tipo:
           $ref: '#/components/schemas/TipoObjetoEnum'
-        dados: {}
+        dados:
+          $ref: '#/components/schemas/DadosObjeto'
         nome_exibicao:
           type: string
           readOnly: true
@@ -2015,7 +2143,8 @@ components:
       properties:
         tipo:
           $ref: '#/components/schemas/TipoObjetoEnum'
-        dados: {}
+        dados:
+          $ref: '#/components/schemas/DadosObjetoRequest'
       required:
       - dados
       - tipo
@@ -2210,6 +2339,18 @@ components:
         numero_endereco:
           type: string
           maxLength: 10
+    PorteEnum:
+      enum:
+      - pequeno
+      - medio
+      - grande
+      - gigante
+      type: string
+      description: |-
+        * `pequeno` - Pequeno
+        * `medio` - Médio
+        * `grande` - Grande
+        * `gigante` - Gigante
     RecuperarSenhaConsumidorRequest:
       type: object
       properties:
@@ -2227,6 +2368,29 @@ components:
           minLength: 1
           description: 'Só no mobile (X-Client-Platform: mobile); no web o refresh
             vai no cookie httpOnly.'
+    ServicoAgendado:
+      type: object
+      description: Foto do serviço no momento do agendamento (não muda se o negócio
+        mudar o preço).
+      properties:
+        nome:
+          type: string
+        duracao:
+          type: integer
+          description: Minutos.
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        taxa_cancelamento:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - duracao
+      - nome
+      - preco
+      - taxa_cancelamento
     ServicoVitrine:
       type: object
       properties:

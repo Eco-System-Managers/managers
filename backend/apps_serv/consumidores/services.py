@@ -9,8 +9,6 @@ from core.recuperacao import RecuperacaoSenhaBase
 from core.limites import login_servicemanage
 
 from apps_work.clientes.models import TipoObjeto
-from apps_work.clientes.validators import validar_placa_br
-from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from .models import CodigoRecuperacaoConsumidor, Consumidor, ObjetoConsumidor
 from core.excecoes import ErroDeNegocio
@@ -75,27 +73,30 @@ class RecuperacaoSenhaConsumidorService(RecuperacaoSenhaBase):
 class ObjetoConsumidorService:
     """Pets e veículos do consumidor: o que cada tipo exige e como aparece."""
 
-    CAMPOS_OBRIGATORIOS = {
-        TipoObjeto.VEICULO: ['placa', 'marca', 'modelo'],
-        TipoObjeto.PET: ['nome', 'especie', 'porte'],
-    }
-
     def cadastrar(self, consumidor, tipo: str, dados: dict) -> ObjetoConsumidor:
-        if tipo not in self.CAMPOS_OBRIGATORIOS:
+        from .serializers import DadosPetSerializer, DadosVeiculoSerializer
+
+        por_tipo = {TipoObjeto.VEICULO: DadosVeiculoSerializer, TipoObjeto.PET: DadosPetSerializer}
+        if tipo not in por_tipo:
             raise ErroDeNegocio('Tipo inválido.', 'tipo_invalido')
+        if not isinstance(dados, dict):
+            raise ErroDeNegocio('dados deve ser um objeto.', 'dados_invalidos')
 
-        ausentes = [c for c in self.CAMPOS_OBRIGATORIOS[tipo] if not dados.get(c)]
-        if ausentes:
-            raise ErroDeNegocio(f"Campos obrigatórios: {', '.join(ausentes)}.", 'campos_obrigatorios')
-
-        dados = dict(dados)
-        if tipo == TipoObjeto.VEICULO:
-            # A mesma validação do veículo cadastrado pelo negócio. Antes havia
-            # uma cópia aqui que nunca era chamada: qualquer placa passava.
-            try:
-                dados['placa'] = validar_placa_br(dados['placa'])
-            except DRFValidationError as e:
-                raise ErroDeNegocio(str(e.detail[0]), 'placa_invalida')
+        # Formato fixo por tipo: campos desconhecidos ficam de fora, e a placa
+        # passa pela mesma validação do veículo cadastrado pelo negócio.
+        entrada = por_tipo[tipo](data=dados)
+        if not entrada.is_valid():
+            erros = entrada.errors
+            ausentes = [c for c, msgs in erros.items() if any(m.code in ('required', 'blank') for m in msgs)]
+            if ausentes:
+                raise ErroDeNegocio(f"Campos obrigatórios: {', '.join(ausentes)}.", 'campos_obrigatorios')
+            if 'placa' in erros:
+                raise ErroDeNegocio(str(erros['placa'][0]), 'placa_invalida')
+            if 'porte' in erros:
+                raise ErroDeNegocio('Porte inválido.', 'porte_invalido')
+            campo, msgs = next(iter(erros.items()))
+            raise ErroDeNegocio(f'{campo}: {msgs[0]}', 'dados_invalidos')
+        dados = dict(entrada.validated_data)
 
         return ObjetoConsumidor.objects.create(
             consumidor=consumidor, tipo=tipo, dados=dados, nome_exibicao=self._nome_exibicao(tipo, dados),
