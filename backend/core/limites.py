@@ -1,12 +1,24 @@
 import hashlib
 
 from django.core.cache import cache
+from rest_framework import status
+
+from core.excecoes import ErroDeNegocio
 
 
-class MuitasTentativas(Exception):
-    """Limite de falhas atingido para a conta; vale até a janela passar."""
+class MuitasTentativas(ErroDeNegocio):
+    """Limite de falhas atingido para a conta; vale até a janela passar.
 
-    MENSAGEM = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
+    É um ErroDeNegocio com status 429: o handler já monta a resposta, sem a
+    view precisar capturar.
+    """
+
+    def __init__(self):
+        super().__init__(
+            'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+            'muitas_tentativas',
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
 
 
 class LimiteDeFalhas:
@@ -29,7 +41,7 @@ class LimiteDeFalhas:
 
     def verificar(self, email: str) -> None:
         if cache.get(self._chave(email), 0) >= self.maximo:
-            raise MuitasTentativas(MuitasTentativas.MENSAGEM)
+            raise MuitasTentativas()
 
     def registrar_falha(self, email: str) -> None:
         chave = self._chave(email)

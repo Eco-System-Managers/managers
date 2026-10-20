@@ -9,8 +9,8 @@ dentro de um tenant; lá é um `Consumidor` no schema público.
 
 | Arquivo | O que faz |
 |---|---|
-| `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário e assinatura de trial numa tacada. `RecuperacaoSenhaService`. E `SessaoService`, que emite, renova e revoga sessões |
-| `views.py` | Cadastro, login, refresh por cookie, logout e as três etapas de recuperação de senha |
+| `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário, assinatura de trial e o relógio de inatividade numa tacada. `LoginService` (credenciais, limite de falhas, usuário ativo, empresa). `RecuperacaoSenhaService` (o fluxo é o de `core/recuperacao.py`). E `SessaoService`, que emite, renova e revoga sessões |
+| `views.py` | Cadastro, login, refresh por cookie, logout e as três etapas de recuperação de senha. Views finas: a regra está nos services |
 | `models.py` | `UltimaAtividade` (relógio de inatividade) e `CodigoRecuperacao` |
 | `serializers.py` | Validação do cadastro, incluindo o slug do schema a partir do nome da empresa |
 | `urls.py` | Rotas sob `/api/v1/auth/` — isentas do bloqueio de assinatura |

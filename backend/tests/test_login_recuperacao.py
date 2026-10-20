@@ -49,6 +49,16 @@ class TestLoginSemEnumeracao:
         assert response.status_code == 403
         assert response.data['code'] == 'user_inactive'
 
+    def test_b2b_credencial_errada_tem_o_mesmo_codigo_do_b2c(self, api, proprietario):
+        response = api.post('/api/v1/auth/login/', {'email': proprietario.username, 'senha': 'errada'})
+        assert response.status_code == 401
+        assert response.data['code'] == 'credenciais_invalidas'
+
+    def test_b2b_usuario_sem_empresa(self, api, user_auth):
+        response = api.post('/api/v1/auth/login/', {'email': 'auth@teste.com', 'senha': 'SenhaForte123!'})
+        assert response.status_code == 400
+        assert response.data['code'] == 'sem_empresa'
+
     def test_b2c_calcula_hash_quando_o_consumidor_nao_existe(self, db):
         with patch('apps_serv.consumidores.services.make_password') as hash_ficticio:
             with pytest.raises(ValueError):

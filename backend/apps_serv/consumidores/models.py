@@ -1,10 +1,7 @@
-import secrets
-from datetime import timedelta
-
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
-from django.utils import timezone
 
+from core.models import CodigoRecuperacaoBase
 from apps_work.agenda.models import OrigemAtendimento, StatusAgendamento
 from apps_work.clientes.models import TipoObjeto
 
@@ -53,48 +50,14 @@ class Consumidor(models.Model):
         return check_password(raw_password, self.password)
 
 
-class CodigoRecuperacaoConsumidor(models.Model):
-    MAX_TENTATIVAS = 5
+class CodigoRecuperacaoConsumidor(CodigoRecuperacaoBase):
+    CAMPO_DONO = 'consumidor'
 
     consumidor = models.ForeignKey(Consumidor, on_delete=models.CASCADE, related_name='codigos_recuperacao')
-    # Só o hash: com o banco vazado, o código ainda vivo não serve para nada.
-    codigo_hash = models.CharField(max_length=128)
-    criado_em = models.DateTimeField(auto_now_add=True)
-    expira_em = models.DateTimeField()
-    usado = models.BooleanField(default=False)
-    tentativas = models.PositiveSmallIntegerField(default=0)
 
-    class Meta:
+    class Meta(CodigoRecuperacaoBase.Meta):
         verbose_name = 'Código de Recuperação'
         verbose_name_plural = 'Códigos de Recuperação'
-        ordering = ['-criado_em']
-
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            self.expira_em = timezone.now() + timedelta(minutes=15)
-        super().save(*args, **kwargs)
-
-    @property
-    def expirado(self):
-        return timezone.now() > self.expira_em
-
-    @property
-    def bloqueado(self):
-        return self.tentativas >= self.MAX_TENTATIVAS
-
-    @classmethod
-    def emitir(cls, consumidor, codigo: str | None = None) -> tuple['CodigoRecuperacaoConsumidor', str]:
-        """Cria um código novo e invalida os anteriores. Devolve o registro e o
-        código em claro — a única vez em que ele existe fora do e-mail."""
-        codigo = codigo or ''.join(secrets.choice('0123456789') for _ in range(8))
-        cls.objects.filter(consumidor=consumidor, usado=False).update(usado=True)
-        return cls.objects.create(consumidor=consumidor, codigo_hash=make_password(codigo)), codigo
-
-    def confere(self, codigo: str) -> bool:
-        return check_password(codigo, self.codigo_hash)
-
-    def __str__(self):
-        return f'{self.consumidor.email} — {self.criado_em:%d/%m/%Y %H:%M}'
 
 
 class RefreshRevogadoConsumidor(models.Model):

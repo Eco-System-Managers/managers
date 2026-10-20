@@ -1,5 +1,3 @@
-from django.conf import settings
-from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -7,38 +5,14 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
-from core import rotas
 from core.openapi import PLATAFORMA, MensagemSerializer
-from core.limites import MuitasTentativas, login_work
-from core.sessao import entregar_refresh, refresh_da_requisicao
+from core.sessao import COOKIE_WORK
 from core.throttling import RecuperacaoPorEmailThrottle
-from tenants.models import Membro
-from .models import UltimaAtividade
 from .serializers import (
     CadastroSerializer, EmailSerializer, LoginSerializer, NovaSenhaSerializer, RefreshSerializer,
     SessaoSerializer, VerificarCodigoSerializer,
 )
 from core.excecoes import erro
-
-REFRESH_COOKIE = 'refresh_token'
-REFRESH_COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 dias
-
-
-def set_refresh_cookie(response: Response, token_str: str) -> None:
-    response.set_cookie(
-        key=REFRESH_COOKIE,
-        value=token_str,
-        httponly=True,
-        secure=not settings.DEBUG,
-        samesite='Lax',
-        max_age=REFRESH_COOKIE_MAX_AGE,
-        path=rotas.WORK_AUTH,
-    )
-
-
-def delete_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key=REFRESH_COOKIE, path=rotas.WORK_AUTH)
-
 
 def responder_sessao(request, refresh, status_code=status.HTTP_200_OK) -> Response:
     """Resposta de login, cadastro, renovação e aceite de convite."""
@@ -47,7 +21,7 @@ def responder_sessao(request, refresh, status_code=status.HTTP_200_OK) -> Respon
         'schema_name': refresh['schema_name'],
         'empresa': refresh['empresa'],
     }, status=status_code)
-    entregar_refresh(request, response, str(refresh), set_refresh_cookie)
+    COOKIE_WORK.entregar(request, response, str(refresh))
     return response
 
 
@@ -66,9 +40,6 @@ class CadastroView(APIView):
         serializer.is_valid(raise_exception=True)
         user, tenant = serializer.save()
 
-        from django.utils import timezone
-        UltimaAtividade.objects.create(user=user, ultimo_acesso=timezone.now())
-
         from .services import SessaoService
         refresh = SessaoService().emitir(user, tenant)
         return responder_sessao(request, refresh, status.HTTP_201_CREATED)
@@ -85,39 +56,13 @@ class LoginView(APIView):
         summary='Entrar com e-mail e senha',
     )
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
-        senha = request.data.get('senha', '')
-
-        try:
-            login_work.verificar(email)
-        except MuitasTentativas as e:
-            return erro(str(e), 'muitas_tentativas', status.HTTP_429_TOO_MANY_REQUESTS)
-
-        user = User.objects.filter(username=email).first()
-        if user is None:
-            # Calcula um hash mesmo assim: sem isso, e-mail inexistente responde
-            # mais rápido e o tempo de resposta revela quem tem conta.
-            User().set_password(senha)
-        if user is None or not user.check_password(senha):
-            login_work.registrar_falha(email)
-            return erro('E-mail ou senha inválidos.', status_code=status.HTTP_401_UNAUTHORIZED)
-        login_work.limpar(email)
-
-        if not user.is_active:
-            return erro('Você está inativo. Entre em contato com o proprietário do sistema.', 'user_inactive', status.HTTP_403_FORBIDDEN)
-
-        membro = Membro.objects.filter(user=user).select_related('tenant').first()
-        if not membro:
-            return erro('Usuário não vinculado a nenhuma empresa.', status_code=status.HTTP_400_BAD_REQUEST)
-
-        tenant = membro.tenant
-
-        from django.utils import timezone
-        UltimaAtividade.objects.update_or_create(user=user, defaults={'ultimo_acesso': timezone.now()})
-
-        from .services import SessaoService
-        refresh = SessaoService().emitir(user, tenant)
-        return responder_sessao(request, refresh)
+        from .services import LoginService, SessaoService
+        # Credencial errada, usuário inativo, sem empresa e limite de falhas
+        # levantam ErroDeNegocio com o status certo; o handler monta a resposta.
+        user, tenant = LoginService().autenticar(
+            request.data.get('email', ''), request.data.get('senha', ''),
+        )
+        return responder_sessao(request, SessaoService().emitir(user, tenant))
 
 
 class RecuperarSenhaView(APIView):
@@ -134,7 +79,7 @@ class RecuperarSenhaView(APIView):
     def post(self, request):
         from .services import RecuperacaoSenhaService
         email = request.data.get('email', '').strip()
-        msg = RecuperacaoSenhaService().recuperar(email)
+        msg = RecuperacaoSenhaService().solicitar(email)
         return Response({'detail': msg})
 
 
@@ -195,14 +140,14 @@ class CookieTokenRefreshView(APIView):
     def post(self, request):
         from .services import SessaoInvalida, SessaoService
 
-        token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
+        token_str = COOKIE_WORK.refresh_da_requisicao(request)
         try:
             if not token_str:
                 raise SessaoInvalida()
             refresh = SessaoService().renovar(token_str)
         except SessaoInvalida:
             response = erro('Sessão expirada. Faça login novamente.', status_code=status.HTTP_401_UNAUTHORIZED)
-            delete_refresh_cookie(response)
+            COOKIE_WORK.apagar(response)
             return response
         return responder_sessao(request, refresh)
 
@@ -218,9 +163,9 @@ class LogoutView(APIView):
     def post(self, request):
         from .services import SessaoService
 
-        token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
+        token_str = COOKIE_WORK.refresh_da_requisicao(request)
         if token_str:
             SessaoService().encerrar(token_str)
         response = Response({'detail': 'Logout realizado com sucesso.'})
-        delete_refresh_cookie(response)
+        COOKIE_WORK.apagar(response)
         return response

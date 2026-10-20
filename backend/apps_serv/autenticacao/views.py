@@ -12,10 +12,8 @@ from apps_serv.consumidores.services import (
     RecuperacaoSenhaConsumidorService,
     RegistroConsumidorService,
 )
-from core import rotas
-from core.limites import MuitasTentativas
 from core.openapi import PLATAFORMA, MensagemSerializer
-from core.sessao import entregar_refresh, refresh_da_requisicao
+from core.sessao import COOKIE_SERVICEMANAGE
 from core.throttling import RecuperacaoConsumidorPorEmailThrottle
 
 from .authentication import gerar_tokens, renovar_tokens, revogar_refresh
@@ -29,27 +27,6 @@ from .serializers import (
     VerificarCodigoConsumidorSerializer,
 )
 from core.excecoes import erro
-
-REFRESH_COOKIE = 'sm_refresh_token'
-REFRESH_COOKIE_MAX_AGE = 7 * 24 * 3600
-
-
-def _set_refresh_cookie(response: Response, token_str: str) -> None:
-    from django.conf import settings
-    response.set_cookie(
-        key=REFRESH_COOKIE,
-        value=token_str,
-        httponly=True,
-        secure=not settings.DEBUG,
-        samesite='Lax',
-        max_age=REFRESH_COOKIE_MAX_AGE,
-        path=rotas.SERVICEMANAGE_AUTH,
-    )
-
-
-def _delete_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key=REFRESH_COOKIE, path=rotas.SERVICEMANAGE_AUTH)
-
 
 class CadastroConsumidorView(APIView):
     authentication_classes = []
@@ -82,7 +59,7 @@ class CadastroConsumidorView(APIView):
             {'access': access, 'consumidor': ConsumidorSerializer(consumidor).data},
             status=status.HTTP_201_CREATED,
         )
-        entregar_refresh(request, response, refresh, _set_refresh_cookie)
+        COOKIE_SERVICEMANAGE.entregar(request, response, refresh)
         return response
 
 
@@ -100,19 +77,16 @@ class LoginConsumidorView(APIView):
         email = request.data.get('email', '')
         senha = request.data.get('senha', '')
 
-        try:
-            consumidor = LoginConsumidorService().autenticar(email=email, senha=senha)
-        except MuitasTentativas as e:
-            return erro(str(e), 'muitas_tentativas', status.HTTP_429_TOO_MANY_REQUESTS)
-        except ValueError as e:
-            return erro(str(e), getattr(e, 'code', None), status.HTTP_401_UNAUTHORIZED)
+        # Credencial errada, conta inativa e limite de falhas levantam
+        # ErroDeNegocio com o status certo; o handler monta a resposta.
+        consumidor = LoginConsumidorService().autenticar(email=email, senha=senha)
 
         access, refresh = gerar_tokens(consumidor)
         response = Response({
             'access': access,
             'consumidor': ConsumidorSerializer(consumidor).data,
         })
-        entregar_refresh(request, response, refresh, _set_refresh_cookie)
+        COOKIE_SERVICEMANAGE.entregar(request, response, refresh)
         return response
 
 
@@ -125,7 +99,7 @@ class RefreshConsumidorView(APIView):
         summary='Renovar a sessão (o refresh usado deixa de valer)',
     )
     def post(self, request):
-        token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
+        token_str = COOKIE_SERVICEMANAGE.refresh_da_requisicao(request)
         if not token_str:
             return erro('Sessão expirada. Faça login novamente.', status_code=status.HTTP_401_UNAUTHORIZED)
 
@@ -133,11 +107,11 @@ class RefreshConsumidorView(APIView):
             access, refresh, _ = renovar_tokens(token_str)
         except AuthenticationFailed as e:
             response = erro(str(e.detail), status_code=status.HTTP_401_UNAUTHORIZED)
-            _delete_refresh_cookie(response)
+            COOKIE_SERVICEMANAGE.apagar(response)
             return response
 
         response = Response({'access': access})
-        entregar_refresh(request, response, refresh, _set_refresh_cookie)
+        COOKIE_SERVICEMANAGE.entregar(request, response, refresh)
         return response
 
 
@@ -150,11 +124,11 @@ class LogoutConsumidorView(APIView):
         summary='Sair (revoga o refresh)',
     )
     def post(self, request):
-        token_str = refresh_da_requisicao(request, REFRESH_COOKIE)
+        token_str = COOKIE_SERVICEMANAGE.refresh_da_requisicao(request)
         if token_str:
             revogar_refresh(token_str)
         response = Response({'detail': 'Logout realizado com sucesso.'})
-        _delete_refresh_cookie(response)
+        COOKIE_SERVICEMANAGE.apagar(response)
         return response
 
 

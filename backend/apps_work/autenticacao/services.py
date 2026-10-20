@@ -2,19 +2,19 @@ from datetime import date, timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.utils import timezone
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.utils import get_md5_hash_password
 
-from core.email import enviar_email
-
-from .models import CodigoRecuperacao
 from core.excecoes import ErroDeNegocio
+from core.limites import login_work
+from core.recuperacao import RecuperacaoSenhaBase
+
+from .models import CodigoRecuperacao, UltimaAtividade
 
 
 def dominio_do_schema(schema_name: str) -> str:
@@ -66,67 +66,56 @@ class OnboardingService:
                     proximo_vencimento=date.today() + timedelta(days=28),
                 )
 
+        # Começa o relógio de inatividade junto com a conta.
+        UltimaAtividade.objects.create(user=user, ultimo_acesso=timezone.now())
         return user, tenant
 
 
-class RecuperacaoSenhaService:
-    GENERIC_MSG = 'Se este e-mail estiver cadastrado, você receberá um código em instantes.'
+class LoginService:
+    def autenticar(self, email: str, senha: str):
+        """Confere as credenciais e devolve (user, tenant).
 
-    def _usuario(self, email: str):
+        Levanta ErroDeNegocio com o status da resposta: 429 com 10 falhas em
+        15 minutos para o e-mail, 401 para credencial errada, 403 para usuário
+        desativado e 400 para quem não pertence a nenhuma empresa.
+        """
+        from tenants.models import Membro
+
+        email = email.strip().lower()
+        login_work.verificar(email)
+
+        user = User.objects.filter(username=email).first()
+        if user is None:
+            # Calcula um hash mesmo assim: sem isso, e-mail inexistente responde
+            # mais rápido e o tempo de resposta revela quem tem conta.
+            User().set_password(senha)
+        if user is None or not user.check_password(senha):
+            login_work.registrar_falha(email)
+            raise ErroDeNegocio('E-mail ou senha inválidos.', 'credenciais_invalidas', 401)
+        login_work.limpar(email)
+
+        if not user.is_active:
+            raise ErroDeNegocio(
+                'Você está inativo. Entre em contato com o proprietário do sistema.', 'user_inactive', 403,
+            )
+
+        membro = Membro.objects.filter(user=user).select_related('tenant').first()
+        if membro is None:
+            raise ErroDeNegocio('Usuário não vinculado a nenhuma empresa.', 'sem_empresa')
+
+        UltimaAtividade.objects.update_or_create(user=user, defaults={'ultimo_acesso': timezone.now()})
+        return user, membro.tenant
+
+
+class RecuperacaoSenhaService(RecuperacaoSenhaBase):
+    modelo_codigo = CodigoRecuperacao
+    nome_produto = 'Work Manage'
+
+    def _dono(self, email: str):
         # O username guarda o e-mail e é único; o campo email do User não é.
         return User.objects.filter(username=email.strip().lower()).first()
 
-    def _codigo_vigente(self, user):
-        registro = CodigoRecuperacao.objects.filter(user=user, usado=False).first()
-        if registro is None or registro.expirado or registro.bloqueado:
-            return None
-        return registro
-
-    def _conferir(self, registro, codigo: str) -> bool:
-        if registro.confere(codigo):
-            return True
-        registro.tentativas += 1
-        registro.save(update_fields=['tentativas'])
-        return False
-
-    def recuperar(self, email: str) -> str:
-        user = self._usuario(email)
-        if user is None:
-            return self.GENERIC_MSG
-
-        _, codigo = CodigoRecuperacao.emitir(user)
-        enviar_email.enqueue(
-            assunto='Código de recuperação — Work Manage',
-            mensagem=f'Seu código de recuperação é: {codigo}\n\nEle expira em 15 minutos.',
-            destinatario=user.email,
-        )
-        return self.GENERIC_MSG
-
-    def verificar_codigo(self, email: str, codigo: str) -> bool:
-        user = self._usuario(email)
-        registro = self._codigo_vigente(user) if user else None
-        return registro is not None and self._conferir(registro, codigo)
-
-    def redefinir_senha(self, email: str, codigo: str, nova_senha: str) -> None:
-        # Sem transação: a tentativa errada precisa ficar gravada mesmo com o
-        # ValueError — senão o limite de tentativas nunca seria atingido.
-        user = self._usuario(email)
-
-        # A senha é validada antes de gastar uma tentativa do código.
-        try:
-            validate_password(nova_senha, user)
-        except DjangoValidationError as e:
-            raise ErroDeNegocio(' '.join(e.messages), 'senha_fraca')
-
-        registro = self._codigo_vigente(user) if user else None
-        if registro is None or not self._conferir(registro, codigo):
-            raise ErroDeNegocio('Código inválido ou expirado.', 'codigo_invalido')
-
-        user.set_password(nova_senha)
-        user.save(update_fields=['password'])
-        registro.usado = True
-        registro.save(update_fields=['usado'])
-        # Quem pediu a recuperação pode estar tirando um invasor da conta.
+    def _encerrar_sessoes(self, user) -> None:
         SessaoService().encerrar_todas(user)
 
 

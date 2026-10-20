@@ -1,12 +1,10 @@
 import logging
 
 from django.contrib.auth.hashers import make_password
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from core.email import enviar_email
+from core.recuperacao import RecuperacaoSenhaBase
 from core.limites import login_servicemanage
 
 from .models import CodigoRecuperacaoConsumidor, Consumidor
@@ -43,81 +41,30 @@ class LoginConsumidorService:
             make_password(senha)
         if consumidor is None or not consumidor.check_password(senha):
             login_servicemanage.registrar_falha(email)
-            raise ErroDeNegocio('E-mail ou senha inválidos.', 'credenciais_invalidas')
+            raise ErroDeNegocio('E-mail ou senha inválidos.', 'credenciais_invalidas', 401)
         login_servicemanage.limpar(email)
 
         if not consumidor.is_active:
-            raise ErroDeNegocio('Conta inativa. Entre em contato com o suporte.', 'conta_inativa')
+            raise ErroDeNegocio('Conta inativa. Entre em contato com o suporte.', 'conta_inativa', 401)
 
         return consumidor
 
 
-class RecuperacaoSenhaConsumidorService:
-    GENERIC_MSG = 'Se este e-mail estiver cadastrado, você receberá um código em instantes.'
+class RecuperacaoSenhaConsumidorService(RecuperacaoSenhaBase):
+    modelo_codigo = CodigoRecuperacaoConsumidor
+    nome_produto = 'Service Manage'
 
-    def solicitar(self, email: str) -> str:
-        try:
-            consumidor = Consumidor.objects.get(email=email.strip().lower(), is_active=True)
-        except Consumidor.DoesNotExist:
-            return self.GENERIC_MSG
+    def _dono(self, email: str):
+        return Consumidor.objects.filter(email=email.strip().lower()).first()
 
-        _, codigo = CodigoRecuperacaoConsumidor.emitir(consumidor)
-        enviar_email.enqueue(
-            assunto='Código de recuperação — Service Manage',
-            mensagem=f'Seu código de recuperação é: {codigo}\n\nEle expira em 15 minutos.',
-            destinatario=consumidor.email,
-        )
+    def _dono_para_envio(self, email: str):
+        # Conta desativada não recebe código.
+        return Consumidor.objects.filter(email=email.strip().lower(), is_active=True).first()
 
-        return self.GENERIC_MSG
-
-    def _codigo_vigente(self, consumidor):
-        registro = CodigoRecuperacaoConsumidor.objects.filter(
-            consumidor=consumidor, usado=False
-        ).first()
-        if registro is None or registro.expirado or registro.bloqueado:
-            return None
-        return registro
-
-    def _conferir(self, registro, codigo: str) -> bool:
-        if registro.confere(codigo):
-            return True
-        registro.tentativas += 1
-        registro.save(update_fields=['tentativas'])
-        return False
-
-    def verificar_codigo(self, email: str, codigo: str) -> bool:
-        try:
-            consumidor = Consumidor.objects.get(email=email.strip().lower())
-        except Consumidor.DoesNotExist:
-            return False
-
-        registro = self._codigo_vigente(consumidor)
-        return registro is not None and self._conferir(registro, codigo)
-
-    def redefinir_senha(self, email: str, codigo: str, nova_senha: str) -> None:
-        try:
-            consumidor = Consumidor.objects.get(email=email.strip().lower())
-        except Consumidor.DoesNotExist:
-            raise ErroDeNegocio('Código inválido.', 'codigo_invalido')
-
-        # Com a conta, para a regra de "senha parecida com o e-mail" valer; e
-        # antes do código, para senha fraca não gastar uma tentativa.
-        try:
-            validate_password(nova_senha, consumidor)
-        except DjangoValidationError as e:
-            raise ErroDeNegocio(' '.join(e.messages), 'senha_fraca')
-
-        registro = self._codigo_vigente(consumidor)
-        if registro is None or not self._conferir(registro, codigo):
-            raise ErroDeNegocio('Código inválido ou expirado.', 'codigo_invalido')
-
-        consumidor.set_password(nova_senha)
-        # Derruba todas as sessões abertas: quem pediu a recuperação pode
-        # estar tirando um invasor da conta.
+    def _encerrar_sessoes(self, consumidor) -> None:
+        # Todo token emitido antes de agora deixa de valer, inclusive access.
         consumidor.sessoes_validas_desde = timezone.now()
-        consumidor.save(update_fields=['password', 'sessoes_validas_desde'])
-        registro.usado = True
-        registro.save(update_fields=['usado'])
+        consumidor.save(update_fields=['sessoes_validas_desde'])
 
 
 class SincronizarClienteService:

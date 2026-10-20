@@ -61,6 +61,15 @@ recuperação limita códigos por e-mail (`RecuperacaoConsumidorPorEmailThrottle
 5/hora). O throttle padrão de usuário logado (`UsuarioRateThrottle`) leva o tipo
 da conta na chave, para o `Consumidor` 5 não dividir contador com o `User` 5.
 
+## O que é compartilhado com o Work Manage
+
+O que não depende do produto mora em `core/`: o cookie de refresh
+(`core/sessao.py`, `COOKIE_SERVICEMANAGE`), o fluxo de recuperação de senha
+(`core/recuperacao.py`, estendido por `RecuperacaoSenhaConsumidorService`), o
+código de recuperação (`core.models.CodigoRecuperacaoBase`) e o limite de
+falhas de login (`core/limites.py`). Os tokens continuam próprios: o blacklist
+do SimpleJWT só funciona com `auth.User`.
+
 ## O que é fácil errar aqui
 
 - **`request.user` aqui é um `Consumidor`, não um `User`.** Ele implementa
