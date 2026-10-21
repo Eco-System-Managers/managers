@@ -22,29 +22,31 @@
 
 ## Arquitetura (Clean Architecture)
 
-Toda feature nova segue as camadas abaixo, dentro da estrutura de pastas existente.
+Organização por feature: cada feature tem suas camadas dentro de `lib/features/<feature>/`. O que é compartilhado fica em `lib/core/`.
 
 ### Camadas e pastas
 
-- `lib/data/services/` — clientes técnicos genéricos (HTTP, storage). Sem regra de negócio, sem conhecer features.
-- `lib/data/datasources/<feature>/` — acesso aos dados de uma feature (remoto/local), usando os services. Retorna models de `data/model/`.
-- `lib/data/model/` — DTOs da API/armazenamento, com `fromJson`/`toJson`.
-- `lib/data/repositories/` — implementação dos repositórios: usa datasources e converte DTO → entidade de domínio.
-- `lib/domain/models/` — entidades de domínio, Dart puro.
-- `lib/domain/repositories/` — contratos (classes abstratas) dos repositórios.
-- `lib/domain/use_cases/<feature>/` — um caso de uso por ação (`LoginUseCase`, `SendRecoveryCodeUseCase`), com um único método `call`.
-- `lib/ui/<feature>/view_models/` — estado da tela; chama **apenas** use cases.
-- `lib/ui/<feature>/providers/` — injeção de dependências com Riverpod.
+- `lib/core/` — compartilhado entre features: tema, widgets comuns, utils (e, quando existir, client HTTP e erros).
+- `lib/features/<feature>/domain/entities/` — entidades do negócio, Dart puro, sem `fromJson`.
+- `lib/features/<feature>/domain/repositories/` — contratos (classes abstratas) dos repositórios.
+- `lib/features/<feature>/domain/usecases/` — um caso de uso por ação (`LoginUseCase`, `SendRecoveryCodeUseCase`), com um único método `call`.
+- `lib/features/<feature>/data/models/` — DTOs da API/armazenamento, com `fromJson`/`toJson`.
+- `lib/features/<feature>/data/datasources/` — fala com uma fonte (API, storage). Retorna models.
+- `lib/features/<feature>/data/repositories/` — implementação dos repositórios: usa datasources e converte model → entidade.
+- `lib/features/<feature>/presentation/providers/` — estado da tela (`ChangeNotifier`); chama **apenas** use cases.
+- `lib/features/<feature>/presentation/pages/` — as telas.
+- `lib/features/<feature>/presentation/widgets/` — widgets usados só por essa feature.
+- `lib/features/<feature>/<feature>_provider.dart` — injeção de dependências com Riverpod; único lugar que conhece a implementação do repository.
 
 ### Regra de dependência
 
-- `ui` → `domain` ← `data`. O `domain` não importa Flutter, `data` nem `ui`.
-- ViewModels nunca usam repositories, datasources ou services diretamente.
-- Widgets nunca acessam nada além do seu ViewModel.
+- `presentation` → `domain` ← `data`. O `domain` não importa Flutter, `data` nem `presentation`.
+- Providers de tela nunca usam repositories, datasources ou services diretamente.
+- Pages nunca acessam nada além do seu provider de tela.
 
 ### Nomenclatura
 
-- Arquivos em `snake_case`, com sufixo da camada: `auth_remote_datasource.dart`, `auth_repository.dart` (contrato), `auth_repository_impl.dart`, `login_use_case.dart`.
+- Arquivos em `snake_case`, com sufixo da camada: `auth_remote_datasource.dart`, `auth_repository.dart` (contrato), `auth_repository_impl.dart`, `login_use_case.dart`, `login_provider.dart`, `login_page.dart`.
 
 ### Ao mentorar
 

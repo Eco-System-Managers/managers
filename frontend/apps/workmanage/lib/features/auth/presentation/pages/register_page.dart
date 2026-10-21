@@ -1,0 +1,226 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../providers/register_provider.dart';
+import '../widgets/auth_logo.dart';
+import '../widgets/auth_panel.dart';
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key, required this.provider});
+
+  // a tela recebe o provider de fora (vem do app_router.dart)
+  final RegisterProvider provider;
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  // chave que dá acesso ao form para chamar validate()
+  final _formKey = GlobalKey<FormState>();
+
+  // controllers: um para cada campo de texto
+  final _companyController = TextEditingController();
+  final _ownerController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  // cada campo de senha tem o seu próprio "olhinho"
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
+  // libera a memória dos controllers quando a tela é destruída
+  @override
+  void dispose() {
+    _companyController.dispose();
+    _ownerController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    // roda todos os validators; se algum falhar, os erros aparecem nos campos
+    if (!_formKey.currentState!.validate()) return;
+
+    final empresa = _companyController.text.trim();
+    final proprietario = _ownerController.text.trim();
+    final email = _emailController.text.trim();
+
+    // TODO: enviar para o provider / backend
+    // o debugPrint abaixo serve apenas para teste (não imprime a senha)
+    debugPrint('Cadastro: $empresa / $proprietario / $email');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.primary,
+
+      body: SafeArea(
+        child: Column(
+          children: [
+            // área superior (logo/ilustração)
+            const Expanded(child: AuthLogo(showName: false)),
+
+            // painel inferior arredondado que contém o formulário
+            AuthPanel(
+              // form agrupa os campos e controla a validação
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Cadastro',
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // nome da empresa
+                    TextFormField(
+                      controller: _companyController,
+                      keyboardType: TextInputType.text,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      validator: widget.provider.validateCompany,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome da empresa',
+                        prefixIcon: Icon(Icons.business_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // nome do proprietário
+                    TextFormField(
+                      controller: _ownerController,
+                      keyboardType: TextInputType.name,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      validator: widget.provider.validateOwner,
+                      decoration: const InputDecoration(
+                        labelText: 'Seu nome',
+                        prefixIcon: Icon(Icons.person_outline),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // e-mail
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      validator: widget.provider.validateEmail,
+                      decoration: const InputDecoration(
+                        labelText: 'E-mail',
+                        prefixIcon: Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // senha
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      textInputAction: TextInputAction.next,
+                      validator: widget.provider.validatePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Senha',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: const OutlineInputBorder(),
+
+                        // botão de "olhinho" da senha
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // confirmação de senha
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: _obscureConfirmPassword,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _submit(),
+
+                      // a tela entrega a senha digitada para comparar
+                      validator: (value) =>
+                          widget.provider.validateConfirmPassword(
+                            value,
+                            _passwordController.text,
+                          ),
+
+                      decoration: InputDecoration(
+                        labelText: 'Confirmar senha',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: const OutlineInputBorder(),
+
+                        // botão de "olhinho" da confirmação
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscureConfirmPassword =
+                                  !_obscureConfirmPassword;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // botão de cadastrar
+                    FilledButton(
+                      onPressed: _submit,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                      child: const Text('Cadastrar'),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // volta para o login (o painel encolhe de volta);
+                    // se abriu direto no cadastro, não há o que desempilhar
+                    TextButton(
+                      onPressed: () => context.canPop()
+                          ? context.pop()
+                          : context.go('/login'),
+                      child: const Text('Fazer Login'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

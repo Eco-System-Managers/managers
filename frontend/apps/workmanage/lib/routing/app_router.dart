@@ -1,56 +1,73 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:managers/ui/auth/view_models/recovery_view_model.dart';
-import 'package:managers/ui/auth/view_models/register_view_model.dart';
-import 'package:managers/ui/auth/view_models/login_view_model.dart';
-import 'package:managers/ui/auth/widgets/login_screen.dart';
-import 'package:managers/ui/auth/widgets/recovery_screen.dart';
-import 'package:managers/ui/auth/widgets/register_screen.dart';
-import 'package:managers/ui/splash/view_models/splash_view_model.dart';
-import 'package:managers/ui/splash/widgets/splash_screen.dart';
+import 'package:managers/features/auth/auth_provider.dart';
+import 'package:managers/features/auth/presentation/providers/recovery_provider.dart';
+import 'package:managers/features/auth/presentation/providers/register_provider.dart';
+import 'package:managers/features/auth/presentation/providers/login_provider.dart';
+import 'package:managers/features/auth/presentation/pages/login_page.dart';
+import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
+import 'package:managers/features/auth/presentation/pages/register_page.dart';
+import 'package:managers/features/splash/presentation/providers/splash_provider.dart';
+import 'package:managers/features/splash/presentation/pages/splash_page.dart';
 
-final GoRouter router = GoRouter(
-  // o app sempre abre pela splash, que decide para onde ir
-  initialLocation: '/splash',
-  routes: <RouteBase>[
-    GoRoute(
-      path: '/splash',
-      builder: (BuildContext context, GoRouterState state) {
-        return SplashScreen(viewModel: SplashViewModel());
-      },
-    ),
-    GoRoute(
-      path: '/',
-      builder: (BuildContext context, GoRouterState state) {
-        return LoginScreen(viewModel: LoginViewModel());
-      },
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (BuildContext context, GoRouterState state) {
-        return LoginScreen(viewModel: LoginViewModel());
-      },
-    ),
-    GoRoute(
-      path: '/recovery',
-      pageBuilder: (BuildContext context, GoRouterState state) {
-        return _authPanelPage(
-          state,
-          RecoveryScreen(viewModel: RecoveryViewModel()),
-        );
-      },
-    ),
-    GoRoute(
-      path: '/register',
-      pageBuilder: (BuildContext context, GoRouterState state) {
-        return _authPanelPage(
-          state,
-          RegisterScreen(viewModel: RegisterViewModel()),
-        );
-      },
-    ),
-  ],
-);
+// o router é um provider para as rotas conseguirem ler os use cases (ref)
+final routerProvider = Provider<GoRouter>((ref) {
+  final router = GoRouter(
+    // o app sempre abre pela splash, que decide para onde ir
+    initialLocation: '/splash',
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/splash',
+        builder: (BuildContext context, GoRouterState state) {
+          return SplashPage(provider: SplashProvider());
+        },
+      ),
+      GoRoute(
+        path: '/',
+        builder: (BuildContext context, GoRouterState state) {
+          return LoginPage(
+            provider: LoginProvider(ref.read(loginUseCaseProvider)),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (BuildContext context, GoRouterState state) {
+          return LoginPage(
+            provider: LoginProvider(ref.read(loginUseCaseProvider)),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/recovery',
+        pageBuilder: (BuildContext context, GoRouterState state) {
+          return _authPanelPage(
+            state,
+            RecoveryPage(
+              provider: RecoveryProvider(
+                sendRecoveryCode: ref.read(sendRecoveryCodeUseCaseProvider),
+                verifyRecoveryCode: ref.read(verifyRecoveryCodeUseCaseProvider),
+                resetPassword: ref.read(resetPasswordUseCaseProvider),
+              ),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/register',
+        pageBuilder: (BuildContext context, GoRouterState state) {
+          return _authPanelPage(
+            state,
+            RegisterPage(provider: RegisterProvider()),
+          );
+        },
+      ),
+    ],
+  );
+  ref.onDispose(router.dispose);
+  return router;
+});
 
 // transição das telas de auth abertas a partir do login (cadastro e
 // recuperação). o fundo delas é igual ao do login: o fade da página é só um
