@@ -574,7 +574,10 @@ paths:
   /api/v1/auth/cadastro/:
     post:
       operationId: auth_cadastro_create
-      summary: Cadastrar empresa e dono
+      description: Cria a empresa na hora, sem confirmar que o e-mail é de quem se
+        cadastra. Fica enquanto os apps migram para o cadastro com confirmação (`/auth/cadastro/solicitar/`
+        e `/auth/cadastro/confirmar/`), e depois sai.
+      summary: Cadastrar empresa e dono (sem confirmar o e-mail)
       parameters:
       - in: header
         name: X-Client-Platform
@@ -600,12 +603,197 @@ paths:
         required: true
       security:
       - {}
+      deprecated: true
       responses:
         '201':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Sessao'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/v1/auth/cadastro/confirmar/:
+    post:
+      operationId: auth_cadastro_confirmar_create
+      summary: Confirmar o cadastro com o código (cria a empresa e devolve a sessão)
+      parameters:
+      - in: header
+        name: X-Client-Platform
+        schema:
+          type: string
+          enum:
+          - mobile
+        description: 'Envie `mobile` no app: o refresh vem e vai no corpo. Sem o cabeçalho
+          (web), o refresh fica só no cookie httpOnly.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmarCadastroRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConfirmarCadastroRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConfirmarCadastroRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sessao'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/v1/auth/cadastro/reenviar/:
+    post:
+      operationId: auth_cadastro_reenviar_create
+      description: Responde sempre a mesma mensagem, exista ou não um cadastro pendente.
+      summary: Reenviar o código de confirmação do cadastro
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/v1/auth/cadastro/solicitar/:
+    post:
+      operationId: auth_cadastro_solicitar_create
+      description: 'Valida os dados e envia um código para o e-mail. A empresa ainda
+        não existe: ela é criada em `/auth/cadastro/confirmar/`. Pedir de novo com
+        o mesmo e-mail substitui os dados e invalida o código anterior.'
+      summary: 'Cadastrar empresa e dono: envia o código de confirmação'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CadastroRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CadastroRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CadastroRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
@@ -7760,6 +7948,19 @@ components:
             (no Mercado Pago, o parâmetro preapproval_id).
       required:
       - id_externo
+    ConfirmarCadastroRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        codigo:
+          type: string
+          minLength: 1
+      required:
+      - codigo
+      - email
     Contrato:
       type: object
       properties:

@@ -263,6 +263,7 @@ REST_FRAMEWORK = {
         'auth_recovery': '3/min',
         'auth_verify': '10/min',
         'recuperacao_email': '5/hour',
+        'cadastro_email': '5/hour',
         'convite_criar': '5/min',
         # Service Manage (B2C) — contadores separados dos do B2B
         'sm_auth_login': '5/min',
@@ -338,11 +339,16 @@ TASKS = {
     'default': {'BACKEND': 'core.tasks.ThreadBackend'},
 }
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+# Sem credenciais de SMTP (desenvolvimento local), o e-mail sai no terminal do
+# runserver: os códigos de cadastro e de recuperação continuam chegando.
+EMAIL_BACKEND = (
+    'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST_USER
+    else 'django.core.mail.backends.console.EmailBackend'
+)
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER', 'noreply@workmanage.com.br')
 

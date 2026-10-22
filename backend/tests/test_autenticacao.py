@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from datetime import date, timedelta
 from unittest.mock import patch
@@ -6,7 +8,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps_work.autenticacao.models import CodigoRecuperacao
+from apps_work.autenticacao.models import CadastroPendente, CodigoCadastro, CodigoRecuperacao
 from tenants.models import Domain, Tenant, Membro
 
 
@@ -167,6 +169,127 @@ class TestCadastro:
         assert assinatura.status == 'trial'
         assert assinatura.plano.nome == 'pro'
         assert str(assinatura.plano.preco_mensal) == '69.90'
+
+
+CADASTRO = {
+    'nome_empresa': 'Salão Confirmado',
+    'nome': 'Duda Lima',
+    'email': 'Duda@Teste.com',
+    'senha': 'SenhaForte123!',
+}
+
+
+def _codigo_do_email(mailoutbox) -> str:
+    return re.search(r'é: (\d+)', mailoutbox[-1].body).group(1)
+
+
+@pytest.mark.django_db
+class TestCadastroComConfirmacao:
+    def test_solicitar_envia_codigo_sem_criar_a_empresa(self, api, mailoutbox):
+        response = api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        assert response.status_code == 202
+        assert 'access' not in response.data
+        assert not User.objects.filter(username='duda@teste.com').exists()
+        assert not Tenant.objects.filter(nome='Salão Confirmado').exists()
+
+        assert mailoutbox[-1].to == ['duda@teste.com']
+        pendente = CadastroPendente.objects.get(email='duda@teste.com')
+        # Nem a senha nem o código ficam em claro enquanto esperam.
+        assert 'SenhaForte123!' not in pendente.senha_hash
+        assert _codigo_do_email(mailoutbox) not in pendente.codigos.get().codigo_hash
+
+    def test_confirmar_cria_a_empresa_e_devolve_a_sessao(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        response = api.post('/api/v1/auth/cadastro/confirmar/', {
+            'email': 'duda@teste.com', 'codigo': _codigo_do_email(mailoutbox),
+        })
+        assert response.status_code == 201
+        assert response.data['empresa'] == 'Salão Confirmado'
+        assert response.data['schema_name'] == 'salao_confirmado'
+        assert response.cookies.get('refresh_token') is not None
+        assert not CadastroPendente.objects.exists()
+
+        # A senha do cadastro é a do login, mesmo tendo esperado só em hash.
+        login = api.post('/api/v1/auth/login/', {'email': 'duda@teste.com', 'senha': 'SenhaForte123!'})
+        assert login.status_code == 200
+
+    def test_confirmar_no_mobile_devolve_o_refresh_no_corpo(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        response = api.post(
+            '/api/v1/auth/cadastro/confirmar/',
+            {'email': 'duda@teste.com', 'codigo': _codigo_do_email(mailoutbox)},
+            HTTP_X_CLIENT_PLATFORM='mobile',
+        )
+        assert response.status_code == 201
+        assert 'refresh' in response.data
+
+    def test_codigo_errado_nao_cria_a_empresa(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        response = api.post('/api/v1/auth/cadastro/confirmar/', {'email': 'duda@teste.com', 'codigo': '00000000'})
+        assert response.status_code == 400
+        assert response.data['code'] == 'codigo_invalido'
+        assert not User.objects.filter(username='duda@teste.com').exists()
+
+    def test_codigo_bloqueia_apos_5_tentativas(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        codigo = _codigo_do_email(mailoutbox)
+        for _ in range(5):
+            api.post('/api/v1/auth/cadastro/confirmar/', {'email': 'duda@teste.com', 'codigo': '00000000'})
+        response = api.post('/api/v1/auth/cadastro/confirmar/', {'email': 'duda@teste.com', 'codigo': codigo})
+        assert response.status_code == 400
+        assert response.data['code'] == 'codigo_invalido'
+
+    def test_codigo_expirado_e_recusado(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        CodigoCadastro.objects.update(expira_em=timezone.now() - timedelta(minutes=1))
+        response = api.post('/api/v1/auth/cadastro/confirmar/', {
+            'email': 'duda@teste.com', 'codigo': _codigo_do_email(mailoutbox),
+        })
+        assert response.status_code == 400
+        assert response.data['code'] == 'codigo_invalido'
+
+    def test_solicitar_de_novo_substitui_os_dados_e_o_codigo(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        antigo = _codigo_do_email(mailoutbox)
+        api.post('/api/v1/auth/cadastro/solicitar/', {**CADASTRO, 'nome_empresa': 'Salão Corrigido'})
+        novo = _codigo_do_email(mailoutbox)
+
+        recusado = api.post('/api/v1/auth/cadastro/confirmar/', {'email': 'duda@teste.com', 'codigo': antigo})
+        assert recusado.status_code == 400
+        response = api.post('/api/v1/auth/cadastro/confirmar/', {'email': 'duda@teste.com', 'codigo': novo})
+        assert response.status_code == 201
+        assert response.data['empresa'] == 'Salão Corrigido'
+
+    def test_reenviar_manda_codigo_novo(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        response = api.post('/api/v1/auth/cadastro/reenviar/', {'email': 'duda@teste.com'})
+        assert response.status_code == 202
+        assert len(mailoutbox) == 2
+        confirmado = api.post('/api/v1/auth/cadastro/confirmar/', {
+            'email': 'duda@teste.com', 'codigo': _codigo_do_email(mailoutbox),
+        })
+        assert confirmado.status_code == 201
+
+    def test_reenviar_sem_cadastro_pendente_responde_igual(self, api, mailoutbox):
+        response = api.post('/api/v1/auth/cadastro/reenviar/', {'email': 'ninguem@teste.com'})
+        assert response.status_code == 202
+        assert mailoutbox == []
+
+    def test_solicitar_com_email_em_uso_retorna_400(self, api, user_auth, mailoutbox):
+        response = api.post('/api/v1/auth/cadastro/solicitar/', {**CADASTRO, 'email': 'auth@teste.com'})
+        assert response.status_code == 400
+        assert mailoutbox == []
+
+    def test_email_que_virou_conta_enquanto_esperava_nao_cria_outra(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
+        User.objects.create_user(username='duda@teste.com', email='duda@teste.com', password='OutraSenha123!')
+        response = api.post('/api/v1/auth/cadastro/confirmar/', {
+            'email': 'duda@teste.com', 'codigo': _codigo_do_email(mailoutbox),
+        })
+        assert response.status_code == 400
+        assert response.data['code'] == 'email_em_uso'
+        assert not CadastroPendente.objects.exists()
+        assert not Tenant.objects.filter(nome='Salão Confirmado').exists()
 
 
 @pytest.mark.django_db

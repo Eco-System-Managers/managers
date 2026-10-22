@@ -7,9 +7,9 @@ from drf_spectacular.utils import extend_schema
 
 from core.openapi import PLATAFORMA, MensagemSerializer
 from core.sessao import COOKIE_WORK
-from core.throttling import RecuperacaoPorEmailThrottle
+from core.throttling import CadastroPorEmailThrottle, RecuperacaoPorEmailThrottle
 from .serializers import (
-    CadastroSerializer, EmailSerializer, LoginSerializer, NovaSenhaSerializer, RefreshSerializer,
+    CadastroSerializer, ConfirmarCadastroSerializer, EmailSerializer, LoginSerializer, NovaSenhaSerializer, RefreshSerializer,
     SessaoSerializer, VerificarCodigoSerializer,
 )
 from core.excecoes import erro
@@ -33,7 +33,13 @@ class CadastroView(APIView):
 
     @extend_schema(
         request=CadastroSerializer, responses={201: SessaoSerializer}, parameters=[PLATAFORMA],
-        summary='Cadastrar empresa e dono',
+        summary='Cadastrar empresa e dono (sem confirmar o e-mail)',
+        description=(
+            'Cria a empresa na hora, sem confirmar que o e-mail é de quem se cadastra. '
+            'Fica enquanto os apps migram para o cadastro com confirmação '
+            '(`/auth/cadastro/solicitar/` e `/auth/cadastro/confirmar/`), e depois sai.'
+        ),
+        deprecated=True,
     )
     def post(self, request):
         serializer = CadastroSerializer(data=request.data)
@@ -43,6 +49,69 @@ class CadastroView(APIView):
         from .services import SessaoService
         refresh = SessaoService().emitir(user, tenant)
         return responder_sessao(request, refresh, status.HTTP_201_CREATED)
+
+
+class CadastroSolicitarView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle, CadastroPorEmailThrottle]
+    throttle_scope = 'auth_cadastro'
+
+    @extend_schema(
+        request=CadastroSerializer, responses={202: MensagemSerializer},
+        summary='Cadastrar empresa e dono: envia o código de confirmação',
+        description=(
+            'Valida os dados e envia um código para o e-mail. A empresa ainda não existe: '
+            'ela é criada em `/auth/cadastro/confirmar/`. Pedir de novo com o mesmo e-mail '
+            'substitui os dados e invalida o código anterior.'
+        ),
+    )
+    def post(self, request):
+        from .services import ConfirmacaoCadastroService
+        serializer = CadastroSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ConfirmacaoCadastroService().solicitar(**serializer.validated_data)
+        return Response({'detail': ConfirmacaoCadastroService.MENSAGEM}, status=status.HTTP_202_ACCEPTED)
+
+
+class CadastroConfirmarView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_verify'
+
+    @extend_schema(
+        request=ConfirmarCadastroSerializer, responses={201: SessaoSerializer}, parameters=[PLATAFORMA],
+        summary='Confirmar o cadastro com o código (cria a empresa e devolve a sessão)',
+    )
+    def post(self, request):
+        from .services import ConfirmacaoCadastroService, SessaoService
+        serializer = ConfirmarCadastroSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user, tenant = ConfirmacaoCadastroService().confirmar(
+            serializer.validated_data['email'], serializer.validated_data['codigo'].strip(),
+        )
+        refresh = SessaoService().emitir(user, tenant)
+        return responder_sessao(request, refresh, status.HTTP_201_CREATED)
+
+
+class CadastroReenviarView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle, CadastroPorEmailThrottle]
+    throttle_scope = 'auth_recovery'
+
+    @extend_schema(
+        request=EmailSerializer, responses={202: MensagemSerializer},
+        summary='Reenviar o código de confirmação do cadastro',
+        description='Responde sempre a mesma mensagem, exista ou não um cadastro pendente.',
+    )
+    def post(self, request):
+        from .services import ConfirmacaoCadastroService
+        serializer = EmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ConfirmacaoCadastroService().reenviar(serializer.validated_data['email'])
+        return Response({'detail': ConfirmacaoCadastroService.MENSAGEM}, status=status.HTTP_202_ACCEPTED)
 
 
 class LoginView(APIView):

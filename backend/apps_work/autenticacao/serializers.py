@@ -99,6 +99,11 @@ class VerificarCodigoSerializer(serializers.Serializer):
     codigo = serializers.CharField()
 
 
+class ConfirmarCadastroSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    codigo = serializers.CharField()
+
+
 class NovaSenhaSerializer(serializers.Serializer):
     email = serializers.EmailField()
     codigo = serializers.CharField()

@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from django.conf import settings
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
@@ -11,11 +12,13 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.utils import get_md5_hash_password
 
+from core.email import enviar_email
 from core.excecoes import ErroDeNegocio
 from core.limites import login_work
 from core.recuperacao import RecuperacaoSenhaBase
 
-from .models import CodigoRecuperacao, UltimaAtividade
+from .serializers import gerar_schema_name
+from .models import CadastroPendente, CodigoCadastro, CodigoRecuperacao, UltimaAtividade
 
 
 def dominio_do_schema(schema_name: str) -> str:
@@ -31,8 +34,11 @@ class OnboardingService:
         schema_name: str,
         nome: str,
         email: str,
-        senha: str,
+        senha: str | None = None,
+        senha_hash: str | None = None,
     ):
+        """Cria a empresa e o dono. A senha vem em claro (cadastro direto) ou
+        já em hash (confirmação de cadastro, que nunca guardou a senha em claro)."""
         from django.db import connection
         from tenants.models import Domain, Papel, Tenant, Membro
 
@@ -48,12 +54,9 @@ class OnboardingService:
                 is_primary=True,
             )
             email = email.lower().strip()
-            user = User.objects.create_user(
-                username=email,
-                email=email,
-                password=senha,
-                first_name=nome,
-            )
+            user = User.objects.create_user(username=email, email=email, first_name=nome)
+            user.password = senha_hash or make_password(senha)
+            user.save(update_fields=['password'])
             Membro.objects.create(user=user, tenant=tenant, papel=Papel.PROPRIETARIO)
 
             from apps_work.billing.models import Assinatura, StatusAssinatura
@@ -71,6 +74,94 @@ class OnboardingService:
         # Começa o relógio de inatividade junto com a conta.
         UltimaAtividade.objects.create(user=user, ultimo_acesso=timezone.now())
         return user, tenant
+
+
+class ConfirmacaoCadastroService:
+    """Cadastro em duas etapas: os dados ficam pendentes até o dono provar que
+    o e-mail é dele com o código enviado para lá.
+
+    Só a confirmação cria a empresa (`OnboardingService`). Sem ela, qualquer um
+    criaria empresas em nome de e-mails de terceiros, e cada tentativa custaria
+    um schema inteiro.
+    """
+
+    MENSAGEM = 'Enviamos um código de confirmação para o seu e-mail.'
+    # Pendente esquecido some no próximo cadastro de qualquer pessoa; o código
+    # já expira em 15 minutos, então um dia é folga de sobra para reenviar.
+    VALIDADE_PENDENTE = timedelta(days=1)
+
+    def solicitar(self, nome_empresa: str, nome: str, email: str, senha: str) -> None:
+        """Guarda o cadastro e envia o código. Pedir de novo com o mesmo e-mail
+        substitui os dados e invalida o código anterior."""
+        with schema_context(get_public_schema_name()):
+            CadastroPendente.objects.filter(criado_em__lt=timezone.now() - self.VALIDADE_PENDENTE).delete()
+            pendente, _ = CadastroPendente.objects.update_or_create(
+                email=email.strip().lower(),
+                defaults={'nome_empresa': nome_empresa, 'nome': nome, 'senha_hash': make_password(senha)},
+            )
+            self._enviar_codigo(pendente)
+
+    def reenviar(self, email: str) -> None:
+        """Novo código para um cadastro pendente. Sem pendente, não faz nada —
+        e responde igual, para não dizer quem está se cadastrando."""
+        with schema_context(get_public_schema_name()):
+            pendente = CadastroPendente.objects.filter(email=email.strip().lower()).first()
+            if pendente is not None:
+                self._enviar_codigo(pendente)
+
+    def confirmar(self, email: str, codigo: str):
+        """Confere o código e cria a empresa. Devolve (user, tenant)."""
+        email = email.strip().lower()
+        with schema_context(get_public_schema_name()):
+            # A tentativa errada precisa ficar gravada, por isso o erro sai
+            # depois da transação — senão o limite de tentativas nunca chegaria.
+            with transaction.atomic():
+                # Trava o pendente: dois confirmares simultâneos criariam a
+                # empresa duas vezes.
+                pendente = CadastroPendente.objects.select_for_update().filter(email=email).first()
+                registro = self._codigo_vigente(pendente)
+                confere = registro is not None and registro.confere(codigo)
+                if registro is not None and not confere:
+                    registro.tentativas += 1
+                    registro.save(update_fields=['tentativas'])
+                elif confere:
+                    # O e-mail pode ter virado conta pelo cadastro direto
+                    # enquanto o código esperava.
+                    em_uso = User.objects.filter(username=email).exists()
+                    if not em_uso:
+                        user, tenant = OnboardingService().registrar_empresa(
+                            nome_empresa=pendente.nome_empresa,
+                            schema_name=gerar_schema_name(pendente.nome_empresa),
+                            nome=pendente.nome,
+                            email=email,
+                            senha_hash=pendente.senha_hash,
+                        )
+                    pendente.delete()
+            if not confere:
+                raise ErroDeNegocio('Código inválido ou expirado.', 'codigo_invalido')
+            if em_uso:
+                raise ErroDeNegocio('Este e-mail já está em uso.', 'email_em_uso')
+        return user, tenant
+
+    def _codigo_vigente(self, pendente):
+        if pendente is None:
+            return None
+        registro = pendente.codigos.filter(usado=False).first()
+        if registro is None or registro.expirado or registro.bloqueado:
+            return None
+        return registro
+
+    def _enviar_codigo(self, pendente: CadastroPendente) -> None:
+        _, codigo = CodigoCadastro.emitir(pendente)
+        enviar_email.enqueue(
+            assunto='Confirme seu cadastro — Work Manage',
+            mensagem=(
+                f'Olá, {pendente.nome}!\n\n'
+                f'Seu código para confirmar o cadastro de {pendente.nome_empresa} é: {codigo}\n\n'
+                'Ele expira em 15 minutos.'
+            ),
+            destinatario=pendente.email,
+        )
 
 
 class LoginService:

@@ -20,7 +20,7 @@ desatualizados — é deles que o front gera os clients Dart.
 ## Autenticação
 
 - `Authorization: Bearer <access>` em toda rota autenticada.
-- Login, cadastro e renovação devolvem a sessão. O **web** recebe o refresh só
+- Login, cadastro (o direto e o `/cadastro/confirmar/`) e renovação devolvem a sessão. O **web** recebe o refresh só
   no cookie httpOnly. O **app mobile** manda `X-Client-Platform: mobile` e
   recebe/envia o refresh no corpo (`refresh`).
 - Cada refresh vale uma vez: a renovação devolve um novo e revoga o anterior.

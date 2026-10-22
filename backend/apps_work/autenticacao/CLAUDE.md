@@ -9,9 +9,9 @@ dentro de um tenant; lá é um `Consumidor` no schema público.
 
 | Arquivo | O que faz |
 |---|---|
-| `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário, assinatura de trial e o relógio de inatividade numa tacada. `LoginService` (credenciais, limite de falhas, usuário ativo, empresa). `RecuperacaoSenhaService` (o fluxo é o de `core/recuperacao.py`). E `SessaoService`, que emite, renova e revoga sessões |
+| `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário, assinatura de trial e o relógio de inatividade numa tacada. `ConfirmacaoCadastroService` (cadastro pendente até o código do e-mail). `LoginService` (credenciais, limite de falhas, usuário ativo, empresa). `RecuperacaoSenhaService` (o fluxo é o de `core/recuperacao.py`). E `SessaoService`, que emite, renova e revoga sessões |
 | `views.py` | Cadastro, login, refresh por cookie, logout e as três etapas de recuperação de senha. Views finas: a regra está nos services |
-| `models.py` | `UltimaAtividade` (relógio de inatividade) e `CodigoRecuperacao` |
+| `models.py` | `UltimaAtividade` (relógio de inatividade), `CodigoRecuperacao`, `CadastroPendente` e `CodigoCadastro` |
 | `serializers.py` | Validação do cadastro, incluindo o slug do schema a partir do nome da empresa |
 | `urls.py` | Rotas sob `/api/v1/auth/` — isentas do bloqueio de assinatura |
 
@@ -40,6 +40,22 @@ não colunas. Crie com `CodigoRecuperacao.emitir(user)`, que invalida os
 códigos anteriores e devolve o código em claro para o e-mail; confira com
 `registro.confere(codigo)`.
 
+### `CadastroPendente` — cadastro esperando confirmação
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| `email` | `EmailField` único | Normalizado em minúsculas. Pedir de novo com o mesmo e-mail atualiza a linha |
+| `nome_empresa` | `CharField(255)` | |
+| `nome` | `CharField(150)` | Nome do dono |
+| `senha_hash` | `CharField(128)` | `make_password` — vira o `password` do `User` na confirmação, sem passar por claro |
+| `criado_em` | `DateTime` `auto_now_add` | Pendente com mais de um dia é apagado no próximo `solicitar` |
+
+### `CodigoCadastro` — o código da confirmação
+
+Herda o `CodigoRecuperacaoBase`: hash, 15 minutos, 5 tentativas, `emitir`
+invalida os anteriores. O dono é o `cadastro` (`FK → CadastroPendente`
+`CASCADE`), então confirmar e apagar o pendente leva os códigos junto.
+
 ## O cadastro cria um tenant inteiro
 
 `OnboardingService.registrar_empresa` é a operação mais pesada do app: cria o
@@ -59,6 +75,29 @@ inválido em nome de host e o Django recusaria a requisição), com o sufixo de
 
 Empresa nova sempre nasce com `onboarding_concluido=False` — é isso que faz o
 frontend mandar o usuário para o wizard em vez do painel.
+
+## Cadastro com confirmação de e-mail
+
+Três rotas, e a empresa só nasce na última:
+
+1. `POST /auth/cadastro/solicitar/` — mesmos 4 campos e mesma validação do
+   cadastro direto (`CadastroSerializer`). Grava o `CadastroPendente`, manda o
+   código por e-mail e responde **202** sem sessão.
+2. `POST /auth/cadastro/confirmar/` — `{email, codigo}`. Código certo chama o
+   `OnboardingService` com o `senha_hash` do pendente e responde **201 com a
+   sessão**, como o cadastro direto. Erros: `codigo_invalido` (errado, expirado
+   ou bloqueado, sem distinguir) e `email_em_uso` (o e-mail virou conta enquanto
+   o código esperava; o pendente é apagado).
+3. `POST /auth/cadastro/reenviar/` — `{email}`. Responde igual exista ou não o
+   pendente.
+
+`/auth/cadastro/` (direto, sem confirmação) continua no ar, marcado como
+`deprecated` no OpenAPI, só enquanto o app migra para as três rotas acima. Sai
+quando o app não chamar mais: enquanto existir, a confirmação é contornável.
+
+`solicitar` e `reenviar` têm, além do escopo por IP, o `CadastroPorEmailThrottle`
+(5 por hora por e-mail): sem ele, dava para encher a caixa de terceiros de
+códigos trocando de IP.
 
 ## Login por e-mail
 
@@ -126,5 +165,10 @@ Configuração em `REST_FRAMEWORK` (`core/settings.py`); classes em
 - **Usuário inativo é barrado na autenticação, não na permissão.** Desativar
   colaborador sincroniza `User.is_active=False`, e o SimpleJWT recusa o token em
   toda requisição — não só no login.
+- **Em desenvolvimento sem `EMAIL_HOST_USER`, o e-mail sai no terminal do
+  runserver** (`EMAIL_BACKEND` console em `core/settings.py`). É de lá que se
+  lê o código de cadastro e o de recuperação localmente.
+- **No `confirmar`, o erro sai depois da transação.** A tentativa errada
+  precisa ficar gravada; levantar dentro do `atomic` desfaria o contador.
 - **As rotas daqui estão isentas do controle de inatividade**, senão renovar
   sessão exigiria sessão válida.

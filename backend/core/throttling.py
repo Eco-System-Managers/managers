@@ -38,6 +38,11 @@ class RecuperacaoPorEmailThrottle(_EmailRateThrottle):
     scope = 'recuperacao_email'
 
 
+class CadastroPorEmailThrottle(_EmailRateThrottle):
+    """Quantos códigos de confirmação de cadastro um e-mail recebe por hora."""
+    scope = 'cadastro_email'
+
+
 class RecuperacaoConsumidorPorEmailThrottle(_EmailRateThrottle):
     """Quantos códigos de recuperação um e-mail do Service Manage recebe por hora."""
     scope = 'sm_recuperacao_email'

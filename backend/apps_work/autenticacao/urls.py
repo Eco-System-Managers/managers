@@ -1,11 +1,15 @@
 from django.urls import path
 from .views import (
-    CadastroView, CookieTokenRefreshView, LoginView, LogoutView,
+    CadastroConfirmarView, CadastroReenviarView, CadastroSolicitarView, CadastroView,
+    CookieTokenRefreshView, LoginView, LogoutView,
     NovaSenhaView, RecuperarSenhaView, VerificarCodigoView,
 )
 
 urlpatterns = [
     path('cadastro/', CadastroView.as_view(), name='auth-cadastro'),
+    path('cadastro/solicitar/', CadastroSolicitarView.as_view(), name='auth-cadastro-solicitar'),
+    path('cadastro/confirmar/', CadastroConfirmarView.as_view(), name='auth-cadastro-confirmar'),
+    path('cadastro/reenviar/', CadastroReenviarView.as_view(), name='auth-cadastro-reenviar'),
     path('login/', LoginView.as_view(), name='auth-login'),
     path('token-refresh/', CookieTokenRefreshView.as_view(), name='auth-token-refresh'),
     path('logout/', LogoutView.as_view(), name='auth-logout'),
