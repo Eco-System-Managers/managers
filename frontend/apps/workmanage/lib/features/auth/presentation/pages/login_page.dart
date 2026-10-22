@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/features/auth/presentation/providers/login_provider.dart';
-import 'package:managers/features/auth/presentation/widgets/auth_logo.dart';
-import 'package:managers/features/auth/presentation/widgets/auth_panel.dart';
+import 'package:managers/core/widgets/auth_logo.dart';
+import 'package:managers/core/widgets/auth_panel.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.provider});

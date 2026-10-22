@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:validatorless/validatorless.dart';
 
+import 'package:managers/core/widgets/auth_logo.dart';
+import 'package:managers/core/widgets/auth_panel.dart';
+
 import '../../register_injection.dart';
-import '../widgets/auth_logo.dart';
-import '../widgets/auth_panel.dart';
+
+
 
 // a tela lê o view model pelo ref (Riverpod), não recebe mais de fora
 class RegisterPage extends ConsumerStatefulWidget {
