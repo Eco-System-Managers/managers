@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:validatorless/validatorless.dart';
 
-import '../providers/register_provider.dart';
+import '../../register_injection.dart';
 import '../widgets/auth_logo.dart';
 import '../widgets/auth_panel.dart';
 
-class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key, required this.provider});
-
-  // a tela recebe o provider de fora (vem do app_router.dart)
-  final RegisterProvider provider;
+// a tela lê o view model pelo ref (Riverpod), não recebe mais de fora
+class RegisterPage extends ConsumerStatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
+class _RegisterPageState extends ConsumerState<RegisterPage> {
+  // o required do Validatorless aceita só espaços; isto exige um caractere
+  static final _notBlank = RegExp(r'\S');
+
+  // o email() do Validatorless recusa maiúsculas; os espaços nas pontas
+  // são aceitos porque o _submit faz trim antes de enviar
+  static final _emailPattern = RegExp(r'^\s*[^@\s]+@[^@\s]+\.[^@\s]+\s*$');
+
   // chave que dá acesso ao form para chamar validate()
   final _formKey = GlobalKey<FormState>();
 
@@ -41,21 +48,40 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  void _submit() {
-    // roda todos os validators; se algum falhar, os erros aparecem nos campos
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final empresa = _companyController.text.trim();
-    final proprietario = _ownerController.text.trim();
-    final email = _emailController.text.trim();
+    final viewModel = ref.read(registerViewModelProvider);
 
-    // TODO: enviar para o provider / backend
-    // o debugPrint abaixo serve apenas para teste (não imprime a senha)
-    debugPrint('Cadastro: $empresa / $proprietario / $email');
+    final success = await viewModel.register(
+      nomeEmpresa: _companyController.text.trim(),
+      nome: _ownerController.text.trim(),
+      email: _emailController.text.trim(),
+      senha: _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cadastro realizado com sucesso!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            viewModel.errorMessage ?? 'Não foi possível realizar o cadastro.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // watch: mantém o view model vivo enquanto a tela estiver aberta
+    final viewModel = ref.watch(registerViewModelProvider);
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
 
@@ -87,7 +113,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       keyboardType: TextInputType.text,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
-                      validator: widget.provider.validateCompany,
+                      validator: Validatorless.regex(
+                        _notBlank,
+                        'Informe a empresa',
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Nome da empresa',
                         prefixIcon: Icon(Icons.business_outlined),
@@ -103,7 +132,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       keyboardType: TextInputType.name,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
-                      validator: widget.provider.validateOwner,
+                      validator: Validatorless.regex(
+                        _notBlank,
+                        'Informe o nome',
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Seu nome',
                         prefixIcon: Icon(Icons.person_outline),
@@ -118,7 +150,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      validator: widget.provider.validateEmail,
+                      validator: Validatorless.multiple([
+                        Validatorless.regex(_notBlank, 'Informe seu e-mail'),
+                        Validatorless.regex(_emailPattern, 'E-mail inválido'),
+                      ]),
                       decoration: const InputDecoration(
                         labelText: 'E-mail',
                         prefixIcon: Icon(Icons.email_outlined),
@@ -133,7 +168,15 @@ class _RegisterPageState extends State<RegisterPage> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.next,
-                      validator: widget.provider.validatePassword,
+                      // mesmas regras do backend (validadores de senha do Django)
+                      validator: Validatorless.multiple([
+                        Validatorless.regex(_notBlank, 'Informe uma senha'),
+                        Validatorless.min(8, 'Mínimo de 8 caracteres'),
+                        Validatorless.regex(
+                          RegExp(r'\D'),
+                          'A senha não pode ter só números',
+                        ),
+                      ]),
                       decoration: InputDecoration(
                         labelText: 'Senha',
                         prefixIcon: const Icon(Icons.lock_outline),
@@ -164,12 +207,13 @@ class _RegisterPageState extends State<RegisterPage> {
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _submit(),
 
-                      // a tela entrega a senha digitada para comparar
-                      validator: (value) =>
-                          widget.provider.validateConfirmPassword(
-                            value,
-                            _passwordController.text,
-                          ),
+                      validator: Validatorless.multiple([
+                        Validatorless.required('Confirme sua senha'),
+                        Validatorless.compare(
+                          _passwordController,
+                          'As senhas não conferem',
+                        ),
+                      ]),
 
                       decoration: InputDecoration(
                         labelText: 'Confirmar senha',
@@ -195,13 +239,16 @@ class _RegisterPageState extends State<RegisterPage> {
 
                     const SizedBox(height: 24),
 
-                    // botão de cadastrar
-                    FilledButton(
-                      onPressed: _submit,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
+                    // botão de cadastrar: só ele se redesenha com o loading
+                    ListenableBuilder(
+                      listenable: viewModel,
+                      builder: (context, _) => FilledButton(
+                        onPressed: viewModel.isLoading ? null : _submit,
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                        ),
+                        child: const Text('Cadastrar'),
                       ),
-                      child: const Text('Cadastrar'),
                     ),
 
                     const SizedBox(height: 8),

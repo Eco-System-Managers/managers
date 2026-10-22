@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/features/auth/auth_provider.dart';
 import 'package:managers/features/auth/presentation/providers/recovery_provider.dart';
-import 'package:managers/features/auth/presentation/providers/register_provider.dart';
 import 'package:managers/features/auth/presentation/providers/login_provider.dart';
 import 'package:managers/features/auth/presentation/pages/login_page.dart';
 import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
-import 'package:managers/features/auth/presentation/pages/register_page.dart';
+import 'package:managers/features/register/presentation/pages/register_page.dart';
 import 'package:managers/features/splash/presentation/providers/splash_provider.dart';
 import 'package:managers/features/splash/presentation/pages/splash_page.dart';
 
@@ -59,7 +58,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (BuildContext context, GoRouterState state) {
           return _authPanelPage(
             state,
-            RegisterPage(provider: RegisterProvider()),
+            const RegisterPage(),
           );
         },
       ),
