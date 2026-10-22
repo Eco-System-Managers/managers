@@ -13,6 +13,8 @@
 ## Commits
 
 - **Sempre siga o Conventional Commits:** `tipo(escopo): descrição`, com a descrição em português e no imperativo (ex.: `feat(auth): adiciona tela de recuperação de senha`).
+- **Mensagens curtas e claras:** só a linha do título, sem corpo. Diga o que mudou em poucas palavras (ex.: `refactor(auth): remove register() sem uso`).
+- **Um commit por mudança:** mudanças independentes vão em commits separados.
 - **Nunca coloque referência ao Claude ou à Anthropic** no commit: nada de `Co-Authored-By`, "Generated with" ou similares.
 - **Fluxo de aprovação:**
   1. Proponha no chat a mensagem do commit e a lista de arquivos que entram nele.
