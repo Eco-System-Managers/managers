@@ -93,16 +93,21 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
       return 'Não foi possível conectar ao servidor.';
     }
 
-    // o backend devolve {"detail": "..."} ou {"campo": ["mensagem", ...]}
+    // contrato de erro da API: {"detail", "code", "fields"?}. em erro de
+    // validação o detail é genérico ("Dados inválidos.") e o motivo real
+    // fica em fields: {"campo": ["mensagem", ...]}
     final data = response.data;
     if (data is Map) {
+      final fields = data['fields'];
+      if (fields is Map) {
+        for (final value in fields.values) {
+          if (value is List && value.isNotEmpty) return value.first.toString();
+          if (value is String) return value;
+        }
+      }
+
       final detail = data['detail'];
       if (detail is String) return detail;
-
-      for (final value in data.values) {
-        if (value is List && value.isNotEmpty) return value.first.toString();
-        if (value is String) return value;
-      }
     }
 
     return 'Erro no servidor (${response.statusCode}). Tente novamente.';
