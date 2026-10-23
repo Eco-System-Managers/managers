@@ -5,6 +5,7 @@ import 'package:managers/core/widgets/success_view.dart';
 
 import '../../onboarding_provider.dart';
 import '../providers/wizard_provider.dart';
+import '../widgets/horarios_step.dart';
 import '../widgets/negocio_step.dart';
 import '../widgets/nicho_step.dart';
 
@@ -149,8 +150,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     return switch (wizard.step) {
       WizardStep.negocio => NegocioStep(provider: wizard),
       WizardStep.nicho => NichoStep(provider: wizard),
-      // TODO: trocar pelo step 3
-      WizardStep.horarios => const _EmConstrucao(),
+      WizardStep.horarios => HorariosStep(provider: wizard),
       WizardStep.concluido => const SizedBox.shrink(),
     };
   }
@@ -199,19 +199,6 @@ class _ErroAoCarregar extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// provisório: ocupa o lugar do step 3 até ele existir
-class _EmConstrucao extends StatelessWidget {
-  const _EmConstrucao();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 48),
-      child: Text('Em construção', textAlign: TextAlign.center),
     );
   }
 }

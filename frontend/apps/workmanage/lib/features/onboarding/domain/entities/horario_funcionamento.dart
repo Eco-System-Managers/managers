@@ -31,4 +31,20 @@ class HorarioFuncionamento {
 
   // atendimentos por dia; só existe para nicho de agenda kanban
   final int? capacidade;
+
+  // o step 3 muda um campo por vez (abrir o dia, trocar a hora...)
+  HorarioFuncionamento copyWith({
+    bool? ativo,
+    HoraDoDia? abertura,
+    HoraDoDia? fechamento,
+    int? capacidade,
+  }) {
+    return HorarioFuncionamento(
+      dia: dia,
+      ativo: ativo ?? this.ativo,
+      abertura: abertura ?? this.abertura,
+      fechamento: fechamento ?? this.fechamento,
+      capacidade: capacidade ?? this.capacidade,
+    );
+  }
 }
