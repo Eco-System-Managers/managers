@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:managers/features/register/domain/params/confirm_param.dart';
 import 'package:managers/features/register/domain/params/register_param.dart';
 
 import '../../../../core/error/failures.dart';
@@ -12,15 +13,33 @@ class RegisterRepositoryImpl implements RegisterRepository {
   RegisterRepositoryImpl(this.remoteDataSource);
 
   @override
-  Future<Either<Failure, void>> register(RegisterParam params) async {
-    try {
-      await remoteDataSource.register(
+  Future<Either<Failure, void>> register(RegisterParam params) {
+    return _run(
+      () => remoteDataSource.register(
         nomeEmpresa: params.nomeEmpresa,
         nome: params.nome,
         email: params.email,
         senha: params.senha,
-      );
+      ),
+    );
+  }
 
+  @override
+  Future<Either<Failure, void>> confirm(ConfirmParam params) {
+    return _run(
+      () => remoteDataSource.confirm(email: params.email, code: params.code),
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> resendCode(String email) {
+    return _run(() => remoteDataSource.resendCode(email));
+  }
+
+  // o try/catch é igual em todos os métodos: fica num lugar só
+  Future<Either<Failure, void>> _run(Future<void> Function() action) async {
+    try {
+      await action();
       return const Right(null);
     } on DioException catch (e) {
       return Left(ServerFailure(_messageFrom(e)));

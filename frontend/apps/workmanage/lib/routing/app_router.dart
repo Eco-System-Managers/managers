@@ -8,6 +8,7 @@ import 'package:managers/features/auth/presentation/pages/login_page.dart';
 import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
 import 'package:managers/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:managers/features/register/presentation/pages/register_page.dart';
+import 'package:managers/features/register/presentation/pages/verify_email_page.dart';
 import 'package:managers/features/splash/presentation/providers/splash_provider.dart';
 import 'package:managers/features/splash/presentation/pages/splash_page.dart';
 
@@ -57,9 +58,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         pageBuilder: (BuildContext context, GoRouterState state) {
+          return _authPanelPage(state, const RegisterPage());
+        },
+      ),
+      // o e-mail vai na URL: a tela precisa dele para confirmar e reenviar
+      GoRoute(
+        path: '/register/verificar',
+        pageBuilder: (BuildContext context, GoRouterState state) {
           return _authPanelPage(
             state,
-            const RegisterPage(),
+            VerifyEmailPage(email: state.uri.queryParameters['email'] ?? ''),
           );
         },
       ),

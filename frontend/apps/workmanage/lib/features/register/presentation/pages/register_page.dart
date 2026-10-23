@@ -8,8 +8,6 @@ import 'package:managers/core/widgets/auth_panel.dart';
 
 import '../../register_injection.dart';
 
-
-
 // a tela lê o view model pelo ref (Riverpod), não recebe mais de fora
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -66,9 +64,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     if (!mounted) return;
 
     if (success) {
+      // o código foi para o e-mail: a próxima tela confere e cria a empresa.
       // go, não push: o cadastro não fica no histórico para o "voltar"
-      // TODO: passar antes pela tela "Verifique seu e-mail"
-      context.go('/onboarding');
+      final verificar = Uri(
+        path: '/register/verificar',
+        queryParameters: {'email': _emailController.text.trim()},
+      );
+      context.go(verificar.toString());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
