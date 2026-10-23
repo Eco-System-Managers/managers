@@ -1,12 +1,12 @@
 import re
 
 from rest_framework import serializers
-from .models import EmpresaConfig, HorarioFuncionamento, TipoAgenda
+from .models import EmpresaConfig, HorarioFuncionamento, Nicho, TipoAgenda
 from .validators import validar_documento
 
 NICHO_TIPO = {
-    'lava_rapido': TipoAgenda.KANBAN,
-    'banho_tosa': TipoAgenda.KANBAN,
+    Nicho.LAVA_RAPIDO: TipoAgenda.KANBAN,
+    Nicho.BANHO_TOSA: TipoAgenda.KANBAN,
 }
 
 

@@ -12,6 +12,24 @@ class TipoDocumento(models.TextChoices):
     CNPJ = 'cnpj', 'CNPJ'
 
 
+class Nicho(models.TextChoices):
+    """O ramo do negócio. Define o tipo de agenda (NICHO_TIPO, em
+    serializers.py) e o objeto que o cliente leva (_NICHO_TIPO_OBJETO, na
+    vitrine). Os rótulos exibidos ao usuário vivem nos apps."""
+    CABELEIREIRO = 'cabeleireiro', 'Cabeleireiro(a)'
+    BARBEARIA = 'barbearia', 'Barbearia'
+    MANICURE = 'manicure', 'Manicure'
+    PEDICURE = 'pedicure', 'Pedicure'
+    DEPILACAO = 'depilacao', 'Depilação'
+    DESIGN_SOBRANCELHAS = 'design_sobrancelhas', 'Design de sobrancelhas'
+    MICROPIGMENTACAO = 'micropigmentacao', 'Micropigmentação'
+    CILIOS = 'cilios', 'Cílios'
+    MAQUIAGEM = 'maquiagem', 'Maquiagem'
+    MASSAGEM = 'massagem', 'Massagem'
+    LAVA_RAPIDO = 'lava_rapido', 'Lava-rápido'
+    BANHO_TOSA = 'banho_tosa', 'Banho e Tosa'
+
+
 class DiaSemana(models.IntegerChoices):
     SEGUNDA = 0, 'Segunda-feira'
     TERCA = 1, 'Terça-feira'
@@ -30,7 +48,7 @@ class EmpresaConfig(models.Model):
     # o documento é o serializer, ao concluir o onboarding.
     documento = models.CharField(max_length=14, blank=True)
     tipo_documento = models.CharField(max_length=4, choices=TipoDocumento.choices, blank=True)
-    nicho = models.CharField(max_length=50, blank=True)
+    nicho = models.CharField(max_length=50, choices=Nicho.choices, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     logo_url = models.URLField(blank=True)

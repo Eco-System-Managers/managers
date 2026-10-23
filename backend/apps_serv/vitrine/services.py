@@ -14,7 +14,7 @@ from tenants.models import Membro
 from apps_work.agenda.models import FormaPagamento, OrigemAtendimento, StatusAgendamento
 from apps_work.clientes.models import OrigemCliente, TipoObjeto
 from apps_work.clientes.validators import normalizar_porte
-from apps_work.empresa.models import TipoAgenda
+from apps_work.empresa.models import Nicho, TipoAgenda
 from apps_work.notificacoes.models import TipoNotificacao
 
 
@@ -556,8 +556,8 @@ class VincularNegocioService:
 
 
 _NICHO_TIPO_OBJETO = {
-    'lava_rapido': TipoObjeto.VEICULO,
-    'banho_tosa': TipoObjeto.PET,
+    Nicho.LAVA_RAPIDO: TipoObjeto.VEICULO,
+    Nicho.BANHO_TOSA: TipoObjeto.PET,
 }
 
 

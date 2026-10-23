@@ -8311,8 +8311,9 @@ components:
           - $ref: '#/components/schemas/TipoDocumentoEnum'
           - $ref: '#/components/schemas/BlankEnum'
         nicho:
-          type: string
-          maxLength: 50
+          oneOf:
+          - $ref: '#/components/schemas/NichoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         cidade:
           type: string
           maxLength: 100
@@ -8377,8 +8378,9 @@ components:
           - $ref: '#/components/schemas/TipoDocumentoEnum'
           - $ref: '#/components/schemas/BlankEnum'
         nicho:
-          type: string
-          maxLength: 50
+          oneOf:
+          - $ref: '#/components/schemas/NichoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         cidade:
           type: string
           maxLength: 100
@@ -8631,6 +8633,34 @@ components:
           type: integer
       required:
       - etapa_id
+    NichoEnum:
+      enum:
+      - cabeleireiro
+      - barbearia
+      - manicure
+      - pedicure
+      - depilacao
+      - design_sobrancelhas
+      - micropigmentacao
+      - cilios
+      - maquiagem
+      - massagem
+      - lava_rapido
+      - banho_tosa
+      type: string
+      description: |-
+        * `cabeleireiro` - Cabeleireiro(a)
+        * `barbearia` - Barbearia
+        * `manicure` - Manicure
+        * `pedicure` - Pedicure
+        * `depilacao` - Depilação
+        * `design_sobrancelhas` - Design de sobrancelhas
+        * `micropigmentacao` - Micropigmentação
+        * `cilios` - Cílios
+        * `maquiagem` - Maquiagem
+        * `massagem` - Massagem
+        * `lava_rapido` - Lava-rápido
+        * `banho_tosa` - Banho e Tosa
     Notificacao:
       type: object
       properties:
@@ -9355,8 +9385,9 @@ components:
           - $ref: '#/components/schemas/TipoDocumentoEnum'
           - $ref: '#/components/schemas/BlankEnum'
         nicho:
-          type: string
-          maxLength: 50
+          oneOf:
+          - $ref: '#/components/schemas/NichoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         cidade:
           type: string
           maxLength: 100
