@@ -6,6 +6,7 @@ import 'package:managers/core/widgets/success_view.dart';
 import '../../onboarding_provider.dart';
 import '../providers/wizard_provider.dart';
 import '../widgets/negocio_step.dart';
+import '../widgets/nicho_step.dart';
 
 // o wizard do onboarding. a tela lê o provider pelo ref (como a register),
 // e não recebe de fora: assim o router só faz const OnboardingPage()
@@ -147,8 +148,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   Widget _etapa(WizardProvider wizard) {
     return switch (wizard.step) {
       WizardStep.negocio => NegocioStep(provider: wizard),
-      // TODO: trocar pelos steps 2 e 3
-      WizardStep.nicho || WizardStep.horarios => const _EmConstrucao(),
+      WizardStep.nicho => NichoStep(provider: wizard),
+      // TODO: trocar pelo step 3
+      WizardStep.horarios => const _EmConstrucao(),
       WizardStep.concluido => const SizedBox.shrink(),
     };
   }
@@ -201,7 +203,7 @@ class _ErroAoCarregar extends StatelessWidget {
   }
 }
 
-// provisório: ocupa o lugar dos steps 2 e 3 até eles existirem
+// provisório: ocupa o lugar do step 3 até ele existir
 class _EmConstrucao extends StatelessWidget {
   const _EmConstrucao();
 
