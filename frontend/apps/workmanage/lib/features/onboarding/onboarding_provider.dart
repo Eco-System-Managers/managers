@@ -10,6 +10,7 @@ import 'domain/usecases/buscar_horarios_use_case.dart';
 import 'domain/usecases/concluir_onboarding_use_case.dart';
 import 'domain/usecases/salvar_config_use_case.dart';
 import 'domain/usecases/salvar_horarios_use_case.dart';
+import 'presentation/providers/wizard_provider.dart';
 
 // injeção de dependências do onboarding: é o único lugar que conhece as
 // implementações. trocar a simulação pela API é mexer só no primeiro provider
@@ -48,3 +49,18 @@ final salvarHorariosUseCaseProvider = Provider(
 final concluirOnboardingUseCaseProvider = Provider(
   (ref) => ConcluirOnboardingUseCase(ref.watch(onboardingRepositoryProvider)),
 );
+
+// estado da tela do wizard. autoDispose: ao sair do onboarding ele é
+// descartado; os dados continuam no datasource e voltam no próximo carregar()
+final wizardProvider = Provider.autoDispose<WizardProvider>((ref) {
+  final wizard = WizardProvider(
+    buscarConfig: ref.watch(buscarConfigUseCaseProvider),
+    salvarConfig: ref.watch(salvarConfigUseCaseProvider),
+    buscarEnderecoPorCep: ref.watch(buscarEnderecoPorCepUseCaseProvider),
+    buscarHorarios: ref.watch(buscarHorariosUseCaseProvider),
+    salvarHorarios: ref.watch(salvarHorariosUseCaseProvider),
+    concluirOnboarding: ref.watch(concluirOnboardingUseCaseProvider),
+  );
+  ref.onDispose(wizard.dispose);
+  return wizard;
+});
