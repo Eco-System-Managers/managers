@@ -66,9 +66,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     if (!mounted) return;
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cadastro realizado com sucesso!')),
-      );
+      // go, não push: o cadastro não fica no histórico para o "voltar"
+      // TODO: passar antes pela tela "Verifique seu e-mail"
+      context.go('/onboarding');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
