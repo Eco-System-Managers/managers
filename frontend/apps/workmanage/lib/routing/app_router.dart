@@ -6,6 +6,7 @@ import 'package:managers/features/auth/presentation/providers/recovery_provider.
 import 'package:managers/features/auth/presentation/providers/login_provider.dart';
 import 'package:managers/features/auth/presentation/pages/login_page.dart';
 import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
+import 'package:managers/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:managers/features/register/presentation/pages/register_page.dart';
 import 'package:managers/features/splash/presentation/providers/splash_provider.dart';
 import 'package:managers/features/splash/presentation/pages/splash_page.dart';
@@ -60,6 +61,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             state,
             const RegisterPage(),
           );
+        },
+      ),
+      // página normal: o onboarding tem Scaffold e AppBar próprios, não usa
+      // o painel animado das telas de auth
+      GoRoute(
+        path: '/onboarding',
+        builder: (BuildContext context, GoRouterState state) {
+          return const OnboardingPage();
         },
       ),
     ],
