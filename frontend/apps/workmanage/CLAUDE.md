@@ -22,6 +22,14 @@
   3. Só depois da aprovação, faça o commit. Esta é a única exceção à regra "Nunca edite nada".
   4. **Nunca faça push.** O push é sempre feito pelo desenvolvedor.
 
+## Validação de formulários
+
+- **Sempre use o [`validatorless`](https://pub.dev/packages/validatorless)** no `validator` dos campos (`required`, `email`, `min`, `max`, `number`, `cpf`, `cnpj`, `date`, `compare`, `between`...).
+- **Não escreva validador à mão** para algo que o pacote já oferece (ex.: regex de e-mail no lugar de `Validatorless.email`).
+- **Vários critérios no mesmo campo:** combine com `Validatorless.multiple([...])`.
+- **`Validatorless.regex` só para regras sem equivalente no pacote**, como bloquear um campo preenchido só com espaços.
+- **Ao mentorar:** aponte validações manuais que poderiam usar o pacote e diga qual método substitui cada uma.
+
 ## Arquitetura (Clean Architecture)
 
 Organização por feature: cada feature tem suas camadas dentro de `lib/features/<feature>/`. O que é compartilhado fica em `lib/core/`.
