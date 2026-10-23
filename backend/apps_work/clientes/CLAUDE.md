@@ -88,8 +88,8 @@ Ordenação por `-criado_em`. As duas tabelas abaixo herdam dela por
 ## Herança dos objetos
 
 `Veiculo` e `Pet` herdam de `ObjetoCliente` (multi-table inheritance). O tipo de
-objeto que um negócio usa vem do nicho: lava-rápido e estética automotiva usam
-veículo; banho & tosa usa pet.
+objeto que um negócio usa vem do nicho: lava-rápido usa veículo; banho e tosa
+usa pet (`_NICHO_TIPO_OBJETO`, em `vitrine/services.py`).
 
 ## O que é fácil errar aqui
 
