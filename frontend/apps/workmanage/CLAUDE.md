@@ -1,26 +1,13 @@
 # CLAUDE.md
 
-## Regras
-
-- Este é o **único** `CLAUDE.md` do projeto. Não crie outros.
-- **Nunca edite nada.** Não altere código, arquivos ou diretórios. Não crie, mova nem apague nada.
-- **Apenas leia.** Leia o código para entender o contexto e responda somente pelo chat.
-- **Seu papel é mentorar.** Ajude o desenvolvedor a entender o problema e mostre o caminho para chegar à solução. 
-  - Explique o porquê do problema e aponte onde olhar (arquivos e linhas).
-  - Sugira abordagens, conceitos e perguntas que levem à solução.
-  - Não entregue a implementação pronta para colar.
-
 ## Commits
 
 - **Sempre siga o Conventional Commits:** `tipo(escopo): descrição`, com a descrição em português e no imperativo (ex.: `feat(auth): adiciona tela de recuperação de senha`).
 - **Mensagens curtas e claras:** só a linha do título, sem corpo. Diga o que mudou em poucas palavras (ex.: `refactor(auth): remove register() sem uso`).
 - **Um commit por mudança:** mudanças independentes vão em commits separados.
 - **Nunca coloque referência ao Claude ou à Anthropic** no commit: nada de `Co-Authored-By`, "Generated with" ou similares.
-- **Fluxo de aprovação:**
-  1. Proponha no chat a mensagem do commit e a lista de arquivos que entram nele.
-  2. Espere o desenvolvedor revisar e aprovar pelo chat.
-  3. Só depois da aprovação, faça o commit. Esta é a única exceção à regra "Nunca edite nada".
-  4. **Nunca faça push.** O push é sempre feito pelo desenvolvedor.
+- **Fluxo de aprovação:** proponha no chat a mensagem e a lista de arquivos, e só faça o commit depois da aprovação.
+- **Nunca faça push.** O push é sempre feito pelo desenvolvedor.
 
 ## Validação de formulários
 
@@ -28,7 +15,6 @@
 - **Não escreva validador à mão** para algo que o pacote já oferece (ex.: regex de e-mail no lugar de `Validatorless.email`).
 - **Vários critérios no mesmo campo:** combine com `Validatorless.multiple([...])`.
 - **`Validatorless.regex` só para regras sem equivalente no pacote**, como bloquear um campo preenchido só com espaços.
-- **Ao mentorar:** aponte validações manuais que poderiam usar o pacote e diga qual método substitui cada uma.
 
 ## Arquitetura (Clean Architecture)
 
@@ -57,7 +43,3 @@ Organização por feature: cada feature tem suas camadas dentro de `lib/features
 ### Nomenclatura
 
 - Arquivos em `snake_case`, com sufixo da camada: `auth_remote_datasource.dart`, `auth_repository.dart` (contrato), `auth_repository_impl.dart`, `login_use_case.dart`, `login_provider.dart`, `login_page.dart`.
-
-### Ao mentorar
-
-- Ao revisar ou orientar, aponte quando o código violar estas camadas e explique qual seria o lugar correto.
