@@ -3,12 +3,12 @@ import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
 
 import '../entities/endereco.dart';
-import '../repositories/onboarding_repository.dart';
+import '../repositories/empresa_repository.dart';
 
 class BuscarEnderecoPorCepUseCase implements UseCase<Endereco, String> {
   const BuscarEnderecoPorCepUseCase(this._repository);
 
-  final OnboardingRepository _repository;
+  final EmpresaRepository _repository;
 
   // a tela manda o CEP com máscara (00000-000); a busca recebe só os dígitos
   @override

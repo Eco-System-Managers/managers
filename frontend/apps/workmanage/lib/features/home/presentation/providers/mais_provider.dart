@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:managers/core/session/sessao_controller.dart';
 import 'package:managers/features/auth/domain/usecases/logout_use_case.dart';
 
-// estado da home (montado em home_provider.dart, na raiz da feature)
-class HomeProvider extends ChangeNotifier {
-  HomeProvider({required this._logout, required this._sessao});
+// estado da aba "Mais" (montado em home_provider.dart): a saída do app
+class MaisProvider extends ChangeNotifier {
+  MaisProvider({required this._logout, required this._sessao});
 
   final LogoutUseCase _logout;
   final SessaoController _sessao;
@@ -14,9 +14,6 @@ class HomeProvider extends ChangeNotifier {
 
   // a tela pode ser fechada durante a requisição
   bool _disposed = false;
-
-  // o nome do negócio vem na sessão: não precisa de requisição
-  String get empresa => _sessao.atual?.empresa ?? '';
 
   // revoga o refresh na API e limpa a sessão local. se a API falhar (rede,
   // sessão já encerrada por lá), a sessão local é limpa do mesmo jeito: o

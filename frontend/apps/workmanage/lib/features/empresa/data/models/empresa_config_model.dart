@@ -18,6 +18,7 @@ class EmpresaConfigModel {
     required this.nichoDescricao,
     required this.tipoAgenda,
     required this.tipoObjeto,
+    required this.logoUrl,
     required this.onboardingConcluido,
   });
 
@@ -34,6 +35,7 @@ class EmpresaConfigModel {
   final String nichoDescricao;
   final String tipoAgenda;
   final String tipoObjeto;
+  final String logoUrl;
   final bool onboardingConcluido;
 
   // o backend manda '' no que está vazio; o ?? cobre campo ausente
@@ -52,13 +54,14 @@ class EmpresaConfigModel {
       nichoDescricao: json['nicho_descricao'] as String? ?? '',
       tipoAgenda: json['tipo_agenda'] as String? ?? 'horario',
       tipoObjeto: json['tipo_objeto'] as String? ?? '',
+      logoUrl: json['logo_url'] as String? ?? '',
       onboardingConcluido: json['onboarding_concluido'] as bool? ?? false,
     );
   }
 
-  // onboarding_concluido não vai: tem endpoint próprio (concluir). tipo_agenda
-  // e tipo_objeto vão sempre, mas o backend só usa no nicho outro; nos
-  // demais ele deduz os dois do nicho
+  // onboarding_concluido não vai: tem chamada própria (concluir). logo_url
+  // não vai: muda pelo upload. tipo_agenda e tipo_objeto vão sempre, mas o
+  // backend só usa no nicho outro; nos demais ele deduz os dois do nicho
   Map<String, dynamic> toJson() {
     return {
       'nome': nome,
@@ -92,6 +95,7 @@ class EmpresaConfigModel {
       nichoDescricao: config.nichoDescricao,
       tipoAgenda: config.tipoAgenda.name,
       tipoObjeto: config.tipoObjeto?.name ?? '',
+      logoUrl: config.logoUrl,
       onboardingConcluido: config.onboardingConcluido,
     );
   }
@@ -113,6 +117,7 @@ class EmpresaConfigModel {
       tipoAgenda:
           TipoAgenda.values.asNameMap()[tipoAgenda] ?? TipoAgenda.horario,
       tipoObjeto: TipoObjeto.values.asNameMap()[tipoObjeto],
+      logoUrl: logoUrl,
       onboardingConcluido: onboardingConcluido,
     );
   }

@@ -7,18 +7,18 @@ import 'package:managers/core/error/failures.dart';
 import '../../domain/entities/empresa_config.dart';
 import '../../domain/entities/endereco.dart';
 import '../../domain/entities/horario_funcionamento.dart';
-import '../../domain/repositories/onboarding_repository.dart';
-import '../datasources/onboarding_remote_datasource.dart';
+import '../../domain/repositories/empresa_repository.dart';
+import '../datasources/empresa_remote_datasource.dart';
 import '../models/empresa_config_model.dart';
 import '../models/horario_funcionamento_model.dart';
 
 // implementa o contrato: chama os datasources, converte model em entidade e
 // transforma qualquer erro em Failure. a config vem da nossa API; o CEP, do
 // ViaCEP (core/cep), porque a API não tem busca de endereço
-class OnboardingRepositoryImpl implements OnboardingRepository {
-  OnboardingRepositoryImpl(this._remoteDataSource, this._cepDataSource);
+class EmpresaRepositoryImpl implements EmpresaRepository {
+  EmpresaRepositoryImpl(this._remoteDataSource, this._cepDataSource);
 
-  final OnboardingRemoteDataSource _remoteDataSource;
+  final EmpresaRemoteDataSource _remoteDataSource;
   final ViaCepDataSource _cepDataSource;
 
   @override
@@ -74,9 +74,9 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   }
 
   // a API só tem os dias que já foram salvos: negócio novo vem sem nenhum.
-  // o wizard precisa dos sete, então os que faltam entram com um padrão
+  // as telas precisam dos sete, então os que faltam entram com um padrão
   // comum (segunda a sábado, 8h às 18h, domingo fechado) para a pessoa
-  // ajustar em vez de preencher do zero. só viram linha na API ao concluir
+  // ajustar em vez de preencher do zero. só viram linha na API ao salvar
   List<HorarioFuncionamento> _semanaCompleta(
     List<HorarioFuncionamento> salvos,
   ) {
@@ -112,6 +112,14 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
       final model = await _remoteDataSource.concluir();
       return model.toEntity();
     });
+  }
+
+  @override
+  Future<Either<Failure, String>> enviarLogo(
+    List<int> bytes,
+    String nomeArquivo,
+  ) {
+    return _executar(() => _remoteDataSource.enviarLogo(bytes, nomeArquivo));
   }
 
   // o try/catch é igual em todos os métodos: fica num lugar só. a tradução

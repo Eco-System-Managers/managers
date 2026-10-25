@@ -1,0 +1,175 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../domain/entities/empresa_config.dart';
+import '../../empresa_provider.dart';
+import '../widgets/nicho_visual.dart';
+
+// o menu das configurações: a logo no topo, as seções editáveis e o que é
+// só leitura (nicho e modo de agenda, que a API não deixa trocar depois do
+// onboarding). só o proprietário troca a logo e entra nas seções
+class ConfiguracoesPage extends ConsumerWidget {
+  const ConfiguracoesPage({super.key});
+
+  Future<void> _trocarLogo(BuildContext context, WidgetRef ref) async {
+    // a galeria é coisa de tela: o provider recebe só os bytes
+    final imagem = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (imagem == null) return;
+    final bytes = await imagem.readAsBytes();
+    if (!context.mounted) return;
+    await ref.read(configuracoesProvider).enviarLogo(bytes, imagem.name);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // watch: mantém o provider vivo enquanto a tela estiver aberta
+    final configuracoes = ref.watch(configuracoesProvider);
+    final negocio = ref.watch(negocioAtualProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Configurações')),
+      body: ListenableBuilder(
+        listenable: Listenable.merge([configuracoes, negocio]),
+        builder: (context, _) {
+          final config = negocio.config ?? const EmpresaConfig();
+          final proprietario = negocio.ehProprietario;
+
+          return ListView(
+            children: [
+              _Logo(
+                url: config.logoUrl,
+                nome: config.nome,
+                enviando: configuracoes.enviandoLogo,
+                erro: configuracoes.errorMessage,
+                onTrocar: proprietario && !configuracoes.enviandoLogo
+                    ? () => _trocarLogo(context, ref)
+                    : null,
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.business_outlined),
+                title: const Text('Dados do negócio'),
+                subtitle: const Text('Nome, telefone, documento e endereço'),
+                trailing: const Icon(Icons.chevron_right),
+                enabled: proprietario,
+                onTap: () => context.push('/mais/configuracoes/negocio'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.schedule_outlined),
+                title: const Text('Horários'),
+                subtitle: const Text('Dias e horários de funcionamento'),
+                trailing: const Icon(Icons.chevron_right),
+                enabled: proprietario,
+                onTap: () => context.push('/mais/configuracoes/horarios'),
+              ),
+              const Divider(),
+              // o que foi definido no onboarding e a API não deixa trocar:
+              // mostrar como editável só geraria o erro modo_agenda_bloqueado
+              ListTile(
+                leading: const Icon(Icons.storefront_outlined),
+                title: const Text('Ramo do negócio'),
+                subtitle: Text(_nomeDoNicho(config)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.view_agenda_outlined),
+                title: const Text('Modo de agenda'),
+                subtitle: Text(
+                  config.tipoAgenda == TipoAgenda.kanban
+                      ? 'Esteira: o cliente deixa e busca depois'
+                      : 'Horário marcado',
+                ),
+              ),
+              if (!proprietario)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Só o proprietário altera as configurações.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  String _nomeDoNicho(EmpresaConfig config) {
+    final nicho = config.nicho;
+    if (nicho == null) return 'Não informado';
+    if (config.nichoDescricao.isNotEmpty) return config.nichoDescricao;
+    return nicho.nome;
+  }
+}
+
+class _Logo extends StatelessWidget {
+  const _Logo({
+    required this.url,
+    required this.nome,
+    required this.enviando,
+    required this.erro,
+    required this.onTrocar,
+  });
+
+  final String url;
+  final String nome;
+  final bool enviando;
+  final String? erro;
+  final VoidCallback? onTrocar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 48,
+            backgroundColor: colors.primaryContainer,
+            foregroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+            child: enviando
+                ? const CircularProgressIndicator()
+                : Icon(
+                    Icons.storefront_outlined,
+                    size: 40,
+                    color: colors.onPrimaryContainer,
+                  ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            nome,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          if (onTrocar != null || enviando) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: onTrocar,
+              icon: const Icon(Icons.photo_outlined),
+              label: Text(url.isEmpty ? 'Adicionar logo' : 'Trocar logo'),
+            ),
+          ],
+          if (erro != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                erro!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colors.error),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/session/sessao_controller.dart';
 import 'package:managers/core/usecases/use_case.dart';
-import 'package:managers/features/onboarding/domain/entities/empresa_config.dart';
-import 'package:managers/features/onboarding/domain/usecases/buscar_config_use_case.dart';
+import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
+import 'package:managers/features/empresa/domain/usecases/buscar_config_use_case.dart';
 import 'package:managers/features/splash/presentation/providers/splash_provider.dart';
 import 'package:mocktail/mocktail.dart';
 

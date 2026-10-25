@@ -2,15 +2,15 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/cep/via_cep_datasource.dart';
 import 'package:managers/core/error/failures.dart';
-import 'package:managers/features/onboarding/data/models/horario_funcionamento_model.dart';
-import 'package:managers/features/onboarding/domain/entities/horario_funcionamento.dart';
-import 'package:managers/features/onboarding/data/datasources/onboarding_remote_datasource.dart';
-import 'package:managers/features/onboarding/data/repositories/onboarding_repository_impl.dart';
+import 'package:managers/features/empresa/data/models/horario_funcionamento_model.dart';
+import 'package:managers/features/empresa/domain/entities/horario_funcionamento.dart';
+import 'package:managers/features/empresa/data/datasources/empresa_remote_datasource.dart';
+import 'package:managers/features/empresa/data/repositories/empresa_repository_impl.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../helpers/fake_adapter.dart';
 
-class _MockRemote extends Mock implements OnboardingRemoteDataSource {}
+class _MockRemote extends Mock implements EmpresaRemoteDataSource {}
 
 HorarioFuncionamentoModel _dia(int dia, {bool ativo = true}) {
   return HorarioFuncionamentoModel(
@@ -24,11 +24,11 @@ HorarioFuncionamentoModel _dia(int dia, {bool ativo = true}) {
 
 void main() {
   late FakeAdapter viaCep;
-  late OnboardingRepositoryImpl repository;
+  late EmpresaRepositoryImpl repository;
 
-  OnboardingRepositoryImpl montar(FakeAdapter adapter) {
+  EmpresaRepositoryImpl montar(FakeAdapter adapter) {
     viaCep = adapter;
-    return OnboardingRepositoryImpl(
+    return EmpresaRepositoryImpl(
       _MockRemote(),
       ViaCepDataSource(dioDeTeste(adapter)),
     );
@@ -90,7 +90,7 @@ void main() {
 
     setUp(() {
       remote = _MockRemote();
-      repository = OnboardingRepositoryImpl(
+      repository = EmpresaRepositoryImpl(
         remote,
         ViaCepDataSource(
           dioDeTeste(FakeAdapter((_) async => respostaJson(200, {}))),

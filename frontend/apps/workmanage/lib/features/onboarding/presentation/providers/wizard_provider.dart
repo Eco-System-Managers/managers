@@ -2,16 +2,18 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/features/empresa/presentation/providers/horarios_validacao.dart'
+    as validacao;
 
-import '../../domain/entities/empresa_config.dart';
-import '../../domain/entities/horario_funcionamento.dart';
-import '../../domain/entities/nicho.dart';
-import '../../domain/usecases/buscar_config_use_case.dart';
-import '../../domain/usecases/buscar_endereco_por_cep_use_case.dart';
-import '../../domain/usecases/buscar_horarios_use_case.dart';
-import '../../domain/usecases/concluir_onboarding_use_case.dart';
-import '../../domain/usecases/salvar_config_use_case.dart';
-import '../../domain/usecases/salvar_horarios_use_case.dart';
+import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
+import 'package:managers/features/empresa/domain/entities/horario_funcionamento.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
+import 'package:managers/features/empresa/domain/usecases/buscar_config_use_case.dart';
+import 'package:managers/features/empresa/domain/usecases/buscar_endereco_por_cep_use_case.dart';
+import 'package:managers/features/empresa/domain/usecases/buscar_horarios_use_case.dart';
+import 'package:managers/features/empresa/domain/usecases/concluir_onboarding_use_case.dart';
+import 'package:managers/features/empresa/domain/usecases/salvar_config_use_case.dart';
+import 'package:managers/features/empresa/domain/usecases/salvar_horarios_use_case.dart';
 
 // as etapas do wizard: a tela mostra uma de cada vez
 enum WizardStep { negocio, nicho, horarios, concluido }
@@ -173,33 +175,16 @@ class WizardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // a tela mostra a mensagem embaixo do dia; null quando está tudo certo
-  String? erroDoHorario(HorarioFuncionamento horario) {
-    if (!horario.ativo) return null;
-
-    final abertura = horario.abertura;
-    final fechamento = horario.fechamento;
-    if (abertura == null || fechamento == null) {
-      return 'Informe a abertura e o fechamento';
-    }
-    if (fechamento.emMinutos <= abertura.emMinutos) {
-      return 'O fechamento precisa ser depois da abertura';
-    }
-    if (isKanban && (horario.capacidade ?? 0) < 1) {
-      return 'Informe quantos atendimentos cabem no dia';
-    }
-    return null;
-  }
+  // a tela mostra a mensagem embaixo do dia; null quando está tudo certo.
+  // a regra é a mesma das configurações (empresa/horarios_validacao)
+  String? erroDoHorario(HorarioFuncionamento horario) =>
+      validacao.erroDoHorario(horario, isKanban: isKanban);
 
   // step 3 -> fim: salva os horários e conclui o onboarding
   Future<void> concluir() async {
-    if (!_horarios.any((h) => h.ativo)) {
-      _errorMessage = 'Abra pelo menos um dia da semana';
-      notifyListeners();
-      return;
-    }
-    if (_horarios.any((h) => erroDoHorario(h) != null)) {
-      _errorMessage = 'Corrija os horários marcados';
+    final erro = validacao.erroDaSemana(_horarios, isKanban: isKanban);
+    if (erro != null) {
+      _errorMessage = erro;
       notifyListeners();
       return;
     }

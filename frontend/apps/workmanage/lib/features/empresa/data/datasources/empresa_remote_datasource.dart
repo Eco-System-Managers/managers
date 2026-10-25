@@ -3,9 +3,9 @@ import 'package:dio/dio.dart';
 import '../models/empresa_config_model.dart';
 import '../models/horario_funcionamento_model.dart';
 
-// fala com a API e devolve models. não trata erro: se a requisição falhar,
-// a DioException sobe para o repository, que decide a mensagem
-abstract class OnboardingRemoteDataSource {
+// fala com /empresa/ da API e devolve models. não trata erro: se a
+// requisição falhar, a DioException sobe para o repository, que decide
+abstract class EmpresaRemoteDataSource {
   Future<EmpresaConfigModel> buscarConfig();
 
   Future<EmpresaConfigModel> salvarConfig(EmpresaConfigModel config);
@@ -17,25 +17,29 @@ abstract class OnboardingRemoteDataSource {
   );
 
   Future<EmpresaConfigModel> concluir();
+
+  // devolve a URL pública da logo nova
+  Future<String> enviarLogo(List<int> bytes, String nomeArquivo);
 }
 
-class OnboardingRemoteDataSourceImpl implements OnboardingRemoteDataSource {
-  OnboardingRemoteDataSourceImpl(this.dio);
+class EmpresaRemoteDataSourceImpl implements EmpresaRemoteDataSource {
+  EmpresaRemoteDataSourceImpl(this.dio);
 
   final Dio dio;
 
   static const _config = 'empresa/config/';
   static const _horarios = 'empresa/horarios/';
+  static const _logo = 'empresa/config/logo/';
 
-  // a config nasce vazia no primeiro GET (get_or_create do backend)
+  // a config nasce no primeiro GET, já com o nome dado no cadastro
   @override
   Future<EmpresaConfigModel> buscarConfig() async {
     final response = await dio.get<Map<String, dynamic>>(_config);
     return EmpresaConfigModel.fromJson(response.data!);
   }
 
-  // PATCH: cada etapa manda o que tem; o backend devolve a config inteira,
-  // já com o tipo de agenda que o nicho definiu
+  // PATCH: manda o que tem; o backend devolve a config inteira, já com o
+  // tipo de agenda que o nicho definiu
   @override
   Future<EmpresaConfigModel> salvarConfig(EmpresaConfigModel config) async {
     final response = await dio.patch<Map<String, dynamic>>(
@@ -45,7 +49,7 @@ class OnboardingRemoteDataSourceImpl implements OnboardingRemoteDataSource {
     return EmpresaConfigModel.fromJson(response.data!);
   }
 
-  // os sete dias vêm como array, sem paginação
+  // os dias vêm como array, sem paginação; só os que já foram salvos
   @override
   Future<List<HorarioFuncionamentoModel>> buscarHorarios() async {
     final response = await dio.get<List<dynamic>>(_horarios);
@@ -81,5 +85,17 @@ class OnboardingRemoteDataSourceImpl implements OnboardingRemoteDataSource {
       data: {'onboarding_concluido': true},
     );
     return EmpresaConfigModel.fromJson(response.data!);
+  }
+
+  // multipart com o campo `logo` (UploadLogoRequest). a API valida, converte
+  // para webp e grava no S3; sem bucket no ambiente, responde 503
+  // armazenamento_indisponivel, que vira ServerFailure com o detail
+  @override
+  Future<String> enviarLogo(List<int> bytes, String nomeArquivo) async {
+    final form = FormData.fromMap({
+      'logo': MultipartFile.fromBytes(bytes, filename: nomeArquivo),
+    });
+    final response = await dio.post<Map<String, dynamic>>(_logo, data: form);
+    return response.data!['logo_url'] as String;
   }
 }

@@ -1,6 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:managers/features/onboarding/data/datasources/onboarding_remote_datasource.dart';
-import 'package:managers/features/onboarding/data/models/horario_funcionamento_model.dart';
+import 'package:managers/features/empresa/data/datasources/empresa_remote_datasource.dart';
+import 'package:managers/features/empresa/data/models/horario_funcionamento_model.dart';
 
 import '../../helpers/fake_adapter.dart';
 
@@ -35,7 +36,7 @@ Map<String, dynamic> _horarioJson(int dia) => {
 void main() {
   test('buscarConfig lê /empresa/config/', () async {
     final adapter = FakeAdapter((_) async => respostaJson(200, _configJson()));
-    final datasource = OnboardingRemoteDataSourceImpl(dioDeTeste(adapter));
+    final datasource = EmpresaRemoteDataSourceImpl(dioDeTeste(adapter));
 
     final config = await datasource.buscarConfig();
 
@@ -48,7 +49,7 @@ void main() {
 
   test('salvarConfig faz PATCH com o JSON do model', () async {
     final adapter = FakeAdapter((_) async => respostaJson(200, _configJson()));
-    final datasource = OnboardingRemoteDataSourceImpl(dioDeTeste(adapter));
+    final datasource = EmpresaRemoteDataSourceImpl(dioDeTeste(adapter));
     final config = await datasource.buscarConfig();
 
     await datasource.salvarConfig(config);
@@ -69,7 +70,7 @@ void main() {
       (_) async =>
           respostaJson(200, [for (var d = 0; d < 7; d++) _horarioJson(d)]),
     );
-    final datasource = OnboardingRemoteDataSourceImpl(dioDeTeste(adapter));
+    final datasource = EmpresaRemoteDataSourceImpl(dioDeTeste(adapter));
 
     final horarios = await datasource.buscarHorarios();
 
@@ -87,7 +88,7 @@ void main() {
         // o backend responde 201 ao criar e 200 ao atualizar o mesmo dia
         return respostaJson(dia.isEven ? 201 : 200, _horarioJson(dia));
       });
-      final datasource = OnboardingRemoteDataSourceImpl(dioDeTeste(adapter));
+      final datasource = EmpresaRemoteDataSourceImpl(dioDeTeste(adapter));
       final horarios = [
         for (var d = 6; d >= 0; d--)
           HorarioFuncionamentoModel(
@@ -114,12 +115,29 @@ void main() {
     final adapter = FakeAdapter(
       (_) async => respostaJson(200, _configJson(concluido: true)),
     );
-    final datasource = OnboardingRemoteDataSourceImpl(dioDeTeste(adapter));
+    final datasource = EmpresaRemoteDataSourceImpl(dioDeTeste(adapter));
 
     final config = await datasource.concluir();
 
     expect(adapter.requisicoes.single.method, 'PATCH');
     expect(adapter.requisicoes.single.data, {'onboarding_concluido': true});
     expect(config.onboardingConcluido, isTrue);
+  });
+
+  test('enviarLogo manda multipart no campo logo e devolve a URL', () async {
+    final adapter = FakeAdapter(
+      (_) async => respostaJson(200, {'logo_url': 'https://s3/logo.webp'}),
+    );
+    final datasource = EmpresaRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    final url = await datasource.enviarLogo([1, 2, 3], 'logo.png');
+
+    final requisicao = adapter.requisicoes.single;
+    expect(requisicao.method, 'POST');
+    expect(requisicao.path, 'empresa/config/logo/');
+    expect(requisicao.headers['content-type'], contains('multipart/form-data'));
+    expect(requisicao.data, isA<FormData>());
+    expect((requisicao.data as FormData).files.single.key, 'logo');
+    expect(url, 'https://s3/logo.webp');
   });
 }

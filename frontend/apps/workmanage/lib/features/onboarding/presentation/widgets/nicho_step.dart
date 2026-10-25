@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:validatorless/validatorless.dart';
 
-import '../../domain/entities/empresa_config.dart';
-import '../../domain/entities/nicho.dart';
+import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
+
 import '../providers/wizard_provider.dart';
-import 'nicho_visual.dart';
+
+import 'package:managers/features/empresa/presentation/widgets/nicho_visual.dart';
 
 // step 2: escolher o ramo do negócio. tocar num card só marca; quem salva
 // é o "Próximo" (o nicho decide o tipo de agenda no backend). no outro, o

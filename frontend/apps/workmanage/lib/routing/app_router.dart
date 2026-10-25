@@ -4,17 +4,29 @@ import 'package:go_router/go_router.dart';
 import 'package:managers/core/session/sessao_provider.dart';
 import 'package:managers/features/auth/presentation/pages/login_page.dart';
 import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
-import 'package:managers/features/home/presentation/pages/home_page.dart';
+import 'package:managers/features/empresa/presentation/pages/configuracoes_page.dart';
+import 'package:managers/features/empresa/presentation/pages/dados_negocio_page.dart';
+import 'package:managers/features/empresa/presentation/pages/horarios_page.dart';
+import 'package:managers/features/home/presentation/pages/em_breve_page.dart';
+import 'package:managers/features/home/presentation/pages/home_shell_page.dart';
+import 'package:managers/features/home/presentation/pages/mais_page.dart';
 import 'package:managers/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:managers/features/register/presentation/pages/register_page.dart';
 import 'package:managers/features/register/presentation/pages/verify_email_page.dart';
+import 'package:managers/features/servicos/presentation/pages/servico_form_page.dart';
+import 'package:managers/features/servicos/presentation/pages/servicos_page.dart';
 import 'package:managers/features/splash/presentation/pages/splash_page.dart';
+
+// as telas que abrem por cima da navegação inferior (formulários e
+// configurações) usam o navegador raiz, não o da aba
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 // o router é um provider para enxergar a sessão (ref)
 final routerProvider = Provider<GoRouter>((ref) {
   final sessao = ref.watch(sessaoControllerProvider);
 
   final router = GoRouter(
+    navigatorKey: _rootNavigatorKey,
     // o app sempre abre pela splash, que decide para onde ir
     initialLocation: '/splash',
     // quando a sessão muda (login, logout, 401 definitivo no interceptor),
@@ -76,11 +88,99 @@ final routerProvider = Provider<GoRouter>((ref) {
           return const OnboardingPage();
         },
       ),
-      GoRoute(
-        path: '/home',
-        builder: (BuildContext context, GoRouterState state) {
-          return const HomePage();
+      // a home é a casca com as abas; /home abre na primeira
+      GoRoute(path: '/home', redirect: (_, _) => '/agenda'),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return HomeShellPage(navigationShell: navigationShell);
         },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/agenda',
+                builder: (_, _) => const EmBrevePage(
+                  titulo: 'Agenda',
+                  icone: Icons.calendar_month_outlined,
+                  mensagem: 'A agenda do dia chega na próxima etapa.',
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/clientes',
+                builder: (_, _) => const EmBrevePage(
+                  titulo: 'Clientes',
+                  icone: Icons.people_outline,
+                  mensagem: 'A ficha dos clientes chega na próxima etapa.',
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/servicos',
+                builder: (_, _) => const ServicosPage(),
+                routes: [
+                  GoRoute(
+                    path: 'novo',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const ServicoFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, state) => ServicoFormPage(
+                      id: int.tryParse(state.pathParameters['id'] ?? ''),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/caixa',
+                builder: (_, _) => const EmBrevePage(
+                  titulo: 'Caixa',
+                  icone: Icons.point_of_sale_outlined,
+                  mensagem: 'O caixa do dia chega na próxima etapa.',
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/mais',
+                builder: (_, _) => const MaisPage(),
+                routes: [
+                  GoRoute(
+                    path: 'configuracoes',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const ConfiguracoesPage(),
+                    routes: [
+                      GoRoute(
+                        path: 'negocio',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, _) => const DadosNegocioPage(),
+                      ),
+                      GoRoute(
+                        path: 'horarios',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, _) => const HorariosPage(),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
