@@ -50,3 +50,45 @@ String formatarDataHora(DateTime dataHora) {
 }
 
 String _doisDigitos(int valor) => valor.toString().padLeft(2, '0');
+
+// a data sem a hora, para comparar e agrupar por dia
+DateTime somenteData(DateTime d) => DateTime(d.year, d.month, d.day);
+
+bool mesmoDia(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+Hora horaDe(DateTime d) => (hora: d.hour, minuto: d.minute);
+
+DateTime juntarDataHora(DateTime data, Hora hora) =>
+    DateTime(data.year, data.month, data.day, hora.hora, hora.minuto);
+
+// nomes em português sem depender dos dados de locale do intl (que
+// precisam ser carregados antes e não existem nos testes)
+const nomesDosMeses = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+];
+
+// na ordem de DateTime.weekday (segunda = 1)
+const nomesCurtosDosDias = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+
+String nomeDoMes(int mes) => nomesDosMeses[mes - 1];
+
+String nomeCurtoDoDia(DateTime d) => nomesCurtosDosDias[d.weekday - 1];
+
+// "outubro de 2026"
+String formatarMesAno(DateTime d) => '${nomeDoMes(d.month)} de ${d.year}';
+
+// "sex, 25 de outubro"
+String formatarDataPorExtenso(DateTime d) =>
+    '${nomeCurtoDoDia(d)}, ${d.day} de ${nomeDoMes(d.month)}';

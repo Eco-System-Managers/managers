@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/session/sessao_provider.dart';
+import 'package:managers/features/agenda/presentation/pages/agenda_page.dart';
+import 'package:managers/features/agenda/presentation/pages/agendamento_form_page.dart';
+import 'package:managers/features/agenda/presentation/pages/agendamento_page.dart';
+import 'package:managers/features/agenda/presentation/pages/pendencias_page.dart';
 import 'package:managers/features/auth/presentation/pages/login_page.dart';
 import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
 import 'package:managers/features/clientes/presentation/pages/cliente_form_page.dart';
@@ -10,7 +14,7 @@ import 'package:managers/features/clientes/presentation/pages/clientes_page.dart
 import 'package:managers/features/empresa/presentation/pages/configuracoes_page.dart';
 import 'package:managers/features/empresa/presentation/pages/dados_negocio_page.dart';
 import 'package:managers/features/empresa/presentation/pages/horarios_page.dart';
-import 'package:managers/features/home/presentation/pages/em_breve_page.dart';
+import 'package:managers/features/financeiro/presentation/pages/caixa_page.dart';
 import 'package:managers/features/home/presentation/pages/home_shell_page.dart';
 import 'package:managers/features/home/presentation/pages/mais_page.dart';
 import 'package:managers/features/onboarding/presentation/pages/onboarding_page.dart';
@@ -102,11 +106,34 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/agenda',
-                builder: (_, _) => const EmBrevePage(
-                  titulo: 'Agenda',
-                  icone: Icons.calendar_month_outlined,
-                  mensagem: 'A agenda do dia chega na próxima etapa.',
-                ),
+                builder: (_, _) => const AgendaPage(),
+                routes: [
+                  // o dia aberto na agenda vai na URL (?data=2026-10-25)
+                  GoRoute(
+                    path: 'novo',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, state) {
+                      final data = state.uri.queryParameters['data'];
+                      return AgendamentoFormPage(
+                        dataInicial: data == null
+                            ? null
+                            : DateTime.tryParse(data),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'pendencias',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const PendenciasPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, state) => AgendamentoPage(
+                      id: int.parse(state.pathParameters['id']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -164,14 +191,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: '/caixa',
-                builder: (_, _) => const EmBrevePage(
-                  titulo: 'Caixa',
-                  icone: Icons.point_of_sale_outlined,
-                  mensagem: 'O caixa do dia chega na próxima etapa.',
-                ),
-              ),
+              GoRoute(path: '/caixa', builder: (_, _) => const CaixaPage()),
             ],
           ),
           StatefulShellBranch(

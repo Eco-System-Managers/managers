@@ -7,13 +7,14 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
+import 'package:managers/features/financeiro/presentation/widgets/saldo_cliente_card.dart';
 
 import '../../clientes_provider.dart';
 import '../../domain/entities/cliente.dart';
 import '../providers/cliente_provider.dart';
 
-// a ficha do cliente: os dados, de onde veio o cadastro, editar e remover.
-// o saldo e o histórico de atendimentos entram na fase 3
+// a ficha do cliente: os dados, de onde veio o cadastro, o crédito na
+// comanda (do financeiro), editar e remover
 class ClientePage extends ConsumerStatefulWidget {
   const ClientePage({super.key, required this.id});
 
@@ -166,6 +167,8 @@ class _ClientePageState extends ConsumerState<ClientePage> {
               style: TextStyle(color: colors.error),
             ),
           ),
+        SaldoClienteCard(clienteId: cliente.id),
+        const SizedBox(height: 8),
         const Divider(),
         _Dado(icone: Icons.phone_outlined, rotulo: 'Telefone', valor: telefone),
         _Dado(
