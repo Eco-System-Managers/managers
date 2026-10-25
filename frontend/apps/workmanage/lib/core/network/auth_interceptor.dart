@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../error/api_erro.dart';
+import '../session/bloqueio_assinatura.dart';
 import '../session/sessao.dart';
 import '../session/sessao_controller.dart';
 import '../session/sessao_model.dart';
@@ -13,14 +14,18 @@ import '../session/sessao_model.dart';
 //   significa que a sessão acabou: limpa, e o router leva ao login
 // - as rotas de auth ficam de fora: o 401 do login é "e-mail ou senha
 //   inválidos", não sessão expirada, e refresh e logout vão sem token
+// - 402 (assinatura_bloqueada) em qualquer rota marca o bloqueio: o router
+//   leva à tela de assinatura, e o erro segue para a tela que chamou
 class AuthInterceptor extends Interceptor {
   AuthInterceptor({
     required this._sessao,
     required this._dio,
     required this._dioRenovacao,
+    this._bloqueio,
   });
 
   final SessaoController _sessao;
+  final BloqueioAssinatura? _bloqueio;
 
   // o Dio do app, para repetir a requisição que falhou
   final Dio _dio;
@@ -52,6 +57,15 @@ class AuthInterceptor extends Interceptor {
     ErrorInterceptorHandler handler,
   ) async {
     final response = err.response;
+    if (response?.statusCode == 402) {
+      final detail = ApiErro.fromJson(response!.data)?.detail;
+      _bloqueio?.marcar(
+        detail ?? 'Assinatura inativa. Assine um plano para continuar.',
+      );
+      handler.next(err);
+      return;
+    }
+
     final sessao = _sessao.atual;
     if (response?.statusCode != 401 ||
         sessao == null ||

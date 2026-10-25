@@ -6,8 +6,7 @@ import 'package:managers/features/empresa/empresa_provider.dart';
 
 import '../../home_provider.dart';
 
-// a aba "Mais": configurações, equipe, assinatura e sair. equipe e
-// assinatura entram na fase 4
+// a aba "Mais": configurações, equipe, assinatura e sair
 class MaisPage extends ConsumerWidget {
   const MaisPage({super.key});
 
@@ -59,17 +58,17 @@ class MaisPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/mais/configuracoes'),
               ),
-              const ListTile(
-                leading: Icon(Icons.group_outlined),
-                title: Text('Equipe'),
-                subtitle: Text('Em breve'),
-                enabled: false,
+              ListTile(
+                leading: const Icon(Icons.group_outlined),
+                title: const Text('Equipe'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/mais/equipe'),
               ),
-              const ListTile(
-                leading: Icon(Icons.workspace_premium_outlined),
-                title: Text('Assinatura'),
-                subtitle: Text('Em breve'),
-                enabled: false,
+              ListTile(
+                leading: const Icon(Icons.workspace_premium_outlined),
+                title: const Text('Assinatura'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/mais/assinatura'),
               ),
               const Divider(),
               ListTile(

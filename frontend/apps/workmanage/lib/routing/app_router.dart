@@ -6,6 +6,7 @@ import 'package:managers/features/agenda/presentation/pages/agenda_page.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_form_page.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_page.dart';
 import 'package:managers/features/agenda/presentation/pages/pendencias_page.dart';
+import 'package:managers/features/assinatura/presentation/pages/assinatura_page.dart';
 import 'package:managers/features/auth/presentation/pages/login_page.dart';
 import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
 import 'package:managers/features/clientes/presentation/pages/cliente_form_page.dart';
@@ -23,6 +24,10 @@ import 'package:managers/features/register/presentation/pages/verify_email_page.
 import 'package:managers/features/servicos/presentation/pages/servico_form_page.dart';
 import 'package:managers/features/servicos/presentation/pages/servicos_page.dart';
 import 'package:managers/features/splash/presentation/pages/splash_page.dart';
+import 'package:managers/features/usuarios/presentation/pages/aceitar_convite_page.dart';
+import 'package:managers/features/usuarios/presentation/pages/colaborador_page.dart';
+import 'package:managers/features/usuarios/presentation/pages/convite_form_page.dart';
+import 'package:managers/features/usuarios/presentation/pages/equipe_page.dart';
 
 // as telas que abrem por cima da navegação inferior (formulários e
 // configurações) usam o navegador raiz, não o da aba
@@ -31,6 +36,7 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 // o router é um provider para enxergar a sessão (ref)
 final routerProvider = Provider<GoRouter>((ref) {
   final sessao = ref.watch(sessaoControllerProvider);
+  final bloqueio = ref.watch(bloqueioAssinaturaProvider);
 
   final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -38,12 +44,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     // quando a sessão muda (login, logout, 401 definitivo no interceptor),
     // o router reavalia o redirect: tela privada sem sessão volta ao login
-    refreshListenable: sessao,
+    refreshListenable: Listenable.merge([sessao, bloqueio]),
     redirect: (context, state) {
       // antes de a splash carregar a sessão guardada, não há o que decidir
       if (!sessao.carregada) return null;
       final destino = state.matchedLocation;
       if (!sessao.autenticado && !_publica(destino)) return '/login';
+      // 402 em qualquer requisição: só a tela de assinatura resolve
+      if (sessao.autenticado &&
+          bloqueio.bloqueada &&
+          !_publica(destino) &&
+          destino != '/mais/assinatura') {
+        return '/mais/assinatura';
+      }
       return null;
     },
     routes: <RouteBase>[
@@ -94,6 +107,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) {
           return const OnboardingPage();
         },
+      ),
+      // o link do convite da equipe: pública, quem abre ainda não tem conta
+      GoRoute(
+        path: '/convite/:token',
+        builder: (_, state) =>
+            AceitarConvitePage(token: state.pathParameters['token']!),
       ),
       // a home é a casca com as abas; /home abre na primeira
       GoRoute(path: '/home', redirect: (_, _) => '/agenda'),
@@ -217,6 +236,30 @@ final routerProvider = Provider<GoRouter>((ref) {
                       ),
                     ],
                   ),
+                  GoRoute(
+                    path: 'equipe',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const EquipePage(),
+                    routes: [
+                      GoRoute(
+                        path: 'convidar',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, _) => const ConviteFormPage(),
+                      ),
+                      GoRoute(
+                        path: ':id',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, state) => ColaboradorPage(
+                          id: int.parse(state.pathParameters['id']!),
+                        ),
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'assinatura',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const AssinaturaPage(),
+                  ),
                 ],
               ),
             ],
@@ -235,7 +278,8 @@ bool _publica(String rota) {
       rota == '/' ||
       rota == '/login' ||
       rota == '/recovery' ||
-      rota.startsWith('/register');
+      rota.startsWith('/register') ||
+      rota.startsWith('/convite/');
 }
 
 // transição das telas de auth abertas a partir do login (cadastro e

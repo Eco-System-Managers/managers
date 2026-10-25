@@ -2,20 +2,29 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/env.dart';
+import '../session/bloqueio_assinatura.dart';
 import '../session/sessao_controller.dart';
 import '../session/sessao_provider.dart';
 import 'auth_interceptor.dart';
 
 // um único Dio para o app inteiro: as features pegam daqui via ref
 final dioProvider = Provider<Dio>(
-  (ref) => DioClient.create(ref.watch(sessaoControllerProvider)),
+  (ref) => DioClient.create(
+    ref.watch(sessaoControllerProvider),
+    bloqueio: ref.watch(bloqueioAssinaturaProvider),
+  ),
 );
 
 class DioClient {
-  static Dio create(SessaoController sessao) {
+  static Dio create(SessaoController sessao, {BloqueioAssinatura? bloqueio}) {
     final dio = Dio(_opcoes());
     dio.interceptors.add(
-      AuthInterceptor(sessao: sessao, dio: dio, dioRenovacao: Dio(_opcoes())),
+      AuthInterceptor(
+        sessao: sessao,
+        dio: dio,
+        dioRenovacao: Dio(_opcoes()),
+        bloqueio: bloqueio,
+      ),
     );
     return dio;
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/features/usuarios/presentation/widgets/convite_link_dialog.dart';
 import 'package:managers/core/widgets/auth_logo.dart';
 import 'package:managers/core/widgets/auth_panel.dart';
 import 'package:validatorless/validatorless.dart';
@@ -203,6 +204,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     TextButton(
                       onPressed: () => context.push('/register'),
                       child: const Text('Criar conta'),
+                    ),
+                    // quem recebeu convite da equipe cola o link do e-mail
+                    // (sem deep link ainda)
+                    TextButton(
+                      onPressed: () => abrirConvitePorLink(context),
+                      child: const Text('Recebi um convite da equipe'),
                     ),
                   ],
                 ),
