@@ -17,6 +17,9 @@ abstract class AgendaRemoteDataSource {
     int? colaboradorId,
   });
 
+  // todos os agendamentos do cliente (não cancelados), seguindo a paginação
+  Future<List<AgendamentoModel>> listarDoCliente(int clienteId);
+
   Future<AgendamentoModel> obter(int id);
 
   Future<AgendamentoModel> criar(NovoAgendamentoParams params);
@@ -50,6 +53,16 @@ class AgendaRemoteDataSourceImpl implements AgendaRemoteDataSource {
       dio,
       _agendamentos,
       query: {'data': dataParaApi(data), 'colaborador': ?colaboradorId},
+      item: AgendamentoModel.fromJson,
+    );
+  }
+
+  @override
+  Future<List<AgendamentoModel>> listarDoCliente(int clienteId) {
+    return buscarTudo(
+      dio,
+      _agendamentos,
+      query: {'cliente': clienteId},
       item: AgendamentoModel.fromJson,
     );
   }

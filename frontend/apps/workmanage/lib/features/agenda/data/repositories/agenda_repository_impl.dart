@@ -33,6 +33,14 @@ class AgendaRepositoryImpl implements AgendaRepository {
   }
 
   @override
+  Future<Either<Failure, List<Agendamento>>> listarDoCliente(int clienteId) {
+    return _executar(() async {
+      final models = await _remoteDataSource.listarDoCliente(clienteId);
+      return models.map((m) => m.toEntity()).toList();
+    });
+  }
+
+  @override
   Future<Either<Failure, Agendamento>> obter(int id) {
     return _executar(
       () async => (await _remoteDataSource.obter(id)).toEntity(),

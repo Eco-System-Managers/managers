@@ -35,6 +35,18 @@ class ListarAgendamentosDoDiaUseCase
   }
 }
 
+// o parâmetro é o id do cliente
+class ListarAgendamentosDoClienteUseCase
+    implements UseCase<List<Agendamento>, int> {
+  const ListarAgendamentosDoClienteUseCase(this._repository);
+
+  final AgendaRepository _repository;
+
+  @override
+  Future<Either<Failure, List<Agendamento>>> call(int params) =>
+      _repository.listarDoCliente(params);
+}
+
 class ObterAgendamentoUseCase implements UseCase<Agendamento, int> {
   const ObterAgendamentoUseCase(this._repository);
 

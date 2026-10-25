@@ -14,6 +14,9 @@ abstract class AgendaRepository {
     int? colaboradorId,
   });
 
+  // o histórico do cliente: o que a API devolve, sem cancelados
+  Future<Either<Failure, List<Agendamento>>> listarDoCliente(int clienteId);
+
   Future<Either<Failure, Agendamento>> obter(int id);
 
   Future<Either<Failure, Agendamento>> criar(NovoAgendamentoParams params);

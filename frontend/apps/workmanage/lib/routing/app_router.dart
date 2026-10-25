@@ -5,6 +5,7 @@ import 'package:managers/core/session/sessao_provider.dart';
 import 'package:managers/features/agenda/presentation/pages/agenda_page.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_form_page.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_page.dart';
+import 'package:managers/features/agenda/presentation/pages/historico_cliente_page.dart';
 import 'package:managers/features/agenda/presentation/pages/pendencias_page.dart';
 import 'package:managers/features/assinatura/presentation/pages/assinatura_page.dart';
 import 'package:managers/features/auth/presentation/pages/login_page.dart';
@@ -178,6 +179,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                         parentNavigatorKey: _rootNavigatorKey,
                         builder: (_, state) => ClienteFormPage(
                           id: int.parse(state.pathParameters['id']!),
+                        ),
+                      ),
+                      // o histórico é da agenda, mas mora embaixo do cliente
+                      GoRoute(
+                        path: 'atendimentos',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, state) => HistoricoClientePage(
+                          clienteId: int.parse(state.pathParameters['id']!),
                         ),
                       ),
                     ],

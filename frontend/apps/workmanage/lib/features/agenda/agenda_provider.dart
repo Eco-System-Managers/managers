@@ -13,6 +13,7 @@ import 'domain/usecases/agenda_use_cases.dart';
 import 'presentation/providers/agenda_dia_provider.dart';
 import 'presentation/providers/agendamento_form_provider.dart';
 import 'presentation/providers/agendamento_provider.dart';
+import 'presentation/providers/historico_cliente_provider.dart';
 import 'presentation/providers/pendencias_provider.dart';
 
 // injeção de dependências da agenda: é o único lugar que conhece as
@@ -28,6 +29,11 @@ final agendaRepositoryProvider = Provider<AgendaRepository>(
 
 final listarAgendamentosDoDiaUseCaseProvider = Provider(
   (ref) => ListarAgendamentosDoDiaUseCase(ref.watch(agendaRepositoryProvider)),
+);
+
+final listarAgendamentosDoClienteUseCaseProvider = Provider(
+  (ref) =>
+      ListarAgendamentosDoClienteUseCase(ref.watch(agendaRepositoryProvider)),
 );
 
 final obterAgendamentoUseCaseProvider = Provider(
@@ -102,6 +108,17 @@ final agendamentoProvider = Provider.autoDispose
         cobrar: ref.watch(cobrarAgendamentoUseCaseProvider),
         listarSlots: ref.watch(listarSlotsUseCaseProvider),
         obterSaldo: ref.watch(obterSaldoClienteUseCaseProvider),
+      );
+      ref.onDispose(provider.dispose);
+      return provider;
+    });
+
+// family: um provider por ficha de cliente aberta
+final historicoClienteProvider = Provider.autoDispose
+    .family<HistoricoClienteProvider, int>((ref, clienteId) {
+      final provider = HistoricoClienteProvider(
+        clienteId: clienteId,
+        listar: ref.watch(listarAgendamentosDoClienteUseCaseProvider),
       );
       ref.onDispose(provider.dispose);
       return provider;

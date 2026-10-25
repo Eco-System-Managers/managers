@@ -80,6 +80,21 @@ void main() {
     },
   );
 
+  test('listarDoCliente manda o cliente e page_size 100', () async {
+    final adapter = FakeAdapter(
+      (_) async => respostaJson(200, _pagina([_agendamentoJson(1)])),
+    );
+    final datasource = AgendaRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    final lista = await datasource.listarDoCliente(7);
+
+    expect(lista.map((m) => m.toEntity().id), [1]);
+    expect(adapter.requisicoes.single.uri.queryParameters, {
+      'cliente': '7',
+      'page_size': '100',
+    });
+  });
+
   test('o model converte data/hora, status, serviços e pagamentos', () {
     final a = AgendamentoModel.fromJson(
       _agendamentoJson(1, status: 'concluido'),
