@@ -17,10 +17,25 @@ import '../widgets/slots_grade.dart';
 // marca um horário: cliente, serviço, profissional, dia e um slot da grade.
 // fecha com true quando marcou, para a agenda recarregar
 class AgendamentoFormPage extends ConsumerStatefulWidget {
-  const AgendamentoFormPage({super.key, this.dataInicial});
+  const AgendamentoFormPage({
+    super.key,
+    this.dataInicial,
+    this.horaInicial,
+    this.colaboradorId,
+  });
 
   // o dia aberto na agenda
   final DateTime? dataInicial;
+
+  // a hora e o profissional tocados na grade da agenda
+  final Hora? horaInicial;
+  final int? colaboradorId;
+
+  NovoAgendamentoArgs get args => NovoAgendamentoArgs(
+    data: dataInicial,
+    hora: horaInicial,
+    colaboradorId: colaboradorId,
+  );
 
   @override
   ConsumerState<AgendamentoFormPage> createState() =>
@@ -36,7 +51,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
   String? _erroHora;
 
   AgendamentoFormProvider get _provider =>
-      ref.read(agendamentoFormProvider(widget.dataInicial));
+      ref.read(agendamentoFormProvider(widget.args));
 
   @override
   void initState() {
@@ -75,7 +90,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
   @override
   Widget build(BuildContext context) {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
-    final provider = ref.watch(agendamentoFormProvider(widget.dataInicial));
+    final provider = ref.watch(agendamentoFormProvider(widget.args));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Novo agendamento')),

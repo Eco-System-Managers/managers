@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/session/sessao_provider.dart';
+import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_form_page.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_page.dart';
 import 'package:managers/features/agenda/presentation/pages/historico_cliente_page.dart';
@@ -147,16 +148,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                 // agenda por horário ou quadro da esteira, pelo modo do negócio
                 builder: (_, _) => const PrimeiraAbaPage(),
                 routes: [
-                  // o dia aberto na agenda vai na URL (?data=2026-10-25)
+                  // o que foi tocado na agenda vai na URL
+                  // (?data=2026-10-25&hora=09:30&colaborador=2)
                   GoRoute(
                     path: 'novo',
                     parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, state) {
-                      final data = state.uri.queryParameters['data'];
+                      final q = state.uri.queryParameters;
+                      final data = q['data'];
+                      final hora = q['hora'];
                       return AgendamentoFormPage(
                         dataInicial: data == null
                             ? null
                             : DateTime.tryParse(data),
+                        horaInicial: hora == null ? null : horaDaApi(hora),
+                        colaboradorId: int.tryParse(q['colaborador'] ?? ''),
                       );
                     },
                   ),

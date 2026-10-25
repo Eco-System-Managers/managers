@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
@@ -28,6 +29,7 @@ class AgendamentoFormProvider extends ChangeNotifier {
     required this._listarSlots,
     required this._criar,
     this.colaboradorInicialId,
+    this.horaInicial,
     DateTime? dataInicial,
   }) : _data = somenteData(dataInicial ?? DateTime.now());
 
@@ -39,6 +41,11 @@ class AgendamentoFormProvider extends ChangeNotifier {
 
   // quem está logado: começa selecionado quando faz parte da equipe
   final int? colaboradorInicialId;
+
+  // a hora tocada na grade: entra escolhida assim que a grade de slots
+  // chegar, se ainda estiver livre
+  final Hora? horaInicial;
+  bool _horaInicialAplicada = false;
 
   List<Servico> _servicos = const [];
   List<Colaborador> _colaboradores = const [];
@@ -200,6 +207,11 @@ class AgendamentoFormProvider extends ChangeNotifier {
 
     result.fold((failure) => _slotsErrorMessage = failure.message, (slots) {
       _slots = slots;
+      if (!_horaInicialAplicada && horaInicial != null) {
+        _horaInicialAplicada = true;
+        final livre = slots.any((s) => s.hora == horaInicial && s.disponivel);
+        if (livre) _hora = horaInicial;
+      }
     });
 
     _carregandoSlots = false;
@@ -267,4 +279,17 @@ class AgendamentoFormProvider extends ChangeNotifier {
     _disposed = true;
     super.dispose();
   }
+}
+
+// com o que o formulário abre: o dia, a hora tocada na grade e o
+// profissional filtrado (todos opcionais)
+class NovoAgendamentoArgs extends Equatable {
+  const NovoAgendamentoArgs({this.data, this.hora, this.colaboradorId});
+
+  final DateTime? data;
+  final Hora? hora;
+  final int? colaboradorId;
+
+  @override
+  List<Object?> get props => [data, hora, colaboradorId];
 }

@@ -8,6 +8,11 @@ import 'package:managers/features/agenda/domain/entities/pendencia_cobranca.dart
 import 'package:managers/features/agenda/domain/params/agenda_params.dart';
 import 'package:managers/features/agenda/domain/usecases/agenda_use_cases.dart';
 import 'package:managers/features/agenda/presentation/providers/agenda_dia_provider.dart';
+import 'package:managers/features/empresa/domain/entities/horario_funcionamento.dart';
+import 'package:managers/features/empresa/domain/usecases/buscar_horarios_use_case.dart';
+import 'package:managers/features/servicos/domain/entities/servico.dart';
+import 'package:managers/features/servicos/domain/params/listar_servicos_params.dart';
+import 'package:managers/features/servicos/domain/usecases/listar_servicos_use_case.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 import 'package:mocktail/mocktail.dart';
@@ -20,6 +25,10 @@ class _MockListarColaboradores extends Mock
     implements ListarColaboradoresUseCase {}
 
 class _MockListarPendencias extends Mock implements ListarPendenciasUseCase {}
+
+class _MockBuscarHorarios extends Mock implements BuscarHorariosUseCase {}
+
+class _MockListarServicos extends Mock implements ListarServicosUseCase {}
 
 final _hoje = DateTime(2026, 10, 25);
 
@@ -53,11 +62,14 @@ void main() {
   late _MockListarDias listarDias;
   late _MockListarColaboradores listarColaboradores;
   late _MockListarPendencias listarPendencias;
+  late _MockBuscarHorarios buscarHorarios;
+  late _MockListarServicos listarServicos;
 
   setUpAll(() {
     registerFallbackValue(ListarAgendamentosDoDiaParams(data: _hoje));
     registerFallbackValue(const MesParams(ano: 2026, mes: 10));
     registerFallbackValue(NoParams());
+    registerFallbackValue(const ListarServicosParams());
   });
 
   AgendaDiaProvider montar() {
@@ -66,6 +78,8 @@ void main() {
       listarDiasComRegistro: listarDias,
       listarColaboradores: listarColaboradores,
       listarPendencias: listarPendencias,
+      buscarHorarios: buscarHorarios,
+      listarServicos: listarServicos,
       hoje: _hoje,
     );
   }
@@ -75,6 +89,25 @@ void main() {
     listarDias = _MockListarDias();
     listarColaboradores = _MockListarColaboradores();
     listarPendencias = _MockListarPendencias();
+    buscarHorarios = _MockBuscarHorarios();
+    listarServicos = _MockListarServicos();
+    // 25/10/2026 é domingo: aberto das 9 às 13; segunda fechada
+    when(() => buscarHorarios(any())).thenAnswer(
+      (_) async => const Right([
+        HorarioFuncionamento(
+          dia: DiaSemana.domingo,
+          abertura: HoraDoDia(9, 0),
+          fechamento: HoraDoDia(13, 0),
+        ),
+        HorarioFuncionamento(dia: DiaSemana.segunda, ativo: false),
+      ]),
+    );
+    when(() => listarServicos(any())).thenAnswer(
+      (_) async => Right([
+        Servico(id: 1, nome: 'Corte', duracao: 40, preco: Decimal.fromInt(40)),
+        Servico(id: 2, nome: 'Barba', duracao: 20, preco: Decimal.fromInt(20)),
+      ]),
+    );
     when(() => listarDoDia(any()))
         .thenAnswer((_) async => Right([_agendamento(1)]));
     when(() => listarDias(any())).thenAnswer(
@@ -188,4 +221,43 @@ void main() {
     verify(() => listarDias(any())).called(2);
     verify(() => listarDoDia(any())).called(2);
   });
+
+  test(
+    'expediente do dia vem dos horários e o passo do menor serviço',
+    () async {
+      final provider = montar();
+
+      await provider.carregar();
+
+      expect(provider.expedienteDoDia?.abertura.emMinutos, 9 * 60);
+      expect(provider.expedienteDoDia?.fechamento.emMinutos, 13 * 60);
+      expect(provider.passoMinutos, 20);
+      // os horários e os serviços vão à API uma vez só
+      await provider.selecionarDia(DateTime(2026, 10, 26));
+      verify(() => buscarHorarios(any())).called(1);
+      verify(() => listarServicos(any())).called(1);
+      // segunda fechada: sem expediente
+      expect(provider.expedienteDoDia, isNull);
+    },
+  );
+
+  test(
+    'sem serviço ativo o passo é o padrão; com serviço de 5 min, o mínimo',
+    () async {
+      when(() => listarServicos(any()))
+          .thenAnswer((_) async => const Right([]));
+      final provider = montar();
+      await provider.carregar();
+      expect(provider.passoMinutos, passoPadrao);
+
+      when(() => listarServicos(any())).thenAnswer(
+        (_) async => Right([
+          Servico(id: 3, nome: 'Rápido', duracao: 5, preco: Decimal.fromInt(5)),
+        ]),
+      );
+      final outro = montar();
+      await outro.carregar();
+      expect(outro.passoMinutos, passoMinimo);
+    },
+  );
 }

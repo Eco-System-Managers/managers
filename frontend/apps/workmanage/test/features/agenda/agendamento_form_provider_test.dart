@@ -3,6 +3,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/lista_paginada.dart';
 import 'package:managers/features/agenda/domain/entities/agendamento.dart';
 import 'package:managers/features/agenda/domain/entities/slot.dart';
@@ -293,4 +294,30 @@ void main() {
       expect(await provider.buscarClientes('x'), isEmpty);
     },
   );
+
+  test('a hora tocada na grade entra escolhida quando a grade de slots chega '
+      'livre; ocupada, não', () async {
+    AgendamentoFormProvider comHora(Hora hora) => AgendamentoFormProvider(
+      listarServicos: listarServicos,
+      listarColaboradores: listarColaboradores,
+      listarClientes: listarClientes,
+      listarSlots: listarSlots,
+      criar: criar,
+      colaboradorInicialId: 2,
+      dataInicial: _dia,
+      horaInicial: hora,
+    );
+
+    final livre = comHora(_nove);
+    await livre.carregar();
+    livre.selecionarServico(_corte);
+    await pumpEventQueue();
+    expect(livre.hora, _nove);
+
+    final ocupada = comHora((hora: 9, minuto: 30));
+    await ocupada.carregar();
+    ocupada.selecionarServico(_corte);
+    await pumpEventQueue();
+    expect(ocupada.hora, isNull);
+  });
 }

@@ -76,22 +76,27 @@ final agendaDiaProvider = Provider<AgendaDiaProvider>((ref) {
     listarDiasComRegistro: ref.watch(listarDiasComRegistroUseCaseProvider),
     listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
     listarPendencias: ref.watch(listarPendenciasUseCaseProvider),
+    buscarHorarios: ref.watch(buscarHorariosUseCaseProvider),
+    listarServicos: ref.watch(listarServicosUseCaseProvider),
   );
   ref.onDispose(provider.dispose);
   return provider;
 });
 
-// family: o dia em que o formulário abre (a data escolhida na agenda)
+// family: com o que o formulário abre (dia, hora e profissional tocados na
+// grade da agenda)
 final agendamentoFormProvider = Provider.autoDispose
-    .family<AgendamentoFormProvider, DateTime?>((ref, dataInicial) {
+    .family<AgendamentoFormProvider, NovoAgendamentoArgs>((ref, args) {
       final provider = AgendamentoFormProvider(
         listarServicos: ref.watch(listarServicosUseCaseProvider),
         listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
         listarClientes: ref.watch(listarClientesUseCaseProvider),
         listarSlots: ref.watch(listarSlotsUseCaseProvider),
         criar: ref.watch(criarAgendamentoUseCaseProvider),
-        colaboradorInicialId: ref.watch(negocioAtualProvider).perfil?.id,
-        dataInicial: dataInicial,
+        colaboradorInicialId:
+            args.colaboradorId ?? ref.watch(negocioAtualProvider).perfil?.id,
+        dataInicial: args.data,
+        horaInicial: args.hora,
       );
       ref.onDispose(provider.dispose);
       return provider;
