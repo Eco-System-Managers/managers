@@ -116,3 +116,14 @@ veículo, banho e tosa usa pet, e no nicho `outro` o dono escolhe
   estourava em 500.
 - **O cadastro que veio do app é sincronizado de fora.** Editar aqui campo que o
   consumidor controla é trabalho perdido: a próxima sincronização sobrescreve.
+
+## Importação do GENDO
+
+`python manage.py importar_gendo arquivo.csv [--schema <empresa>] [--dry-run]`
+traz a base de clientes exportada do GENDO (latin-1, `;`). Sem `--schema`, o
+comando lista as empresas e pergunta qual recebe. O que tem campo na ficha vai
+para o campo (telefone passa pelo mesmo validador da API; o que não passa fica
+na observação); cidade/UF, visitas, faturamento e dívida vão para a observação;
+saldo positivo vira crédito manual na comanda; `GENDO #código` na observação é a
+chave que impede duplicar numa segunda rodada. O CSV fica em `backend/tmp/`,
+que está no `.gitignore`.
