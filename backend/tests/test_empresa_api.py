@@ -45,6 +45,18 @@ class TestEmpresaConfigAPI:
         assert response.status_code == 200
         assert EmpresaConfig.objects.count() == 1
 
+    def test_config_nasce_com_o_nome_do_cadastro(self, client_autenticado, tenant):
+        """O nome dado no cadastro mora no Tenant; a config já abre com ele,
+        para o onboarding não pedir de novo o que a pessoa acabou de digitar."""
+        assert tenant.nome
+        response = client_autenticado.get('/api/v1/empresa/config/')
+        assert response.data['nome'] == tenant.nome
+
+    def test_nome_editado_nao_e_sobrescrito_pelo_do_cadastro(self, client_autenticado, tenant):
+        client_autenticado.patch('/api/v1/empresa/config/', {'nome': 'Outro Nome'}, format='json')
+        response = client_autenticado.get('/api/v1/empresa/config/')
+        assert response.data['nome'] == 'Outro Nome'
+
     def test_atualizar_config_retorna_200(self, client_autenticado):
         response = client_autenticado.patch('/api/v1/empresa/config/', {'nome': 'Minha Empresa'}, format='json')
         assert response.status_code == 200

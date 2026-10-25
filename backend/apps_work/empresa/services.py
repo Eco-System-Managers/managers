@@ -238,6 +238,28 @@ class ModoAgendaService:
 
 
 class ConfiguracaoEmpresaService:
+    def obter_ou_criar(self):
+        """A linha única da config. Quando nasce, leva o nome dado no cadastro,
+        que mora no Tenant: o onboarding abre com o campo preenchido em vez de
+        pedir de novo o que a pessoa acabou de digitar.
+
+        O nome vem por consulta, e não de `connection.tenant`: quando o schema
+        é resolvido pelo token (app mobile), ali há só um FakeTenant sem nome.
+        """
+        from django.db import connection
+        from apps_work.empresa.models import EmpresaConfig
+        from tenants.models import Tenant
+
+        config, criada = EmpresaConfig.objects.get_or_create(pk=1)
+        if criada and not config.nome:
+            config.nome = (
+                Tenant.objects.filter(schema_name=connection.schema_name).values_list('nome', flat=True).first() or ''
+            )
+            if config.nome:
+                config.save(update_fields=['nome'])
+        return config
+
+
     """O que acontece quando o negócio salva a configuração ou troca a logo.
 
     Nenhum desses efeitos pode desfazer o salvamento: cada um roda num

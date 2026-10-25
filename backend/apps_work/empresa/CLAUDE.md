@@ -20,8 +20,9 @@ qual dos dois modos de agenda ele usa.
 
 ### `EmpresaConfig` — linha única por tenant
 
-Quase todo campo é `blank=True`: a linha nasce vazia no primeiro GET
-(`get_or_create(pk=1)`) e vai sendo preenchida pelo onboarding. Quem exige os
+Quase todo campo é `blank=True`: a linha nasce no primeiro GET
+(`ConfiguracaoEmpresaService.obter_ou_criar`) só com o `nome` dado no cadastro,
+copiado do `Tenant`, e vai sendo preenchida pelo onboarding. Quem exige os
 campos é o serializer, ao concluir — não o banco.
 
 | Coluna | Tipo | O que é |

@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from core.permissions import IsProprietario
-from .models import EmpresaConfig, HorarioFuncionamento
+from .models import HorarioFuncionamento
 from .serializers import (
     CoordenadaSerializer, EmpresaConfigSerializer, HorarioFuncionamentoSerializer, LogoSerializer,
     RuaNoPontoSerializer, UploadLogoSerializer,
@@ -101,8 +101,7 @@ class EmpresaConfigView(generics.RetrieveUpdateAPIView):
         return [IsAuthenticated()]
 
     def get_object(self):
-        obj, _ = EmpresaConfig.objects.get_or_create(pk=1)
-        return obj
+        return ConfiguracaoEmpresaService().obter_ou_criar()
 
     def perform_update(self, serializer):
         config = serializer.instance
