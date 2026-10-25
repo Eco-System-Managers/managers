@@ -1460,6 +1460,11 @@ paths:
         description: Número de resultados a serem retornados por página.
         schema:
           type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Busca em nome, telefone, e-mail e CPF.
       tags:
       - clientes
       security:

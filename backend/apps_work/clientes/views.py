@@ -1,5 +1,6 @@
 from rest_framework import viewsets
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Prefetch
@@ -8,6 +9,11 @@ from .serializers import ClienteSerializer, ObjetoClienteSerializer, PetSerializ
 from .services import RemocaoClienteService
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[OpenApiParameter('search', OpenApiTypes.STR, description='Busca em nome, telefone, e-mail e CPF.')],
+    ),
+)
 class ClienteViewSet(viewsets.ModelViewSet):
     serializer_class = ClienteSerializer
     def perform_destroy(self, instance):

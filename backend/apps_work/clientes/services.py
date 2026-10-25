@@ -1,4 +1,7 @@
 from django.db import connection
+from django.db.models import ProtectedError
+
+from core.excecoes import ErroDeNegocio
 
 from .models import Cliente, OrigemCliente
 from .signals import cliente_servicemanage_removido
@@ -17,7 +20,16 @@ class RemocaoClienteService:
 
     def remover(self, cliente: Cliente) -> None:
         if cliente.origem != OrigemCliente.SERVICEMANAGE:
-            cliente.delete()
+            # Agendamento e atendimento protegem o cliente (PROTECT): o
+            # histórico não pode ficar órfão. O Django checa antes de apagar
+            # qualquer linha, então a transação segue íntegra.
+            try:
+                cliente.delete()
+            except ProtectedError:
+                raise ErroDeNegocio(
+                    'Este cliente tem atendimentos registrados e não pode ser removido.',
+                    'cliente_com_atendimentos',
+                )
             return
 
         # Mesma regra do desvínculo feito pelo app: os dados pessoais saem.

@@ -108,7 +108,11 @@ veículo, banho e tosa usa pet, e no nicho `outro` o dono escolhe
   dispara sinal com o `consumidor_id` para desfazer o vínculo no público. Apagar
   a linha deixaria o vínculo órfão e o cadastro ressurgiria no próximo
   agendamento.
-- **A busca (`?search=`) cobre 4 campos** e alimenta os nove autocompletes dos
-  frontends. A listagem usa a paginação padrão (`core/paginacao.py`).
+- **A busca (`?search=`) cobre 4 campos** (nome, telefone, e-mail, CPF; documentada
+  no OpenAPI) e alimenta os nove autocompletes dos frontends. A listagem usa a
+  paginação padrão (`core/paginacao.py`).
+- **Remover cliente manual com atendimento responde 400 `cliente_com_atendimentos`.**
+  Agendamento e atendimento protegem o cliente (`PROTECT`); antes o `delete()`
+  estourava em 500.
 - **O cadastro que veio do app é sincronizado de fora.** Editar aqui campo que o
   consumidor controla é trabalho perdido: a próxima sincronização sobrescreve.
