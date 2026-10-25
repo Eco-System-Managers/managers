@@ -6,8 +6,8 @@ import 'package:managers/core/widgets/auth_panel.dart';
 import 'package:pinput/pinput.dart';
 import 'package:validatorless/validatorless.dart';
 
-import '../../register_injection.dart';
-import '../view_models/verify_email_view_model.dart';
+import '../../register_provider.dart';
+import '../providers/verify_email_provider.dart';
 
 // depois do cadastro: a pessoa digita o código que chegou no e-mail.
 // o e-mail vem pela rota (/register/verificar?email=...)
@@ -21,7 +21,7 @@ class VerifyEmailPage extends ConsumerStatefulWidget {
 }
 
 class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
-  static const _codeLength = VerifyEmailViewModel.codeLength;
+  static const _codeLength = VerifyEmailProvider.codeLength;
 
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
@@ -36,7 +36,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     if (!_formKey.currentState!.validate()) return;
 
     final success = await ref
-        .read(verifyEmailViewModelProvider)
+        .read(verifyEmailProvider)
         .confirm(email: widget.email, code: _codeController.text);
 
     if (!mounted) return;
@@ -47,19 +47,20 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
       return;
     }
 
-    // go, não push: confirmado, não há por que voltar para cá
+    // a sessão já está guardada e a empresa acabou de nascer: o onboarding
+    // é sempre o próximo passo. go, não push: não há por que voltar para cá
     context.go('/onboarding');
   }
 
   Future<void> _resend() async {
     _codeController.clear();
-    await ref.read(verifyEmailViewModelProvider).resend(widget.email);
+    await ref.read(verifyEmailProvider).resend(widget.email);
   }
 
   @override
   Widget build(BuildContext context) {
-    // watch: mantém o view model vivo enquanto a tela estiver aberta
-    final viewModel = ref.watch(verifyEmailViewModelProvider);
+    // watch: mantém o provider vivo enquanto a tela estiver aberta
+    final provider = ref.watch(verifyEmailProvider);
     final colors = Theme.of(context).colorScheme;
 
     // aparência de cada caixinha do código
@@ -86,9 +87,9 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
               child: Form(
                 key: _formKey,
                 child: ListenableBuilder(
-                  listenable: viewModel,
+                  listenable: provider,
                   builder: (context, _) {
-                    final loading = viewModel.isLoading;
+                    final loading = provider.isLoading;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -138,20 +139,20 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                           ),
                         ),
 
-                        if (viewModel.errorMessage != null)
+                        if (provider.errorMessage != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 12),
                             child: Text(
-                              viewModel.errorMessage!,
+                              provider.errorMessage!,
                               style: TextStyle(color: colors.error),
                             ),
                           ),
 
-                        if (viewModel.infoMessage != null)
+                        if (provider.infoMessage != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 12),
                             child: Text(
-                              viewModel.infoMessage!,
+                              provider.infoMessage!,
                               style: TextStyle(color: colors.primary),
                             ),
                           ),
@@ -187,12 +188,12 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                               child: const Text('Trocar e-mail'),
                             ),
                             TextButton(
-                              onPressed: loading || viewModel.secondsLeft > 0
+                              onPressed: loading || provider.secondsLeft > 0
                                   ? null
                                   : _resend,
                               child: Text(
-                                viewModel.secondsLeft > 0
-                                    ? 'Reenviar em ${viewModel.secondsLeft}s'
+                                provider.secondsLeft > 0
+                                    ? 'Reenviar em ${provider.secondsLeft}s'
                                     : 'Reenviar código',
                               ),
                             ),

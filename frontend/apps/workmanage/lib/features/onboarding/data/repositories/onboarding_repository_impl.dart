@@ -1,5 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:managers/core/cep/via_cep_datasource.dart';
+import 'package:managers/core/error/failure_mapper.dart';
 import 'package:managers/core/error/failures.dart';
 
 import '../../domain/entities/empresa_config.dart';
@@ -10,13 +12,14 @@ import '../datasources/onboarding_remote_datasource.dart';
 import '../models/empresa_config_model.dart';
 import '../models/horario_funcionamento_model.dart';
 
-// implementa o contrato: chama o datasource, converte model em entidade e
-// transforma qualquer erro em Failure. não sabe se o datasource é o
-// simulado ou o real
+// implementa o contrato: chama os datasources, converte model em entidade e
+// transforma qualquer erro em Failure. a config vem da nossa API; o CEP, do
+// ViaCEP (core/cep), porque a API não tem busca de endereço
 class OnboardingRepositoryImpl implements OnboardingRepository {
-  OnboardingRepositoryImpl(this._remoteDataSource);
+  OnboardingRepositoryImpl(this._remoteDataSource, this._cepDataSource);
 
   final OnboardingRemoteDataSource _remoteDataSource;
+  final ViaCepDataSource _cepDataSource;
 
   @override
   Future<Either<Failure, EmpresaConfig>> buscarConfig() {
@@ -37,11 +40,29 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   }
 
   @override
-  Future<Either<Failure, Endereco>> buscarEnderecoPorCep(String cep) {
-    return _executar(() async {
-      final model = await _remoteDataSource.buscarEnderecoPorCep(cep);
-      return model.toEntity();
-    });
+  Future<Either<Failure, Endereco>> buscarEnderecoPorCep(String cep) async {
+    try {
+      final endereco = await _cepDataSource.buscar(cep);
+      return Right(
+        Endereco(
+          cep: endereco.cep,
+          endereco: endereco.logradouro,
+          cidade: endereco.cidade,
+          uf: endereco.uf,
+        ),
+      );
+    } on CepNaoEncontradoException {
+      return const Left(
+        NotFoundFailure(
+          message: 'CEP não encontrado.',
+          code: 'cep_nao_encontrado',
+        ),
+      );
+    } on DioException catch (e) {
+      return Left(failureFrom(e));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
   }
 
   @override
@@ -72,44 +93,15 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     });
   }
 
-  // o try/catch é igual em todos os métodos: fica num lugar só
+  // o try/catch é igual em todos os métodos: fica num lugar só. a tradução
+  // do erro em Failure é a mesma do app inteiro (core/error/failure_mapper)
   Future<Either<Failure, T>> _executar<T>(Future<T> Function() acao) async {
     try {
       return Right(await acao());
     } on DioException catch (e) {
-      return Left(ServerFailure(_messageFrom(e)));
+      return Left(failureFrom(e));
     } catch (_) {
       return const Left(ServerFailure());
     }
-  }
-
-  // mesma tradução do RegisterRepositoryImpl. as duas cópias devem ir para o
-  // core/error quando alguém mexer na register
-  String _messageFrom(DioException e) {
-    final response = e.response;
-
-    // sem resposta: a requisição nem chegou na API (rede, timeout, URL)
-    if (response == null) {
-      return 'Não foi possível conectar ao servidor.';
-    }
-
-    // contrato de erro da API: {"detail", "code", "fields"?}. em erro de
-    // validação o detail é genérico ("Dados inválidos.") e o motivo real
-    // fica em fields: {"campo": ["mensagem", ...]}
-    final data = response.data;
-    if (data is Map) {
-      final fields = data['fields'];
-      if (fields is Map) {
-        for (final value in fields.values) {
-          if (value is List && value.isNotEmpty) return value.first.toString();
-          if (value is String) return value;
-        }
-      }
-
-      final detail = data['detail'];
-      if (detail is String) return detail;
-    }
-
-    return 'Erro no servidor (${response.statusCode}). Tente novamente.';
   }
 }

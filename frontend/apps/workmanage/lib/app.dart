@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/routing/app_router.dart';
 
@@ -19,6 +20,11 @@ class App extends ConsumerWidget {
       title: 'Work Manage',
       theme: brightness == Brightness.light ? theme.light() : theme.dark(),
       routerConfig: ref.watch(routerProvider),
+      // tudo em português: os textos dos widgets do Flutter (relógio,
+      // calendário, botões de diálogo) e os formatos de data
+      locale: const Locale('pt', 'BR'),
+      supportedLocales: const [Locale('pt', 'BR')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
     );
   }
 }

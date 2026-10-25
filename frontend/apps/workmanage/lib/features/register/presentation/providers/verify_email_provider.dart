@@ -1,21 +1,27 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:managers/core/session/sessao_controller.dart';
 
 import '../../domain/params/confirm_param.dart';
 import '../../domain/usecases/confirm_register_use_case.dart';
 import '../../domain/usecases/resend_code_use_case.dart';
 
 // estado da tela "Verifique seu e-mail": confirmar o código e reenviar
-// (montado em register_injection.dart)
-class VerifyEmailViewModel extends ChangeNotifier {
-  VerifyEmailViewModel(this._confirmRegister, this._resendCode) {
+// (montado em register_provider.dart, na raiz da feature)
+class VerifyEmailProvider extends ChangeNotifier {
+  VerifyEmailProvider({
+    required this._confirmRegister,
+    required this._resendCode,
+    required this._sessao,
+  }) {
     // a tela abre logo depois do envio: o primeiro reenvio já espera
     _startCooldown();
   }
 
   final ConfirmRegisterUseCase _confirmRegister;
   final ResendCodeUseCase _resendCode;
+  final SessaoController _sessao;
 
   // o backend gera o código com 8 dígitos (core/models.py)
   static const codeLength = 8;
@@ -43,7 +49,8 @@ class VerifyEmailViewModel extends ChangeNotifier {
   // a tela pode ser fechada durante a requisição
   bool _disposed = false;
 
-  // devolve true se o código conferiu (a empresa foi criada)
+  // devolve true se o código conferiu: a empresa foi criada e a sessão
+  // devolvida já está guardada. a tela segue direto para o onboarding
   Future<bool> confirm({required String email, required String code}) async {
     _isLoading = true;
     _errorMessage = null;
@@ -56,15 +63,17 @@ class VerifyEmailViewModel extends ChangeNotifier {
 
     if (_disposed) return false;
 
-    _isLoading = false;
-
-    final success = result.fold((failure) {
+    final sessao = result.fold((failure) {
       _errorMessage = failure.message;
-      return false;
-    }, (_) => true);
+      return null;
+    }, (sessao) => sessao);
 
+    if (sessao != null) await _sessao.entrar(sessao);
+    if (_disposed) return sessao != null;
+
+    _isLoading = false;
     notifyListeners();
-    return success;
+    return sessao != null;
   }
 
   Future<void> resend(String email) async {

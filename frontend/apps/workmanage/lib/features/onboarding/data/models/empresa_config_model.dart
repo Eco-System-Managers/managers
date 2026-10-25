@@ -45,7 +45,6 @@ class EmpresaConfigModel {
       documento: json['documento'] as String? ?? '',
       cep: json['cep'] as String? ?? '',
       endereco: json['endereco'] as String? ?? '',
-      // ainda não existe no backend: vem sempre vazio por enquanto
       numero: json['numero'] as String? ?? '',
       cidade: json['cidade'] as String? ?? '',
       uf: json['uf'] as String? ?? '',

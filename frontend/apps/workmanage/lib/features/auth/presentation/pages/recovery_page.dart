@@ -1,22 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:managers/features/auth/presentation/providers/recovery_provider.dart';
 import 'package:managers/core/widgets/auth_logo.dart';
 import 'package:managers/core/widgets/auth_panel.dart';
 import 'package:managers/core/widgets/success_view.dart';
 import 'package:pinput/pinput.dart';
+import 'package:validatorless/validatorless.dart';
 
-class RecoveryPage extends StatefulWidget {
-  const RecoveryPage({super.key, required this.provider});
+import '../../auth_provider.dart';
+import '../providers/recovery_provider.dart';
 
-  // a tela recebe o provider de fora (vem do app_router.dart)
-  final RecoveryProvider provider;
+// a tela lê o provider pelo ref (Riverpod), como as demais
+class RecoveryPage extends ConsumerStatefulWidget {
+  const RecoveryPage({super.key});
 
   @override
-  State<RecoveryPage> createState() => _RecoveryPageState();
+  ConsumerState<RecoveryPage> createState() => _RecoveryPageState();
 }
 
-class _RecoveryPageState extends State<RecoveryPage> {
+class _RecoveryPageState extends ConsumerState<RecoveryPage> {
+  // o required do Validatorless aceita só espaços; isto exige um caractere
+  static final _notBlank = RegExp(r'\S');
+
+  // o email() do Validatorless recusa maiúsculas; os espaços nas pontas
+  // são aceitos porque o provider faz trim antes de enviar
+  static final _emailPattern = RegExp(r'^\s*[^@\s]+@[^@\s]+\.[^@\s]+\s*$');
+
+  static const _codeLength = RecoveryProvider.codeLength;
+
   // um form só: em cada etapa, só os campos visíveis entram no validate()
   final _formKey = GlobalKey<FormState>();
 
@@ -29,6 +40,8 @@ class _RecoveryPageState extends State<RecoveryPage> {
   // controla se cada senha está escondida (true) ou visível (false)
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  RecoveryProvider get _provider => ref.read(recoveryProvider);
 
   // libera a memória dos controllers quando a tela é destruída
   @override
@@ -44,32 +57,35 @@ class _RecoveryPageState extends State<RecoveryPage> {
   // a troca de etapa é decidida lá: a tela só redesenha pelo ListenableBuilder
   Future<void> _sendCode() async {
     if (!_formKey.currentState!.validate()) return;
-    await widget.provider.sendCode(_emailController.text);
+    await _provider.sendCode(_emailController.text);
   }
 
   Future<void> _verifyCode() async {
     if (!_formKey.currentState!.validate()) return;
-    await widget.provider.verifyCode(_codeController.text);
+    await _provider.verifyCode(_codeController.text);
   }
 
   Future<void> _resetPassword() async {
     if (!_formKey.currentState!.validate()) return;
-    await widget.provider.resetPassword(_passwordController.text);
+    await _provider.resetPassword(_passwordController.text);
   }
 
   Future<void> _resendCode() async {
     // o código antigo não vale mais
     _codeController.clear();
-    await widget.provider.resendCode();
+    await _provider.resendCode();
   }
 
   void _changeEmail() {
     _codeController.clear();
-    widget.provider.backToEmail();
+    _provider.backToEmail();
   }
 
   @override
   Widget build(BuildContext context) {
+    // watch: mantém o provider vivo enquanto a tela estiver aberta
+    final provider = ref.watch(recoveryProvider);
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
 
@@ -90,13 +106,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
                 // redesenha o painel sempre que o provider avisar
                 // (troca de etapa, loading ou erro)
                 child: ListenableBuilder(
-                  listenable: widget.provider,
+                  listenable: provider,
                   builder: (context, _) {
                     // mostra só a etapa atual
-                    return switch (widget.provider.step) {
-                      RecoveryStep.email => _emailStep(),
-                      RecoveryStep.code => _codeStep(),
-                      RecoveryStep.newPassword => _newPasswordStep(),
+                    return switch (provider.step) {
+                      RecoveryStep.email => _emailStep(provider),
+                      RecoveryStep.code => _codeStep(provider),
+                      RecoveryStep.newPassword => _newPasswordStep(provider),
                       RecoveryStep.success => _successStep(),
                     };
                   },
@@ -110,7 +126,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
   }
 
   // ETAPA 1: e-mail
-  Widget _emailStep() {
+  Widget _emailStep(RecoveryProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -127,7 +143,10 @@ class _RecoveryPageState extends State<RecoveryPage> {
           textInputAction: TextInputAction.done,
           // enter no teclado também envia
           onFieldSubmitted: (_) => _sendCode(),
-          validator: widget.provider.validateEmail,
+          validator: Validatorless.multiple([
+            Validatorless.regex(_notBlank, 'Informe seu e-mail'),
+            Validatorless.regex(_emailPattern, 'E-mail inválido'),
+          ]),
           decoration: const InputDecoration(
             labelText: 'E-mail',
             prefixIcon: Icon(Icons.email_outlined),
@@ -135,23 +154,23 @@ class _RecoveryPageState extends State<RecoveryPage> {
           ),
         ),
 
-        _errorMessage(),
+        _errorMessage(provider),
 
         const SizedBox(height: 24),
 
-        _submitButton('Enviar código', _sendCode),
+        _submitButton(provider, 'Enviar código', _sendCode),
       ],
     );
   }
 
   // ETAPA 2: código de verificação
-  Widget _codeStep() {
+  Widget _codeStep(RecoveryProvider provider) {
     final colors = Theme.of(context).colorScheme;
-    final loading = widget.provider.isLoading;
+    final loading = provider.isLoading;
 
     // aparência de cada caixinha do código
     final pinTheme = PinTheme(
-      width: 44,
+      width: 40,
       height: 52,
       textStyle: Theme.of(context).textTheme.titleLarge
           ?.copyWith(fontWeight: FontWeight.w600),
@@ -166,33 +185,45 @@ class _RecoveryPageState extends State<RecoveryPage> {
       children: [
         _header(
           'Verificar código',
-          'Digite o código de ${RecoveryProvider.codeLength} dígitos '
-              'enviado para ${widget.provider.email}.',
+          'Digite o código de $_codeLength dígitos '
+              'enviado para ${provider.email}.',
         ),
 
         const SizedBox(height: 24),
 
-        Pinput(
-          length: RecoveryProvider.codeLength,
-          controller: _codeController,
-          autofocus: true,
-          enabled: !loading,
-          defaultPinTheme: pinTheme,
-          // caixinha em foco ganha a cor da marca
-          focusedPinTheme: pinTheme.copyBorderWith(
-            border: Border.all(color: colors.primary, width: 2),
+        // 8 caixinhas não cabem em celular estreito:
+        // o FittedBox encolhe em vez de estourar a tela
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Pinput(
+            length: _codeLength,
+            controller: _codeController,
+            autofocus: true,
+            enabled: !loading,
+            defaultPinTheme: pinTheme,
+            // caixinha em foco ganha a cor da marca
+            focusedPinTheme: pinTheme.copyBorderWith(
+              border: Border.all(color: colors.primary, width: 2),
+            ),
+            separatorBuilder: (_) => const SizedBox(width: 6),
+            validator: Validatorless.multiple([
+              Validatorless.required('Informe o código'),
+              Validatorless.number('O código tem só números'),
+              Validatorless.length(
+                _codeLength,
+                'O código tem $_codeLength dígitos',
+              ),
+            ]),
+            // ao digitar o último dígito, já verifica
+            onCompleted: (_) => _verifyCode(),
           ),
-          separatorBuilder: (_) => const SizedBox(width: 8),
-          validator: widget.provider.validateCode,
-          // ao digitar o último dígito, já verifica
-          onCompleted: (_) => _verifyCode(),
         ),
 
-        _errorMessage(),
+        _errorMessage(provider),
 
         const SizedBox(height: 24),
 
-        _submitButton('Verificar', _verifyCode),
+        _submitButton(provider, 'Verificar', _verifyCode),
 
         const SizedBox(height: 8),
 
@@ -214,7 +245,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
   }
 
   // ETAPA 3: nova senha
-  Widget _newPasswordStep() {
+  Widget _newPasswordStep(RecoveryProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -226,7 +257,15 @@ class _RecoveryPageState extends State<RecoveryPage> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.next,
-          validator: widget.provider.validatePassword,
+          // mesmas regras do backend (validadores de senha do Django)
+          validator: Validatorless.multiple([
+            Validatorless.regex(_notBlank, 'Informe uma senha'),
+            Validatorless.min(8, 'Mínimo de 8 caracteres'),
+            Validatorless.regex(
+              RegExp(r'\D'),
+              'A senha não pode ter só números',
+            ),
+          ]),
           decoration: InputDecoration(
             labelText: 'Nova senha',
             prefixIcon: const Icon(Icons.lock_outline),
@@ -252,10 +291,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
           textInputAction: TextInputAction.done,
           onFieldSubmitted: (_) => _resetPassword(),
           // compara com o que está no campo de senha agora
-          validator: (value) => widget.provider.validateConfirmPassword(
-            value,
-            _passwordController.text,
-          ),
+          validator: Validatorless.multiple([
+            Validatorless.required('Confirme sua senha'),
+            Validatorless.compare(
+              _passwordController,
+              'As senhas não conferem',
+            ),
+          ]),
           decoration: InputDecoration(
             labelText: 'Confirmar nova senha',
             prefixIcon: const Icon(Icons.lock_outline),
@@ -275,11 +317,11 @@ class _RecoveryPageState extends State<RecoveryPage> {
           ),
         ),
 
-        _errorMessage(),
+        _errorMessage(provider),
 
         const SizedBox(height: 24),
 
-        _submitButton('Alterar senha', _resetPassword),
+        _submitButton(provider, 'Alterar senha', _resetPassword),
       ],
     );
   }
@@ -316,8 +358,8 @@ class _RecoveryPageState extends State<RecoveryPage> {
   }
 
   // mensagem de erro do provider (só aparece se houver)
-  Widget _errorMessage() {
-    final error = widget.provider.errorMessage;
+  Widget _errorMessage(RecoveryProvider provider) {
+    final error = provider.errorMessage;
 
     if (error == null) {
       return const SizedBox.shrink();
@@ -333,8 +375,12 @@ class _RecoveryPageState extends State<RecoveryPage> {
   }
 
   // botão principal da etapa: reage ao estado de loading
-  Widget _submitButton(String label, VoidCallback onPressed) {
-    final loading = widget.provider.isLoading;
+  Widget _submitButton(
+    RecoveryProvider provider,
+    String label,
+    VoidCallback onPressed,
+  ) {
+    final loading = provider.isLoading;
 
     return FilledButton(
       // null desabilita o botão durante o loading

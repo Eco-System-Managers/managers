@@ -18,18 +18,13 @@ enum WizardStep { negocio, nicho, horarios, concluido }
 
 class WizardProvider extends ChangeNotifier {
   WizardProvider({
-    required BuscarConfigUseCase buscarConfig,
-    required SalvarConfigUseCase salvarConfig,
-    required BuscarEnderecoPorCepUseCase buscarEnderecoPorCep,
-    required BuscarHorariosUseCase buscarHorarios,
-    required SalvarHorariosUseCase salvarHorarios,
-    required ConcluirOnboardingUseCase concluirOnboarding,
-  }) : _buscarConfig = buscarConfig,
-       _salvarConfig = salvarConfig,
-       _buscarEnderecoPorCep = buscarEnderecoPorCep,
-       _buscarHorarios = buscarHorarios,
-       _salvarHorarios = salvarHorarios,
-       _concluirOnboarding = concluirOnboarding;
+    required this._buscarConfig,
+    required this._salvarConfig,
+    required this._buscarEnderecoPorCep,
+    required this._buscarHorarios,
+    required this._salvarHorarios,
+    required this._concluirOnboarding,
+  });
 
   final BuscarConfigUseCase _buscarConfig;
   final SalvarConfigUseCase _salvarConfig;
@@ -240,7 +235,9 @@ class WizardProvider extends ChangeNotifier {
     return WizardStep.horarios;
   }
 
-  // molde de toda ação: liga o loading, chama o use case e guarda o erro
+  // molde de toda ação: liga o loading, chama o use case e guarda o erro.
+  // erro de validação da API vira a mensagem do campo que falhou (documento,
+  // CEP...), que diz mais que o "Dados inválidos." genérico
   Future<void> _run<T>(
     Future<Either<Failure, T>> Function() acao,
     void Function(T valor) sucesso,
@@ -252,7 +249,11 @@ class WizardProvider extends ChangeNotifier {
     final result = await acao();
     if (_disposed) return;
 
-    result.fold((failure) => _errorMessage = failure.message, sucesso);
+    result.fold((failure) {
+      _errorMessage = failure is ValidationFailure
+          ? failure.resumo
+          : failure.message;
+    }, sucesso);
 
     _isLoading = false;
     notifyListeners(); // avisa a tela: "terminei" (e a etapa nova, se mudou)

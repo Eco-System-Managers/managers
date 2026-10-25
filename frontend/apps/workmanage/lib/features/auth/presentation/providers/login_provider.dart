@@ -1,52 +1,56 @@
 import 'package:flutter/foundation.dart';
+import 'package:managers/core/session/sessao_controller.dart';
 
+import '../../domain/params/login_params.dart';
 import '../../domain/usecases/login_use_case.dart';
 
+// estado da tela de login (montado em auth_provider.dart). a validação
+// dos campos fica na page, com o Validatorless
 class LoginProvider extends ChangeNotifier {
-  LoginProvider(this._login);
+  LoginProvider({required this._login, required this._sessao});
 
   final LoginUseCase _login;
+  final SessaoController _sessao;
 
   // estado da tela (privado, só o provider altera)
   bool _isLoading = false;
   String? _errorMessage;
 
+  // a tela pode ser fechada durante a requisição
+  bool _disposed = false;
+
   // getters: a tela só consegue ler
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // validators: devolvem null (válido) ou a mensagem de erro
-  String? validateEmail(String? value) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) return 'Informe seu e-mail';
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      return 'E-mail inválido';
-    }
-    return null;
-  }
-
-  String? validatePassword(String? value) {
-    // no login só exigimos que não esteja vazia: quem confere a senha é o backend
-    if (value == null || value.isEmpty) return 'Informe sua senha';
-    return null;
-  }
-
-  // ação chamada pela tela: devolve true se o login deu certo
-  Future<bool> login(String email, String password) async {
+  // ação chamada pela tela: devolve true se entrou. a sessão já fica
+  // guardada aqui; a tela só precisa seguir para a splash decidir a rota
+  Future<bool> login(String email, String senha) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners(); // avisa a tela: "estou carregando"
 
-    try {
-      await _login(email, password);
-      return true;
-    } catch (e) {
-      _errorMessage = 'Não foi possível entrar. Tente novamente.';
-      return false;
-    } finally {
-      // o finally roda sempre, dando certo ou não
-      _isLoading = false;
-      notifyListeners(); // avisa a tela: "terminei"
-    }
+    final result = await _login(LoginParams(email: email, senha: senha));
+    if (_disposed) return false;
+
+    // o detail da API já é a mensagem para a pessoa ("E-mail ou senha
+    // inválidos.", "Muitas tentativas..."), então ele é mostrado como veio
+    final sessao = result.fold((failure) {
+      _errorMessage = failure.message;
+      return null;
+    }, (sessao) => sessao);
+
+    if (sessao != null) await _sessao.entrar(sessao);
+    if (_disposed) return sessao != null;
+
+    _isLoading = false;
+    notifyListeners(); // avisa a tela: "terminei"
+    return sessao != null;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

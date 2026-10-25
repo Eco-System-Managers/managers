@@ -52,7 +52,8 @@ class WorkManageLoader extends StatefulWidget {
   State<WorkManageLoader> createState() => _WorkManageLoaderState();
 }
 
-class _WorkManageLoaderState extends State<WorkManageLoader> with SingleTickerProviderStateMixin {
+class _WorkManageLoaderState extends State<WorkManageLoader>
+    with SingleTickerProviderStateMixin {
   late final List<_Seg> _scenes = _scenesWith(
     widget.pauseDuration.inMilliseconds / 1000,
   );
@@ -70,7 +71,9 @@ class _WorkManageLoaderState extends State<WorkManageLoader> with SingleTickerPr
       widget.onCycleEnd?.call();
       if (widget.loop && mounted) _c.forward(from: 0);
     });
-    final startPlay = widget.startFull ? _scenes[0].play + _scenes[1].play : 0.0;
+    final startPlay = widget.startFull
+        ? _scenes[0].play + _scenes[1].play
+        : 0.0;
     _c.forward(from: startPlay / _playTotal);
   }
 
@@ -105,7 +108,7 @@ class _WorkManageLoaderState extends State<WorkManageLoader> with SingleTickerPr
         child: RepaintBoundary(
           child: AnimatedBuilder(
             animation: _c,
-            builder: (_, __) {
+            builder: (_, _) {
               final t = reduceMotion ? 2.2 : _authored(_c.value * _playTotal);
               return CustomPaint(painter: _LogoPainter.at(t, color));
             },
@@ -116,7 +119,14 @@ class _WorkManageLoaderState extends State<WorkManageLoader> with SingleTickerPr
   }
 }
 
-double _tw(double t, double from, double to, double start, double end, Curve curve) {
+double _tw(
+  double t,
+  double from,
+  double to,
+  double start,
+  double end,
+  Curve curve,
+) {
   final x = ((t - start) / (end - start)).clamp(0.0, 1.0);
   return from + (to - from) * curve.transform(x);
 }
@@ -130,8 +140,12 @@ class _LogoPainter extends CustomPainter {
     final before = t < _cSaida;
     return _LogoPainter(
       color,
-      before ? _tw(t, 1, 0, 0, 1.0, draw) : _tw(t, 0, -1, _cSaida, _cEnd - 0.15, draw),
-      before ? _tw(t, 1, 0, 0.2, _cPonto, draw) : _tw(t, 0, -1, _cSaida + 0.1, _cEnd - 0.05, draw),
+      before
+          ? _tw(t, 1, 0, 0, 1.0, draw)
+          : _tw(t, 0, -1, _cSaida, _cEnd - 0.15, draw),
+      before
+          ? _tw(t, 1, 0, 0.2, _cPonto, draw)
+          : _tw(t, 0, -1, _cSaida + 0.1, _cEnd - 0.05, draw),
       before
           ? _tw(t, 0, 1, _cPonto - 0.1, _cPonto + 0.45, Curves.easeOutBack)
           : _tw(t, 1, 0, _cSaida, _cSaida + 0.4, draw),
@@ -156,7 +170,13 @@ class _LogoPainter extends CustomPainter {
     if (sweep >= _tau - 0.001) {
       c.drawCircle(center, 22, p);
     } else {
-      c.drawArc(Rect.fromCircle(center: center, radius: 22), start + a0, sweep, false, p);
+      c.drawArc(
+        Rect.fromCircle(center: center, radius: 22),
+        start + a0,
+        sweep,
+        false,
+        p,
+      );
     }
   }
 
@@ -202,5 +222,9 @@ class _LogoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LogoPainter o) =>
-      o.lo != lo || o.ro != ro || o.dot != dot || o.breath != breath || o.color != color;
+      o.lo != lo ||
+      o.ro != ro ||
+      o.dot != dot ||
+      o.breath != breath ||
+      o.color != color;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:managers/core/cep/cep_provider.dart';
+import 'package:managers/core/network/dio_client.dart';
 
-import 'data/datasources/onboarding_fake_datasource.dart';
 import 'data/datasources/onboarding_remote_datasource.dart';
 import 'data/repositories/onboarding_repository_impl.dart';
 import 'domain/repositories/onboarding_repository.dart';
@@ -13,17 +14,16 @@ import 'domain/usecases/salvar_horarios_use_case.dart';
 import 'presentation/providers/wizard_provider.dart';
 
 // injeção de dependências do onboarding: é o único lugar que conhece as
-// implementações. trocar a simulação pela API é mexer só no primeiro provider
-
-// sem autoDispose: o fake guarda os dados em memória, e precisa ser a mesma
-// instância enquanto o app estiver aberto
+// implementações. trocar a implementação é mexer só aqui
 final onboardingRemoteDataSourceProvider = Provider<OnboardingRemoteDataSource>(
-  (ref) => OnboardingFakeDataSource(),
+  (ref) => OnboardingRemoteDataSourceImpl(ref.watch(dioProvider)),
 );
 
 final onboardingRepositoryProvider = Provider<OnboardingRepository>(
-  (ref) =>
-      OnboardingRepositoryImpl(ref.watch(onboardingRemoteDataSourceProvider)),
+  (ref) => OnboardingRepositoryImpl(
+    ref.watch(onboardingRemoteDataSourceProvider),
+    ref.watch(cepDataSourceProvider),
+  ),
 );
 
 final buscarConfigUseCaseProvider = Provider(
@@ -51,7 +51,7 @@ final concluirOnboardingUseCaseProvider = Provider(
 );
 
 // estado da tela do wizard. autoDispose: ao sair do onboarding ele é
-// descartado; os dados continuam no datasource e voltam no próximo carregar()
+// descartado; os dados estão na API e voltam no próximo carregar()
 final wizardProvider = Provider.autoDispose<WizardProvider>((ref) {
   final wizard = WizardProvider(
     buscarConfig: ref.watch(buscarConfigUseCaseProvider),

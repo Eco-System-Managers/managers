@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:managers/core/session/sessao_model.dart';
 
+// fala com /auth/cadastro/ da API. não trata erro: se a requisição falhar,
+// a DioException sobe para o repository, que a traduz em Failure
 abstract class RegisterRemoteDataSource {
   Future<void> register({
     required String nomeEmpresa,
@@ -8,7 +11,8 @@ abstract class RegisterRemoteDataSource {
     required String senha,
   });
 
-  Future<void> confirm({required String email, required String code});
+  // cria a empresa e devolve a sessão (access e refresh)
+  Future<SessaoModel> confirm({required String email, required String code});
 
   Future<void> resendCode(String email);
 }
@@ -38,14 +42,17 @@ class RegisterRemoteDataSourceImpl implements RegisterRemoteDataSource {
     );
   }
 
-  // cria a empresa e devolve a sessão (access e refresh)
-  // TODO: guardar a sessão quando o app tiver onde (core)
+  // responde 201 com o schema Sessao, igual ao login
   @override
-  Future<void> confirm({required String email, required String code}) async {
-    await dio.post(
+  Future<SessaoModel> confirm({
+    required String email,
+    required String code,
+  }) async {
+    final response = await dio.post<Map<String, dynamic>>(
       'auth/cadastro/confirmar/',
       data: {'email': email, 'codigo': code},
     );
+    return SessaoModel.fromJson(response.data!);
   }
 
   @override

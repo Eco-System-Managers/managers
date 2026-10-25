@@ -1,5 +1,9 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
+import 'package:managers/core/error/failures.dart';
 
+import '../../domain/params/reset_password_params.dart';
+import '../../domain/params/verify_recovery_code_params.dart';
 import '../../domain/usecases/reset_password_use_case.dart';
 import '../../domain/usecases/send_recovery_code_use_case.dart';
 import '../../domain/usecases/verify_recovery_code_use_case.dart';
@@ -7,28 +11,34 @@ import '../../domain/usecases/verify_recovery_code_use_case.dart';
 // as etapas do fluxo de recuperação: a tela mostra uma de cada vez
 enum RecoveryStep { email, code, newPassword, success }
 
+// estado da tela de recuperação de senha (montado em auth_provider.dart).
+// a validação dos campos fica na page, com o Validatorless
 class RecoveryProvider extends ChangeNotifier {
   RecoveryProvider({
-    required SendRecoveryCodeUseCase sendRecoveryCode,
-    required VerifyRecoveryCodeUseCase verifyRecoveryCode,
-    required ResetPasswordUseCase resetPassword,
-  }) : _sendRecoveryCode = sendRecoveryCode,
-       _verifyRecoveryCode = verifyRecoveryCode,
-       _resetPassword = resetPassword;
+    required this._sendRecoveryCode,
+    required this._verifyRecoveryCode,
+    required this._resetPassword,
+  });
 
   final SendRecoveryCodeUseCase _sendRecoveryCode;
   final VerifyRecoveryCodeUseCase _verifyRecoveryCode;
   final ResetPasswordUseCase _resetPassword;
 
-  // tamanho do código enviado por e-mail (usar o mesmo no `length` do pinput)
-  static const codeLength = 6;
+  // o backend gera o código com 8 dígitos (core/models.py), o mesmo do
+  // cadastro. usar o mesmo no `length` do pinput
+  static const codeLength = 8;
 
   // estado da tela (privado, só o provider altera)
   RecoveryStep _step = RecoveryStep.email;
   bool _isLoading = false;
   String? _errorMessage;
-  // guardado na etapa do e-mail e usado de novo na troca de senha
+
+  // guardados ao longo das etapas: a troca de senha precisa dos dois
   String _email = '';
+  String _codigo = '';
+
+  // a tela pode ser fechada durante uma requisição
+  bool _disposed = false;
 
   // getters: a tela só consegue ler
   RecoveryStep get step => _step;
@@ -36,83 +46,39 @@ class RecoveryProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String get email => _email;
 
-  // validators: devolvem null (válido) ou a mensagem de erro
-  // TODO: mover para o arquivo compartilhado em lib/core/utils/
-  String? validateEmail(String? value) {
-    final email = value?.trim() ?? '';
-    if (_isEmpty(email)) return 'Informe seu e-mail';
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      return 'E-mail inválido';
-    }
-    return null;
-  }
-
-  String? validateCode(String? value) {
-    final code = value?.trim() ?? '';
-    if (_isEmpty(code)) return 'Informe o código';
-    if (code.length != codeLength || !RegExp(r'^\d+$').hasMatch(code)) {
-      return 'O código tem $codeLength dígitos';
-    }
-    return null;
-  }
-
-  // mesma regra do cadastro: a senha nova precisa ter no mínimo 6 caracteres
-  String? validatePassword(String? value) {
-    if (_isEmpty(value)) return 'Informe uma senha';
-    if (value!.length < 6) return 'Mínimo de 6 caracteres';
-    return null;
-  }
-
-  // precisa do valor da senha para comparar
-  String? validateConfirmPassword(String? value, String password) {
-    if (_isEmpty(value)) return 'Confirme sua senha';
-    if (value != password) return 'As senhas não conferem';
-    return null;
-  }
-
   // etapa email -> code
   Future<void> sendCode(String email) async {
     // guarda antes da chamada: o reenvio e a troca de senha usam o mesmo e-mail
     _email = email.trim();
-    await _run(
-      errorMessage: 'Não foi possível enviar o código. Tente novamente.',
-      action: () async {
-        await _sendRecoveryCode(_email);
-        _step = RecoveryStep.code;
-      },
-    );
+    await _run(() => _sendRecoveryCode(_email), () {
+      _step = RecoveryStep.code;
+    });
   }
 
   // etapa code -> newPassword
-  Future<void> verifyCode(String code) async {
-    await _run(
-      errorMessage: 'Código inválido ou expirado.',
-      action: () async {
-        await _verifyRecoveryCode(code);
-        _step = RecoveryStep.newPassword;
-      },
-    );
+  Future<void> verifyCode(String codigo) async {
+    final params = VerifyRecoveryCodeParams(email: _email, codigo: codigo);
+    await _run(() => _verifyRecoveryCode(params), () {
+      _codigo = codigo;
+      _step = RecoveryStep.newPassword;
+    });
   }
 
   // etapa newPassword -> success
-  Future<void> resetPassword(String password) async {
-    await _run(
-      errorMessage: 'Não foi possível alterar a senha. Tente novamente.',
-      action: () async {
-        await _resetPassword(_email, password);
-        _step = RecoveryStep.success;
-      },
+  Future<void> resetPassword(String novaSenha) async {
+    final params = ResetPasswordParams(
+      email: _email,
+      codigo: _codigo,
+      novaSenha: novaSenha,
     );
+    await _run(() => _resetPassword(params), () {
+      _step = RecoveryStep.success;
+    });
   }
 
   // na etapa code: reenvia para o mesmo e-mail, sem trocar de etapa
   Future<void> resendCode() async {
-    await _run(
-      errorMessage: 'Não foi possível reenviar o código. Tente novamente.',
-      action: () async {
-        await _sendRecoveryCode(_email);
-      },
-    );
+    await _run(() => _sendRecoveryCode(_email), () {});
   }
 
   // na etapa code: "errei o e-mail", volta para corrigir
@@ -122,25 +88,28 @@ class RecoveryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // molde de toda ação: mesmo fluxo do LoginProvider.login
-  Future<void> _run({
-    required String errorMessage,
-    required Future<void> Function() action,
-  }) async {
+  // molde de toda ação: liga o loading, chama o use case e guarda o erro.
+  // a mensagem é o detail da API ("Código inválido ou expirado.")
+  Future<void> _run(
+    Future<Either<Failure, void>> Function() acao,
+    void Function() sucesso,
+  ) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners(); // avisa a tela: "estou carregando"
 
-    try {
-      await action();
-    } catch (e) {
-      _errorMessage = errorMessage;
-    } finally {
-      // o finally roda sempre, dando certo ou não
-      _isLoading = false;
-      notifyListeners(); // avisa a tela: "terminei" (e a etapa nova, se mudou)
-    }
+    final result = await acao();
+    if (_disposed) return;
+
+    result.fold((failure) => _errorMessage = failure.message, (_) => sucesso());
+
+    _isLoading = false;
+    notifyListeners(); // avisa a tela: "terminei" (e a etapa nova, se mudou)
   }
 
-  bool _isEmpty(String? value) => value == null || value.trim().isEmpty;
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 }

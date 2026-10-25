@@ -1,20 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:managers/features/auth/presentation/providers/login_provider.dart';
 import 'package:managers/core/widgets/auth_logo.dart';
 import 'package:managers/core/widgets/auth_panel.dart';
+import 'package:validatorless/validatorless.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.provider});
+import '../../auth_provider.dart';
 
-  // a tela recebe o provider de fora (vem do app_router.dart)
-  final LoginProvider provider;
+// a tela lê o provider pelo ref (Riverpod), como as demais
+class LoginPage extends ConsumerStatefulWidget {
+  const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
+  // o required do Validatorless aceita só espaços; isto exige um caractere
+  static final _notBlank = RegExp(r'\S');
+
+  // o email() do Validatorless recusa maiúsculas; os espaços nas pontas
+  // são aceitos porque o _submit faz trim antes de enviar
+  static final _emailPattern = RegExp(r'^\s*[^@\s]+@[^@\s]+\.[^@\s]+\s*$');
+
   // chave que dá acesso ao form para chamar validate()
   final _formKey = GlobalKey<FormState>();
 
@@ -38,21 +46,22 @@ class _LoginPageState extends State<LoginPage> {
     if (!_formKey.currentState!.validate()) return;
 
     // entrega os textos digitados para o provider
-    final ok = await widget.provider.login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    final ok = await ref
+        .read(loginProvider)
+        .login(_emailController.text.trim(), _passwordController.text);
 
     // se a tela foi fechada durante a espera, não faz mais nada
     if (!mounted) return;
 
-    if (ok) {
-      // TODO: navegar para a tela principal (context.go('/home'))
-    }
+    // a sessão já está guardada: a splash decide entre onboarding e home
+    if (ok) context.go('/splash');
   }
 
   @override
   Widget build(BuildContext context) {
+    // watch: mantém o provider vivo enquanto a tela estiver aberta
+    final provider = ref.watch(loginProvider);
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
 
@@ -82,7 +91,10 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      validator: widget.provider.validateEmail,
+                      validator: Validatorless.multiple([
+                        Validatorless.regex(_notBlank, 'Informe seu e-mail'),
+                        Validatorless.regex(_emailPattern, 'E-mail inválido'),
+                      ]),
                       decoration: const InputDecoration(
                         labelText: 'E-mail',
                         prefixIcon: Icon(Icons.email_outlined),
@@ -92,7 +104,8 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 16),
 
-                    // senha
+                    // senha: só exigimos que não esteja vazia, quem confere
+                    // é o backend
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -101,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
                       // enter no teclado também tenta entrar
                       onFieldSubmitted: (_) => _submit(),
 
-                      validator: widget.provider.validatePassword,
+                      validator: Validatorless.required('Informe sua senha'),
                       decoration: InputDecoration(
                         labelText: 'Senha',
                         prefixIcon: const Icon(Icons.lock_outline),
@@ -136,9 +149,9 @@ class _LoginPageState extends State<LoginPage> {
 
                     // mensagem de erro do provider (só aparece se houver)
                     ListenableBuilder(
-                      listenable: widget.provider,
+                      listenable: provider,
                       builder: (context, _) {
-                        final error = widget.provider.errorMessage;
+                        final error = provider.errorMessage;
 
                         if (error == null) {
                           return const SizedBox.shrink();
@@ -160,9 +173,9 @@ class _LoginPageState extends State<LoginPage> {
 
                     // botão de entrar: reage ao estado de loading
                     ListenableBuilder(
-                      listenable: widget.provider,
+                      listenable: provider,
                       builder: (context, _) {
-                        final loading = widget.provider.isLoading;
+                        final loading = provider.isLoading;
 
                         return FilledButton(
                           // null desabilita o botão durante o loading
