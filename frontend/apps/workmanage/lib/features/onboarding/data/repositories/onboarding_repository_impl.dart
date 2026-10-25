@@ -69,8 +69,29 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   Future<Either<Failure, List<HorarioFuncionamento>>> buscarHorarios() {
     return _executar(() async {
       final models = await _remoteDataSource.buscarHorarios();
-      return models.map((m) => m.toEntity()).toList();
+      return _semanaCompleta(models.map((m) => m.toEntity()).toList());
     });
+  }
+
+  // a API só tem os dias que já foram salvos: negócio novo vem sem nenhum.
+  // o wizard precisa dos sete, então os que faltam entram com um padrão
+  // comum (segunda a sábado, 8h às 18h, domingo fechado) para a pessoa
+  // ajustar em vez de preencher do zero. só viram linha na API ao concluir
+  List<HorarioFuncionamento> _semanaCompleta(
+    List<HorarioFuncionamento> salvos,
+  ) {
+    return [
+      for (final dia in DiaSemana.values)
+        salvos.firstWhere(
+          (h) => h.dia == dia,
+          orElse: () => HorarioFuncionamento(
+            dia: dia,
+            ativo: dia != DiaSemana.domingo,
+            abertura: const HoraDoDia(8, 0),
+            fechamento: const HoraDoDia(18, 0),
+          ),
+        ),
+    ];
   }
 
   @override
