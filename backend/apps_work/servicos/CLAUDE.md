@@ -11,7 +11,7 @@ cliente final.
 |---|---|
 | `models.py` | `Servico` — nome, duração, preço, quais colaboradores executam, e a taxa de cancelamento |
 | `serializers.py` | Validação de preço, duração e o teto da taxa |
-| `views.py` | ViewSet. Escrita restrita ao proprietário; leitura liberada para colaborador |
+| `views.py` | ViewSet. Escrita restrita ao proprietário; leitura liberada para colaborador. A lista filtra por `?search=`, `?ativo=` e `?colaborador=` (documentados no OpenAPI) |
 | `urls.py` | Rotas sob `/api/v1/servicos/` |
 
 ## Tabela
@@ -52,5 +52,8 @@ e está em `apps_serv/vitrine/services.py`.
   congela o preço, mas a duração é lida do serviço atual.
 - **Só o proprietário edita.** `get_permissions` libera leitura para colaborador
   e exige `IsProprietario` para escrita.
+- **`DELETE` apaga de verdade** e estoura se o serviço já foi agendado
+  (`AgendamentoServico` protege). O app inativa por `PATCH ativo=false` e não
+  chama o `DELETE`.
 - **O app B2C lê este catálogo** via `CrossTenantQueryService.listar_servicos`,
   filtrando por `ativo=True`. Desativar serviço o remove da vitrine na hora.

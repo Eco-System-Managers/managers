@@ -1856,6 +1856,11 @@ paths:
         description: Número de resultados a serem retornados por página.
         schema:
           type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Busca em nome e e-mail.
       tags:
       - colaboradores
       security:
@@ -6605,6 +6610,16 @@ paths:
     get:
       operationId: servicos_list
       parameters:
+      - in: query
+        name: ativo
+        schema:
+          type: boolean
+        description: '`true` só os ativos, `false` só os inativos; sem o filtro, todos.'
+      - in: query
+        name: colaborador
+        schema:
+          type: integer
+        description: Só os serviços que este colaborador executa.
       - name: page
         required: false
         in: query
@@ -6617,6 +6632,11 @@ paths:
         description: Número de resultados a serem retornados por página.
         schema:
           type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Busca em nome e descrição.
       tags:
       - servicos
       security:

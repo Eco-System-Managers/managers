@@ -1,11 +1,25 @@
+from django.db.models import Q
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q
 from core.permissions import IsProprietario
 from .models import Servico
 from .serializers import ServicoSerializer
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter('search', OpenApiTypes.STR, description='Busca em nome e descrição.'),
+            OpenApiParameter(
+                'ativo', OpenApiTypes.BOOL,
+                description='`true` só os ativos, `false` só os inativos; sem o filtro, todos.',
+            ),
+            OpenApiParameter('colaborador', OpenApiTypes.INT, description='Só os serviços que este colaborador executa.'),
+        ],
+    ),
+)
 class ServicoViewSet(viewsets.ModelViewSet):
     serializer_class = ServicoSerializer
 

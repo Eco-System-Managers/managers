@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework import serializers
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -22,6 +23,11 @@ from .services import AceitarConviteService, ColaboradorService, ConviteService
 from core.excecoes import erro
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[OpenApiParameter('search', OpenApiTypes.STR, description='Busca em nome e e-mail.')],
+    ),
+)
 class ColaboradorViewSet(viewsets.ModelViewSet):
     serializer_class = ColaboradorSerializer
 
