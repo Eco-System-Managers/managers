@@ -36,7 +36,9 @@ trial com `plano_padrao()` (`billing/services.py`), que cria o plano de
 
 Em desenvolvimento, `python manage.py popular_dev` faz tudo de uma vez: garante
 o plano padrão e cria uma empresa de exemplo com o dono e o onboarding concluído
-(`dono@demo.com` / `SenhaForte123!`). Só roda com `DEBUG=True`.
+(`dono@demo.com` / `SenhaForte123!`). `--nicho lava_rapido` ou `banho_tosa`
+cria a empresa no modo kanban, com as etapas padrão (`dono.lava@demo.com` /
+`dono.pet@demo.com`). Só roda com `DEBUG=True`.
 
 ### `Assinatura` — o vínculo do negócio com a plataforma
 

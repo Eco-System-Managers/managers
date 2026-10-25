@@ -11,14 +11,29 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
-        parser.add_argument('--empresa', default='Barbearia Demo')
+        parser.add_argument('--empresa', default=None, help='Padrão: "Barbearia Demo" (ou o nome do nicho escolhido)')
         parser.add_argument('--nome', default='Dono Demo')
-        parser.add_argument('--email', default='dono@demo.com')
+        parser.add_argument('--email', default=None, help='Padrão: dono@demo.com (ou dono.<nicho>@demo.com)')
         parser.add_argument('--senha', default='SenhaForte123!')
+        parser.add_argument(
+            '--nicho', default='barbearia', choices=sorted(self.DEMOS),
+            help='Nicho da empresa de exemplo. lava_rapido e banho_tosa nascem no modo kanban, com as etapas padrão.',
+        )
 
-    def handle(self, *args, empresa, nome, email, senha, **options):
+    # Um exemplo por modo de agenda: o painel e o app se testam nos dois.
+    DEMOS = {
+        'barbearia': ('Barbearia Demo', 'dono@demo.com'),
+        'lava_rapido': ('Lava Rápido Demo', 'dono.lava@demo.com'),
+        'banho_tosa': ('Banho e Tosa Demo', 'dono.pet@demo.com'),
+    }
+
+    def handle(self, *args, empresa, nome, email, senha, nicho, **options):
         if not settings.DEBUG:
             raise CommandError('popular_dev só roda com DEBUG=True: não existe dado de exemplo fora do ambiente local.')
+
+        empresa_padrao, email_padrao = self.DEMOS[nicho]
+        empresa = empresa or empresa_padrao
+        email = email or email_padrao
 
         plano = self._garantir_plano()
         self.stdout.write(f'Plano padrão: {plano.nome} (R$ {plano.preco_mensal})')
@@ -28,7 +43,7 @@ class Command(BaseCommand):
             return
 
         tenant = self._criar_empresa(empresa, nome, email, senha)
-        self._concluir_onboarding(tenant, empresa, email)
+        self._concluir_onboarding(tenant, empresa, email, nicho)
 
         self.stdout.write(self.style.SUCCESS(
             f'Empresa "{tenant.nome}" (schema {tenant.schema_name}) criada.\n'
@@ -49,15 +64,19 @@ class Command(BaseCommand):
         _, tenant = serializer.save()
         return tenant
 
-    def _concluir_onboarding(self, tenant, empresa, email):
+    def _concluir_onboarding(self, tenant, empresa, email, nicho):
         from apps_work.empresa.models import EmpresaConfig, TipoDocumento
-        from apps_work.empresa.services import ConfiguracaoEmpresaService
+        from apps_work.empresa.services import ConfiguracaoEmpresaService, ModoAgendaService
 
         user = User.objects.get(username=email.lower())
         with schema_context(tenant.schema_name):
             config, _ = EmpresaConfig.objects.get_or_create(pk=1)
             config.nome = empresa
-            config.nicho = 'barbearia'
+            config.nicho = nicho
+            # O nicho decide o modo de agenda e o objeto, como no onboarding.
+            modo = ModoAgendaService().resolver(nicho, '', '', '')
+            config.tipo_agenda = modo.tipo_agenda
+            config.tipo_objeto = modo.tipo_objeto
             config.documento = '52998224725'  # CPF de teste (dígitos válidos)
             config.tipo_documento = TipoDocumento.CPF
             config.cidade = 'São Paulo'

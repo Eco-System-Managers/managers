@@ -39,3 +39,21 @@ class TestPopularDev:
         settings.DEBUG = False
         with pytest.raises(CommandError):
             call_command('popular_dev', verbosity=0)
+
+    def test_nicho_kanban_nasce_com_quadro_e_etapas(self, settings):
+        settings.DEBUG = True
+        call_command('popular_dev', '--nicho', 'lava_rapido', verbosity=0)
+
+        user = User.objects.get(username='dono.lava@demo.com')
+        membro = Membro.objects.get(user=user)
+        assert membro.tenant.nome == 'Lava Rápido Demo'
+
+        from apps_work.empresa.models import EmpresaConfig
+        from apps_work.kanban.models import EtapaKanban
+        with schema_context(membro.tenant.schema_name):
+            config = EmpresaConfig.objects.get(pk=1)
+            assert config.nicho == 'lava_rapido'
+            assert config.tipo_agenda == 'kanban'
+            assert config.tipo_objeto == 'veiculo'
+            assert EtapaKanban.objects.count() == 3
+        connection.set_schema_to_public()
