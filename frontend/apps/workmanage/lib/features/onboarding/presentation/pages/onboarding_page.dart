@@ -80,8 +80,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           child: SuccessView(
             title: 'Tudo pronto!',
             message: 'Seu negócio está configurado.',
-            // TODO: ir para a home quando ela existir
-            onDone: () => context.go('/login'),
+            // a sessão já existe desde o cadastro: o fim do wizard é a home.
+            // go, não push: o onboarding não fica no histórico do "voltar"
+            onDone: () => context.go('/home'),
           ),
         ),
       );
