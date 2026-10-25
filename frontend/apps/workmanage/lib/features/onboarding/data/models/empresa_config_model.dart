@@ -15,7 +15,9 @@ class EmpresaConfigModel {
     required this.cidade,
     required this.uf,
     required this.nicho,
+    required this.nichoDescricao,
     required this.tipoAgenda,
+    required this.tipoObjeto,
     required this.onboardingConcluido,
   });
 
@@ -29,7 +31,9 @@ class EmpresaConfigModel {
   final String cidade;
   final String uf;
   final String nicho;
+  final String nichoDescricao;
   final String tipoAgenda;
+  final String tipoObjeto;
   final bool onboardingConcluido;
 
   // o backend manda '' no que está vazio; o ?? cobre campo ausente
@@ -46,13 +50,16 @@ class EmpresaConfigModel {
       cidade: json['cidade'] as String? ?? '',
       uf: json['uf'] as String? ?? '',
       nicho: json['nicho'] as String? ?? '',
+      nichoDescricao: json['nicho_descricao'] as String? ?? '',
       tipoAgenda: json['tipo_agenda'] as String? ?? 'horario',
+      tipoObjeto: json['tipo_objeto'] as String? ?? '',
       onboardingConcluido: json['onboarding_concluido'] as bool? ?? false,
     );
   }
 
-  // tipo_agenda e onboarding_concluido não vão: o primeiro é só leitura e o
-  // segundo tem endpoint próprio (concluir)
+  // onboarding_concluido não vai: tem endpoint próprio (concluir). tipo_agenda
+  // e tipo_objeto vão sempre, mas o backend só usa no nicho outro; nos
+  // demais ele deduz os dois do nicho
   Map<String, dynamic> toJson() {
     return {
       'nome': nome,
@@ -65,6 +72,9 @@ class EmpresaConfigModel {
       'cidade': cidade,
       'uf': uf,
       'nicho': nicho,
+      'nicho_descricao': nichoDescricao,
+      'tipo_agenda': tipoAgenda,
+      'tipo_objeto': tipoObjeto,
     };
   }
 
@@ -80,7 +90,9 @@ class EmpresaConfigModel {
       cidade: config.cidade,
       uf: config.uf,
       nicho: config.nicho?.slug ?? '',
+      nichoDescricao: config.nichoDescricao,
       tipoAgenda: config.tipoAgenda.name,
+      tipoObjeto: config.tipoObjeto?.name ?? '',
       onboardingConcluido: config.onboardingConcluido,
     );
   }
@@ -98,8 +110,10 @@ class EmpresaConfigModel {
       uf: uf,
       // slug desconhecido vira null: o wizard pede para escolher de novo
       nicho: Nicho.values.where((n) => n.slug == nicho).firstOrNull,
+      nichoDescricao: nichoDescricao,
       tipoAgenda:
           TipoAgenda.values.asNameMap()[tipoAgenda] ?? TipoAgenda.horario,
+      tipoObjeto: TipoObjeto.values.asNameMap()[tipoObjeto],
       onboardingConcluido: onboardingConcluido,
     );
   }

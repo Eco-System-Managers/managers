@@ -19,6 +19,7 @@ extension NichoVisual on Nicho {
     Nicho.massagem => 'Massagem',
     Nicho.lavaRapido => 'Lava-rápido',
     Nicho.banhoTosa => 'Banho e Tosa',
+    Nicho.outro => 'Outro',
   };
 
   IconData get icone => switch (this) {
@@ -34,5 +35,6 @@ extension NichoVisual on Nicho {
     Nicho.massagem => Icons.spa_outlined,
     Nicho.lavaRapido => Icons.local_car_wash_outlined,
     Nicho.banhoTosa => Icons.pets_outlined,
+    Nicho.outro => Icons.more_horiz,
   };
 }

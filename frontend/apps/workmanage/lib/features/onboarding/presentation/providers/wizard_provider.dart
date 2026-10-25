@@ -140,15 +140,33 @@ class WizardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // step 2, nicho outro: a resposta de "como você atende?" define o modo.
+  // no horário não há objeto, e o backend descarta o que tiver sobrado
+  void escolherModo(TipoAgenda tipoAgenda, {TipoObjeto? tipoObjeto}) {
+    _config = _config.copyWith(tipoAgenda: tipoAgenda, tipoObjeto: tipoObjeto);
+    notifyListeners();
+  }
+
   // step 2 -> step 3. a resposta traz o tipo de agenda, que decide se o
-  // step 3 mostra a capacidade
-  Future<void> salvarNicho() async {
-    if (_config.nicho == null) {
+  // step 3 mostra a capacidade. a descrição só vale no nicho outro
+  Future<void> salvarNicho({String descricao = ''}) async {
+    final nicho = _config.nicho;
+    if (nicho == null) {
       _errorMessage = 'Escolha o ramo do seu negócio';
       notifyListeners();
       return;
     }
-    await _run(() => _salvarConfig(_config), (salva) {
+    // o card do kanban é sempre um veículo ou um pet
+    if (nicho == Nicho.outro && isKanban && _config.tipoObjeto == null) {
+      _errorMessage = 'Diga se você recebe veículos ou pets';
+      notifyListeners();
+      return;
+    }
+
+    final config = _config.copyWith(
+      nichoDescricao: nicho == Nicho.outro ? descricao.trim() : '',
+    );
+    await _run(() => _salvarConfig(config), (salva) {
       _config = salva;
       _step = WizardStep.horarios;
     });

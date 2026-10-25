@@ -2,8 +2,11 @@ import 'nicho.dart';
 
 enum TipoDocumento { cpf, cnpj }
 
-// quem decide é o backend, a partir do nicho: a entidade só guarda o resultado
+// nos nichos da lista, quem decide é o backend; no outro, é o dono
 enum TipoAgenda { horario, kanban }
+
+// o que o cliente deixa no negócio, no kanban. no horário não há objeto
+enum TipoObjeto { veiculo, pet }
 
 // os dados do negócio que o onboarding preenche. a config nasce vazia no
 // backend: texto vazio é '' e o que ainda não foi escolhido é null
@@ -19,7 +22,9 @@ class EmpresaConfig {
     this.cidade = '',
     this.uf = '',
     this.nicho,
+    this.nichoDescricao = '',
     this.tipoAgenda = TipoAgenda.horario,
+    this.tipoObjeto,
     this.onboardingConcluido = false,
   });
 
@@ -39,7 +44,12 @@ class EmpresaConfig {
   final String cidade;
   final String uf;
   final Nicho? nicho;
+
+  // o ramo por extenso, só quando o nicho é outro
+  final String nichoDescricao;
+
   final TipoAgenda tipoAgenda;
+  final TipoObjeto? tipoObjeto;
   final bool onboardingConcluido;
 
   // o wizard vai preenchendo aos poucos: cada etapa troca só os seus campos
@@ -54,7 +64,9 @@ class EmpresaConfig {
     String? cidade,
     String? uf,
     Nicho? nicho,
+    String? nichoDescricao,
     TipoAgenda? tipoAgenda,
+    TipoObjeto? tipoObjeto,
     bool? onboardingConcluido,
   }) {
     return EmpresaConfig(
@@ -68,7 +80,9 @@ class EmpresaConfig {
       cidade: cidade ?? this.cidade,
       uf: uf ?? this.uf,
       nicho: nicho ?? this.nicho,
+      nichoDescricao: nichoDescricao ?? this.nichoDescricao,
       tipoAgenda: tipoAgenda ?? this.tipoAgenda,
+      tipoObjeto: tipoObjeto ?? this.tipoObjeto,
       onboardingConcluido: onboardingConcluido ?? this.onboardingConcluido,
     );
   }
