@@ -4,4 +4,8 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Só no debug: a API local fala http (127.0.0.1, 10.0.2.2, IP da
+         máquina), e o Android bloqueia texto claro por padrão. O release
+         não herda isto. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>
