@@ -43,3 +43,21 @@ Organização por feature: cada feature tem suas camadas dentro de `lib/features
 ### Nomenclatura
 
 - Arquivos em `snake_case`, com sufixo da camada: `auth_remote_datasource.dart`, `auth_repository.dart` (contrato), `auth_repository_impl.dart`, `login_use_case.dart`, `login_provider.dart`, `login_page.dart`.
+
+## Core
+
+O que o `lib/core/` oferece a toda feature (fase 0 do MVP):
+
+- `config/env.dart` — `API_BASE_URL` vem de `--dart-define` (padrão `http://127.0.0.1:8000/api/v1/`; emulador Android usa `http://10.0.2.2:8000/api/v1/`, celular físico o IP da máquina).
+- `session/` — `Sessao` (access, refresh, `schema_name`, empresa), `SessaoRepository` (armazenamento seguro) e `SessaoController`, a sessão em memória do app inteiro. Login e cadastro chamam `entrar`; logout e 401 definitivo chamam `sair`. O router usa o controller em `redirect` e `refreshListenable`: tela privada sem sessão volta ao login sozinha.
+- `network/` — `dioProvider` (base URL, `X-Client-Platform: mobile`, `AuthInterceptor`) e `paginacao.dart` (`Pagina<T>` e `buscarTudo`, que segue o `next` com `page_size=100`). O interceptor renova em 401 `token_invalido` (uma vez, com o refresh compartilhado entre requisições) e encerra a sessão nos outros 401; as rotas `auth/` ficam de fora.
+- `error/` — `Failure` carrega `message` (o `detail` da API) e `code`. `failureFrom(DioException)` é a única tradução: 400 `invalido` → `ValidationFailure(fields)`, 401 → `AuthFailure`, 402 → `SubscriptionFailure`, 403 → `PermissionFailure`, 404 → `NotFoundFailure`, sem resposta → `NetworkFailure`. **O fluxo da tela é decidido pelo `code`, nunca pelo texto.**
+- `cep/` — `ViaCepDataSource` (viacep.com.br): a API não tem busca de endereço por CEP.
+- `utils/` — `dinheiro.dart` (`Decimal` ⇄ `"45.50"`, `formatarDinheiro`; nunca `double`) e `datas.dart` (data, data-hora com fuso, hora).
+
+### Padrões das telas
+
+- Estado de tela é um `ChangeNotifier` em `presentation/providers/<tela>_provider.dart`, exposto por `Provider.autoDispose` no `<feature>_provider.dart`. A page lê com `ref.watch` e redesenha com `ListenableBuilder`; nunca cria o provider na mão (o router redesenha as rotas quando a sessão muda).
+- Erro de validação da API (`ValidationFailure.fields`) vai para o campo, com `forceErrorText`, como no cadastro. O resto vai para a mensagem da tela.
+- Depois do login, `context.go('/splash')`: a splash decide entre onboarding e home. Depois do cadastro confirmado, direto `/onboarding`.
+- Testes: provider com use case mockado (`mocktail`) e datasource com o `FakeAdapter` de `test/helpers/`, que passa pelo Dio de verdade.
