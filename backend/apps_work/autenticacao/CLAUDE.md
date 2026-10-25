@@ -22,7 +22,7 @@ dentro de um tenant; lá é um `Consumidor` no schema público.
 | Coluna | Tipo | O que é |
 |---|---|---|
 | `user` | `OneToOne → auth.User` `CASCADE` | Uma linha por usuário |
-| `ultimo_acesso` | `DateTimeField` | Escrito pelo `InactivityMiddleware`, com amortização de 60s |
+| `ultimo_acesso` | `DateTimeField` | Escrito pelo `InactivityMiddleware`, com amortização de 60s. Só para o web: o app mobile fica fora |
 
 ### `CodigoRecuperacao` — recuperação de senha
 
@@ -141,6 +141,12 @@ Uma linha por usuário, com o horário do último acesso. É lida e escrita pelo
 `InactivityMiddleware` a cada requisição autenticada, com escrita amortizada
 (só grava fora de uma janela de 60s). Sessão parada além de
 `INACTIVITY_TIMEOUT_MINUTES` recebe 401 com `code: inactivity_timeout`.
+
+Vale só para o navegador, que no balcão outras pessoas usam. O app mobile
+(`X-Client-Platform: mobile`) fica fora do controle, sem ler nem escrever o
+relógio: o aparelho é pessoal, e a sessão dele já é limitada pelo refresh,
+que vale uma vez e expira em 7 dias. Sem a isenção, qualquer pausa de meia
+hora pediria login de novo e a renovação automática nunca agiria.
 
 ## Rate limiting
 

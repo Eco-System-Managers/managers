@@ -10,6 +10,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from core import rotas
 from core.cache import TTL_ASSINATURA_SEGUNDOS, chave_assinatura_bloqueada
+from core.sessao import cliente_mobile
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,12 @@ class InactivityMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if not any(request.path.startswith(p) for p in _INACTIVITY_SKIP):
+        # O app mobile fica fora do controle: o aparelho é pessoal, e a sessão
+        # dele já é limitada pelo refresh, que vale uma vez e expira em 7 dias.
+        # A regra existe para o navegador no balcão, que outras pessoas usam.
+        # Sem isso, qualquer pausa de meia hora pediria login de novo, e a
+        # renovação automática nunca chegaria a agir (o access dura 60 min).
+        if not cliente_mobile(request) and not any(request.path.startswith(p) for p in _INACTIVITY_SKIP):
             token = _token_do_request(request)
             if token is not None:
                 expirou = self._registrar_atividade(token)

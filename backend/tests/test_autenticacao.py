@@ -475,6 +475,33 @@ class TestInatividade:
         assert response.status_code == 401
         assert response.json()['code'] == 'inactivity_timeout'
 
+    def test_app_mobile_nao_expira_por_inatividade(self, patch_tenant_middleware, proprietario, tenant):
+        """No aparelho pessoal a sessão é limitada pelo refresh, não pela pausa:
+        o app se identifica com X-Client-Platform e fica fora do relógio."""
+        from datetime import timedelta
+        from django.utils import timezone
+        from rest_framework_simplejwt.tokens import AccessToken
+        from apps_work.autenticacao.models import UltimaAtividade
+
+        registro = UltimaAtividade.objects.create(
+            user=proprietario,
+            ultimo_acesso=timezone.now() - timedelta(minutes=31),
+        )
+        # Sem o relógio barrando antes, a requisição chega à autenticação, que
+        # exige o tenant no token (como numa sessão emitida pelo login).
+        token = AccessToken.for_user(proprietario)
+        token['schema_name'] = tenant.schema_name
+        client = APIClient()
+        client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}', HTTP_X_CLIENT_PLATFORM='mobile')
+
+        response = client.get('/api/v1/servicos/')
+
+        assert response.status_code == 200, response.json()
+        # e também não mexe no relógio do navegador
+        registro.refresh_from_db()
+        assert timezone.now() - registro.ultimo_acesso > timedelta(minutes=30)
+
     def test_sessao_ativa_atualiza_ultimo_acesso(self, patch_tenant_middleware, usuario):
         from datetime import timedelta
         from django.utils import timezone
