@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:managers/core/session/sessao_provider.dart';
 import 'package:managers/features/auth/presentation/pages/login_page.dart';
 import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
+import 'package:managers/features/clientes/presentation/pages/cliente_form_page.dart';
+import 'package:managers/features/clientes/presentation/pages/cliente_page.dart';
+import 'package:managers/features/clientes/presentation/pages/clientes_page.dart';
 import 'package:managers/features/empresa/presentation/pages/configuracoes_page.dart';
 import 'package:managers/features/empresa/presentation/pages/dados_negocio_page.dart';
 import 'package:managers/features/empresa/presentation/pages/horarios_page.dart';
@@ -111,11 +114,29 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/clientes',
-                builder: (_, _) => const EmBrevePage(
-                  titulo: 'Clientes',
-                  icone: Icons.people_outline,
-                  mensagem: 'A ficha dos clientes chega na próxima etapa.',
-                ),
+                builder: (_, _) => const ClientesPage(),
+                routes: [
+                  GoRoute(
+                    path: 'novo',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const ClienteFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, state) =>
+                        ClientePage(id: int.parse(state.pathParameters['id']!)),
+                    routes: [
+                      GoRoute(
+                        path: 'editar',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, state) => ClienteFormPage(
+                          id: int.parse(state.pathParameters['id']!),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
