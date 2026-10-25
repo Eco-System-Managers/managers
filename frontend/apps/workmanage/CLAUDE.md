@@ -48,7 +48,7 @@ Organização por feature: cada feature tem suas camadas dentro de `lib/features
 
 O que o `lib/core/` oferece a toda feature (fase 0 do MVP):
 
-- `config/env.dart` — `API_BASE_URL` vem de `--dart-define` (padrão `http://127.0.0.1:8000/api/v1/`; emulador Android usa `http://10.0.2.2:8000/api/v1/`, celular físico o IP da máquina).
+- `config/env.dart` — `API_BASE_URL` vem de `--dart-define` (padrão `http://127.0.0.1:8000/api/v1/`). Aparelho Android por USB: `adb reverse tcp:8000 tcp:8000` faz o `127.0.0.1:8000` do aparelho chegar na máquina, sem define nem IP (refazer ao reconectar o cabo). Emulador Android: `http://10.0.2.2:8000/api/v1/`; aparelho por Wi-Fi: o IP da máquina, com o `runserver 0.0.0.0:8000`.
 - `session/` — `Sessao` (access, refresh, `schema_name`, empresa), `SessaoRepository` (armazenamento seguro) e `SessaoController`, a sessão em memória do app inteiro. Login e cadastro chamam `entrar`; logout e 401 definitivo chamam `sair`. O router usa o controller em `redirect` e `refreshListenable`: tela privada sem sessão volta ao login sozinha.
 - `network/` — `dioProvider` (base URL, `X-Client-Platform: mobile`, `AuthInterceptor`) e `paginacao.dart` (`Pagina<T>` e `buscarTudo`, que segue o `next` com `page_size=100`). O interceptor renova em 401 `token_invalido` (uma vez, com o refresh compartilhado entre requisições) e encerra a sessão nos outros 401; as rotas `auth/` ficam de fora.
 - `error/` — `Failure` carrega `message` (o `detail` da API) e `code`. `failureFrom(DioException)` é a única tradução: 400 `invalido` → `ValidationFailure(fields)`, 401 → `AuthFailure`, 402 → `SubscriptionFailure`, 403 → `PermissionFailure`, 404 → `NotFoundFailure`, sem resposta → `NetworkFailure`. **O fluxo da tela é decidido pelo `code`, nunca pelo texto.**
