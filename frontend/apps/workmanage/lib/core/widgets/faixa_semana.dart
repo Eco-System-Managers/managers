@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:managers/core/utils/datas.dart';
 
-// os sete dias da semana do dia escolhido, de segunda a domingo, com uma
+// os sete dias da semana do dia escolhido (agenda e quadro), de segunda a domingo, com uma
 // bolinha nos que têm agendamento. as setas andam uma semana
 class FaixaSemana extends StatelessWidget {
   const FaixaSemana({

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/session/sessao_provider.dart';
-import 'package:managers/features/agenda/presentation/pages/agenda_page.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_form_page.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_page.dart';
 import 'package:managers/features/agenda/presentation/pages/historico_cliente_page.dart';
@@ -19,6 +18,10 @@ import 'package:managers/features/empresa/presentation/pages/horarios_page.dart'
 import 'package:managers/features/financeiro/presentation/pages/caixa_page.dart';
 import 'package:managers/features/home/presentation/pages/home_shell_page.dart';
 import 'package:managers/features/home/presentation/pages/mais_page.dart';
+import 'package:managers/features/home/presentation/pages/primeira_aba_page.dart';
+import 'package:managers/features/kanban/presentation/pages/atendimento_kanban_form_page.dart';
+import 'package:managers/features/kanban/presentation/pages/atendimento_kanban_page.dart';
+import 'package:managers/features/kanban/presentation/pages/etapas_page.dart';
 import 'package:managers/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:managers/features/register/presentation/pages/register_page.dart';
 import 'package:managers/features/register/presentation/pages/verify_email_page.dart';
@@ -115,6 +118,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             AceitarConvitePage(token: state.pathParameters['token']!),
       ),
+      // o quadro da esteira: as telas abrem por cima da primeira aba
+      GoRoute(
+        path: '/quadro/novo',
+        builder: (_, state) {
+          final data = state.uri.queryParameters['data'];
+          return AtendimentoKanbanFormPage(
+            dataInicial: data == null ? null : DateTime.tryParse(data),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/quadro/:id',
+        builder: (_, state) =>
+            AtendimentoKanbanPage(id: int.parse(state.pathParameters['id']!)),
+      ),
       // a home é a casca com as abas; /home abre na primeira
       GoRoute(path: '/home', redirect: (_, _) => '/agenda'),
       StatefulShellRoute.indexedStack(
@@ -126,7 +144,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/agenda',
-                builder: (_, _) => const AgendaPage(),
+                // agenda por horário ou quadro da esteira, pelo modo do negócio
+                builder: (_, _) => const PrimeiraAbaPage(),
                 routes: [
                   // o dia aberto na agenda vai na URL (?data=2026-10-25)
                   GoRoute(
@@ -268,6 +287,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'assinatura',
                     parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, _) => const AssinaturaPage(),
+                  ),
+                  GoRoute(
+                    path: 'etapas',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const EtapasPage(),
                   ),
                 ],
               ),

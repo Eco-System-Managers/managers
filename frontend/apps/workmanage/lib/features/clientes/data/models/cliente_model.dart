@@ -1,10 +1,11 @@
 import 'package:managers/core/utils/datas.dart';
 
 import '../../domain/entities/cliente.dart';
+import 'objeto_cliente_model.dart';
 
 // o schema Cliente do contrato. datas vêm como "2026-10-19"; a foto é uma
-// URL assinada ('' para cadastro manual); veículos e pets ficam de fora até
-// o modo kanban (fase 5)
+// URL assinada ('' para cadastro manual); veículos e pets vêm aninhados e
+// só de leitura (mudam pelas rotas próprias)
 class ClienteModel {
   const ClienteModel({
     required this.id,
@@ -21,6 +22,8 @@ class ClienteModel {
     required this.origem,
     required this.foto,
     required this.criadoEm,
+    this.veiculos = const [],
+    this.pets = const [],
   });
 
   final int id;
@@ -37,6 +40,8 @@ class ClienteModel {
   final String origem;
   final String foto;
   final String? criadoEm;
+  final List<Map<String, dynamic>> veiculos;
+  final List<Map<String, dynamic>> pets;
 
   factory ClienteModel.fromJson(Map<String, dynamic> json) {
     return ClienteModel(
@@ -54,6 +59,9 @@ class ClienteModel {
       origem: json['origem'] as String? ?? 'manual',
       foto: json['foto'] as String? ?? '',
       criadoEm: json['criado_em'] as String?,
+      veiculos: (json['veiculos'] as List? ?? const [])
+          .cast<Map<String, dynamic>>(),
+      pets: (json['pets'] as List? ?? const []).cast<Map<String, dynamic>>(),
     );
   }
 
@@ -117,6 +125,8 @@ class ClienteModel {
       criadoEm: criadoEm == null || criadoEm!.isEmpty
           ? null
           : dataHoraDaApi(criadoEm!),
+      veiculos: [for (final v in veiculos) VeiculoModel.fromJson(v).toEntity()],
+      pets: [for (final p in pets) PetModel.fromJson(p).toEntity()],
     );
   }
 }

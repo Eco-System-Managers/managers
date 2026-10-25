@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
-import 'package:managers/features/clientes/domain/entities/cliente.dart';
 
-// a folha para escolher o cliente do agendamento: busca na API enquanto a
+import '../../domain/entities/cliente.dart';
+
+// a folha para escolher o cliente de um agendamento ou atendimento: busca na API enquanto a
 // pessoa digita e devolve o escolhido
 class ClientePickerSheet extends StatefulWidget {
   const ClientePickerSheet({super.key, required this.buscar});

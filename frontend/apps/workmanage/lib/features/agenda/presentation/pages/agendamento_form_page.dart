@@ -6,12 +6,12 @@ import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/features/clientes/presentation/widgets/cliente_picker_sheet.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 
 import '../../agenda_provider.dart';
 import '../providers/agendamento_form_provider.dart';
-import '../widgets/cliente_picker_sheet.dart';
 import '../widgets/slots_grade.dart';
 
 // marca um horário: cliente, serviço, profissional, dia e um slot da grade.

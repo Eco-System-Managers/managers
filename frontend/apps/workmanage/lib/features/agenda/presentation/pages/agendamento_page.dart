@@ -8,11 +8,12 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
+import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
+import 'package:managers/features/financeiro/presentation/widgets/cobranca_sheet.dart';
 
 import '../../agenda_provider.dart';
 import '../../domain/entities/agendamento.dart';
 import '../providers/agendamento_provider.dart';
-import '../widgets/cobranca_sheet.dart';
 import '../widgets/remarcar_sheet.dart';
 import '../widgets/status_agendamento_chip.dart';
 
@@ -41,7 +42,8 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
   Future<void> _cobrar(Agendamento agendamento) async {
     final cobrou = await CobrancaSheet.abrir(
       context,
-      agendamento: agendamento,
+      atendimentoId: agendamento.id,
+      valorServicos: agendamento.valorDosServicos,
       creditoDisponivel: _provider.saldo?.saldo ?? Decimal.fromInt(0),
       onCobrar: (params) async {
         final ok = await _provider.cobrar(params);

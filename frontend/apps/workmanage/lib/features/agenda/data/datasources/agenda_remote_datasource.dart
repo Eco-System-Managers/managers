@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:managers/core/network/paginacao.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
+import 'package:managers/features/financeiro/data/models/cobranca_model.dart';
+import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../../domain/entities/pendencia_cobranca.dart';
 import '../../domain/entities/slot.dart';
@@ -98,7 +100,7 @@ class AgendaRemoteDataSourceImpl implements AgendaRemoteDataSource {
   Future<AgendamentoModel> cobrar(CobrancaParams params) async {
     final response = await dio.post<Map<String, dynamic>>(
       '$_agendamentos${params.id}/cobrar/',
-      data: AgendamentoModel.corpoDeCobranca(params),
+      data: corpoDeCobranca(params),
     );
     return AgendamentoModel.fromJson(response.data!);
   }

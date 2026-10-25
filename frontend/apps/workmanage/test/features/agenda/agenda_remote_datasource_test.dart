@@ -4,6 +4,8 @@ import 'package:managers/features/agenda/data/datasources/agenda_remote_datasour
 import 'package:managers/features/agenda/data/models/agendamento_model.dart';
 import 'package:managers/features/agenda/domain/entities/agendamento.dart';
 import 'package:managers/features/agenda/domain/params/agenda_params.dart';
+import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
+import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../../helpers/fake_adapter.dart';
 

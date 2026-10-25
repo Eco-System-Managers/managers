@@ -1,0 +1,59 @@
+import 'package:decimal/decimal.dart';
+import 'package:flutter/foundation.dart';
+import 'package:managers/core/error/failures.dart';
+
+import '../../domain/entities/atendimento_kanban.dart';
+import '../../domain/usecases/kanban_use_cases.dart';
+
+// estado do histórico de atendimentos de um cliente na esteira (montado em
+// kanban_provider.dart, na raiz da feature), para a ficha dele
+class HistoricoKanbanProvider extends ChangeNotifier {
+  HistoricoKanbanProvider({required this.clienteId, required this._listar});
+
+  final int clienteId;
+  final ListarAtendimentosKanbanDoClienteUseCase _listar;
+
+  List<AtendimentoKanban> _atendimentos = const [];
+  bool _carregado = false;
+  bool _isLoading = false;
+  Failure? _erro;
+
+  // a tela pode ser fechada durante uma requisição
+  bool _disposed = false;
+
+  // do mais recente para o mais antigo
+  List<AtendimentoKanban> get atendimentos => _atendimentos;
+  bool get carregado => _carregado;
+  bool get isLoading => _isLoading;
+  Failure? get erro => _erro;
+
+  int get total => _atendimentos.length;
+
+  Decimal get totalPago => _atendimentos
+      .where((a) => a.pago)
+      .fold(Decimal.fromInt(0), (soma, a) => soma + a.valorPago);
+
+  Future<void> carregar() async {
+    _isLoading = true;
+    _erro = null;
+    notifyListeners();
+
+    final result = await _listar(clienteId);
+    if (_disposed) return;
+
+    result.fold((failure) => _erro = failure, (lista) {
+      // a API manda na ordem de criação; a ficha quer o último primeiro
+      _atendimentos = [...lista]..sort((a, b) => b.id.compareTo(a.id));
+      _carregado = true;
+    });
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}

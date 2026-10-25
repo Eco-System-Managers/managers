@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:managers/core/network/paginacao.dart';
 
+import '../../domain/entities/objeto_cliente.dart';
 import '../models/cliente_model.dart';
+import '../models/objeto_cliente_model.dart';
 
 // fala com /clientes/ da API e devolve models. não trata erro: se a
 // requisição falhar, a DioException sobe para o repository
@@ -19,6 +21,19 @@ abstract class ClientesRemoteDataSource {
   // cliente manual é apagado; o que veio do app é arquivado e desvinculado.
   // com atendimento registrado a API recusa (400 cliente_com_atendimentos)
   Future<void> remover(int id);
+
+  // os objetos do cliente têm rotas próprias (veiculos/, pets/)
+  Future<VeiculoModel> criarVeiculo(Veiculo veiculo);
+
+  Future<VeiculoModel> atualizarVeiculo(Veiculo veiculo);
+
+  Future<void> removerVeiculo(int id);
+
+  Future<PetModel> criarPet(Pet pet);
+
+  Future<PetModel> atualizarPet(Pet pet);
+
+  Future<void> removerPet(int id);
 }
 
 class ClientesRemoteDataSourceImpl implements ClientesRemoteDataSource {
@@ -69,5 +84,51 @@ class ClientesRemoteDataSourceImpl implements ClientesRemoteDataSource {
   @override
   Future<void> remover(int id) async {
     await dio.delete('$_clientes$id/');
+  }
+
+  @override
+  Future<VeiculoModel> criarVeiculo(Veiculo veiculo) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      'veiculos/',
+      data: VeiculoModel.toJson(veiculo),
+    );
+    return VeiculoModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<VeiculoModel> atualizarVeiculo(Veiculo veiculo) async {
+    final response = await dio.patch<Map<String, dynamic>>(
+      'veiculos/${veiculo.id}/',
+      data: VeiculoModel.toJson(veiculo),
+    );
+    return VeiculoModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> removerVeiculo(int id) async {
+    await dio.delete<void>('veiculos/$id/');
+  }
+
+  @override
+  Future<PetModel> criarPet(Pet pet) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      'pets/',
+      data: PetModel.toJson(pet),
+    );
+    return PetModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<PetModel> atualizarPet(Pet pet) async {
+    final response = await dio.patch<Map<String, dynamic>>(
+      'pets/${pet.id}/',
+      data: PetModel.toJson(pet),
+    );
+    return PetModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> removerPet(int id) async {
+    await dio.delete<void>('pets/$id/');
   }
 }

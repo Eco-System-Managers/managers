@@ -5,6 +5,7 @@ import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/utils/lista_paginada.dart';
 
 import '../../domain/entities/cliente.dart';
+import '../../domain/entities/objeto_cliente.dart';
 import '../../domain/repositories/clientes_repository.dart';
 import '../datasources/clientes_remote_datasource.dart';
 import '../models/cliente_model.dart';
@@ -71,6 +72,34 @@ class ClientesRepositoryImpl implements ClientesRepository {
       return const Left(ServerFailure());
     }
   }
+
+  @override
+  Future<Either<Failure, Veiculo>> salvarVeiculo(Veiculo veiculo) {
+    return _executar(() async {
+      final model = veiculo.ehNovo
+          ? await _remoteDataSource.criarVeiculo(veiculo)
+          : await _remoteDataSource.atualizarVeiculo(veiculo);
+      return model.toEntity();
+    });
+  }
+
+  @override
+  Future<Either<Failure, void>> removerVeiculo(int id) =>
+      _executar(() => _remoteDataSource.removerVeiculo(id));
+
+  @override
+  Future<Either<Failure, Pet>> salvarPet(Pet pet) {
+    return _executar(() async {
+      final model = pet.ehNovo
+          ? await _remoteDataSource.criarPet(pet)
+          : await _remoteDataSource.atualizarPet(pet);
+      return model.toEntity();
+    });
+  }
+
+  @override
+  Future<Either<Failure, void>> removerPet(int id) =>
+      _executar(() => _remoteDataSource.removerPet(id));
 
   // o try/catch é igual em todos os métodos: fica num lugar só
   Future<Either<Failure, T>> _executar<T>(Future<T> Function() acao) async {

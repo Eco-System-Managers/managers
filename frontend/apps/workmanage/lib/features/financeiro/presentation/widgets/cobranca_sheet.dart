@@ -3,21 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/dinheiro_input_formatter.dart';
 
-import '../../domain/entities/agendamento.dart';
-import '../../domain/params/agenda_params.dart';
+import '../../domain/entities/pagamento.dart';
+import '../../domain/params/cobranca_params.dart';
 
-// a folha de cobrança: desconto, crédito do cliente, uma ou mais formas de
-// pagamento e o troco que fica como crédito. a soma precisa fechar com o
-// total: a API recusa (soma_invalida) e a tela já mostra o que falta
+// a folha de cobrança, igual para a agenda e o kanban: desconto, crédito do
+// cliente, uma ou mais formas de pagamento e o troco que fica como crédito.
+// a soma precisa fechar com o total: a API recusa (soma_invalida) e a tela
+// já mostra o que falta
 class CobrancaSheet extends StatefulWidget {
   const CobrancaSheet({
     super.key,
-    required this.agendamento,
+    required this.atendimentoId,
+    required this.valorServicos,
     required this.creditoDisponivel,
     required this.onCobrar,
   });
 
-  final Agendamento agendamento;
+  // o id do agendamento ou do atendimento do kanban
+  final int atendimentoId;
+
+  // o total dos serviços antes do desconto
+  final Decimal valorServicos;
   final Decimal creditoDisponivel;
 
   // devolve null quando cobrou; senão, a mensagem de erro para mostrar
@@ -26,7 +32,8 @@ class CobrancaSheet extends StatefulWidget {
   // devolve true quando a cobrança foi feita
   static Future<bool> abrir(
     BuildContext context, {
-    required Agendamento agendamento,
+    required int atendimentoId,
+    required Decimal valorServicos,
     required Decimal creditoDisponivel,
     required Future<String?> Function(CobrancaParams params) onCobrar,
   }) async {
@@ -35,7 +42,8 @@ class CobrancaSheet extends StatefulWidget {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => CobrancaSheet(
-        agendamento: agendamento,
+        atendimentoId: atendimentoId,
+        valorServicos: valorServicos,
         creditoDisponivel: creditoDisponivel,
         onCobrar: onCobrar,
       ),
@@ -75,7 +83,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
     _linhas = [
       _LinhaPagamento(
         FormaPagamento.dinheiro,
-        DinheiroInputFormatter.formatar(widget.agendamento.valorDosServicos),
+        DinheiroInputFormatter.formatar(widget.valorServicos),
       ),
     ];
   }
@@ -95,7 +103,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
   Decimal get _credito => dinheiroDoTexto(_creditoController.text) ?? _zero;
   Decimal get _troco => dinheiroDoTexto(_trocoController.text) ?? _zero;
 
-  Decimal get _total => widget.agendamento.valorDosServicos - _desconto;
+  Decimal get _total => widget.valorServicos - _desconto;
 
   Decimal get _pago =>
       _linhas.fold(_zero, (soma, l) => soma + (l.valor ?? _zero)) + _credito;
@@ -138,7 +146,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
     });
     final erro = await widget.onCobrar(
       CobrancaParams(
-        id: widget.agendamento.id,
+        id: widget.atendimentoId,
         pagamentos: [
           for (final l in _linhas) Pagamento(forma: l.forma, valor: l.valor!),
         ],
@@ -173,7 +181,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
           Text('Cobrar atendimento', style: textos.titleLarge),
           const SizedBox(height: 4),
           Text(
-            'Serviços: ${formatarDinheiro(widget.agendamento.valorDosServicos)}',
+            'Serviços: ${formatarDinheiro(widget.valorServicos)}',
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 16),

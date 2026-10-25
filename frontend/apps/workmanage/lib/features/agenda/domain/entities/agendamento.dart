@@ -1,29 +1,10 @@
 import 'package:decimal/decimal.dart';
 import 'package:equatable/equatable.dart';
+import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
 
 // o ciclo de um agendamento. cancelado some da lista do dia; faltou é
 // estado à parte; concluído é o que a cobrança deixa
 enum StatusAgendamento { agendado, confirmado, concluido, cancelado, faltou }
-
-// como o cliente pagou. um atendimento aceita mais de uma forma
-enum FormaPagamento { dinheiro, pix, credito, debito, qrCode }
-
-extension FormaPagamentoNomes on FormaPagamento {
-  String get nome => switch (this) {
-    FormaPagamento.dinheiro => 'Dinheiro',
-    FormaPagamento.pix => 'PIX',
-    FormaPagamento.credito => 'Crédito',
-    FormaPagamento.debito => 'Débito',
-    FormaPagamento.qrCode => 'QR Code',
-  };
-
-  // o valor do enum na API (qr_code)
-  String get slug => this == FormaPagamento.qrCode ? 'qr_code' : name;
-
-  static FormaPagamento? daApi(String slug) {
-    return FormaPagamento.values.where((f) => f.slug == slug).firstOrNull;
-  }
-}
 
 // um serviço dentro do agendamento, com o preço congelado na hora de marcar
 class ServicoAgendado extends Equatable {
@@ -54,16 +35,6 @@ class ServicoAgendado extends Equatable {
     precoCobrado,
     desconto,
   ];
-}
-
-class Pagamento extends Equatable {
-  const Pagamento({required this.forma, required this.valor});
-
-  final FormaPagamento forma;
-  final Decimal valor;
-
-  @override
-  List<Object?> get props => [forma, valor];
 }
 
 // o compromisso: cliente, profissional, data e hora, status. a duração vem

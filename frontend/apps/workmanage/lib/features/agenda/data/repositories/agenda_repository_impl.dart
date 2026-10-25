@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:managers/core/error/failure_mapper.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/utils/datas.dart';
+import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../../domain/entities/agendamento.dart';
 import '../../domain/entities/pendencia_cobranca.dart';

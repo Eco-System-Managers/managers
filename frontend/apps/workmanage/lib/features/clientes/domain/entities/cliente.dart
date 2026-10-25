@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'objeto_cliente.dart';
+
 // de onde veio o cadastro. quem nasceu no app do cliente (Service Manage)
 // mantém a própria ficha por lá: o painel só edita o que é do negócio
 enum OrigemCliente { manual, servicemanage }
@@ -21,6 +23,8 @@ class Cliente extends Equatable {
     this.origem = OrigemCliente.manual,
     this.fotoUrl = '',
     this.criadoEm,
+    this.veiculos = const [],
+    this.pets = const [],
   });
 
   // 0 enquanto não existe na API
@@ -48,7 +52,17 @@ class Cliente extends Equatable {
   final String fotoUrl;
   final DateTime? criadoEm;
 
+  // os objetos do cliente, aninhados no cadastro (só os negócios por
+  // esteira usam: lava-rápido tem veículos, banho & tosa tem pets)
+  final List<Veiculo> veiculos;
+  final List<Pet> pets;
+
   bool get ehNovo => id == 0;
+
+  List<ObjetoCliente> objetosDoTipo(TipoObjeto tipo) => switch (tipo) {
+    TipoObjeto.veiculo => [for (final v in veiculos) ObjetoCliente.veiculo(v)],
+    TipoObjeto.pet => [for (final p in pets) ObjetoCliente.pet(p)],
+  };
 
   // o cadastro é mantido pela pessoa no app: nome, telefone, CPF, nascimento
   // e endereço só mudam por lá (a API ignora o que o painel mandar neles)
@@ -70,6 +84,8 @@ class Cliente extends Equatable {
     OrigemCliente? origem,
     String? fotoUrl,
     DateTime? criadoEm,
+    List<Veiculo>? veiculos,
+    List<Pet>? pets,
   }) {
     return Cliente(
       id: id ?? this.id,
@@ -89,6 +105,8 @@ class Cliente extends Equatable {
       origem: origem ?? this.origem,
       fotoUrl: fotoUrl ?? this.fotoUrl,
       criadoEm: criadoEm ?? this.criadoEm,
+      veiculos: veiculos ?? this.veiculos,
+      pets: pets ?? this.pets,
     );
   }
 
@@ -108,5 +126,7 @@ class Cliente extends Equatable {
     origem,
     fotoUrl,
     criadoEm,
+    veiculos,
+    pets,
   ];
 }

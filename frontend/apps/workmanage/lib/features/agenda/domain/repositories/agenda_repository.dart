@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:managers/core/error/failures.dart';
+import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../entities/agendamento.dart';
 import '../entities/pendencia_cobranca.dart';

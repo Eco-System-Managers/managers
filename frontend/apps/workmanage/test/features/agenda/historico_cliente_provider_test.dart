@@ -5,6 +5,7 @@ import 'package:managers/core/error/failures.dart';
 import 'package:managers/features/agenda/domain/entities/agendamento.dart';
 import 'package:managers/features/agenda/domain/usecases/agenda_use_cases.dart';
 import 'package:managers/features/agenda/presentation/providers/historico_cliente_provider.dart';
+import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockListar extends Mock implements ListarAgendamentosDoClienteUseCase {}

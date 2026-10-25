@@ -1,5 +1,6 @@
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
+import 'package:managers/features/financeiro/data/models/cobranca_model.dart';
 
 import '../../domain/entities/agendamento.dart';
 import '../../domain/params/agenda_params.dart';
@@ -30,14 +31,7 @@ class AgendamentoModel {
         .toList();
     final pagamentos = (json['pagamentos'] as List? ?? const [])
         .cast<Map<String, dynamic>>()
-        .map(
-          (p) => Pagamento(
-            forma:
-                FormaPagamentoNomes.daApi(p['forma'] as String? ?? '') ??
-                FormaPagamento.dinheiro,
-            valor: dinheiroDaApi(p['valor'] as String? ?? '0'),
-          ),
-        )
+        .map(pagamentoDoJson)
         .toList();
     final criadoEm = json['criado_em'] as String?;
 
@@ -69,19 +63,6 @@ class AgendamentoModel {
       'colaborador': params.colaboradorId,
       'data_hora': dataHoraParaApi(params.dataHora),
       'observacoes': params.observacoes,
-    };
-  }
-
-  // o corpo do POST cobrar (CobrancaRequest)
-  static Map<String, dynamic> corpoDeCobranca(CobrancaParams params) {
-    return {
-      'desconto': dinheiroParaApi(params.desconto),
-      'pagamentos': [
-        for (final p in params.pagamentos)
-          {'forma': p.forma.slug, 'valor': dinheiroParaApi(p.valor)},
-      ],
-      'credito_aplicado': dinheiroParaApi(params.creditoAplicado),
-      'troco_credito': dinheiroParaApi(params.trocoCredito),
     };
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/features/clientes/data/datasources/clientes_remote_datasource.dart';
 import 'package:managers/features/clientes/data/models/cliente_model.dart';
 import 'package:managers/features/clientes/domain/entities/cliente.dart';
+import 'package:managers/features/clientes/domain/entities/objeto_cliente.dart';
 
 import '../../helpers/fake_adapter.dart';
 
@@ -123,5 +124,101 @@ void main() {
     expect(adapter.requisicoes[0].path, 'clientes/3/');
     expect(adapter.requisicoes[1].method, 'DELETE');
     expect(adapter.requisicoes[1].path, 'clientes/3/');
+  });
+
+  test('o model lê os veículos e pets aninhados', () {
+    final json = _clienteJson(1)
+      ..['veiculos'] = [
+        {
+          'id': 10,
+          'cliente': 1,
+          'placa': 'ABC1D23',
+          'marca': 'Fiat',
+          'modelo': 'Uno',
+          'cor': 'Prata',
+          'criado_em': '2026-10-20T10:00:00-03:00',
+        },
+      ]
+      ..['pets'] = [
+        {
+          'id': 11,
+          'cliente': 1,
+          'nome': 'Rex',
+          'especie': 'Cachorro',
+          'raca': 'Poodle',
+          'porte': 'pequeno',
+          'data_nascimento': '2020-01-05',
+          'criado_em': '2026-10-20T10:00:00-03:00',
+        },
+      ];
+
+    final cliente = ClienteModel.fromJson(json).toEntity();
+
+    expect(cliente.veiculos.single.titulo, 'Fiat Uno');
+    expect(cliente.pets.single.porte, PortePet.pequeno);
+    expect(cliente.pets.single.dataNascimento, DateTime(2020, 1, 5));
+    expect(cliente.objetosDoTipo(TipoObjeto.pet).single.titulo, 'Rex');
+    expect(
+      cliente.objetosDoTipo(TipoObjeto.veiculo).single.detalhe,
+      'ABC1D23 · Prata',
+    );
+  });
+
+  test('veículo e pet usam as rotas próprias', () async {
+    final adapter = FakeAdapter((options) async {
+      if (options.method == 'DELETE') return respostaJson(204, null);
+      if (options.path.startsWith('pets')) {
+        return respostaJson(200, {
+          'id': 11,
+          'cliente': 1,
+          'nome': 'Rex',
+          'especie': '',
+          'raca': '',
+          'porte': '',
+          'data_nascimento': null,
+          'criado_em': '2026-10-20T10:00:00-03:00',
+        });
+      }
+      return respostaJson(201, {
+        'id': 10,
+        'cliente': 1,
+        'placa': 'ABC1D23',
+        'marca': 'Fiat',
+        'modelo': 'Uno',
+        'cor': 'Prata',
+        'criado_em': '2026-10-20T10:00:00-03:00',
+      });
+    });
+    final datasource = ClientesRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    final veiculo = await datasource.criarVeiculo(
+      const Veiculo(
+        clienteId: 1,
+        placa: 'ABC1D23',
+        marca: 'Fiat',
+        modelo: 'Uno',
+        cor: 'Prata',
+      ),
+    );
+    final pet = await datasource.atualizarPet(
+      const Pet(id: 11, clienteId: 1, nome: 'Rex'),
+    );
+    await datasource.removerVeiculo(10);
+
+    expect(veiculo.toEntity().id, 10);
+    expect(pet.toEntity().porte, isNull);
+    expect(adapter.requisicoes.map((r) => '${r.method} ${r.path}'), [
+      'POST veiculos/',
+      'PATCH pets/11/',
+      'DELETE veiculos/10/',
+    ]);
+    expect(adapter.requisicoes[0].data, {
+      'cliente': 1,
+      'placa': 'ABC1D23',
+      'marca': 'Fiat',
+      'modelo': 'Uno',
+      'cor': 'Prata',
+    });
+    expect((adapter.requisicoes[1].data as Map)['porte'], '');
   });
 }

@@ -8,11 +8,14 @@ import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
 import 'package:managers/features/agenda/presentation/widgets/historico_cliente_card.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/financeiro/presentation/widgets/saldo_cliente_card.dart';
+import 'package:managers/features/kanban/presentation/widgets/historico_kanban_card.dart';
 
 import '../../clientes_provider.dart';
 import '../../domain/entities/cliente.dart';
 import '../providers/cliente_provider.dart';
+import '../widgets/objetos_cliente_section.dart';
 
 // a ficha do cliente: os dados, de onde veio o cadastro, o crédito na
 // comanda (do financeiro), o histórico de atendimentos (da agenda), editar
@@ -118,6 +121,9 @@ class _ClientePageState extends ConsumerState<ClientePage> {
     }
 
     final colors = Theme.of(context).colorScheme;
+    // o modo do negócio não muda com a ficha aberta: ler basta
+    final negocio = ref.read(negocioAtualProvider);
+    final tipoObjeto = negocio.config?.tipoObjeto;
     final telefone = MascaraFormatter.dinamica(MascaraFormatter.telefone)
         .aplicar(cliente.telefone);
     final cpf = MascaraFormatter(MascaraFormatter.cpf).aplicar(cliente.cpf);
@@ -171,7 +177,19 @@ class _ClientePageState extends ConsumerState<ClientePage> {
           ),
         SaldoClienteCard(clienteId: cliente.id),
         const SizedBox(height: 8),
-        HistoricoClienteCard(clienteId: cliente.id),
+        // só os negócios por esteira recebem um objeto do cliente
+        if (tipoObjeto != null) ...[
+          ObjetosClienteSection(
+            cliente: cliente,
+            tipo: tipoObjeto,
+            onMudou: provider.carregar,
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (negocio.isKanban)
+          HistoricoKanbanCard(clienteId: cliente.id)
+        else
+          HistoricoClienteCard(clienteId: cliente.id),
         const SizedBox(height: 8),
         const Divider(),
         _Dado(icone: Icons.phone_outlined, rotulo: 'Telefone', valor: telefone),

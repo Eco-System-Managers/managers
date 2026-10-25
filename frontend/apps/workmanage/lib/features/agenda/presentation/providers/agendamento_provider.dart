@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/features/financeiro/domain/entities/saldo_cliente.dart';
+import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 import 'package:managers/features/financeiro/domain/usecases/financeiro_use_cases.dart';
 
 import '../../domain/entities/agendamento.dart';

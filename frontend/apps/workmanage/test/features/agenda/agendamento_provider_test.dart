@@ -9,6 +9,8 @@ import 'package:managers/features/agenda/domain/usecases/agenda_use_cases.dart';
 import 'package:managers/features/agenda/presentation/providers/agendamento_provider.dart';
 import 'package:managers/features/financeiro/domain/entities/saldo_cliente.dart';
 import 'package:managers/features/financeiro/domain/usecases/financeiro_use_cases.dart';
+import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
+import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockObter extends Mock implements ObterAgendamentoUseCase {}

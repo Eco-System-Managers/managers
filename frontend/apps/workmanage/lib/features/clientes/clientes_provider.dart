@@ -9,10 +9,12 @@ import 'domain/usecases/atualizar_cliente_use_case.dart';
 import 'domain/usecases/criar_cliente_use_case.dart';
 import 'domain/usecases/listar_clientes_use_case.dart';
 import 'domain/usecases/obter_cliente_use_case.dart';
+import 'domain/usecases/objetos_use_cases.dart';
 import 'domain/usecases/remover_cliente_use_case.dart';
 import 'presentation/providers/cliente_form_provider.dart';
 import 'presentation/providers/cliente_provider.dart';
 import 'presentation/providers/clientes_provider.dart';
+import 'presentation/providers/objeto_form_provider.dart';
 
 // injeção de dependências dos clientes: é o único lugar que conhece as
 // implementações. trocar a implementação é mexer só aqui
@@ -42,6 +44,22 @@ final atualizarClienteUseCaseProvider = Provider(
 
 final removerClienteUseCaseProvider = Provider(
   (ref) => RemoverClienteUseCase(ref.watch(clientesRepositoryProvider)),
+);
+
+final salvarVeiculoUseCaseProvider = Provider(
+  (ref) => SalvarVeiculoUseCase(ref.watch(clientesRepositoryProvider)),
+);
+
+final removerVeiculoUseCaseProvider = Provider(
+  (ref) => RemoverVeiculoUseCase(ref.watch(clientesRepositoryProvider)),
+);
+
+final salvarPetUseCaseProvider = Provider(
+  (ref) => SalvarPetUseCase(ref.watch(clientesRepositoryProvider)),
+);
+
+final removerPetUseCaseProvider = Provider(
+  (ref) => RemoverPetUseCase(ref.watch(clientesRepositoryProvider)),
 );
 
 // estado das telas. autoDispose: ao sair da tela, lista e erros somem; a
@@ -81,3 +99,15 @@ final clienteFormProvider = Provider.autoDispose
       ref.onDispose(provider.dispose);
       return provider;
     });
+
+// a folha de veículo ou pet: uma por abertura
+final objetoFormProvider = Provider.autoDispose<ObjetoFormProvider>((ref) {
+  final provider = ObjetoFormProvider(
+    salvarVeiculo: ref.watch(salvarVeiculoUseCaseProvider),
+    removerVeiculo: ref.watch(removerVeiculoUseCaseProvider),
+    salvarPet: ref.watch(salvarPetUseCaseProvider),
+    removerPet: ref.watch(removerPetUseCaseProvider),
+  );
+  ref.onDispose(provider.dispose);
+  return provider;
+});

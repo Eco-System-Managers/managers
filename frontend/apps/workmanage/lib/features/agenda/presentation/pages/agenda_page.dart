@@ -5,11 +5,11 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/estado_vazio.dart';
+import 'package:managers/core/widgets/faixa_semana.dart';
 
 import '../../agenda_provider.dart';
 import '../providers/agenda_dia_provider.dart';
 import '../widgets/agendamento_card.dart';
-import '../widgets/faixa_semana.dart';
 
 // a agenda por horário: um dia por vez, com a faixa da semana em cima. ficha
 // e formulário abrem por cima; ao voltar, o dia é recarregado da API

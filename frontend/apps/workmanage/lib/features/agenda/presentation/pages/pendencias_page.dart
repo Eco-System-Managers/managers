@@ -28,8 +28,8 @@ class _PendenciasPageState extends ConsumerState<PendenciasPage> {
     });
   }
 
-  Future<void> _abrir(int id) async {
-    await context.push('/agenda/$id');
+  Future<void> _abrir(String rota) async {
+    await context.push(rota);
     if (mounted) ref.read(pendenciasProvider).carregar();
   }
 
@@ -88,11 +88,12 @@ class _PendenciasPageState extends ConsumerState<PendenciasPage> {
                   formatarDinheiro(p.valor),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                if (p.origemAgenda) const Icon(Icons.chevron_right, size: 18),
+                const Icon(Icons.chevron_right, size: 18),
               ],
             ),
-            // o kanban não está neste app ainda: só a agenda abre
-            onTap: p.origemAgenda ? () => _abrir(p.id) : null,
+            // cada origem tem a própria ficha
+            onTap: () =>
+                _abrir(p.origemAgenda ? '/agenda/${p.id}' : '/quadro/${p.id}'),
           );
         },
       ),

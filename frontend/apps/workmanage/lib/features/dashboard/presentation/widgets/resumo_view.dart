@@ -146,13 +146,11 @@ class _ResumoViewState extends ConsumerState<ResumoView> {
               ),
               title: Text(a.clienteNome),
               subtitle: Text(a.servicoNome),
-              trailing: resumo.isKanban
-                  ? null
-                  : const Icon(Icons.chevron_right),
-              // no kanban o id é de atendimento, que este app ainda não abre
-              onTap: resumo.isKanban
-                  ? null
-                  : () => context.push('/agenda/${a.id}'),
+              trailing: const Icon(Icons.chevron_right),
+              // no kanban o id é do atendimento da esteira
+              onTap: () => context.push(
+                resumo.isKanban ? '/quadro/${a.id}' : '/agenda/${a.id}',
+              ),
             ),
       ],
     );

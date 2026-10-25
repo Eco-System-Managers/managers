@@ -69,6 +69,15 @@ class ConfiguracoesPage extends ConsumerWidget {
                 enabled: proprietario,
                 onTap: () => context.push('/mais/configuracoes/horarios'),
               ),
+              if (config.tipoAgenda == TipoAgenda.kanban)
+                ListTile(
+                  leading: const Icon(Icons.view_kanban_outlined),
+                  title: const Text('Etapas do quadro'),
+                  subtitle: const Text('As colunas da esteira e a ordem delas'),
+                  trailing: const Icon(Icons.chevron_right),
+                  enabled: proprietario,
+                  onTap: () => context.push('/mais/etapas'),
+                ),
               const Divider(),
               // o que foi definido no onboarding e a API não deixa trocar:
               // mostrar como editável só geraria o erro modo_agenda_bloqueado
