@@ -14,7 +14,7 @@ from tenants.models import Membro
 from apps_work.agenda.models import FormaPagamento, OrigemAtendimento, StatusAgendamento
 from apps_work.clientes.models import OrigemCliente, TipoObjeto
 from apps_work.clientes.validators import normalizar_porte
-from apps_work.empresa.models import Nicho, TipoAgenda
+from apps_work.empresa.models import TipoAgenda
 from apps_work.notificacoes.models import TipoNotificacao
 
 
@@ -555,12 +555,6 @@ class VincularNegocioService:
         self._sincronizar_cliente(schema_name, consumidor, 'desvinculado', notificar=True)
 
 
-_NICHO_TIPO_OBJETO = {
-    Nicho.LAVA_RAPIDO: TipoObjeto.VEICULO,
-    Nicho.BANHO_TOSA: TipoObjeto.PET,
-}
-
-
 class SincronizarVitrineService:
     def sincronizar(self, schema_name: str, empresa_config) -> None:
         if not self._pode_publicar(empresa_config):
@@ -573,7 +567,8 @@ class SincronizarVitrineService:
                 'nome': empresa_config.nome,
                 'nicho': empresa_config.nicho,
                 'tipo_agenda': empresa_config.tipo_agenda,
-                'tipo_objeto': _NICHO_TIPO_OBJETO.get(empresa_config.nicho),
+                # A config guarda vazio no modo horário; a vitrine usa nulo.
+                'tipo_objeto': empresa_config.tipo_objeto or None,
                 'cidade': empresa_config.cidade or '',
                 'latitude': empresa_config.latitude,
                 'longitude': empresa_config.longitude,

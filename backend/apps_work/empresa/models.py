@@ -1,5 +1,7 @@
 from django.db import models
 
+from apps_work.clientes.models import TipoObjeto
+
 
 class TipoAgenda(models.TextChoices):
     """Os dois modos de agenda. Ver apps_work/CLAUDE.md."""
@@ -13,9 +15,11 @@ class TipoDocumento(models.TextChoices):
 
 
 class Nicho(models.TextChoices):
-    """O ramo do negócio. Define o tipo de agenda (NICHO_TIPO, em
-    serializers.py) e o objeto que o cliente leva (_NICHO_TIPO_OBJETO, na
-    vitrine). Os rótulos exibidos ao usuário vivem nos apps."""
+    """O ramo do negócio. Nos nichos conhecidos, define o tipo de agenda e o
+    objeto que o cliente leva (mapas do ModoAgendaService, em
+    services.py). Em OUTRO, quem escolhe os dois é o dono, e o ramo vai por
+    extenso em `nicho_descricao`. Os rótulos exibidos ao usuário vivem nos
+    apps."""
     CABELEIREIRO = 'cabeleireiro', 'Cabeleireiro(a)'
     BARBEARIA = 'barbearia', 'Barbearia'
     MANICURE = 'manicure', 'Manicure'
@@ -28,6 +32,7 @@ class Nicho(models.TextChoices):
     MASSAGEM = 'massagem', 'Massagem'
     LAVA_RAPIDO = 'lava_rapido', 'Lava-rápido'
     BANHO_TOSA = 'banho_tosa', 'Banho e Tosa'
+    OUTRO = 'outro', 'Outro'
 
 
 class DiaSemana(models.IntegerChoices):
@@ -49,6 +54,9 @@ class EmpresaConfig(models.Model):
     documento = models.CharField(max_length=14, blank=True)
     tipo_documento = models.CharField(max_length=4, choices=TipoDocumento.choices, blank=True)
     nicho = models.CharField(max_length=50, choices=Nicho.choices, blank=True)
+    # O ramo por extenso, quando nenhum nicho da lista serve (nicho = OUTRO).
+    # Vazio nos demais.
+    nicho_descricao = models.CharField(max_length=60, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     logo_url = models.URLField(blank=True)
@@ -65,6 +73,9 @@ class EmpresaConfig(models.Model):
     # ~1,3 km no endereço de teste), então o pino do dono é a fonte de verdade.
     localizacao_confirmada = models.BooleanField(default=False)
     tipo_agenda = models.CharField(max_length=10, choices=TipoAgenda.choices, default=TipoAgenda.HORARIO)
+    # O que o cliente deixa no negócio, no modo kanban: o card do quadro é
+    # sempre um objeto. Vazio no modo horário.
+    tipo_objeto = models.CharField(max_length=10, choices=TipoObjeto.choices, blank=True)
     onboarding_concluido = models.BooleanField(default=False)
     atualizado_em = models.DateTimeField(auto_now=True)
 

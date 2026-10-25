@@ -10,8 +10,8 @@ qual dos dois modos de agenda ele usa.
 | Arquivo | O que faz |
 |---|---|
 | `models.py` | `EmpresaConfig` (linha única por tenant) e `HorarioFuncionamento` (uma por dia da semana) |
-| `services.py` | `GeocodificacaoService` (endereço ↔ coordenada, via Nominatim) e `ArmazenamentoImagemService` (upload, conversão e URL das imagens no S3) |
-| `serializers.py` | Validação, incluindo o mapa nicho → tipo de agenda |
+| `services.py` | `ModoAgendaService` (nicho → modo de agenda e objeto), `GeocodificacaoService` (endereço ↔ coordenada, via Nominatim) e `ArmazenamentoImagemService` (upload, conversão e URL das imagens no S3) |
+| `serializers.py` | Validação; o modo de agenda ele pede ao `ModoAgendaService` |
 | `validators.py` | CPF e CNPJ com dígitos verificadores |
 | `views.py` | Config, upload de logo, horários e as duas views de geocodificação |
 | `signals.py` | Declara `empresa_config_atualizada`, que a vitrine escuta para republicar o negócio |
@@ -30,7 +30,8 @@ campos é o serializer, ao concluir — não o banco.
 | `telefone` | `CharField(20)` vazio | |
 | `documento` | `CharField(14)` vazio | **Só os dígitos.** A máscara fica na interface |
 | `tipo_documento` | `CharField(4)` vazio | `cpf` ou `cnpj` |
-| `nicho` | `CharField(50)` vazio | Slug. É ele que define `tipo_agenda` |
+| `nicho` | `CharField(50)` vazio | Slug. Nos nichos conhecidos, define `tipo_agenda` e `tipo_objeto`; `outro` deixa o dono escolher |
+| `nicho_descricao` | `CharField(60)` vazio | O ramo por extenso. Obrigatório no `outro`, vazio nos demais |
 | `latitude` | `Decimal(9,6)` nulo | Sem ela o negócio não entra na vitrine |
 | `longitude` | `Decimal(9,6)` nulo | Idem |
 | `logo_url` | `URLField` vazio | Pública no S3 |
@@ -39,6 +40,7 @@ campos é o serializer, ao concluir — não o banco.
 | `uf` | `CharField(2)` vazio | Alimenta a geocodificação — sem UF, "cidade + Brasil" precisa desambiguar sozinha, e existe mais de uma Araras no país |
 | `localizacao_confirmada` | `Boolean` = `False` | `True` quando o dono apontou o pino no mapa. A partir daí o geocodificador **não sobrescreve mais** |
 | `tipo_agenda` | `CharField(10)` = `horario` | `horario` ou `kanban`. Define qual dos dois modos o negócio usa |
+| `tipo_objeto` | `CharField(10)` vazio | `veiculo` ou `pet` no kanban — o card do quadro é sempre um objeto. Vazio no horário. A vitrine publica daqui |
 | `onboarding_concluido` | `Boolean` = `False` | Enquanto `False`, o frontend manda o usuário para o wizard |
 | `atualizado_em` | `DateTime` `auto_now` | |
 
@@ -58,13 +60,20 @@ Ordenação por `dia`. O `unique` no dia é o que garante no máximo sete linhas
 
 | Campo | Consequência |
 |---|---|
-| `nicho` | Define `tipo_agenda`. Lava-rápido e banho & tosa viram `kanban`; o resto vira `horario` |
+| `nicho` | Define o modo (`ModoAgendaService`). Lava-rápido vira `kanban` com veículo; banho & tosa, `kanban` com pet; os demais nichos da lista, `horario`. Em `outro`, o dono descreve o ramo e escolhe o modo — no kanban, também se recebe veículo ou pet |
 | `latitude` / `longitude` | Sem elas o negócio **não aparece** na vitrine |
 | `onboarding_concluido` | Enquanto `False`, o frontend manda o usuário para o wizard |
 | `logo_url` | Pública no S3; aparece no mapa e no agendamento do cliente |
 
 Publicar na vitrine exige onboarding concluído, nome, nicho e coordenadas — a
 regra está em `SincronizarVitrineService._pode_publicar`, do lado do `apps_serv`.
+
+## O modo de agenda trava no onboarding
+
+Antes de concluir o onboarding, trocar de nicho troca o modo à vontade. Depois,
+qualquer troca que mude `tipo_agenda` ou `tipo_objeto` é recusada
+(`modo_agenda_bloqueado`): agenda e quadro guardam dados que não se convertem
+de um para o outro. Trocar para um nicho do mesmo modo continua livre.
 
 ## Imagens
 

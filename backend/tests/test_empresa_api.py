@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch
 from rest_framework.test import APIClient
 
+from apps_serv.vitrine.models import NegocioPublico
 from apps_work.empresa.models import EmpresaConfig, HorarioFuncionamento
 from apps_work.kanban.models import EtapaKanban
 from apps_work.usuarios.models import Colaborador
@@ -85,6 +86,119 @@ class TestEmpresaConfigAPI:
         response = client_autenticado.patch('/api/v1/empresa/config/', {'tipo_agenda': 'horario'}, format='json')
         assert response.status_code == 200
         assert response.data['tipo_agenda'] == 'kanban'
+
+
+@pytest.mark.django_db
+class TestNichoOutro:
+    """Nicho fora da lista: o dono descreve o ramo e escolhe o modo."""
+
+    URL = '/api/v1/empresa/config/'
+
+    def test_outro_com_descricao_fica_em_horario_por_padrao(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {'nicho': 'outro', 'nicho_descricao': ' Psicologia '}, format='json')
+        assert response.status_code == 200
+        assert response.data['nicho_descricao'] == 'Psicologia'
+        assert response.data['tipo_agenda'] == 'horario'
+        assert response.data['tipo_objeto'] == ''
+
+    def test_outro_sem_descricao_e_recusado(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {'nicho': 'outro', 'nicho_descricao': '   '}, format='json')
+        assert response.status_code == 400
+        assert response.data['code'] == 'nicho_descricao_obrigatoria'
+
+    def test_outro_em_kanban_guarda_o_objeto_escolhido(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {
+            'nicho': 'outro', 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban', 'tipo_objeto': 'veiculo',
+        }, format='json')
+        assert response.status_code == 200
+        assert response.data['tipo_agenda'] == 'kanban'
+        assert response.data['tipo_objeto'] == 'veiculo'
+
+    def test_outro_em_kanban_sem_objeto_e_recusado(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {
+            'nicho': 'outro', 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban',
+        }, format='json')
+        assert response.status_code == 400
+        assert response.data['code'] == 'tipo_objeto_obrigatorio'
+
+    def test_outro_em_horario_descarta_o_objeto(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {
+            'nicho': 'outro', 'nicho_descricao': 'Psicologia', 'tipo_agenda': 'horario', 'tipo_objeto': 'pet',
+        }, format='json')
+        assert response.status_code == 200
+        assert response.data['tipo_objeto'] == ''
+
+    def test_nicho_conhecido_ignora_descricao_e_objeto_enviados(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {
+            'nicho': 'lava_rapido', 'nicho_descricao': 'Qualquer coisa', 'tipo_objeto': 'pet',
+        }, format='json')
+        assert response.status_code == 200
+        assert response.data['nicho_descricao'] == ''
+        assert response.data['tipo_objeto'] == 'veiculo'
+
+    def test_trocar_de_outro_para_nicho_conhecido_limpa_a_descricao(self, client_autenticado):
+        client_autenticado.patch(self.URL, {'nicho': 'outro', 'nicho_descricao': 'Psicologia'}, format='json')
+        response = client_autenticado.patch(self.URL, {'nicho': 'barbearia'}, format='json')
+        assert response.data['nicho_descricao'] == ''
+
+    def test_outro_em_kanban_cria_etapas_ao_concluir(self, client_autenticado):
+        client_autenticado.patch(self.URL, {
+            'nicho': 'outro', 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban', 'tipo_objeto': 'veiculo',
+        }, format='json')
+        client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
+        assert EtapaKanban.objects.count() == 3
+
+    def test_vitrine_publica_o_objeto_escolhido_no_outro(self, client_autenticado, tenant):
+        client_autenticado.patch(self.URL, {
+            'nome': 'Oficina do Zé', 'nicho': 'outro', 'nicho_descricao': 'Oficina mecânica',
+            'tipo_agenda': 'kanban', 'tipo_objeto': 'veiculo',
+            'latitude': '-22.357000', 'longitude': '-47.384000',
+        }, format='json')
+        client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
+        negocio = NegocioPublico.objects.get(schema_name=tenant.schema_name)
+        assert negocio.tipo_agenda == 'kanban'
+        assert negocio.tipo_objeto == 'veiculo'
+
+
+@pytest.mark.django_db
+class TestModoAgendaAposOnboarding:
+    """Agenda e quadro não se convertem: concluído o onboarding, o modo trava."""
+
+    URL = '/api/v1/empresa/config/'
+
+    def test_trocar_para_nicho_de_outro_modo_e_recusado(self, client_autenticado):
+        client_autenticado.patch(self.URL, {'nicho': 'lava_rapido'}, format='json')
+        client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
+
+        response = client_autenticado.patch(self.URL, {'nicho': 'barbearia'}, format='json')
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'modo_agenda_bloqueado'
+        assert EmpresaConfig.objects.get().nicho == 'lava_rapido'
+
+    def test_trocar_o_objeto_do_kanban_e_recusado(self, client_autenticado):
+        client_autenticado.patch(self.URL, {'nicho': 'lava_rapido'}, format='json')
+        client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
+
+        response = client_autenticado.patch(self.URL, {'nicho': 'banho_tosa'}, format='json')
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'modo_agenda_bloqueado'
+
+    def test_trocar_para_nicho_do_mesmo_modo_e_permitido(self, client_autenticado):
+        client_autenticado.patch(self.URL, {'nicho': 'barbearia'}, format='json')
+        client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
+
+        response = client_autenticado.patch(self.URL, {'nicho': 'outro', 'nicho_descricao': 'Estética'}, format='json')
+
+        assert response.status_code == 200
+        assert response.data['nicho'] == 'outro'
+
+    def test_antes_de_concluir_o_modo_troca_livremente(self, client_autenticado):
+        client_autenticado.patch(self.URL, {'nicho': 'lava_rapido'}, format='json')
+        response = client_autenticado.patch(self.URL, {'nicho': 'barbearia'}, format='json')
+        assert response.status_code == 200
+        assert response.data['tipo_agenda'] == 'horario'
 
 
 # --- HorarioFuncionamentoViewSet ---

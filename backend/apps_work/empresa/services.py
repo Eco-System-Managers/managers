@@ -3,11 +3,16 @@ import urllib.parse
 import json
 import logging
 
+from dataclasses import dataclass
 from io import BytesIO
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage, storages
 from PIL import Image, ImageOps
+
+from apps_work.clientes.models import TipoObjeto
+from core.excecoes import ErroDeNegocio
+from .models import Nicho, TipoAgenda
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +177,66 @@ class ArmazenamentoImagemService:
         return buffer.getvalue()
 
 
+@dataclass(frozen=True)
+class ModoAgenda:
+    nicho_descricao: str
+    tipo_agenda: str
+    tipo_objeto: str
+
+
+class ModoAgendaService:
+    """Fecha nicho, descrição, tipo de agenda e tipo de objeto num estado
+    coerente.
+
+    Nicho conhecido decide tudo pelos mapas, e o que o dono mandar é ignorado.
+    Em OUTRO, o dono descreve o ramo e escolhe o modo; no kanban ele também diz
+    o que recebe, porque o card do quadro é sempre um veículo ou um pet.
+
+    Depois do onboarding, o modo não muda mais: agenda e quadro guardam dados
+    que não se convertem de um para o outro.
+    """
+
+    # O que não está aqui é horário sem objeto. OUTRO fica de fora de
+    # propósito: nele, quem escolhe é o dono.
+    NICHO_TIPO = {
+        Nicho.LAVA_RAPIDO: TipoAgenda.KANBAN,
+        Nicho.BANHO_TOSA: TipoAgenda.KANBAN,
+    }
+    NICHO_TIPO_OBJETO = {
+        Nicho.LAVA_RAPIDO: TipoObjeto.VEICULO,
+        Nicho.BANHO_TOSA: TipoObjeto.PET,
+    }
+
+    def resolver(self, nicho: str, nicho_descricao: str, tipo_agenda: str, tipo_objeto: str, config=None) -> ModoAgenda:
+        if nicho == Nicho.OUTRO:
+            modo = self._escolhido_pelo_dono(nicho_descricao, tipo_agenda, tipo_objeto)
+        else:
+            modo = ModoAgenda(
+                nicho_descricao='',
+                tipo_agenda=self.NICHO_TIPO.get(nicho, TipoAgenda.HORARIO),
+                tipo_objeto=self.NICHO_TIPO_OBJETO.get(nicho, ''),
+            )
+
+        if config and config.onboarding_concluido and (
+            (modo.tipo_agenda, modo.tipo_objeto) != (config.tipo_agenda, config.tipo_objeto)
+        ):
+            raise ErroDeNegocio('O modo de agenda não pode ser trocado depois do onboarding.', 'modo_agenda_bloqueado')
+
+        return modo
+
+    def _escolhido_pelo_dono(self, nicho_descricao: str, tipo_agenda: str, tipo_objeto: str) -> ModoAgenda:
+        descricao = nicho_descricao.strip()
+        if not descricao:
+            raise ErroDeNegocio('Descreva o ramo do seu negócio.', 'nicho_descricao_obrigatoria')
+
+        if tipo_agenda == TipoAgenda.HORARIO:
+            tipo_objeto = ''
+        elif not tipo_objeto:
+            raise ErroDeNegocio('Informe se o negócio recebe veículos ou pets.', 'tipo_objeto_obrigatorio')
+
+        return ModoAgenda(nicho_descricao=descricao, tipo_agenda=tipo_agenda, tipo_objeto=tipo_objeto)
+
+
 class ConfiguracaoEmpresaService:
     """O que acontece quando o negócio salva a configuração ou troca a logo.
 
@@ -181,8 +246,6 @@ class ConfiguracaoEmpresaService:
     """
 
     def apos_salvar(self, config, user, endereco_anterior: tuple) -> None:
-        from apps_work.empresa.models import TipoAgenda
-
         if self._precisa_geocodificar(config, endereco_anterior):
             self._sem_derrubar('geocodificar o endereço', self._geocodificar, config)
 

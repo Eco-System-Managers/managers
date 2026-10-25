@@ -1,13 +1,9 @@
 import re
 
 from rest_framework import serializers
-from .models import EmpresaConfig, HorarioFuncionamento, Nicho, TipoAgenda
+from .models import EmpresaConfig, HorarioFuncionamento, TipoAgenda
+from .services import ModoAgendaService
 from .validators import validar_documento
-
-NICHO_TIPO = {
-    Nicho.LAVA_RAPIDO: TipoAgenda.KANBAN,
-    Nicho.BANHO_TOSA: TipoAgenda.KANBAN,
-}
 
 
 class EmpresaConfigSerializer(serializers.ModelSerializer):
@@ -21,11 +17,18 @@ class EmpresaConfigSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EmpresaConfig
-        fields = ['id', 'nome', 'telefone', 'documento', 'tipo_documento', 'nicho', 'cidade', 'endereco', 'cep', 'uf', 'latitude', 'longitude', 'localizacao_confirmada', 'logo_url', 'tipo_agenda', 'onboarding_concluido', 'atualizado_em']
+        fields = ['id', 'nome', 'telefone', 'documento', 'tipo_documento', 'nicho', 'nicho_descricao', 'cidade', 'endereco', 'cep', 'uf', 'latitude', 'longitude', 'localizacao_confirmada', 'logo_url', 'tipo_agenda', 'tipo_objeto', 'onboarding_concluido', 'atualizado_em']
         # `localizacao_confirmada` não é escrito pela interface: ele é deduzido
         # do envio da coordenada, em update(). Deixá-lo gravável permitiria
         # travar o geocodificador sem nunca ter apontado um ponto no mapa.
-        read_only_fields = ['id', 'tipo_agenda', 'localizacao_confirmada', 'atualizado_em']
+        # `tipo_agenda` e `tipo_objeto` são graváveis, mas só valem no nicho
+        # OUTRO — nos demais, ModoAgendaService os deduz do nicho.
+        read_only_fields = ['id', 'localizacao_confirmada', 'atualizado_em']
+        extra_kwargs = {
+            'tipo_agenda': {'help_text': 'Escolhido pelo dono só no nicho `outro`; nos demais, deduzido do nicho.'},
+            'tipo_objeto': {'help_text': 'O que o negócio recebe no kanban. Escolhido só no nicho `outro`; vazio no modo horário.'},
+            'nicho_descricao': {'help_text': 'O ramo por extenso. Obrigatório no nicho `outro`; vazio nos demais.'},
+        }
 
     def validate(self, attrs):
         """Documento e tipo andam sempre juntos, e são obrigatórios para um
@@ -68,12 +71,26 @@ class EmpresaConfigSerializer(serializers.ModelSerializer):
         if 'uf' in attrs:
             attrs['uf'] = attrs['uf'].strip().upper()[:2]
 
+        self._resolver_modo(attrs, instance)
+
         return attrs
 
-    def update(self, instance, validated_data):
-        nicho = validated_data.get('nicho', instance.nicho)
-        validated_data['tipo_agenda'] = NICHO_TIPO.get(nicho, TipoAgenda.HORARIO)
+    def _resolver_modo(self, attrs, instance):
+        def valor(campo, padrao=''):
+            return attrs.get(campo, getattr(instance, campo) if instance else padrao)
 
+        modo = ModoAgendaService().resolver(
+            nicho=valor('nicho'),
+            nicho_descricao=valor('nicho_descricao'),
+            tipo_agenda=valor('tipo_agenda', TipoAgenda.HORARIO),
+            tipo_objeto=valor('tipo_objeto'),
+            config=instance,
+        )
+        attrs['nicho_descricao'] = modo.nicho_descricao
+        attrs['tipo_agenda'] = modo.tipo_agenda
+        attrs['tipo_objeto'] = modo.tipo_objeto
+
+    def update(self, instance, validated_data):
         # Coordenada enviada pela interface significa que o dono apontou o ponto
         # no mapa. É o único gesto que confirma a localização — e ele desliga o
         # geocodificador automático para esse negócio, em views.perform_update.

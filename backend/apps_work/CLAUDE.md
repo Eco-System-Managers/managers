@@ -46,13 +46,15 @@ que para texto costuma ser string vazia.
 
 ## Os dois modos de agenda
 
-A decisão mais estruturante do produto. `EmpresaConfig.nicho` define
-`tipo_agenda`, e o negócio usa **um** dos dois:
+A decisão mais estruturante do produto. O negócio usa **um** dos dois, gravado
+em `EmpresaConfig.tipo_agenda`. Nos nichos conhecidos, o nicho decide; no nicho
+`outro`, o dono escolhe (`empresa/services.py`, `ModoAgendaService`). Depois do
+onboarding, o modo não muda mais:
 
 | Modo | Para quem | Como funciona |
 |---|---|---|
 | `horario` | barbearia, salão, clínica | Horário marcado com profissional. Conflito é sobreposição na agenda de alguém |
-| `kanban` | lava-rápido, banho & tosa | O objeto entra numa fila de etapas. Status é derivado da coluna |
+| `kanban` | lava-rápido, banho & tosa | O objeto (veículo ou pet, em `EmpresaConfig.tipo_objeto`) entra numa fila de etapas. Status é derivado da coluna |
 
 Boa parte da complexidade do backend vem de os dois coexistirem: caixa, painel,
 pendências de cobrança e a agenda do cliente no app precisam ler os dois.

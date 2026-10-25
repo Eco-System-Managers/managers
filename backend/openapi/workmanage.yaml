@@ -8314,6 +8314,11 @@ components:
           oneOf:
           - $ref: '#/components/schemas/NichoEnum'
           - $ref: '#/components/schemas/BlankEnum'
+        nicho_descricao:
+          type: string
+          description: O ramo por extenso. Obrigatório no nicho `outro`; vazio nos
+            demais.
+          maxLength: 60
         cidade:
           type: string
           maxLength: 100
@@ -8349,7 +8354,20 @@ components:
         tipo_agenda:
           allOf:
           - $ref: '#/components/schemas/TipoAgendaEnum'
-          readOnly: true
+          description: |-
+            Escolhido pelo dono só no nicho `outro`; nos demais, deduzido do nicho.
+
+            * `horario` - Por horário
+            * `kanban` - Esteira / Kanban
+        tipo_objeto:
+          description: |-
+            O que o negócio recebe no kanban. Escolhido só no nicho `outro`; vazio no modo horário.
+
+            * `veiculo` - Veículo
+            * `pet` - Pet
+          oneOf:
+          - $ref: '#/components/schemas/TipoObjetoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         onboarding_concluido:
           type: boolean
         atualizado_em:
@@ -8360,7 +8378,6 @@ components:
       - atualizado_em
       - id
       - localizacao_confirmada
-      - tipo_agenda
     EmpresaConfigRequest:
       type: object
       properties:
@@ -8381,6 +8398,11 @@ components:
           oneOf:
           - $ref: '#/components/schemas/NichoEnum'
           - $ref: '#/components/schemas/BlankEnum'
+        nicho_descricao:
+          type: string
+          description: O ramo por extenso. Obrigatório no nicho `outro`; vazio nos
+            demais.
+          maxLength: 60
         cidade:
           type: string
           maxLength: 100
@@ -8410,6 +8432,23 @@ components:
             maxLength: 200
           - type: string
             maxLength: 0
+        tipo_agenda:
+          allOf:
+          - $ref: '#/components/schemas/TipoAgendaEnum'
+          description: |-
+            Escolhido pelo dono só no nicho `outro`; nos demais, deduzido do nicho.
+
+            * `horario` - Por horário
+            * `kanban` - Esteira / Kanban
+        tipo_objeto:
+          description: |-
+            O que o negócio recebe no kanban. Escolhido só no nicho `outro`; vazio no modo horário.
+
+            * `veiculo` - Veículo
+            * `pet` - Pet
+          oneOf:
+          - $ref: '#/components/schemas/TipoObjetoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         onboarding_concluido:
           type: boolean
     EtapaKanban:
@@ -8647,6 +8686,7 @@ components:
       - massagem
       - lava_rapido
       - banho_tosa
+      - outro
       type: string
       description: |-
         * `cabeleireiro` - Cabeleireiro(a)
@@ -8661,6 +8701,7 @@ components:
         * `massagem` - Massagem
         * `lava_rapido` - Lava-rápido
         * `banho_tosa` - Banho e Tosa
+        * `outro` - Outro
     Notificacao:
       type: object
       properties:
@@ -9388,6 +9429,11 @@ components:
           oneOf:
           - $ref: '#/components/schemas/NichoEnum'
           - $ref: '#/components/schemas/BlankEnum'
+        nicho_descricao:
+          type: string
+          description: O ramo por extenso. Obrigatório no nicho `outro`; vazio nos
+            demais.
+          maxLength: 60
         cidade:
           type: string
           maxLength: 100
@@ -9417,6 +9463,23 @@ components:
             maxLength: 200
           - type: string
             maxLength: 0
+        tipo_agenda:
+          allOf:
+          - $ref: '#/components/schemas/TipoAgendaEnum'
+          description: |-
+            Escolhido pelo dono só no nicho `outro`; nos demais, deduzido do nicho.
+
+            * `horario` - Por horário
+            * `kanban` - Esteira / Kanban
+        tipo_objeto:
+          description: |-
+            O que o negócio recebe no kanban. Escolhido só no nicho `outro`; vazio no modo horário.
+
+            * `veiculo` - Veículo
+            * `pet` - Pet
+          oneOf:
+          - $ref: '#/components/schemas/TipoObjetoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         onboarding_concluido:
           type: boolean
     PatchedEtapaKanbanRequest:

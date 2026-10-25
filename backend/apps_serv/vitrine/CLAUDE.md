@@ -38,7 +38,7 @@ passa por aqui.
 | `nome` | `CharField(255)` | Nome exibido no mapa |
 | `nicho` | `CharField(50)` | Slug (`barbearia`, `banho_tosa`…). Os rótulos legíveis vivem nos apps |
 | `tipo_agenda` | `CharField(20)` | `horario` ou `kanban`. Define o fluxo de agendamento no app |
-| `tipo_objeto` | `CharField(20)` nulo | `veiculo` ou `pet`. Nulo quando o nicho não exige objeto |
+| `tipo_objeto` | `CharField(20)` nulo | `veiculo` ou `pet`, copiado de `EmpresaConfig.tipo_objeto`. Nulo no modo horário |
 | `latitude` | `Decimal(9,6)` | Obrigatória — sem ela o negócio não entra na vitrine |
 | `longitude` | `Decimal(9,6)` | Idem |
 | `logo_url` | `URLField` vazio | URL pública no S3 |
