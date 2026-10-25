@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.plumbing import build_array_type, build_basic_type
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from .models import Agendamento, StatusAgendamento
 from .serializers import AgendamentoSerializer, PendenciaCobrancaSerializer, SlotSerializer
 from .services import (
@@ -70,6 +70,15 @@ class DiasComRegistroView(APIView):
         return Response(DiasComRegistroService().listar(ano, mes))
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter('data', OpenApiTypes.DATE, description='Só os agendamentos deste dia. Cancelados ficam fora da lista.'),
+            OpenApiParameter('colaborador', OpenApiTypes.INT),
+            OpenApiParameter('cliente', OpenApiTypes.INT),
+        ],
+    ),
+)
 class AgendamentoViewSet(viewsets.ModelViewSet):
     serializer_class = AgendamentoSerializer
 

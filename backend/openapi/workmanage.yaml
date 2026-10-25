@@ -179,6 +179,20 @@ paths:
     get:
       operationId: agendamentos_list
       parameters:
+      - in: query
+        name: cliente
+        schema:
+          type: integer
+      - in: query
+        name: colaborador
+        schema:
+          type: integer
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        description: Só os agendamentos deste dia. Cancelados ficam fora da lista.
       - name: page
         required: false
         in: query

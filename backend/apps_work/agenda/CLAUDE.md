@@ -67,6 +67,13 @@ apenas o horário de início.
 Quem não tem colaborador definido não entra na checagem: sem profissional, não
 há recurso disputado.
 
+## Filtros da listagem
+
+`?data=` (um dia), `?colaborador=` e `?cliente=`, documentados no OpenAPI. A
+listagem exclui os cancelados; o detalhe (`/agendamentos/<id>/`) não. O app
+cancela por `PATCH status=cancelado` — o `DELETE` apaga o registro e não
+dispara o sinal de status.
+
 ## Paginação
 
 A listagem é sempre paginada (`core/paginacao.py`), inclusive com `?data=` —
