@@ -62,6 +62,9 @@ class EmpresaConfig(models.Model):
     logo_url = models.URLField(blank=True)
     cidade = models.CharField(max_length=100, blank=True)
     endereco = models.CharField(max_length=255, blank=True)
+    # Separado do endereço para o geocodificador receber "rua, número" sem a
+    # interface precisar montar o texto. Vazio quando não há número.
+    numero = models.CharField(max_length=20, blank=True)
     # Guardados só com os dígitos / a sigla. Alimentam a geocodificação: sem UF
     # a busca depende de "cidade + Brasil" desambiguar sozinha, e existe mais de
     # uma Araras no país.
@@ -84,6 +87,11 @@ class EmpresaConfig(models.Model):
 
     def __str__(self):
         return self.nome or 'Empresa sem nome'
+
+    @property
+    def endereco_completo(self) -> str:
+        """Rua e número juntos ("Rua Um, 10"), como o geocodificador espera."""
+        return ', '.join(parte for parte in (self.endereco, self.numero) if parte)
 
 
 class HorarioFuncionamento(models.Model):

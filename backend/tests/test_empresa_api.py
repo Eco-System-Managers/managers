@@ -325,6 +325,28 @@ class TestLocalizacaoEmpresa:
             )
         assert geo.call_args.args == ('Rua Um, 10', 'Araras', 'SP')
 
+    def test_numero_vai_junto_do_endereco_para_o_geocodificador(self, client_autenticado):
+        """O app manda rua e número em campos separados; o geocodificador
+        recebe os dois juntos, como quem digita o endereço inteiro."""
+        with patch(GEOCODIFICAR, return_value=None) as geo:
+            response = client_autenticado.patch(
+                '/api/v1/empresa/config/',
+                {'endereco': 'Rua Um', 'numero': '10', 'cidade': 'Araras', 'uf': 'SP'},
+                format='json',
+            )
+        assert response.data['numero'] == '10'
+        assert geo.call_args.args == ('Rua Um, 10', 'Araras', 'SP')
+
+    def test_trocar_so_o_numero_geocodifica_de_novo(self, client_autenticado):
+        client_autenticado.patch(
+            '/api/v1/empresa/config/',
+            {'endereco': 'Rua Um', 'numero': '10', 'cidade': 'Araras', 'uf': 'SP'},
+            format='json',
+        )
+        with patch(GEOCODIFICAR, return_value=None) as geo:
+            client_autenticado.patch('/api/v1/empresa/config/', {'numero': '12'}, format='json')
+        assert geo.call_args.args == ('Rua Um, 12', 'Araras', 'SP')
+
     def test_coordenada_enviada_marca_localizacao_confirmada(self, client_autenticado):
         response = client_autenticado.patch(
             '/api/v1/empresa/config/',

@@ -17,7 +17,7 @@ class EmpresaConfigSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EmpresaConfig
-        fields = ['id', 'nome', 'telefone', 'documento', 'tipo_documento', 'nicho', 'nicho_descricao', 'cidade', 'endereco', 'cep', 'uf', 'latitude', 'longitude', 'localizacao_confirmada', 'logo_url', 'tipo_agenda', 'tipo_objeto', 'onboarding_concluido', 'atualizado_em']
+        fields = ['id', 'nome', 'telefone', 'documento', 'tipo_documento', 'nicho', 'nicho_descricao', 'cidade', 'endereco', 'numero', 'cep', 'uf', 'latitude', 'longitude', 'localizacao_confirmada', 'logo_url', 'tipo_agenda', 'tipo_objeto', 'onboarding_concluido', 'atualizado_em']
         # `localizacao_confirmada` não é escrito pela interface: ele é deduzido
         # do envio da coordenada, em update(). Deixá-lo gravável permitiria
         # travar o geocodificador sem nunca ter apontado um ponto no mapa.

@@ -36,6 +36,7 @@ campos é o serializer, ao concluir — não o banco.
 | `longitude` | `Decimal(9,6)` nulo | Idem |
 | `logo_url` | `URLField` vazio | Pública no S3 |
 | `cidade` · `endereco` | `CharField` vazios | |
+| `numero` | `CharField(20)` vazio | Número do endereço. `endereco_completo` junta os dois para a geocodificação |
 | `cep` | `CharField(8)` vazio | Só dígitos |
 | `uf` | `CharField(2)` vazio | Alimenta a geocodificação — sem UF, "cidade + Brasil" precisa desambiguar sozinha, e existe mais de uma Araras no país |
 | `localizacao_confirmada` | `Boolean` = `False` | `True` quando o dono apontou o pino no mapa. A partir daí o geocodificador **não sobrescreve mais** |

@@ -8325,6 +8325,9 @@ components:
         endereco:
           type: string
           maxLength: 255
+        numero:
+          type: string
+          maxLength: 20
         cep:
           type: string
           maxLength: 9
@@ -8409,6 +8412,9 @@ components:
         endereco:
           type: string
           maxLength: 255
+        numero:
+          type: string
+          maxLength: 20
         cep:
           type: string
           maxLength: 9
@@ -9440,6 +9446,9 @@ components:
         endereco:
           type: string
           maxLength: 255
+        numero:
+          type: string
+          maxLength: 20
         cep:
           type: string
           maxLength: 9

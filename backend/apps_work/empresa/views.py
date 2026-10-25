@@ -106,7 +106,7 @@ class EmpresaConfigView(generics.RetrieveUpdateAPIView):
 
     def perform_update(self, serializer):
         config = serializer.instance
-        endereco_anterior = (config.endereco, config.cidade, config.uf)
+        endereco_anterior = (config.endereco, config.numero, config.cidade, config.uf)
         super().perform_update(serializer)
         ConfiguracaoEmpresaService().apos_salvar(serializer.instance, self.request.user, endereco_anterior)
 

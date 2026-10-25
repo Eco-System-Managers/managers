@@ -300,11 +300,11 @@ class ConfiguracaoEmpresaService:
     def _precisa_geocodificar(self, config, endereco_anterior: tuple) -> bool:
         # Quem confirmou o ponto no mapa fica de fora: o palpite automático não
         # pode apagar uma coordenada que o dono apontou à mão.
-        mudou = (config.endereco, config.cidade, config.uf) != endereco_anterior
+        mudou = (config.endereco, config.numero, config.cidade, config.uf) != endereco_anterior
         return mudou and bool(config.endereco or config.cidade) and not config.localizacao_confirmada
 
     def _geocodificar(self, config) -> None:
-        coords = GeocodificacaoService().geocodificar(config.endereco, config.cidade, config.uf)
+        coords = GeocodificacaoService().geocodificar(config.endereco_completo, config.cidade, config.uf)
         if coords:
             config.latitude, config.longitude = coords
             config.save(update_fields=['latitude', 'longitude'])
