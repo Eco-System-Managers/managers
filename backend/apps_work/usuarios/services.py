@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -70,6 +72,13 @@ class ConviteService:
         Devolve (tenant, convite) ou levanta 404.
         """
         from tenants.models import ConviteIndex
+
+        # A rota é pública e o token vem da URL. Fora do formato UUID, o ORM
+        # levantaria ValidationError (500); para quem colou o link errado é 404.
+        try:
+            token = uuid.UUID(str(token))
+        except ValueError:
+            raise ErroDeNegocio('Convite não encontrado.', 'convite_nao_encontrado', 404)
 
         index = ConviteIndex.objects.filter(token=token).first()
         tenant = Tenant.objects.filter(schema_name=index.schema_name).first() if index else None

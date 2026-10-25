@@ -55,7 +55,10 @@ Fluxo em duas pontas, porque quem aceita ainda não tem acesso ao tenant:
    `User`, o `Membro` e o `Colaborador`
 
 O `ConviteColaboradorViewSet` troca de autenticação e de throttle conforme a
-ação — aceitar convite é público por natureza, criar convite não. O aceite é
+ação — aceitar convite é público por natureza, criar convite não. O token é um
+UUID: `ConviteService.localizar` recusa qualquer outra coisa com 404
+`convite_nao_encontrado` antes de consultar o banco (um token digitado errado
+não pode virar 500). O aceite é
 **só por token** (`/convites/aceitar/<token>/`): aceitar por `pk` permitia a um
 anônimo testar IDs sequenciais. O service trava o convite com
 `select_for_update`, para dois aceites simultâneos não criarem o mesmo `User`.

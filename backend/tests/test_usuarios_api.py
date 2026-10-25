@@ -398,6 +398,20 @@ class TestConviteAPI:
         response = client_autenticado.delete(f'/api/v1/convites/{convite_expirado.pk}/')
         assert response.status_code == 404
 
+    def test_info_token_fora_do_formato_retorna_404(self, patch_tenant_middleware):
+        client = APIClient()
+        client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
+        response = client.get('/api/v1/convites/info/nao-e-um-uuid/')
+        assert response.status_code == 404
+        assert response.json()['code'] == 'convite_nao_encontrado'
+
+    def test_aceitar_token_fora_do_formato_retorna_404(self, patch_tenant_middleware):
+        client = APIClient()
+        client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
+        response = client.post('/api/v1/convites/aceitar/nao-e-um-uuid/', {'senha': 'SenhaForte123!'}, format='json')
+        assert response.status_code == 404
+        assert response.json()['code'] == 'convite_nao_encontrado'
+
     def test_info_token_invalido_retorna_404(self, patch_tenant_middleware):
         client = APIClient()
         client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
