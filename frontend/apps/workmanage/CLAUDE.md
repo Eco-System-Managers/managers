@@ -61,3 +61,32 @@ O que o `lib/core/` oferece a toda feature (fase 0 do MVP):
 - Erro de validação da API (`ValidationFailure.fields`) vai para o campo, com `forceErrorText`, como no cadastro. O resto vai para a mensagem da tela.
 - Depois do login, `context.go('/splash')`: a splash decide entre onboarding e home. Depois do cadastro confirmado, direto `/onboarding`.
 - Testes: provider com use case mockado (`mocktail`) e datasource com o `FakeAdapter` de `test/helpers/`, que passa pelo Dio de verdade.
+
+## Features
+
+| Feature | O que é | Rotas |
+|---|---|---|
+| `splash` | Decide a rota inicial pela sessão e pela config | `/splash` |
+| `auth` | Login, recuperação de senha e logout na API | `/login`, `/recovery` |
+| `register` | Cadastro com confirmação por e-mail; a sessão vem na confirmação | `/register`, `/register/verificar` |
+| `onboarding` | Só o wizard (negócio, nicho, horários); os dados são da `empresa` | `/onboarding` |
+| `empresa` | **Dona do domínio da config**: `EmpresaConfig`, `HorarioFuncionamento`, `Nicho`, datasource, use cases, `NegocioAtualProvider` e as telas de configurações. Os widgets `DadosNegocioForm` e `HorarioDiaCard` são compartilhados com o onboarding | `/mais/configuracoes`, `.../negocio`, `.../horarios` |
+| `usuarios` | Mínimo da fase 1: `/colaboradores/me/` (papel) e a lista da equipe. A fase 4 completa | — |
+| `servicos` | Catálogo: lista com busca e filtro de inativos, criar, editar, inativar e reativar (`PATCH ativo`; o `DELETE` da API apaga de verdade e não é usado) | `/servicos`, `/servicos/novo`, `/servicos/:id` |
+| `home` | A casca: `StatefulShellRoute` com as abas Agenda/Quadro, Clientes, Serviços, Caixa e Mais; a aba Mais tem configurações, equipe e assinatura (fase 4) e sair | `/agenda`, `/clientes`, `/servicos`, `/caixa`, `/mais`; `/home` redireciona |
+
+### O negócio atual
+
+`negocioAtualProvider` (em `empresa_provider.dart`) guarda a config e o papel
+de quem entrou (`/colaboradores/me/`), carregados pela casca depois do login
+e zerados quando a sessão acaba. É por ele que a aba se chama Agenda ou
+Quadro (`tipo_agenda`) e que serviços e configurações escondem a escrita de
+quem não é proprietário. Quem salva a config chama `atualizarConfig`, e o
+resto do app enxerga na hora.
+
+### Telas por cima das abas
+
+Formulários e configurações abrem no navegador raiz (`parentNavigatorKey`),
+sem a barra inferior. Um formulário fecha com `context.pop(true)` quando
+salvou, e a lista que o abriu recarrega da API ao receber o `true`.
+Formulário por id usa `Provider.autoDispose.family` (`servicoFormProvider`).
