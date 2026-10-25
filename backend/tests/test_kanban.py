@@ -190,6 +190,13 @@ class TestEtapaKanbanAPI:
         assert response.status_code == 204
         assert EtapaKanban.objects.get(pk=etapa.pk).ordem == 5
 
+    def test_reordenar_por_ids_usa_a_posicao_como_ordem(self, client_autenticado, etapa, etapa_destino):
+        payload = {'ordem': [etapa_destino.pk, etapa.pk]}
+        response = client_autenticado.post('/api/v1/kanban/etapas/reordenar/', payload, format='json')
+        assert response.status_code == 204
+        assert EtapaKanban.objects.get(pk=etapa_destino.pk).ordem == 0
+        assert EtapaKanban.objects.get(pk=etapa.pk).ordem == 1
+
     def test_reordenar_com_payload_invalido_retorna_400(self, client_autenticado):
         response = client_autenticado.post('/api/v1/kanban/etapas/reordenar/', {'ordem': 'invalido'}, format='json')
         assert response.status_code == 400
@@ -198,6 +205,12 @@ class TestEtapaKanbanAPI:
         response = client_autenticado.delete(f'/api/v1/kanban/etapas/{etapa.id}/')
         assert response.status_code == 204
         assert EtapaKanban.objects.filter(pk=etapa.pk).count() == 0
+
+    def test_deletar_etapa_com_atendimentos_retorna_400(self, client_autenticado, atendimento):
+        response = client_autenticado.delete(f'/api/v1/kanban/etapas/{atendimento.etapa_id}/')
+        assert response.status_code == 400
+        assert response.json()['code'] == 'etapa_com_atendimentos'
+        assert EtapaKanban.objects.filter(pk=atendimento.etapa_id).exists()
 
 
 # --- API AtendimentoKanban ---

@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, date, time
 from decimal import Decimal
 from django.db import IntegrityError
+from django.db.models import ProtectedError
 from rest_framework.exceptions import ValidationError
+from core.excecoes import ErroDeNegocio
 from .models import AtendimentoKanban, EtapaKanban, PagamentoAtendimento
 
 ERRO_HORARIO_OCUPADO = {
@@ -57,9 +59,26 @@ class EtapaService:
             return list(EtapaKanban.objects.all())
         return [EtapaKanban.objects.create(**etapa) for etapa in ETAPAS_PADRAO]
 
-    def reordenar(self, ordem: list[dict]) -> None:
-        for item in ordem:
-            EtapaKanban.objects.filter(pk=item['id']).update(ordem=item['ordem'])
+    def remover(self, etapa: EtapaKanban) -> None:
+        # O FK do atendimento é PROTECT: apagar a coluna com cards dentro
+        # derrubaria a view com 500. A pessoa move os cards antes.
+        try:
+            etapa.delete()
+        except ProtectedError:
+            raise ErroDeNegocio('Esta etapa tem atendimentos e não pode ser removida.', 'etapa_com_atendimentos')
+
+    def reordenar(self, ordem: list) -> None:
+        """Grava a nova ordem das colunas.
+
+        O contrato publicado recebe os ids na ordem final (a posição é a
+        ordem). A forma antiga, `[{'id', 'ordem'}]`, continua aceita para o
+        painel web que ainda a manda.
+        """
+        for posicao, item in enumerate(ordem):
+            if isinstance(item, dict):
+                EtapaKanban.objects.filter(pk=item['id']).update(ordem=item['ordem'])
+            else:
+                EtapaKanban.objects.filter(pk=item).update(ordem=posicao)
 
 
 class AtendimentoKanbanService:

@@ -5,13 +5,13 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from drf_spectacular.plumbing import build_array_type, build_basic_type
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
 from core.permissions import IsProprietario
 from .models import AtendimentoKanban, EtapaKanban
 from .serializers import AtendimentoKanbanSerializer, EtapaKanbanSerializer
 from .services import AtendimentoKanbanService, EtapaService, SlotService
+from apps_work.agenda.serializers import SlotSerializer
 from apps_work.financeiro.serializers import CobrancaSerializer
 from core.excecoes import erro
 
@@ -27,6 +27,9 @@ class EtapaKanbanViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return EtapaKanban.objects.all()
 
+    def perform_destroy(self, instance):
+        EtapaService().remover(instance)
+
     @extend_schema(
         request=inline_serializer('ReordenarEtapas', {'ordem': serializers.ListField(child=serializers.IntegerField())}),
         responses={204: None}, summary='Reordenar etapas (ids na nova ordem)',
@@ -40,6 +43,14 @@ class EtapaKanbanViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter('data', OpenApiTypes.DATE, description='Só os atendimentos deste dia (o quadro).'),
+            OpenApiParameter('cliente', OpenApiTypes.INT, description='Só os atendimentos dos objetos deste cliente (o histórico).'),
+        ],
+    ),
+)
 class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
     serializer_class = AtendimentoKanbanSerializer
 
@@ -129,9 +140,11 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
 class SlotsView(APIView):
     permission_classes = [IsAuthenticated]
 
+    # O mesmo formato da grade da agenda: {horario, disponivel}. Antes o
+    # schema prometia uma lista de horas e o cliente Dart quebrava no parse.
     @extend_schema(
-        responses={200: build_array_type(build_basic_type(OpenApiTypes.TIME))},
-        summary='Horários de entrada livres no dia (kanban)',
+        responses=SlotSerializer(many=True),
+        summary='Grade de horas de entrada do dia (kanban)',
         parameters=[OpenApiParameter('data', OpenApiTypes.DATE, required=True)],
     )
     def get(self, request):

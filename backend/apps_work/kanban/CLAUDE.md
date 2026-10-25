@@ -74,11 +74,25 @@ Falta não é coluna do quadro, então não seria capturada pela leitura ao vivo
 Por isso `marcar_falta` dispara sinal e o público é atualizado explicitamente.
 Ao desfazer, volta para `agendado` — e o ponto do quadro volta a valer.
 
+## Filtros e ações
+
+`kanban/atendimentos/?data=` é o quadro de um dia e `?cliente=` o histórico de
+um cliente (pelos objetos dele); os dois estão no OpenAPI. As ações do card
+são `POST .../{id}/mover/` (`{etapa_id}`), `cobrar/` (o `CobrancaSerializer`
+do financeiro), `desfazer_cobranca/`, `marcar_falta/` e `desfazer_falta/`.
+`kanban/etapas/reordenar/` recebe os ids na ordem final (`{"ordem": [3, 1,
+2]}`; a posição vira a `ordem`) e ainda aceita a forma antiga `[{id, ordem}]`.
+Remover etapa com atendimentos dentro responde 400 `etapa_com_atendimentos`
+(`EtapaService.remover`): o FK é PROTECT, e sem isso a view caía em 500.
+
 ## O que é fácil errar aqui
 
 - **O quadro do dia também vem paginado**, como a agenda: o front pede
   `?data=...&page_size=100` e segue o `next`. Página que não chega faria card
   sumir da coluna sem erro.
+- **A grade de horas de entrada (`kanban/slots/`) depende da `capacidade`** do
+  `HorarioFuncionamento` do dia: sem capacidade, nenhuma hora é oferecida e o
+  atendimento só entra sem hora marcada.
 - **Cobrar gera troco como crédito.** O excedente vira `TransacaoCredito` na
   comanda do cliente (app `financeiro`), não dinheiro devolvido.
 - **Não dá para marcar falta em atendimento já pago** — a regra está em

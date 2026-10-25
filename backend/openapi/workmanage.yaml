@@ -4991,6 +4991,17 @@ paths:
     get:
       operationId: kanban_atendimentos_list
       parameters:
+      - in: query
+        name: cliente
+        schema:
+          type: integer
+        description: Só os atendimentos dos objetos deste cliente (o histórico).
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        description: Só os atendimentos deste dia (o quadro).
       - name: page
         required: false
         in: query
@@ -5990,8 +6001,8 @@ paths:
                 $ref: '#/components/schemas/Erro'
   /api/v1/kanban/slots/:
     get:
-      operationId: kanban_slots_retrieve
-      summary: Horários de entrada livres no dia (kanban)
+      operationId: kanban_slots_list
+      summary: Grade de horas de entrada do dia (kanban)
       parameters:
       - in: query
         name: data
@@ -6010,8 +6021,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: string
-                  format: time
+                  $ref: '#/components/schemas/Slot'
           description: ''
         '400':
           description: Requisição inválida ou regra de negócio violada.
