@@ -37,6 +37,7 @@ Ordenação padrão por `ordem`.
 | `etapa` | `FK → EtapaKanban` `PROTECT` | Onde o card está agora. Não há campo de status |
 | `objeto` | `FK → clientes.ObjetoCliente` `PROTECT` | O pet ou veículo — o cliente vem por ele |
 | `servico` | `FK → servicos.Servico` `PROTECT` | Um só, diferente da agenda, que aceita vários |
+| `colaborador` | `FK → usuarios.Colaborador` `PROTECT`, nulo | Quem pegou o carro ou o pet. Opcional; com ele o quadro, o caixa e o painel filtram por profissional |
 | `observacao` | `TextField` vazio | |
 | `data` | `DateField` nulo | Opcional: dá para receber sem hora marcada |
 | `horario_entrada` | `TimeField` nulo | Idem |
@@ -56,6 +57,7 @@ proibir o atendimento sem hora marcada.
 | `atendimento` | `FK → AtendimentoKanban` `CASCADE` | Aceita vários pagamentos |
 | `forma` | `CharField(20)` | `dinheiro`, `pix`, `credito`, `debito`, `qr_code` |
 | `valor` | `Decimal(8,2)` | |
+| `comissao_percentual` · `repasse` | `Decimal` nulo · `Decimal(8,2)` = 0 | A comissão do parceiro congelada na cobrança (ver `usuarios`) |
 | `criado_em` | `DateTime` `auto_now_add` | |
 
 ## Como o status é derivado
@@ -76,8 +78,11 @@ Ao desfazer, volta para `agendado` — e o ponto do quadro volta a valer.
 
 ## Filtros e ações
 
-`kanban/atendimentos/?data=` é o quadro de um dia e `?cliente=` o histórico de
-um cliente (pelos objetos dele); os dois estão no OpenAPI. As ações do card
+`kanban/atendimentos/?data=` é o quadro de um dia, `?cliente=` o histórico de
+um cliente (pelos objetos dele) e `?colaborador=` só os cards de um
+profissional; os três estão no OpenAPI. `cobrar/` e `desfazer_cobranca/`
+passam por `exigir_poder_cobrar` (colaborador comum com `pode_cobrar` desligado
+recebe 403). As ações do card
 são `POST .../{id}/mover/` (`{etapa_id}`), `cobrar/` (o `CobrancaSerializer`
 do financeiro), `desfazer_cobranca/`, `marcar_falta/` e `desfazer_falta/`.
 `kanban/etapas/reordenar/` recebe os ids na ordem final (`{"ordem": [3, 1,

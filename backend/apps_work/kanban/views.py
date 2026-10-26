@@ -14,6 +14,7 @@ from .services import AtendimentoKanbanService, EtapaService, SlotService
 from apps_work.agenda.serializers import SlotSerializer
 from apps_work.financeiro.serializers import CobrancaSerializer
 from core.excecoes import erro
+from core.permissions import exigir_poder_cobrar
 
 
 class EtapaKanbanViewSet(viewsets.ModelViewSet):
@@ -48,6 +49,7 @@ class EtapaKanbanViewSet(viewsets.ModelViewSet):
         parameters=[
             OpenApiParameter('data', OpenApiTypes.DATE, description='Só os atendimentos deste dia (o quadro).'),
             OpenApiParameter('cliente', OpenApiTypes.INT, description='Só os atendimentos dos objetos deste cliente (o histórico).'),
+            OpenApiParameter('colaborador', OpenApiTypes.INT, description='Só os atendimentos deste profissional.'),
         ],
     ),
 )
@@ -59,14 +61,17 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = AtendimentoKanban.objects.select_related(
-            'etapa', 'objeto__cliente', 'objeto__veiculo', 'objeto__pet', 'servico'
+            'etapa', 'objeto__cliente', 'objeto__veiculo', 'objeto__pet', 'servico', 'colaborador__user',
         )
         data = self.request.query_params.get('data')
         cliente = self.request.query_params.get('cliente')
+        colaborador = self.request.query_params.get('colaborador')
         if data:
             qs = qs.filter(data=data)
         if cliente:
             qs = qs.filter(objeto__cliente_id=cliente)
+        if colaborador:
+            qs = qs.filter(colaborador_id=colaborador)
         return qs
 
     def perform_create(self, serializer):
@@ -77,6 +82,7 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
             observacao=serializer.validated_data.get('observacao', ''),
             horario_entrada=serializer.validated_data.get('horario_entrada'),
             data=serializer.validated_data.get('data'),
+            colaborador=serializer.validated_data.get('colaborador'),
         )
         serializer.instance = atendimento
 
@@ -100,6 +106,7 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
     @extend_schema(request=CobrancaSerializer, responses=AtendimentoKanbanSerializer, summary='Cobrar o atendimento')
     @action(detail=True, methods=['post'])
     def cobrar(self, request, pk=None):
+        exigir_poder_cobrar(request)
         atendimento = self.get_object()
         entrada = CobrancaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -116,6 +123,7 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
     @extend_schema(request=None, responses={200: AtendimentoKanbanSerializer}, summary='Desfazer cobrança')
     @action(detail=True, methods=['post'])
     def desfazer_cobranca(self, request, pk=None):
+        exigir_poder_cobrar(request)
         atendimento = self.get_object()
         if not atendimento.pago:
             return erro('Este atendimento não está marcado como pago.', 'nao_pago', status.HTTP_400_BAD_REQUEST)

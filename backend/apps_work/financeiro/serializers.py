@@ -40,6 +40,11 @@ class CaixaKpisSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
     ticket_medio = serializers.DecimalField(max_digits=12, decimal_places=2)
     atendimentos = serializers.IntegerField()
+    repasse = serializers.DecimalField(max_digits=12, decimal_places=2, help_text='A parte dos parceiros, congelada em cada pagamento.')
+    casa = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True,
+        help_text='total - repasse. Nulo para o parceiro: ele vê só a parte dele.',
+    )
 
 
 class CaixaPorFormaSerializer(serializers.Serializer):
@@ -52,9 +57,10 @@ class CaixaPagamentoSerializer(serializers.Serializer):
     origem = serializers.ChoiceField(choices=OrigemAtendimento.choices)
     cliente_nome = serializers.CharField()
     servico_nome = serializers.CharField()
-    colaborador_nome = serializers.CharField(help_text='Vazio nos atendimentos do kanban.')
+    colaborador_nome = serializers.CharField(help_text='Vazio quando o atendimento não tem profissional.')
     forma = serializers.CharField()
     valor = serializers.DecimalField(max_digits=10, decimal_places=2)
+    repasse = serializers.DecimalField(max_digits=10, decimal_places=2)
     data_hora = serializers.DateTimeField()
 
 

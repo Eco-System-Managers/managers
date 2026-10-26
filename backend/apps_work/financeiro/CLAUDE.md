@@ -77,13 +77,18 @@ dessincroniza do histórico.
 `CaixaService.obter_dados` junta pagamentos dos **dois modos** de agenda
 (`PagamentoAgendamento` da agenda e `PagamentoAtendimento` da esteira) num período.
 
-Detalhe que já causou confusão: atendimento de esteira não tem colaborador
-vinculado. Filtrar o caixa por colaborador exclui esses registros por completo —
-por isso o filtro só é aplicado quando um colaborador é informado.
+Filtrar por colaborador vale nos dois modos: na esteira o profissional do card é
+opcional, então só entram os atendimentos atribuídos a ele.
 
-Quem não é proprietário fecha **só o próprio caixa**: a view troca o
-`colaborador` pedido pelo do usuário (`core.permissions.colaborador_aplicado`,
-a mesma trava do painel). Sem perfil de colaborador, 404 `sem_colaborador`.
+Os kpis trazem `repasse` (a soma do que ficou congelado em cada pagamento como
+comissão do parceiro) e `casa` (`total - repasse`). Cada pagamento traz o
+próprio `repasse`.
+
+Quem é o quê (`core/permissions.py`): o parceiro fecha **só o próprio caixa** (a
+view troca o `colaborador` pedido pelo dele, `colaborador_aplicado`) e recebe
+`casa` nulo — a parte da casa é assunto do dono. O colaborador comum não vê o
+caixa: 403 `sem_acesso_a_valores`. Sem perfil de colaborador, 404
+`sem_colaborador`.
 
 ## O que é fácil errar aqui
 

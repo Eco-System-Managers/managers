@@ -8,7 +8,7 @@ from rest_framework import status as http_status
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
-from core.permissions import IsProprietario, colaborador_aplicado
+from core.permissions import IsProprietario, colaborador_aplicado, exigir_ver_valores, vinculo_do_usuario
 from apps_work.clientes.models import Cliente
 from .models import Despesa, TransacaoCredito
 from .serializers import (
@@ -53,6 +53,8 @@ class CaixaView(APIView):
         ],
     )
     def get(self, request):
+        # o colaborador comum não vê dinheiro (403 sem_acesso_a_valores)
+        exigir_ver_valores(request)
         data_inicio_str = request.query_params.get('data_inicio')
         data_fim_str = request.query_params.get('data_fim')
         try:
@@ -73,6 +75,10 @@ class CaixaView(APIView):
         colaborador_id = colaborador_aplicado(request, colaborador_id)
 
         dados = CaixaService().obter_dados(data_inicio, data_fim, colaborador_id)
+        # o parceiro vê o próprio bruto e o próprio repasse; a parte da casa
+        # é assunto do dono
+        if vinculo_do_usuario(request) == 'parceiro':
+            dados['kpis']['casa'] = None
         return Response(dados)
 
 

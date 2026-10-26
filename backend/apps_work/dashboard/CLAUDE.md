@@ -58,9 +58,12 @@ só as `urls` são incluídas no `core/urls.py`.
   `PagamentoAgendamento` contava o pagamento provisório da vitrine, e contar por
   data do pagamento fazia painel e caixa divergirem. `test_bugs_inventario.py`
   garante que os dois concordam.
-- **Com filtro por profissional a esteira fica de fora**, como no caixa: o
-  atendimento kanban não tem colaborador. E `clientes_novos` sai `null`: cliente
-  novo é do negócio, não de alguém.
+- **Com filtro por profissional só entra o que é dele nos dois modos** (na
+  esteira, os cards atribuídos a ele), como no caixa. E `clientes_novos` sai
+  `null`: cliente novo é do negócio, não de alguém.
+- **O colaborador comum não vê dinheiro:** `faturamento`, `ticket_medio` e
+  `repasse` saem nulos (`com_valores=False`, por `core.permissions.ve_valores`).
+  O parceiro vê os próprios, e `repasse` é o que ele tem a receber.
 - **Ele lê os dois modos de agenda.** Um negócio usa agenda ou esteira, então
   metade das consultas volta vazia — e está correto assim.
 - **É o app mais sensível a mudança alheia.** Renomear campo ou status em

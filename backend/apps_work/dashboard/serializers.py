@@ -15,13 +15,20 @@ class PeriodoDashboardSerializer(serializers.Serializer):
 
 
 class DashboardKpisSerializer(serializers.Serializer):
-    faturamento = serializers.DecimalField(max_digits=12, decimal_places=2)
+    faturamento = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True,
+        help_text='Nulo para o colaborador comum, que não vê valores (idem ticket_medio e repasse).',
+    )
     faturamento_variacao = serializers.IntegerField(
         allow_null=True, help_text='Variação % sobre o período anterior; null sem base de comparação.',
     )
     atendimentos = serializers.IntegerField()
     atendimentos_variacao = serializers.IntegerField(allow_null=True)
-    ticket_medio = serializers.DecimalField(max_digits=12, decimal_places=2)
+    ticket_medio = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    repasse = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True,
+        help_text='A parte dos parceiros no período (congelada em cada pagamento). Para o parceiro, o que ele tem a receber.',
+    )
     clientes_novos = serializers.IntegerField(
         allow_null=True, help_text='Null quando filtrado por profissional: cliente novo é do negócio.',
     )

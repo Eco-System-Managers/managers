@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from django.db import connection
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 from apps_work.autenticacao.serializers import SessaoSerializer
 from apps_work.autenticacao.views import responder_sessao
@@ -17,7 +17,8 @@ from tenants.models import Membro
 
 from .models import Colaborador, ConviteColaborador
 from .serializers import (
-    AceitarConviteSerializer, ColaboradorSerializer, ConviteColaboradorSerializer, ConviteInfoSerializer,
+    AceitarConviteSerializer, ColaboradorSerializer, ConvidarColaboradorSerializer, ConviteColaboradorSerializer,
+    ConviteInfoSerializer,
 )
 from .services import AceitarConviteService, ColaboradorService, ConviteService
 from core.excecoes import erro
@@ -31,25 +32,58 @@ from core.excecoes import erro
 class ColaboradorViewSet(viewsets.ModelViewSet):
     serializer_class = ColaboradorSerializer
 
-    _ACOES_DO_PROPRIETARIO = {'update', 'partial_update', 'destroy', 'remover', 'ativar', 'desativar'}
+    # criar aqui é cadastrar alguém sem login (nome, função, vínculo); o
+    # convite continua sendo o caminho para dar acesso
+    _ACOES_DO_PROPRIETARIO = {
+        'create', 'update', 'partial_update', 'destroy', 'remover', 'ativar', 'desativar', 'convidar',
+    }
 
     def get_permissions(self):
         if self.action in self._ACOES_DO_PROPRIETARIO:
             return [IsAuthenticated(), IsProprietario()]
         return [IsAuthenticated()]
 
+    def get_throttles(self):
+        # mesmo limite do convite comum: a resposta revela se o e-mail já tem conta
+        if self.action == 'convidar':
+            self.throttle_scope = 'convite_criar'
+            return [ScopedRateThrottle()]
+        return super().get_throttles()
+
     def get_queryset(self):
         qs = Colaborador.objects.select_related('user').all()
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(
+                Q(nome__icontains=search) |
                 Q(user__first_name__icontains=search) |
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search)
             )
         # O papel vem do Membro (schema público), anotado na mesma consulta.
+        # Quem não tem login não tem papel.
         qs = qs.annotate(papel=Membro.papel_subquery(connection.schema_name))
-        return qs.order_by('-papel', 'user__first_name', 'user__last_name')
+        # o dono primeiro; quem não tem login (papel nulo) não pode vir na frente
+        return qs.order_by(F('papel').desc(nulls_last=True), 'nome', 'user__first_name', 'user__last_name')
+
+    @extend_schema(
+        request=ConvidarColaboradorSerializer, responses={201: ConviteColaboradorSerializer},
+        summary='Convidar para o app alguém que já está na equipe sem login',
+    )
+    @action(detail=True, methods=['post'], url_path='convidar')
+    def convidar(self, request, pk=None):
+        from tenants.models import Tenant
+        colaborador = self.get_object()
+        entrada = ConvidarColaboradorSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        convite = ConviteService().criar_e_enviar(
+            nome=colaborador.nome_exibido,
+            email=entrada.validated_data['email'],
+            tenant_nome=tenant.nome,
+            colaborador=colaborador,
+        )
+        return Response(ConviteColaboradorSerializer(convite).data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
         return self.desativar(request, *args, **kwargs)

@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps_work.clientes.serializers import ObjetoClienteSerializer
 from .models import AtendimentoKanban, EtapaKanban, PagamentoAtendimento
@@ -23,7 +24,12 @@ class AtendimentoKanbanSerializer(serializers.ModelSerializer):
     servico_nome = serializers.CharField(source='servico.nome', read_only=True)
     servico_preco = serializers.DecimalField(source='servico.preco', max_digits=8, decimal_places=2, read_only=True)
     servico_duracao = serializers.IntegerField(source='servico.duracao', read_only=True)
+    colaborador_nome = serializers.SerializerMethodField()
     pagamentos = PagamentoAtendimentoSerializer(many=True, read_only=True)
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_colaborador_nome(self, obj):
+        return obj.colaborador.nome_exibido if obj.colaborador else None
 
     class Meta:
         model = AtendimentoKanban
@@ -32,6 +38,7 @@ class AtendimentoKanbanSerializer(serializers.ModelSerializer):
             'objeto', 'objeto_detalhe', 'cliente_nome',
             'cliente_telefone',
             'servico', 'servico_nome', 'servico_preco', 'servico_duracao',
+            'colaborador', 'colaborador_nome',
             'observacao', 'data', 'horario_entrada', 'pago', 'faltou', 'desconto', 'pagamentos', 'criado_em',
         ]
         read_only_fields = ['criado_em']

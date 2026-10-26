@@ -2298,6 +2298,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+  /api/v1/colaboradores/{id}/convidar/:
+    post:
+      operationId: colaboradores_convidar_create
+      summary: Convidar para o app alguém que já está na equipe sem login
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Um valor inteiro único que identifica este colaborador.
+        required: true
+      tags:
+      - colaboradores
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConvidarColaboradorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConvidarColaboradorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConvidarColaboradorRequest'
+        required: true
+      security:
+      - workmanageJWT: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConviteColaborador'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
   /api/v1/colaboradores/{id}/desativar/:
     post:
       operationId: colaboradores_desativar_create
@@ -5102,6 +5166,11 @@ paths:
           type: integer
         description: Só os atendimentos dos objetos deste cliente (o histórico).
       - in: query
+        name: colaborador
+        schema:
+          type: integer
+        description: Só os atendimentos deste profissional.
+      - in: query
         name: data
         schema:
           type: string
@@ -7677,6 +7746,13 @@ components:
         servico_duracao:
           type: integer
           readOnly: true
+        colaborador:
+          type: integer
+          nullable: true
+        colaborador_nome:
+          type: string
+          nullable: true
+          readOnly: true
         observacao:
           type: string
         data:
@@ -7707,6 +7783,7 @@ components:
       required:
       - cliente_nome
       - cliente_telefone
+      - colaborador_nome
       - criado_em
       - etapa
       - etapa_nome
@@ -7727,6 +7804,9 @@ components:
           type: integer
         servico:
           type: integer
+        colaborador:
+          type: integer
+          nullable: true
         observacao:
           type: string
         data:
@@ -7806,8 +7886,21 @@ components:
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
         atendimentos:
           type: integer
+        repasse:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: A parte dos parceiros, congelada em cada pagamento.
+        casa:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+          description: 'total - repasse. Nulo para o parceiro: ele vê só a parte dele.'
       required:
       - atendimentos
+      - casa
+      - repasse
       - ticket_medio
       - total
     CaixaPagamento:
@@ -7821,10 +7914,14 @@ components:
           type: string
         colaborador_nome:
           type: string
-          description: Vazio nos atendimentos do kanban.
+          description: Vazio quando o atendimento não tem profissional.
         forma:
           type: string
         valor:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        repasse:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
@@ -7837,6 +7934,7 @@ components:
       - data_hora
       - forma
       - origem
+      - repasse
       - servico_nome
       - valor
     CaixaPorForma:
@@ -8049,13 +8147,31 @@ components:
         id:
           type: integer
           readOnly: true
-        user:
-          allOf:
-          - $ref: '#/components/schemas/User'
+        nome:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
           readOnly: true
+        tem_acesso:
+          type: boolean
+          readOnly: true
+          description: Tem login. Quem não tem só aparece nos filtros.
         funcao:
           type: string
           maxLength: 100
+        tipo:
+          $ref: '#/components/schemas/ColaboradorTipoEnum'
+        comissao_percentual:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+          description: 'Só para parceiro: a parte dele (0 a 100). Nulo é sem acordo.'
+        pode_cobrar:
+          type: boolean
+          description: Só pesa para o colaborador comum; parceiro e dono cobram sempre.
         papel:
           nullable: true
           readOnly: true
@@ -8072,15 +8188,38 @@ components:
       required:
       - ativo
       - criado_em
+      - email
       - id
       - papel
-      - user
+      - tem_acesso
     ColaboradorRequest:
       type: object
       properties:
+        nome:
+          type: string
+          maxLength: 150
         funcao:
           type: string
           maxLength: 100
+        tipo:
+          $ref: '#/components/schemas/ColaboradorTipoEnum'
+        comissao_percentual:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+          description: 'Só para parceiro: a parte dele (0 a 100). Nulo é sem acordo.'
+        pode_cobrar:
+          type: boolean
+          description: Só pesa para o colaborador comum; parceiro e dono cobram sempre.
+    ColaboradorTipoEnum:
+      enum:
+      - parceiro
+      - colaborador
+      type: string
+      description: |-
+        * `parceiro` - Parceiro
+        * `colaborador` - Colaborador
     ConfirmarAssinaturaRequest:
       type: object
       properties:
@@ -8210,6 +8349,15 @@ components:
       - cliente
       - corpo
       - titulo
+    ConvidarColaboradorRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
     ConviteColaborador:
       type: object
       properties:
@@ -8223,6 +8371,10 @@ components:
           type: string
           format: email
           maxLength: 254
+        colaborador:
+          type: integer
+          readOnly: true
+          nullable: true
         aceito:
           type: boolean
           readOnly: true
@@ -8236,6 +8388,7 @@ components:
           readOnly: true
       required:
       - aceito
+      - colaborador
       - criado_em
       - email
       - expira_em
@@ -8293,6 +8446,9 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+          description: Nulo para o colaborador comum, que não vê valores (idem ticket_medio
+            e repasse).
         faturamento_variacao:
           type: integer
           nullable: true
@@ -8306,6 +8462,14 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        repasse:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+          description: A parte dos parceiros no período (congelada em cada pagamento).
+            Para o parceiro, o que ele tem a receber.
         clientes_novos:
           type: integer
           nullable: true
@@ -8320,6 +8484,7 @@ components:
       - clientes_novos_variacao
       - faturamento
       - faturamento_variacao
+      - repasse
       - ticket_medio
     DashboardResumo:
       type: object
@@ -9454,6 +9619,9 @@ components:
           type: integer
         servico:
           type: integer
+        colaborador:
+          type: integer
+          nullable: true
         observacao:
           type: string
         data:
@@ -9526,9 +9694,23 @@ components:
     PatchedColaboradorRequest:
       type: object
       properties:
+        nome:
+          type: string
+          maxLength: 150
         funcao:
           type: string
           maxLength: 100
+        tipo:
+          $ref: '#/components/schemas/ColaboradorTipoEnum'
+        comissao_percentual:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+          description: 'Só para parceiro: a parte dele (0 a 100). Nulo é sem acordo.'
+        pode_cobrar:
+          type: boolean
+          description: Só pesa para o colaborador comum; parceiro e dono cobram sempre.
     PatchedContratoRequest:
       type: object
       properties:
@@ -10240,49 +10422,6 @@ components:
           format: binary
       required:
       - logo
-    User:
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        first_name:
-          type: string
-          title: Primeiro nome
-          maxLength: 150
-        last_name:
-          type: string
-          title: Último nome
-          maxLength: 150
-        email:
-          title: Endereço de email
-          oneOf:
-          - type: string
-            format: email
-            maxLength: 254
-          - type: string
-            maxLength: 0
-      required:
-      - id
-    UserRequest:
-      type: object
-      properties:
-        first_name:
-          type: string
-          title: Primeiro nome
-          maxLength: 150
-        last_name:
-          type: string
-          title: Último nome
-          maxLength: 150
-        email:
-          title: Endereço de email
-          oneOf:
-          - type: string
-            format: email
-            maxLength: 254
-          - type: string
-            maxLength: 0
     Veiculo:
       type: object
       properties:

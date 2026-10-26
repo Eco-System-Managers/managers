@@ -16,13 +16,19 @@ from core.excecoes import ErroDeNegocio
 
 
 class ColaboradorService:
+    # Quem não tem login não tem is_active para sincronizar nem sessão para
+    # encerrar: os métodos abaixo toleram `user` nulo.
     def sincronizar_is_active(self, colaborador: Colaborador) -> None:
+        if colaborador.user_id is None:
+            return
         colaborador.user.is_active = colaborador.ativo
         colaborador.user.save(update_fields=['is_active'])
 
     def _garantir_que_nao_e_proprietario(self, colaborador: Colaborador) -> None:
         # Desativar ou remover o dono — inclusive ele mesmo — deixaria o tenant
         # sem ninguém capaz de reativá-lo.
+        if colaborador.user_id is None:
+            return
         if Membro.papel_no_schema(colaborador.user, connection.schema_name) == Papel.PROPRIETARIO:
             raise ErroDeNegocio('O proprietário não pode ser desativado nem removido.', 'proprietario_protegido')
 
@@ -32,9 +38,10 @@ class ColaboradorService:
         colaborador.save(update_fields=['ativo'])
         self.sincronizar_is_active(colaborador)
         colaborador.servicos.clear()
-        # Sem isso, reativar devolveria a validade aos refresh antigos.
-        from apps_work.autenticacao.services import SessaoService
-        SessaoService().encerrar_todas(colaborador.user)
+        if colaborador.user_id is not None:
+            # Sem isso, reativar devolveria a validade aos refresh antigos.
+            from apps_work.autenticacao.services import SessaoService
+            SessaoService().encerrar_todas(colaborador.user)
 
     def reativar(self, colaborador: Colaborador) -> None:
         colaborador.ativo = True
@@ -52,13 +59,17 @@ class ColaboradorService:
     @transaction.atomic
     def remover(self, colaborador: Colaborador) -> None:
         from apps_work.agenda.models import Agendamento
+        from apps_work.kanban.models import AtendimentoKanban
         self._garantir_que_nao_e_proprietario(colaborador)
         user = colaborador.user
+        # o histórico fica, sem profissional
         Agendamento.objects.filter(colaborador=colaborador).update(colaborador=None)
+        AtendimentoKanban.objects.filter(colaborador=colaborador).update(colaborador=None)
         colaborador.delete()
-        Membro.objects.filter(user=user).delete()
-        UltimaAtividade.objects.filter(user=user).delete()
-        user.delete()
+        if user is not None:
+            Membro.objects.filter(user=user).delete()
+            UltimaAtividade.objects.filter(user=user).delete()
+            user.delete()
 
 
 class ConviteService:
@@ -104,19 +115,22 @@ class ConviteService:
         ConviteIndex.objects.filter(token=convite.token).delete()
         convite.delete()
 
-    def criar_e_enviar(self, nome: str, email: str, tenant_nome: str) -> ConviteColaborador:
-        from apps_work.empresa.models import EmpresaConfig, TipoAgenda
+    def criar_e_enviar(
+        self, nome: str, email: str, tenant_nome: str, colaborador: Colaborador | None = None,
+    ) -> ConviteColaborador:
+        """Convida por e-mail. Com `colaborador`, é dar login a quem já está na equipe."""
         from tenants.models import ConviteIndex
         email = email.lower().strip()
-        config = EmpresaConfig.objects.filter(pk=1).first()
-        if config and config.tipo_agenda == TipoAgenda.KANBAN:
-            raise ErroDeNegocio('Empresas com agenda por esteira não podem ter colaboradores.', 'esteira_sem_colaboradores')
+        if colaborador is not None and colaborador.tem_acesso:
+            raise ErroDeNegocio('Esta pessoa já tem acesso ao app.', 'colaborador_com_acesso')
         if User.objects.filter(email=email).exists():
             raise ErroDeNegocio('Este e-mail já está vinculado a uma conta.', 'email_ja_cadastrado')
         if ConviteColaborador.objects.filter(email=email, aceito=False, expira_em__gt=timezone.now()).exists():
             raise ErroDeNegocio('Já existe um convite pendente para este e-mail.', 'convite_pendente')
         expira_em = timezone.now() + timedelta(days=self.EXPIRACAO_DIAS)
-        convite = ConviteColaborador.objects.create(nome=nome, email=email, expira_em=expira_em)
+        convite = ConviteColaborador.objects.create(
+            nome=nome, email=email, expira_em=expira_em, colaborador=colaborador,
+        )
         ConviteIndex.objects.create(token=convite.token, schema_name=connection.schema_name)
         self._enviar_email(convite, tenant_nome)
         return convite
@@ -173,7 +187,14 @@ class AceitarConviteService:
             )
             Membro.objects.create(user=user, tenant=tenant, papel=Papel.COLABORADOR)
             UltimaAtividade.objects.create(user=user, ultimo_acesso=timezone.now())
-            Colaborador.objects.create(user=user, ativo=True)
+            if convite.colaborador_id:
+                # quem já estava na equipe ganha o login no mesmo registro
+                colaborador = convite.colaborador
+                colaborador.user = user
+                colaborador.ativo = True
+                colaborador.save(update_fields=['user', 'ativo'])
+            else:
+                Colaborador.objects.create(user=user, nome=convite.nome.strip(), ativo=True)
 
             convite.aceito = True
             convite.save(update_fields=['aceito'])

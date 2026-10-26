@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.excecoes import erro
-from core.permissions import colaborador_aplicado
+from core.permissions import colaborador_aplicado, ve_valores
 
 from .serializers import DashboardResumoSerializer
 from .services import DashboardService
@@ -48,7 +48,9 @@ class DashboardResumoView(APIView):
         # quem não é proprietário vê só o próprio (ErroDeNegocio 404 sem perfil)
         colaborador_id = colaborador_aplicado(request, colaborador_id)
 
-        return Response(DashboardService().obter_resumo(data_inicio, data_fim, colaborador_id))
+        return Response(DashboardService().obter_resumo(
+            data_inicio, data_fim, colaborador_id, com_valores=ve_valores(request),
+        ))
 
     @staticmethod
     def _data(valor: str | None) -> date | None:

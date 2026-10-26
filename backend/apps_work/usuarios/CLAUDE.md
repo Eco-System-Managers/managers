@@ -2,6 +2,11 @@
 
 Quem trabalha no negócio: **colaboradores e convites**.
 
+Duas coisas que andam separadas: **quem trabalha** (o `Colaborador`, que o dono
+cadastra na hora, sem e-mail) e **quem entra no app** (o `User`, que só existe
+depois de um convite aceito). O mesmo registro pode começar sem login e ganhar
+um depois, pelo `POST colaboradores/{id}/convidar/`.
+
 ## Arquivos
 
 | Arquivo | O que faz |
@@ -17,8 +22,12 @@ Quem trabalha no negócio: **colaboradores e convites**.
 
 | Coluna | Tipo | O que é |
 |---|---|---|
-| `user` | `OneToOne → auth.User` `CASCADE` | O login em si é do Django; este modelo é o lado do domínio |
+| `user` | `OneToOne → auth.User` `CASCADE`, **nulo** | O login, quando tem. `tem_acesso` no serializer |
+| `nome` | `CharField(150)` vazio | O nome exibido (`nome_exibido` cai no `User` quando vazio: registros antigos) |
 | `funcao` | `CharField(100)` vazio | Cargo exibido (ex.: "Cabeleireiro") |
+| `tipo` | `CharField(20)` = `parceiro` | `parceiro` (agenda e faturamento próprios) ou `colaborador` (executa, não vê valores) |
+| `comissao_percentual` | `Decimal(5,2)` nulo | Só parceiro: a parte dele sobre cada pagamento. Congela em `PagamentoAgendamento`/`PagamentoAtendimento` na cobrança |
+| `pode_cobrar` | `Boolean` = `True` | Só pesa para o colaborador comum; parceiro e dono cobram sempre |
 | `ativo` | `Boolean` = `True` | Mantido em sincronia com `User.is_active` pelo `ColaboradorService` |
 | `criado_em` | `DateTime` `auto_now_add` | |
 
@@ -29,9 +38,25 @@ Quem trabalha no negócio: **colaboradores e convites**.
 | `nome` | `CharField(150)` vazio | |
 | `email` | `EmailField` | Para onde o link é enviado |
 | `token` | `UUIDField` único | A credencial do convite. Vive também no `ConviteIndex` do schema público, que mapeia token → schema |
+| `colaborador` | `FK → Colaborador` nulo | Convite para quem já está na equipe sem login: ao aceitar, o `user` entra neste registro |
 | `aceito` | `Boolean` = `False` | |
 | `criado_em` | `DateTime` `auto_now_add` | |
 | `expira_em` | `DateTimeField` | |
+
+## Vínculo: parceiro e colaborador
+
+O `tipo` decide o que a pessoa **vê**; o papel do `Membro` decide o que ela
+**administra**. `core/permissions.py` concentra a leitura:
+
+| | Proprietário | Parceiro | Colaborador |
+|---|---|---|---|
+| Caixa e valores do painel | Tudo, com repasse e casa | Só o próprio; `casa` vem nulo | 403 `sem_acesso_a_valores`; painel com valores nulos |
+| Cobrar | Sempre | Sempre | Só com `pode_cobrar` (403 `sem_permissao_cobrar`) |
+| Equipe | Cadastra, convida, edita | Vê | Vê |
+
+`vinculo_do_usuario`, `ve_valores`, `exigir_ver_valores` e
+`exigir_poder_cobrar` são os pontos de entrada. Sem perfil de colaborador, o
+usuário é tratado como colaborador comum: o menor acesso.
 
 ## Papéis
 
@@ -52,7 +77,8 @@ Fluxo em duas pontas, porque quem aceita ainda não tem acesso ao tenant:
 1. O proprietário cria o convite; um `ConviteIndex` no schema público mapeia
    token → schema, para o link funcionar sem o convidado saber de tenant
 2. O convidado abre o link, define senha, e `AceitarConviteService` cria o
-   `User`, o `Membro` e o `Colaborador`
+   `User` e o `Membro`; cria o `Colaborador` ou, se o convite veio de
+   `colaboradores/{id}/convidar/`, liga o `User` ao registro que já existia
 
 O `ConviteColaboradorViewSet` troca de autenticação e de throttle conforme a
 ação — aceitar convite é público por natureza, criar convite não. O token é um
@@ -84,6 +110,9 @@ pode deixar horário órfão.
 
 ## O que é fácil errar aqui
 
+- **`user` pode ser nulo.** Nome, papel, `is_active` e sessões só existem
+  para quem tem login; o `ColaboradorService` tolera o nulo, e código novo
+  também precisa (`nome_exibido`, nunca `colaborador.user.get_full_name()`).
 - **`ativo` não muda pelo serializer.** Só pelas actions, que chamam o
   service; alterar o campo por outro caminho quebra o par com `is_active`.
 - **A sincronia entre `ativo` e `is_active` é por convenção**, não estrutural.

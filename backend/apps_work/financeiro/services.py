@@ -87,22 +87,20 @@ def pagamentos_efetivados():
 
 class CaixaService:
     def obter_dados(self, data_inicio: date, data_fim: date, colaborador_id: int | None = None) -> dict:
-        from apps_work.kanban.models import PagamentoAtendimento
-
         kanban_efetivados, agenda_efetivados = pagamentos_efetivados()
 
-        # Atendimentos do Kanban não têm colaborador vinculado — filtrar por
-        # colaborador exclui esses registros por completo.
-        if colaborador_id is None:
-            pk_qs = kanban_efetivados.filter(
-                atendimento__criado_em__date__gte=data_inicio,
-                atendimento__criado_em__date__lte=data_fim,
-            ).select_related(
-                'atendimento__objeto__cliente',
-                'atendimento__servico',
-            )
-        else:
-            pk_qs = PagamentoAtendimento.objects.none()
+        # Na esteira o profissional é opcional: filtrando por colaborador, só
+        # entram os atendimentos que foram atribuídos a ele.
+        pk_qs = kanban_efetivados.filter(
+            atendimento__criado_em__date__gte=data_inicio,
+            atendimento__criado_em__date__lte=data_fim,
+        ).select_related(
+            'atendimento__objeto__cliente',
+            'atendimento__servico',
+            'atendimento__colaborador__user',
+        )
+        if colaborador_id is not None:
+            pk_qs = pk_qs.filter(atendimento__colaborador_id=colaborador_id)
 
         pa_qs = agenda_efetivados.filter(
             agendamento__data_hora__date__gte=data_inicio,
@@ -117,13 +115,15 @@ class CaixaService:
         sessoes: set[str] = set()
 
         for p in pk_qs:
+            colaborador = p.atendimento.colaborador
             pagamentos.append({
                 'origem': OrigemAtendimento.KANBAN,
                 'cliente_nome': p.atendimento.objeto.cliente.nome,
                 'servico_nome': p.atendimento.servico.nome,
-                'colaborador_nome': '',
+                'colaborador_nome': colaborador.nome_exibido if colaborador else '',
                 'forma': p.forma,
                 'valor': str(p.valor),
+                'repasse': str(p.repasse),
                 'data_hora': p.atendimento.criado_em.isoformat(),
             })
             sessoes.add(f'k_{p.atendimento_id}')
@@ -136,9 +136,10 @@ class CaixaService:
                 'origem': OrigemAtendimento.AGENDA,
                 'cliente_nome': p.agendamento.cliente.nome,
                 'servico_nome': servico_nome,
-                'colaborador_nome': colaborador.user.get_full_name() if colaborador else '',
+                'colaborador_nome': colaborador.nome_exibido if colaborador else '',
                 'forma': p.forma,
                 'valor': str(p.valor),
+                'repasse': str(p.repasse),
                 'data_hora': p.agendamento.data_hora.isoformat(),
             })
             sessoes.add(f'a_{p.agendamento_id}')
@@ -146,6 +147,9 @@ class CaixaService:
         pagamentos.sort(key=lambda x: x['data_hora'], reverse=True)
 
         total = sum(Decimal(p['valor']) for p in pagamentos) if pagamentos else Decimal('0')
+        # o que vai para os parceiros (congelado em cada pagamento) e o que
+        # fica para a casa
+        repasse = sum(Decimal(p['repasse']) for p in pagamentos) if pagamentos else Decimal('0')
         total_sessoes = len(sessoes)
         ticket_medio = (total / total_sessoes).quantize(Decimal('0.01')) if total_sessoes else Decimal('0.00')
 
@@ -167,6 +171,8 @@ class CaixaService:
                 'total': str(total.quantize(Decimal('0.01'))),
                 'ticket_medio': str(ticket_medio),
                 'atendimentos': total_sessoes,
+                'repasse': str(repasse.quantize(Decimal('0.01'))),
+                'casa': str((total - repasse).quantize(Decimal('0.01'))),
             },
             'por_forma': por_forma,
             'pagamentos': pagamentos,

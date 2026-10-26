@@ -66,13 +66,12 @@ class TestConviteService:
         assert convite.expira_em > timezone.now()
 
     @patch('core.email.send_mail')
-    def test_criar_e_enviar_bloqueia_agenda_kanban(self, mock_mail, patch_tenant_middleware):
+    def test_criar_e_enviar_vale_tambem_para_a_esteira(self, mock_mail, patch_tenant_middleware):
+        # a esteira ganhou profissional opcional no card: a equipe existe nos dois modos
         from apps_work.empresa.models import EmpresaConfig
         EmpresaConfig.objects.create(pk=1, tipo_agenda='kanban')
-        with pytest.raises(ValueError, match='Empresas com agenda por esteira'):
-            ConviteService().criar_e_enviar(
-                nome='Ana', email='ana@email.com', tenant_nome='Empresa'
-            )
+        convite = ConviteService().criar_e_enviar(nome='Ana', email='ana@email.com', tenant_nome='Empresa')
+        assert convite.pk is not None
 
     @patch('core.email.send_mail')
     def test_enviar_email_usa_link_com_token(self, mock_mail, patch_tenant_middleware):
@@ -176,7 +175,8 @@ class TestColaboradorAPI:
         assert response.data['id'] == colaborador.id
         # O papel vem do Membro: quem está logado é o dono do tenant de teste.
         assert response.data['papel'] == 'proprietario'
-        assert response.data['user']['email'] == colaborador.user.email
+        assert response.data['email'] == colaborador.user.email
+        assert response.data['tem_acesso'] is True
 
     def test_me_sem_colaborador_vinculado_retorna_404(self, client_autenticado):
         response = client_autenticado.get('/api/v1/colaboradores/me/')

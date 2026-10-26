@@ -55,6 +55,10 @@ class PagamentoAgendamento(models.Model):
     agendamento = models.ForeignKey(Agendamento, on_delete=models.CASCADE, related_name='pagamentos')
     forma = models.CharField(max_length=20, choices=FormaPagamento.choices)
     valor = models.DecimalField(max_digits=8, decimal_places=2)
+    # A comissão do parceiro na hora da cobrança, congelada: o acordo pode
+    # mudar depois sem reescrever o passado. Nulo é sem acordo.
+    comissao_percentual = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    repasse = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

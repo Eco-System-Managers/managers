@@ -16,6 +16,7 @@ from .services import (
 )
 from apps_work.financeiro.serializers import CobrancaSerializer
 from core.excecoes import erro
+from core.permissions import exigir_poder_cobrar
 
 
 class PendenciasCobrancaView(APIView):
@@ -133,6 +134,7 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
     @extend_schema(request=CobrancaSerializer, responses=AgendamentoSerializer, summary='Cobrar o atendimento')
     @action(detail=True, methods=['post'])
     def cobrar(self, request, pk=None):
+        exigir_poder_cobrar(request)
         agendamento = self.get_object()
         entrada = CobrancaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)

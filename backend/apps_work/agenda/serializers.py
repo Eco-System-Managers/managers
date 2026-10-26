@@ -28,10 +28,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.CharField(allow_null=True))
     def get_colaborador_nome(self, obj):
-        if obj.colaborador:
-            nome = obj.colaborador.user.get_full_name().strip()
-            return nome if nome else obj.colaborador.user.email
-        return None
+        return obj.colaborador.nome_exibido if obj.colaborador else None
 
     def create(self, validated_data):
         servico_id = validated_data.pop('servico_id', None)

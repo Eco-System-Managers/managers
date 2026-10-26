@@ -58,7 +58,7 @@ class CrossTenantQueryService:
             return [
                 {
                     'id': c.id,
-                    'nome': c.user.get_full_name() or c.user.username,
+                    'nome': c.nome_exibido,
                     'funcao': c.funcao,
                     'papel': c.papel,
                 }
@@ -285,7 +285,7 @@ class AgendamentoTenantService:
                         from apps_work.usuarios.models import Colaborador
                         colab = Colaborador.objects.select_related('user').filter(id=colaborador_id).first()
                         if colab is not None:
-                            profissional_nome = colab.user.get_full_name() or colab.user.username
+                            profissional_nome = colab.nome_exibido
 
                 servicos_snapshot = [
                     {

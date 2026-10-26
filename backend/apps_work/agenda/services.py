@@ -248,9 +248,16 @@ class AgendamentoService:
         agendamento.save(update_fields=['desconto', 'status'])
         self.notificar_mudanca_de_status(agendamento, status_anterior)
 
+        # a comissão do parceiro congela aqui: mudar o acordo depois não
+        # reescreve o que já foi cobrado
+        colaborador = agendamento.colaborador
         agendamento.pagamentos.all().delete()
         PagamentoAgendamento.objects.bulk_create([
-            PagamentoAgendamento(agendamento=agendamento, forma=p['forma'], valor=p['valor'])
+            PagamentoAgendamento(
+                agendamento=agendamento, forma=p['forma'], valor=p['valor'],
+                comissao_percentual=colaborador.comissao_percentual if colaborador and colaborador.eh_parceiro else None,
+                repasse=colaborador.comissao_para(p['valor']) if colaborador else Decimal('0.00'),
+            )
             for p in pagamentos
         ])
 

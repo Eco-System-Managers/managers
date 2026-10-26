@@ -90,6 +90,7 @@ class AtendimentoKanbanService:
         observacao: str = '',
         horario_entrada: time | None = None,
         data: date | None = None,
+        colaborador=None,
     ) -> AtendimentoKanban:
         from apps_work.clientes.models import ObjetoCliente
         from apps_work.servicos.models import Servico
@@ -108,6 +109,7 @@ class AtendimentoKanbanService:
                 observacao=observacao,
                 horario_entrada=horario_entrada,
                 data=data,
+                colaborador=colaborador,
             )
         except IntegrityError:
             # Rede de segurança contra corrida entre a checagem acima e o
@@ -151,9 +153,15 @@ class AtendimentoKanbanService:
         atendimento.pago = True
         atendimento.save(update_fields=['desconto', 'pago'])
 
+        # a comissão do parceiro congela aqui (ver agenda)
+        colaborador = atendimento.colaborador
         atendimento.pagamentos.all().delete()
         PagamentoAtendimento.objects.bulk_create([
-            PagamentoAtendimento(atendimento=atendimento, forma=p['forma'], valor=p['valor'])
+            PagamentoAtendimento(
+                atendimento=atendimento, forma=p['forma'], valor=p['valor'],
+                comissao_percentual=colaborador.comissao_percentual if colaborador and colaborador.eh_parceiro else None,
+                repasse=colaborador.comissao_para(p['valor']) if colaborador else Decimal('0.00'),
+            )
             for p in pagamentos
         ])
 
