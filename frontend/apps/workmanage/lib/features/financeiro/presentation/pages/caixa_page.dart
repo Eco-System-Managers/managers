@@ -11,8 +11,8 @@ import '../../domain/entities/caixa.dart';
 import '../../financeiro_provider.dart';
 import '../providers/caixa_provider.dart';
 
-// a aba Caixa: o fechamento por período e, no segundo segmento, o resumo
-// do mês (painel)
+// a aba Financeiro: o fechamento de caixa por período (com filtro por
+// profissional) e, no segundo segmento, o resumo do mês (painel)
 class CaixaPage extends ConsumerStatefulWidget {
   const CaixaPage({super.key});
 
@@ -35,7 +35,7 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Caixa')),
+      appBar: AppBar(title: const Text('Financeiro')),
       body: Column(
         children: [
           Padding(
@@ -100,6 +100,8 @@ class _CaixaViewState extends ConsumerState<_CaixaView> {
       builder: (context, _) {
         return Column(
           children: [
+            if (provider.colaboradores.isNotEmpty)
+              _FiltroColaboradores(provider: provider),
             _Periodos(
               provider: provider,
               onPersonalizado: () => _escolherIntervalo(provider),
@@ -223,6 +225,43 @@ class _CaixaViewState extends ConsumerState<_CaixaView> {
                   ],
                 ),
               ),
+        ],
+      ),
+    );
+  }
+}
+
+// os chips de profissional: todos, ou um da equipe. o filtro vai para a API
+class _FiltroColaboradores extends StatelessWidget {
+  const _FiltroColaboradores({required this.provider});
+
+  final CaixaProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: const Text('Todos'),
+              selected: provider.colaboradorId == null,
+              onSelected: (_) => provider.filtrarColaborador(null),
+            ),
+          ),
+          for (final c in provider.colaboradores)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(c.nome),
+                selected: provider.colaboradorId == c.id,
+                onSelected: (_) => provider.filtrarColaborador(c.id),
+              ),
+            ),
         ],
       ),
     );

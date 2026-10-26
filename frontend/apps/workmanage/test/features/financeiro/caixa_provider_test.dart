@@ -2,12 +2,26 @@ import 'package:dartz/dartz.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
+import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
+import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 import 'package:managers/features/financeiro/domain/entities/caixa.dart';
 import 'package:managers/features/financeiro/domain/usecases/financeiro_use_cases.dart';
 import 'package:managers/features/financeiro/presentation/providers/caixa_provider.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockObterCaixa extends Mock implements ObterCaixaUseCase {}
+
+class _MockListarColaboradores extends Mock
+    implements ListarColaboradoresUseCase {}
+
+const _bia = Colaborador(id: 2, nome: 'Bia', email: 'bia@demo.com');
+const _inativo = Colaborador(
+  id: 3,
+  nome: 'Caio',
+  email: 'caio@demo.com',
+  ativo: false,
+);
 
 final _hoje = DateTime(2026, 10, 25);
 
@@ -21,10 +35,18 @@ final _caixa = Caixa(
 
 void main() {
   late _MockObterCaixa obterCaixa;
+  late _MockListarColaboradores listarColaboradores;
 
-  setUpAll(() => registerFallbackValue(const CaixaParams()));
+  setUpAll(() {
+    registerFallbackValue(const CaixaParams());
+    registerFallbackValue(NoParams());
+  });
 
-  CaixaProvider montar() => CaixaProvider(obterCaixa: obterCaixa, hoje: _hoje);
+  CaixaProvider montar() => CaixaProvider(
+    obterCaixa: obterCaixa,
+    listarColaboradores: listarColaboradores,
+    hoje: _hoje,
+  );
 
   // o período da última chamada
   (DateTime?, DateTime?) ultimoPeriodo() {
@@ -35,6 +57,9 @@ void main() {
 
   setUp(() {
     obterCaixa = _MockObterCaixa();
+    listarColaboradores = _MockListarColaboradores();
+    when(() => listarColaboradores(any()))
+        .thenAnswer((_) async => const Right([_bia, _inativo]));
     when(() => obterCaixa(any())).thenAnswer((_) async => Right(_caixa));
   });
 
@@ -87,4 +112,26 @@ void main() {
     expect(provider.carregado, isFalse);
     expect(provider.erroAoCarregar, isA<NetworkFailure>());
   });
+
+  test(
+    'filtrar por profissional manda o id e a equipe ativa vem uma vez',
+    () async {
+      final provider = montar();
+      await provider.carregar();
+      expect(provider.colaboradores, [_bia]);
+
+      await provider.filtrarColaborador(2);
+
+      final params =
+          verify(() => obterCaixa(captureAny())).captured.last as CaixaParams;
+      expect(params.colaboradorId, 2);
+      expect(provider.colaboradorId, 2);
+      verify(() => listarColaboradores(any())).called(1);
+
+      await provider.filtrarColaborador(null);
+      final todos =
+          verify(() => obterCaixa(captureAny())).captured.last as CaixaParams;
+      expect(todos.colaboradorId, isNull);
+    },
+  );
 }

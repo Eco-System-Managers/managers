@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/network/dio_client.dart';
+import 'package:managers/features/usuarios/usuarios_provider.dart';
 
 import 'data/datasources/financeiro_remote_datasource.dart';
 import 'data/repositories/financeiro_repository_impl.dart';
@@ -32,6 +33,7 @@ final obterSaldoClienteUseCaseProvider = Provider(
 final caixaProvider = Provider<CaixaProvider>((ref) {
   final provider = CaixaProvider(
     obterCaixa: ref.watch(obterCaixaUseCaseProvider),
+    listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
   );
   ref.onDispose(provider.dispose);
   return provider;

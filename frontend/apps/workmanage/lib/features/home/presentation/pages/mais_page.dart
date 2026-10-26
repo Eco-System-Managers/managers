@@ -59,6 +59,15 @@ class MaisPage extends ConsumerWidget {
                 onTap: () => context.push('/mais/configuracoes'),
               ),
               ListTile(
+                leading: const Icon(Icons.design_services_outlined),
+                title: const Text('Serviços'),
+                subtitle: const Text(
+                  'O catálogo: o que você vende e por quanto',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/mais/servicos'),
+              ),
+              ListTile(
                 leading: const Icon(Icons.group_outlined),
                 title: const Text('Equipe'),
                 trailing: const Icon(Icons.chevron_right),

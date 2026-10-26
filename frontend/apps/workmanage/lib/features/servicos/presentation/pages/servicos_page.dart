@@ -55,7 +55,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
           appBar: AppBar(title: const Text('Serviços')),
           floatingActionButton: provider.ehProprietario
               ? FloatingActionButton(
-                  onPressed: () => _abrir('/servicos/novo'),
+                  onPressed: () => _abrir('/mais/servicos/novo'),
                   tooltip: 'Novo serviço',
                   child: const Icon(Icons.add),
                 )
@@ -131,7 +131,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
             : 'Cadastre o que o seu negócio oferece: nome, duração e preço.',
         acao: provider.ehProprietario && !buscando
             ? FilledButton.icon(
-                onPressed: () => _abrir('/servicos/novo'),
+                onPressed: () => _abrir('/mais/servicos/novo'),
                 icon: const Icon(Icons.add),
                 label: const Text('Cadastrar serviço'),
               )
@@ -150,7 +150,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
           return _ServicoTile(
             servico: servico,
             onTap: provider.ehProprietario
-                ? () => _abrir('/servicos/${servico.id}')
+                ? () => _abrir('/mais/servicos/${servico.id}')
                 : null,
           );
         },

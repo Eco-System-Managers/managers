@@ -222,28 +222,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: '/servicos',
-                builder: (_, _) => const ServicosPage(),
-                routes: [
-                  GoRoute(
-                    path: 'novo',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, _) => const ServicoFormPage(),
-                  ),
-                  GoRoute(
-                    path: ':id',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, state) => ServicoFormPage(
-                      id: int.tryParse(state.pathParameters['id'] ?? ''),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
+              // a aba Financeiro: caixa e resumo
               GoRoute(path: '/caixa', builder: (_, _) => const CaixaPage()),
             ],
           ),
@@ -267,6 +246,26 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'horarios',
                         parentNavigatorKey: _rootNavigatorKey,
                         builder: (_, _) => const HorariosPage(),
+                      ),
+                    ],
+                  ),
+                  // o catálogo mora no Mais: a barra fica com o dia a dia
+                  GoRoute(
+                    path: 'servicos',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const ServicosPage(),
+                    routes: [
+                      GoRoute(
+                        path: 'novo',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, _) => const ServicoFormPage(),
+                      ),
+                      GoRoute(
+                        path: ':id',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, state) => ServicoFormPage(
+                          id: int.tryParse(state.pathParameters['id'] ?? ''),
+                        ),
                       ),
                     ],
                   ),

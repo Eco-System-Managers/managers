@@ -149,7 +149,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
           if (provider.servicos.isEmpty) ...[
             _Aviso(
               texto:
-                  'Cadastre um serviço ativo na aba Serviços para marcar '
+                  'Cadastre um serviço ativo em Mais › Serviços para marcar '
                   'horários.',
             ),
             const SizedBox(height: 16),

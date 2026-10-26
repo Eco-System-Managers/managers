@@ -230,7 +230,7 @@ class _AtendimentoKanbanFormPageState
               labelText: 'Serviço',
               prefixIcon: const Icon(Icons.design_services_outlined),
               helperText: provider.servicos.isEmpty
-                  ? 'Cadastre um serviço ativo na aba Serviços.'
+                  ? 'Cadastre um serviço ativo em Mais › Serviços.'
                   : null,
               errorText: provider.erroDoCampo('servico'),
               border: const OutlineInputBorder(),

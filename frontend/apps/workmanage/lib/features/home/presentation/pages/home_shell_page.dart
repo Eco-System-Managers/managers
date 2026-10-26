@@ -5,7 +5,7 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 
-// a casca do app: a navegação inferior com as cinco abas, cada uma com a
+// a casca do app: a navegação inferior com as quatro abas, cada uma com a
 // própria pilha (StatefulShellRoute). antes de mostrar as abas, carrega o
 // negócio atual: é ele que diz o modo de agenda e o papel de quem entrou
 class HomeShellPage extends ConsumerStatefulWidget {
@@ -76,14 +76,9 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
                 label: 'Clientes',
               ),
               const NavigationDestination(
-                icon: Icon(Icons.design_services_outlined),
-                selectedIcon: Icon(Icons.design_services),
-                label: 'Serviços',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.point_of_sale_outlined),
-                selectedIcon: Icon(Icons.point_of_sale),
-                label: 'Caixa',
+                icon: Icon(Icons.attach_money),
+                selectedIcon: Icon(Icons.attach_money),
+                label: 'Financeiro',
               ),
               const NavigationDestination(
                 icon: Icon(Icons.more_horiz),
