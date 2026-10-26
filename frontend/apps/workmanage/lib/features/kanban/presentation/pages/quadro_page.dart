@@ -5,6 +5,7 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/faixa_semana.dart';
+import 'package:managers/features/usuarios/presentation/widgets/filtro_profissionais.dart';
 
 import '../../domain/entities/etapa.dart';
 import '../../kanban_provider.dart';
@@ -24,6 +25,9 @@ class QuadroPage extends ConsumerStatefulWidget {
 class _QuadroPageState extends ConsumerState<QuadroPage> {
   QuadroProvider get _provider => ref.read(quadroProvider);
 
+  // o mês inteiro aberto em cima do quadro
+  bool _mesAberto = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,17 +41,6 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
     if (mounted) _provider.recarregar();
   }
 
-  Future<void> _escolherData() async {
-    final dia = _provider.dia;
-    final escolhida = await showDatePicker(
-      context: context,
-      initialDate: dia,
-      firstDate: DateTime(dia.year - 2),
-      lastDate: DateTime(dia.year + 2, 12, 31),
-    );
-    if (escolhida != null) _provider.selecionarDia(escolhida);
-  }
-
   @override
   Widget build(BuildContext context) {
     // watch: mantém o provider vivo enquanto a aba estiver aberta
@@ -59,16 +52,28 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
+            // o dia por extenso; com o mês aberto, o mês. tocar abre e fecha
             title: InkWell(
-              onTap: _escolherData,
+              onTap: () => setState(() => _mesAberto = !_mesAberto),
               borderRadius: BorderRadius.circular(8),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(formatarMesAno(provider.dia)),
-                    const Icon(Icons.arrow_drop_down),
+                    Flexible(
+                      child: Text(
+                        _mesAberto
+                            ? formatarMesAno(provider.dia)
+                            : formatarDataPorExtenso(provider.dia),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _mesAberto ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(Icons.arrow_drop_down),
+                    ),
                   ],
                 ),
               ),
@@ -105,9 +110,15 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
                 // registro para a esteira
                 temRegistro: (_) => false,
                 onSelecionar: provider.selecionarDia,
+                expandido: _mesAberto,
+                onExpandir: (aberto) => setState(() => _mesAberto = aberto),
               ),
               if (provider.colaboradores.isNotEmpty)
-                _FiltroColaboradores(provider: provider),
+                FiltroProfissionais(
+                  colaboradores: provider.colaboradores,
+                  selecionadoId: provider.colaboradorId,
+                  onSelecionar: provider.filtrarColaborador,
+                ),
               if (provider.isLoading && provider.carregado)
                 const LinearProgressIndicator(minHeight: 2)
               else
@@ -244,43 +255,6 @@ class _Coluna extends StatelessWidget {
                     ],
                   ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// os chips de profissional: todos, ou um da equipe. o filtro vai para a API
-class _FiltroColaboradores extends StatelessWidget {
-  const _FiltroColaboradores({required this.provider});
-
-  final QuadroProvider provider;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: const Text('Todos'),
-              selected: provider.colaboradorId == null,
-              onSelected: (_) => provider.filtrarColaborador(null),
-            ),
-          ),
-          for (final c in provider.colaboradores)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(c.nome),
-                selected: provider.colaboradorId == c.id,
-                onSelected: (_) => provider.filtrarColaborador(c.id),
-              ),
-            ),
         ],
       ),
     );

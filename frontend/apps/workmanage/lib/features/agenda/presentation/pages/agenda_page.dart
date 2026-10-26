@@ -7,16 +7,18 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/faixa_semana.dart';
+import 'package:managers/features/usuarios/presentation/widgets/filtro_profissionais.dart';
 
 import '../../agenda_provider.dart';
 import '../providers/agenda_dia_provider.dart';
 import '../widgets/grade_do_dia.dart';
 import '../widgets/grade_do_dia_layout.dart';
 
-// a agenda por horário: um dia por vez, com a faixa da semana em cima, o
-// filtro por profissional e a grade de horários do expediente. tocar num
-// espaço vazio marca naquela hora; ficha e formulário abrem por cima e, ao
-// voltar, o dia é recarregado da API
+// a agenda por horário: um dia por vez, com o calendário em cima (a semana,
+// ou o mês quando aberto pelo título ou pela alça), o filtro por
+// profissional e a grade de horários do expediente. deslizar a grade para o
+// lado troca o dia. tocar num espaço vazio marca naquela hora; ficha e
+// formulário abrem por cima e, ao voltar, o dia é recarregado da API
 class AgendaPage extends ConsumerStatefulWidget {
   const AgendaPage({super.key});
 
@@ -27,6 +29,12 @@ class AgendaPage extends ConsumerStatefulWidget {
 class _AgendaPageState extends ConsumerState<AgendaPage> {
   // a linha do "agora" anda sozinha
   Timer? _relogio;
+
+  // o mês inteiro aberto em cima da grade
+  bool _mesAberto = false;
+
+  // para que lado a grade entra quando o dia muda (deslizar ou tocar)
+  bool _avancou = true;
 
   AgendaDiaProvider get _provider => ref.read(agendaDiaProvider);
 
@@ -65,15 +73,17 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     _abrir('/agenda/novo?${partes.join('&')}');
   }
 
-  Future<void> _escolherData() async {
+  void _selecionarDia(DateTime dia) {
+    _avancou = !dia.isBefore(_provider.dia);
+    _provider.selecionarDia(dia);
+  }
+
+  // deslizar a grade para a esquerda avança um dia; para a direita volta
+  void _deslizouGrade(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    if (v.abs() < 250) return;
     final dia = _provider.dia;
-    final escolhida = await showDatePicker(
-      context: context,
-      initialDate: dia,
-      firstDate: DateTime(dia.year - 2),
-      lastDate: DateTime(dia.year + 2, 12, 31),
-    );
-    if (escolhida != null) _provider.selecionarDia(escolhida);
+    _selecionarDia(DateTime(dia.year, dia.month, dia.day + (v < 0 ? 1 : -1)));
   }
 
   @override
@@ -84,32 +94,26 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
-        final semana = FaixaSemana.diasDaSemana(provider.dia);
-        // os meses da semana visível precisam das bolinhas
+        // os meses na tela (a semana pode cruzar dois) precisam das bolinhas
+        final visiveis = _mesAberto
+            ? FaixaSemana.diasDoMes(provider.dia)
+            : FaixaSemana.diasDaSemana(provider.dia);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) provider.garantirMesesVisiveis(semana);
+          if (mounted) provider.garantirMesesVisiveis(visiveis);
         });
 
         return Scaffold(
           appBar: AppBar(
-            title: InkWell(
-              onTap: _escolherData,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(formatarMesAno(provider.dia)),
-                    const Icon(Icons.arrow_drop_down),
-                  ],
-                ),
-              ),
+            // o dia por extenso; com o mês aberto, o mês. tocar abre e fecha
+            title: _TituloDoDia(
+              dia: provider.dia,
+              mesAberto: _mesAberto,
+              onTap: () => setState(() => _mesAberto = !_mesAberto),
             ),
             actions: [
               if (!provider.ehHoje)
                 TextButton(
-                  onPressed: provider.irParaHoje,
+                  onPressed: () => _selecionarDia(provider.hoje),
                   child: const Text('Hoje'),
                 ),
               IconButton(
@@ -134,10 +138,16 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                 dia: provider.dia,
                 hoje: provider.hoje,
                 temRegistro: provider.temRegistro,
-                onSelecionar: provider.selecionarDia,
+                onSelecionar: _selecionarDia,
+                expandido: _mesAberto,
+                onExpandir: (aberto) => setState(() => _mesAberto = aberto),
               ),
               if (provider.colaboradores.isNotEmpty)
-                _FiltroColaboradores(provider: provider),
+                FiltroProfissionais(
+                  colaboradores: provider.colaboradores,
+                  selecionadoId: provider.colaboradorId,
+                  onSelecionar: provider.filtrarColaborador,
+                ),
               if (provider.isLoading && provider.carregado)
                 const LinearProgressIndicator(minHeight: 2)
               else
@@ -166,61 +176,121 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     final blocos = distribuirColunas(provider.agendamentos);
     final intervalo = intervaloDaGrade(expediente: expediente, blocos: blocos);
 
-    return Column(
-      children: [
-        if (expediente == null) const _AvisoFechado(),
-        Expanded(
-          child: intervalo == null
-              ? const SizedBox.shrink()
-              : RefreshIndicator(
-                  onRefresh: provider.recarregar,
-                  child: GradeDoDia(
-                    inicio: intervalo.inicio,
-                    fim: intervalo.fim,
-                    passo: provider.passoMinutos,
-                    blocos: blocos,
-                    agora: provider.ehHoje ? DateTime.now() : null,
-                    onTapVazio: (hora) => _novo(hora: hora),
-                    onTapAgendamento: (a) => _abrir('/agenda/${a.id}'),
+    return GestureDetector(
+      onHorizontalDragEnd: _deslizouGrade,
+      child: Column(
+        children: [
+          if (expediente == null)
+            const _AvisoFechado()
+          else if (provider.agendamentos.isEmpty)
+            const _DiaLivre(),
+          Expanded(
+            // o dia novo entra deslizando do lado para onde a pessoa foi
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) {
+                final entrando = child.key == ValueKey(provider.dia);
+                final de = Offset((entrando == _avancou) ? 0.15 : -0.15, 0);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween(
+                      begin: de,
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
                   ),
-                ),
-        ),
-      ],
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey(provider.dia),
+                child: intervalo == null
+                    ? const SizedBox.expand()
+                    : RefreshIndicator(
+                        onRefresh: provider.recarregar,
+                        child: GradeDoDia(
+                          inicio: intervalo.inicio,
+                          fim: intervalo.fim,
+                          passo: provider.passoMinutos,
+                          blocos: blocos,
+                          agora: provider.ehHoje ? DateTime.now() : null,
+                          onTapVazio: (hora) => _novo(hora: hora),
+                          onTapAgendamento: (a) => _abrir('/agenda/${a.id}'),
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// os chips de profissional: todos, ou um da equipe. o filtro vai para a API
-class _FiltroColaboradores extends StatelessWidget {
-  const _FiltroColaboradores({required this.provider});
+// o título da barra: "ter, 27 de outubro" (com o ano quando não é o atual)
+// ou, com o mês aberto, "outubro de 2026". a seta vira quando abre
+class _TituloDoDia extends StatelessWidget {
+  const _TituloDoDia({
+    required this.dia,
+    required this.mesAberto,
+    required this.onTap,
+  });
 
-  final AgendaDiaProvider provider;
+  final DateTime dia;
+  final bool mesAberto;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+    final esteAno = dia.year == DateTime.now().year;
+    final texto = mesAberto
+        ? formatarMesAno(dia)
+        : esteAno
+        ? formatarDataPorExtenso(dia)
+        : '${formatarDataPorExtenso(dia)} de ${dia.year}';
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: Text(texto, overflow: TextOverflow.ellipsis)),
+            AnimatedRotation(
+              turns: mesAberto ? 0.5 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: const Icon(Icons.arrow_drop_down),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// nada marcado no dia aberto
+class _DiaLivre extends StatelessWidget {
+  const _DiaLivre();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: const Text('Todos'),
-              selected: provider.colaboradorId == null,
-              onSelected: (_) => provider.filtrarColaborador(null),
+          Icon(Icons.event_available_outlined, size: 18, color: colors.outline),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Dia livre. Toque num horário para marcar.',
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
             ),
           ),
-          for (final c in provider.colaboradores)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(c.nome),
-                selected: provider.colaboradorId == c.id,
-                onSelected: (_) => provider.filtrarColaborador(c.id),
-              ),
-            ),
         ],
       ),
     );

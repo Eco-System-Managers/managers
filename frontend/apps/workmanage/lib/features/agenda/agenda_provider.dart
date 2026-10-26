@@ -77,7 +77,6 @@ final agendaDiaProvider = Provider<AgendaDiaProvider>((ref) {
     listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
     listarPendencias: ref.watch(listarPendenciasUseCaseProvider),
     buscarHorarios: ref.watch(buscarHorariosUseCaseProvider),
-    listarServicos: ref.watch(listarServicosUseCaseProvider),
   );
   ref.onDispose(provider.dispose);
   return provider;

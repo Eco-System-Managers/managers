@@ -4,8 +4,6 @@ import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/empresa/domain/entities/horario_funcionamento.dart';
 import 'package:managers/features/empresa/domain/usecases/buscar_horarios_use_case.dart';
-import 'package:managers/features/servicos/domain/params/listar_servicos_params.dart';
-import 'package:managers/features/servicos/domain/usecases/listar_servicos_use_case.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 
@@ -17,9 +15,8 @@ import '../../domain/usecases/agenda_use_cases.dart';
 // feature): o dia escolhido, os agendamentos dele, os dias do mês que têm
 // registro (as bolinhas da faixa), o filtro por profissional e quantas
 // cobranças estão pendentes
-// a grade da agenda: linha a cada passo minutos
-const passoPadrao = 30;
-const passoMinimo = 15;
+// a grade da agenda: uma linha a cada 15 minutos
+const passoDaGrade = 15;
 
 class AgendaDiaProvider extends ChangeNotifier {
   AgendaDiaProvider({
@@ -28,7 +25,6 @@ class AgendaDiaProvider extends ChangeNotifier {
     required this._listarColaboradores,
     required this._listarPendencias,
     required this._buscarHorarios,
-    required this._listarServicos,
     DateTime? hoje,
   }) : _hoje = somenteData(hoje ?? DateTime.now()),
        _dia = somenteData(hoje ?? DateTime.now());
@@ -38,7 +34,6 @@ class AgendaDiaProvider extends ChangeNotifier {
   final ListarColaboradoresUseCase _listarColaboradores;
   final ListarPendenciasUseCase _listarPendencias;
   final BuscarHorariosUseCase _buscarHorarios;
-  final ListarServicosUseCase _listarServicos;
 
   final DateTime _hoje;
   DateTime _dia;
@@ -48,11 +43,9 @@ class AgendaDiaProvider extends ChangeNotifier {
   Failure? _erroAoCarregar;
   int _pendencias = 0;
 
-  // o expediente de cada dia da semana e o passo da grade, lidos uma vez
+  // o expediente de cada dia da semana, lido uma vez
   List<HorarioFuncionamento> _horarios = const [];
   bool _horariosCarregados = false;
-  int _passoMinutos = passoPadrao;
-  bool _passoCarregado = false;
 
   // por mês (ano, mês): os dias com registro. um mês só vai à API uma vez
   final Map<(int, int), Set<DateTime>> _meses = {};
@@ -91,9 +84,7 @@ class AgendaDiaProvider extends ChangeNotifier {
     return (abertura: abertura, fechamento: fechamento);
   }
 
-  // as linhas da grade seguem o menor serviço ativo, entre 15 e 30 minutos:
-  // o que a API oferece como horário cabe numa linha
-  int get passoMinutos => _passoMinutos;
+  int get passoMinutos => passoDaGrade;
 
   // a equipe ativa, para o filtro. vazia enquanto não carregou ou sem equipe
   List<Colaborador> get colaboradores => _colaboradores;
@@ -111,7 +102,7 @@ class AgendaDiaProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
-    final (dia, _, _, _, _, _) = await (
+    final (dia, _, _, _, _) = await (
       _listarDoDia(
         ListarAgendamentosDoDiaParams(
           data: _dia,
@@ -122,7 +113,6 @@ class AgendaDiaProvider extends ChangeNotifier {
       _garantirColaboradores(),
       _contarPendencias(),
       _garantirHorarios(),
-      _garantirPasso(),
     ).wait;
     if (_disposed) return;
 
@@ -200,21 +190,6 @@ class AgendaDiaProvider extends ChangeNotifier {
     result.fold((_) {}, (lista) {
       _horarios = lista;
       _horariosCarregados = true;
-    });
-  }
-
-  Future<void> _garantirPasso() async {
-    if (_passoCarregado) return;
-    final result = await _listarServicos(
-      const ListarServicosParams(ativo: true),
-    );
-    result.fold((_) {}, (servicos) {
-      final menor = servicos
-          .map((s) => s.duracao)
-          .where((d) => d > 0)
-          .fold<int?>(null, (min, d) => min == null || d < min ? d : min);
-      _passoMinutos = (menor ?? passoPadrao).clamp(passoMinimo, passoPadrao);
-      _passoCarregado = true;
     });
   }
 
