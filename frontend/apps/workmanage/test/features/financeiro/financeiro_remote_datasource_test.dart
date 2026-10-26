@@ -5,7 +5,13 @@ import 'package:managers/features/financeiro/data/datasources/financeiro_remote_
 import '../../helpers/fake_adapter.dart';
 
 final _caixaJson = {
-  'kpis': {'total': '150.00', 'ticket_medio': '75.00', 'atendimentos': 2},
+  'kpis': {
+    'total': '150.00',
+    'ticket_medio': '75.00',
+    'atendimentos': 2,
+    'repasse': '60.00',
+    'casa': '90.00',
+  },
   'por_forma': [
     {'forma': 'pix', 'total': '100.00', 'percentual': 67},
     {'forma': 'dinheiro', 'total': '50.00', 'percentual': 33},
@@ -44,6 +50,8 @@ void main() {
     expect(caixa.total, Decimal.parse('150.00'));
     expect(caixa.ticketMedio, Decimal.parse('75.00'));
     expect(caixa.atendimentos, 2);
+    expect(caixa.repasse, Decimal.parse('60.00'));
+    expect(caixa.casa, Decimal.parse('90.00'));
     expect(caixa.porForma.map((f) => f.forma), ['pix', 'dinheiro']);
     expect(caixa.porForma.first.percentual, 67);
     final pagamento = caixa.pagamentos.single;

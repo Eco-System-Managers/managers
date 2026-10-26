@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
 
 import '../../dashboard_provider.dart';
 import '../providers/resumo_provider.dart';
@@ -92,53 +94,53 @@ class _InicioPageState extends ConsumerState<InicioPage> {
     final comparacao = provider.atalho == AtalhoPeriodo.hoje
         ? 'vs. ontem'
         : 'vs. período anterior';
+    final ehProprietario = ref.read(negocioAtualProvider).ehProprietario;
 
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
+          // os kpis de dinheiro vêm nulos para o colaborador comum: a tela
+          // mostra só o que veio
+          _Kpis(
             children: [
-              Expanded(
-                child: _Kpi(
+              if (resumo.faturamento != null)
+                _Kpi(
                   rotulo: 'Faturamento',
-                  valor: formatarDinheiro(resumo.faturamento),
+                  valor: formatarDinheiro(resumo.faturamento!),
                   variacao: resumo.faturamentoVariacao,
                   comparacao: comparacao,
                   destaque: true,
                 ),
+              _Kpi(
+                rotulo: 'Atendimentos',
+                valor: '${resumo.atendimentos}',
+                variacao: resumo.atendimentosVariacao,
+                comparacao: comparacao,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _Kpi(
-                  rotulo: 'Atendimentos',
-                  valor: '${resumo.atendimentos}',
-                  variacao: resumo.atendimentosVariacao,
-                  comparacao: comparacao,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _Kpi(
+              if (resumo.ticketMedio != null)
+                _Kpi(
                   rotulo: 'Ticket médio',
-                  valor: formatarDinheiro(resumo.ticketMedio),
+                  valor: formatarDinheiro(resumo.ticketMedio!),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _Kpi(
+              if (resumo.clientesNovos != null)
+                _Kpi(
                   rotulo: 'Clientes novos',
-                  // filtrado por profissional a API não atribui: é do negócio
-                  valor: resumo.clientesNovos?.toString() ?? '—',
+                  valor: '${resumo.clientesNovos}',
                   variacao: resumo.clientesNovosVariacao,
                   comparacao: comparacao,
                 ),
-              ),
+              // a comissão: para o dono, o que sai para os parceiros; para
+              // o parceiro, o que ele tem a receber
+              if (resumo.repasse != null &&
+                  (!ehProprietario ||
+                      resumo.repasse! > Decimal.zero ||
+                      provider.colaboradorId != null))
+                _Kpi(
+                  rotulo: ehProprietario ? 'Repasse a parceiros' : 'A receber',
+                  valor: formatarDinheiro(resumo.repasse!),
+                ),
             ],
           ),
 
@@ -267,6 +269,29 @@ class _Periodos extends StatelessWidget {
           Text(intervalo, style: TextStyle(color: colors.onSurfaceVariant)),
         ],
       ),
+    );
+  }
+}
+
+// os cartões em duas colunas, quantos forem
+class _Kpis extends StatelessWidget {
+  const _Kpis({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final largura = (constraints.maxWidth - 12) / 2;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final c in children) SizedBox(width: largura, child: c),
+          ],
+        );
+      },
     );
   }
 }

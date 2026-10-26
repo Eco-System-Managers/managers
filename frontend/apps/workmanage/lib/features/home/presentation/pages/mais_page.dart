@@ -68,13 +68,15 @@ class MaisPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/mais/servicos'),
               ),
-              ListTile(
-                leading: const Icon(Icons.point_of_sale_outlined),
-                title: const Text('Financeiro'),
-                subtitle: const Text('O caixa: o fechamento por período'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/mais/financeiro'),
-              ),
+              // o colaborador comum não vê dinheiro (a API também nega)
+              if (negocio.veValores)
+                ListTile(
+                  leading: const Icon(Icons.point_of_sale_outlined),
+                  title: const Text('Financeiro'),
+                  subtitle: const Text('O caixa: o fechamento por período'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/mais/financeiro'),
+                ),
               ListTile(
                 leading: const Icon(Icons.description_outlined),
                 title: const Text('Contratos'),

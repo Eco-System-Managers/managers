@@ -53,17 +53,18 @@ class ReordenarEtapasUseCase implements UseCase<void, List<int>> {
 }
 
 class ListarAtendimentosDoDiaUseCase
-    implements UseCase<List<AtendimentoKanban>, DateTime> {
+    implements UseCase<List<AtendimentoKanban>, ListarDoDiaParams> {
   const ListarAtendimentosDoDiaUseCase(this._repository);
 
   final KanbanRepository _repository;
 
   @override
-  Future<Either<Failure, List<AtendimentoKanban>>> call(DateTime params) =>
-      _repository.listarDoDia(params);
+  Future<Either<Failure, List<AtendimentoKanban>>> call(
+    ListarDoDiaParams params,
+  ) =>
+      _repository.listarDoDia(params.data, colaboradorId: params.colaboradorId);
 }
 
-// o parâmetro é o id do cliente
 class ListarAtendimentosKanbanDoClienteUseCase
     implements UseCase<List<AtendimentoKanban>, int> {
   const ListarAtendimentosKanbanDoClienteUseCase(this._repository);

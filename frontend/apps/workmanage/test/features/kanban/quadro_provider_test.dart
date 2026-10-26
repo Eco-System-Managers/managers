@@ -11,6 +11,8 @@ import 'package:managers/features/kanban/domain/entities/etapa.dart';
 import 'package:managers/features/kanban/domain/params/kanban_params.dart';
 import 'package:managers/features/kanban/domain/usecases/kanban_use_cases.dart';
 import 'package:managers/features/kanban/presentation/providers/quadro_provider.dart';
+import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
+import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockListarEtapas extends Mock implements ListarEtapasUseCase {}
@@ -20,6 +22,11 @@ class _MockListarDoDia extends Mock implements ListarAtendimentosDoDiaUseCase {}
 class _MockMover extends Mock implements MoverAtendimentoUseCase {}
 
 class _MockListarPendencias extends Mock implements ListarPendenciasUseCase {}
+
+class _MockListarColaboradores extends Mock
+    implements ListarColaboradoresUseCase {}
+
+const _joao = Colaborador(id: 2, nome: 'João');
 
 const _aguardando = Etapa(id: 1, nome: 'Aguardando', ordem: 0);
 const _lavando = Etapa(id: 2, nome: 'Lavando', ordem: 1);
@@ -52,10 +59,12 @@ void main() {
   late _MockListarDoDia listarDoDia;
   late _MockMover mover;
   late _MockListarPendencias listarPendencias;
+  late _MockListarColaboradores listarColaboradores;
 
   setUpAll(() {
     registerFallbackValue(NoParams());
     registerFallbackValue(_hoje);
+    registerFallbackValue(ListarDoDiaParams(data: _hoje));
     registerFallbackValue(const MoverAtendimentoParams(id: 0, etapaId: 0));
   });
 
@@ -64,6 +73,7 @@ void main() {
     listarDoDia: listarDoDia,
     mover: mover,
     listarPendencias: listarPendencias,
+    listarColaboradores: listarColaboradores,
     hoje: _hoje,
   );
 
@@ -72,6 +82,9 @@ void main() {
     listarDoDia = _MockListarDoDia();
     mover = _MockMover();
     listarPendencias = _MockListarPendencias();
+    listarColaboradores = _MockListarColaboradores();
+    when(() => listarColaboradores(any()))
+        .thenAnswer((_) async => const Right([_joao]));
     when(() => listarEtapas(any()))
         .thenAnswer((_) async => const Right([_aguardando, _lavando]));
     when(() => listarDoDia(any())).thenAnswer(
@@ -97,8 +110,11 @@ void main() {
     expect(provider.naEtapa(1).map((a) => a.id), [3, 2, 1]);
     expect(provider.naEtapa(2).map((a) => a.id), [4]);
     expect(provider.pendencias, 0);
-    final dia = verify(() => listarDoDia(captureAny())).captured.single;
-    expect(dia, _hoje);
+    final params =
+        verify(() => listarDoDia(captureAny())).captured.single
+            as ListarDoDiaParams;
+    expect(params.data, _hoje);
+    expect(params.colaboradorId, isNull);
   });
 
   test('selecionarDia recarrega o quadro daquele dia', () async {
@@ -110,7 +126,9 @@ void main() {
     expect(provider.dia, DateTime(2026, 10, 26));
     expect(provider.ehHoje, isFalse);
     expect(
-      verify(() => listarDoDia(captureAny())).captured.last,
+      (verify(() => listarDoDia(captureAny())).captured.last
+              as ListarDoDiaParams)
+          .data,
       DateTime(2026, 10, 26),
     );
   });
@@ -148,4 +166,22 @@ void main() {
     expect(provider.carregado, isFalse);
     expect(provider.erroAoCarregar, isA<NetworkFailure>());
   });
+
+  test(
+    'filtrar por profissional manda o id e a equipe ativa vem uma vez',
+    () async {
+      final provider = montar();
+      await provider.carregar();
+      expect(provider.colaboradores, [_joao]);
+
+      await provider.filtrarColaborador(2);
+
+      final params =
+          verify(() => listarDoDia(captureAny())).captured.last
+              as ListarDoDiaParams;
+      expect(params.colaboradorId, 2);
+      expect(provider.colaboradorId, 2);
+      verify(() => listarColaboradores(any())).called(1);
+    },
+  );
 }

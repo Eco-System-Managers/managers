@@ -1,7 +1,9 @@
 import 'package:dartz/dartz.dart';
+import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
+import 'package:managers/features/usuarios/domain/entities/convite.dart';
 import 'package:managers/features/usuarios/domain/params/equipe_params.dart';
 import 'package:managers/features/usuarios/domain/usecases/equipe_use_cases.dart';
 import 'package:managers/features/usuarios/presentation/providers/colaborador_provider.dart';
@@ -9,7 +11,9 @@ import 'package:mocktail/mocktail.dart';
 
 class _MockObter extends Mock implements ObterColaboradorUseCase {}
 
-class _MockAtualizarFuncao extends Mock implements AtualizarFuncaoUseCase {}
+class _MockAtualizar extends Mock implements AtualizarColaboradorUseCase {}
+
+class _MockConvidar extends Mock implements ConvidarColaboradorUseCase {}
 
 class _MockAlterarAtivo extends Mock
     implements AlterarAtivoColaboradorUseCase {}
@@ -23,13 +27,20 @@ const _bia = Colaborador(id: 2, nome: 'Bia', email: 'bia@demo.com');
 
 void main() {
   late _MockObter obter;
-  late _MockAtualizarFuncao atualizarFuncao;
+  late _MockAtualizar atualizar;
+  late _MockConvidar convidar;
   late _MockAlterarAtivo alterarAtivo;
   late _MockContarPendentes contarPendentes;
   late _MockRemover remover;
 
   setUpAll(() {
-    registerFallbackValue(const AtualizarFuncaoParams(id: 0, funcao: ''));
+    registerFallbackValue(
+      const AtualizarColaboradorParams(
+        id: 0,
+        dados: DadosColaborador(nome: ''),
+      ),
+    );
+    registerFallbackValue(const ConvidarColaboradorParams(id: 0, email: ''));
     registerFallbackValue(
       const AlterarAtivoColaboradorParams(id: 0, ativo: true),
     );
@@ -38,7 +49,8 @@ void main() {
   ColaboradorProvider montar() => ColaboradorProvider(
     id: 2,
     obter: obter,
-    atualizarFuncao: atualizarFuncao,
+    atualizar: atualizar,
+    convidar: convidar,
     alterarAtivo: alterarAtivo,
     contarPendentes: contarPendentes,
     remover: remover,
@@ -46,7 +58,8 @@ void main() {
 
   setUp(() {
     obter = _MockObter();
-    atualizarFuncao = _MockAtualizarFuncao();
+    atualizar = _MockAtualizar();
+    convidar = _MockConvidar();
     alterarAtivo = _MockAlterarAtivo();
     contarPendentes = _MockContarPendentes();
     remover = _MockRemover();
@@ -62,45 +75,98 @@ void main() {
     expect(provider.erroAoCarregar, isNull);
   });
 
-  test('salvarFuncao manda a função sem espaços e avisa; erro de validação '
-      'vai para o campo', () async {
-    when(() => atualizarFuncao(any())).thenAnswer(
-      (_) async => const Right(
-        Colaborador(
-          id: 2,
+  test(
+    'salvar manda os dados e avisa; erro de validação vai para o campo',
+    () async {
+      when(() => atualizar(any())).thenAnswer(
+        (_) async => Right(
+          Colaborador(
+            id: 2,
+            nome: 'Bia',
+            email: 'bia@demo.com',
+            funcao: 'Barbeira',
+            comissaoPercentual: Decimal.fromInt(40),
+          ),
+        ),
+      );
+      final provider = montar();
+      await provider.carregar();
+
+      await provider.salvar(
+        DadosColaborador(
           nome: 'Bia',
-          email: 'bia@demo.com',
           funcao: 'Barbeira',
+          comissaoPercentual: Decimal.fromInt(40),
         ),
-      ),
-    );
-    final provider = montar();
-    await provider.carregar();
+      );
 
-    await provider.salvarFuncao('  Barbeira ');
+      final params =
+          verify(() => atualizar(captureAny())).captured.single
+              as AtualizarColaboradorParams;
+      expect(params.id, 2);
+      expect(params.dados.funcao, 'Barbeira');
+      expect(params.dados.comissaoPercentual, Decimal.fromInt(40));
+      expect(provider.colaborador?.funcao, 'Barbeira');
+      expect(provider.salvo, isTrue);
 
-    final params =
-        verify(() => atualizarFuncao(captureAny())).captured.single
-            as AtualizarFuncaoParams;
-    expect(params.id, 2);
-    expect(params.funcao, 'Barbeira');
-    expect(provider.colaborador?.funcao, 'Barbeira');
-    expect(provider.funcaoSalva, isTrue);
-
-    when(() => atualizarFuncao(any())).thenAnswer(
-      (_) async => const Left(
-        ValidationFailure(
-          fields: {
-            'funcao': ['No máximo 100 caracteres.'],
-          },
+      when(() => atualizar(any())).thenAnswer(
+        (_) async => const Left(
+          ValidationFailure(
+            fields: {
+              'comissao_percentual': ['A comissão vai de 0 a 100.'],
+            },
+          ),
         ),
-      ),
-    );
-    await provider.salvarFuncao('x');
+      );
+      await provider.salvar(const DadosColaborador(nome: 'Bia'));
 
-    expect(provider.erroDoCampo('funcao'), 'No máximo 100 caracteres.');
-    expect(provider.funcaoSalva, isFalse);
-  });
+      expect(
+        provider.erroDoCampo('comissao_percentual'),
+        'A comissão vai de 0 a 100.',
+      );
+      expect(provider.salvo, isFalse);
+    },
+  );
+
+  test(
+    'convidar manda o e-mail e avisa; quem já tem acesso vira mensagem',
+    () async {
+      when(() => convidar(any())).thenAnswer(
+        (_) async => Right(
+          Convite(
+            id: 5,
+            nome: 'Bia',
+            email: 'bia@demo.com',
+            aceito: false,
+            criadoEm: DateTime(2026, 10, 25),
+            expiraEm: DateTime(2026, 10, 27),
+          ),
+        ),
+      );
+      final provider = montar();
+      await provider.carregar();
+
+      await provider.convidar(' bia@demo.com ');
+
+      final params =
+          verify(() => convidar(captureAny())).captured.single
+              as ConvidarColaboradorParams;
+      expect((params.id, params.email), (2, 'bia@demo.com'));
+      expect(provider.convidado, isTrue);
+
+      when(() => convidar(any())).thenAnswer(
+        (_) async => const Left(
+          ServerFailure(
+            message: 'Esta pessoa já tem acesso ao app.',
+            code: 'colaborador_com_acesso',
+          ),
+        ),
+      );
+      await provider.convidar('x@y.com');
+      expect(provider.convidado, isFalse);
+      expect(provider.errorMessage, contains('já tem acesso'));
+    },
+  );
 
   test('alterarAtivo recarrega a ficha; a API protegendo o dono vira '
       'mensagem', () async {

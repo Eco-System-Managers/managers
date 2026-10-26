@@ -13,6 +13,7 @@ class DashboardResumo extends Equatable {
     required this.atendimentos,
     required this.atendimentosVariacao,
     required this.ticketMedio,
+    this.repasse,
     required this.clientesNovos,
     required this.clientesNovosVariacao,
     required this.rankingServicos,
@@ -26,14 +27,20 @@ class DashboardResumo extends Equatable {
   // proprietário (a trava é do backend)
   final int? colaboradorId;
 
-  final Decimal faturamento;
+  // null para o colaborador comum, que não vê valores (idem ticketMedio e
+  // repasse)
+  final Decimal? faturamento;
 
   // variação % sobre o período anterior; null sem base de comparação (a tela
   // não mostra "+∞%" no primeiro dia)
   final int? faturamentoVariacao;
   final int atendimentos;
   final int? atendimentosVariacao;
-  final Decimal ticketMedio;
+  final Decimal? ticketMedio;
+
+  // a parte dos parceiros no período; para o parceiro, o que ele tem a
+  // receber
+  final Decimal? repasse;
 
   // null quando filtrado por profissional: cliente novo é do negócio
   final int? clientesNovos;
@@ -55,6 +62,7 @@ class DashboardResumo extends Equatable {
     atendimentos,
     atendimentosVariacao,
     ticketMedio,
+    repasse,
     clientesNovos,
     clientesNovosVariacao,
     rankingServicos,

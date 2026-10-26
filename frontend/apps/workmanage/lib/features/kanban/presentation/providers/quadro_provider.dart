@@ -4,6 +4,8 @@ import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/agenda/domain/usecases/agenda_use_cases.dart'
     show ListarPendenciasUseCase;
+import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
+import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 
 import '../../domain/entities/atendimento_kanban.dart';
 import '../../domain/entities/etapa.dart';
@@ -11,15 +13,16 @@ import '../../domain/params/kanban_params.dart';
 import '../../domain/usecases/kanban_use_cases.dart';
 
 // estado do quadro (montado em kanban_provider.dart, na raiz da feature): o
-// dia escolhido, as etapas e os cards de cada uma, e quantas cobranças
-// estão pendentes (as pendências são as mesmas da agenda: a API junta os
-// dois modos)
+// dia escolhido, o profissional filtrado, as etapas e os cards de cada uma,
+// e quantas cobranças estão pendentes (as pendências são as mesmas da
+// agenda: a API junta os dois modos)
 class QuadroProvider extends ChangeNotifier {
   QuadroProvider({
     required this._listarEtapas,
     required this._listarDoDia,
     required this._mover,
     required this._listarPendencias,
+    required this._listarColaboradores,
     DateTime? hoje,
   }) : _hoje = somenteData(hoje ?? DateTime.now()),
        _dia = somenteData(hoje ?? DateTime.now());
@@ -28,6 +31,11 @@ class QuadroProvider extends ChangeNotifier {
   final ListarAtendimentosDoDiaUseCase _listarDoDia;
   final MoverAtendimentoUseCase _mover;
   final ListarPendenciasUseCase _listarPendencias;
+  final ListarColaboradoresUseCase _listarColaboradores;
+
+  // a equipe ativa, para os chips; null em colaboradorId é todos
+  List<Colaborador> _colaboradores = const [];
+  int? _colaboradorId;
 
   final DateTime _hoje;
   DateTime _dia;
@@ -45,6 +53,8 @@ class QuadroProvider extends ChangeNotifier {
   DateTime get hoje => _hoje;
   DateTime get dia => _dia;
   bool get ehHoje => mesmoDia(_dia, _hoje);
+  List<Colaborador> get colaboradores => _colaboradores;
+  int? get colaboradorId => _colaboradorId;
   List<Etapa> get etapas => _etapas;
   List<AtendimentoKanban> get atendimentos => _atendimentos;
   bool get carregado => _carregado;
@@ -84,10 +94,13 @@ class QuadroProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
-    final (etapas, dia, pendencias) = await (
+    final (etapas, dia, pendencias, _) = await (
       _listarEtapas(NoParams()),
-      _listarDoDia(_dia),
+      _listarDoDia(
+        ListarDoDiaParams(data: _dia, colaboradorId: _colaboradorId),
+      ),
       _listarPendencias(NoParams()),
+      _garantirColaboradores(),
     ).wait;
     if (_disposed) return;
 
@@ -113,6 +126,21 @@ class QuadroProvider extends ChangeNotifier {
   }
 
   Future<void> irParaHoje() => selecionarDia(_hoje);
+
+  Future<void> filtrarColaborador(int? id) async {
+    if (id == _colaboradorId) return;
+    _colaboradorId = id;
+    await carregar();
+  }
+
+  Future<void> _garantirColaboradores() async {
+    if (_colaboradores.isNotEmpty) return;
+    final result = await _listarColaboradores(NoParams());
+    // sem a equipe o quadro continua útil: só fica sem o filtro
+    result.fold((_) {}, (lista) {
+      _colaboradores = lista.where((c) => c.ativo).toList();
+    });
+  }
 
   // ao voltar de uma tela que pode ter mudado o quadro
   Future<void> recarregar() => carregar();

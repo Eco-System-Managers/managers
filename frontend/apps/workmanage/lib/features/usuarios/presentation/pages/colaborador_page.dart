@@ -6,13 +6,16 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
+import 'package:validatorless/validatorless.dart';
 
 import '../../domain/entities/colaborador.dart';
 import '../../usuarios_provider.dart';
 import '../providers/colaborador_provider.dart';
+import '../widgets/campos_colaborador.dart';
 
-// a ficha de alguém da equipe: a função (editável pelo proprietário),
-// desativar/reativar e remover. o proprietário não se desativa nem se
+// a ficha de alguém da equipe: nome, função, vínculo, comissão ou a flag de
+// cobrar (editáveis pelo proprietário), convidar para o app quem não tem
+// login, desativar/reativar e remover. o proprietário não se desativa nem se
 // remove (a API recusa com proprietario_protegido; a tela nem oferece)
 class ColaboradorPage extends ConsumerStatefulWidget {
   const ColaboradorPage({super.key, required this.id});
@@ -24,7 +27,14 @@ class ColaboradorPage extends ConsumerStatefulWidget {
 }
 
 class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nomeController = TextEditingController();
   final _funcaoController = TextEditingController();
+  final _comissaoController = TextEditingController();
+  VinculoColaborador _tipo = VinculoColaborador.parceiro;
+  bool _podeCobrar = true;
+
+  // os campos são preenchidos uma vez, quando a ficha chega
   bool _preenchido = false;
 
   ColaboradorProvider get _provider => ref.read(colaboradorProvider(widget.id));
@@ -39,8 +49,84 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
 
   @override
   void dispose() {
+    _nomeController.dispose();
     _funcaoController.dispose();
+    _comissaoController.dispose();
     super.dispose();
+  }
+
+  void _preencher(Colaborador c) {
+    _nomeController.text = c.nome;
+    _funcaoController.text = c.funcao;
+    _comissaoController.text = c.comissaoPercentual == null
+        ? ''
+        : c.comissaoPercentual!.toStringAsFixed(
+            c.comissaoPercentual!.isInteger ? 0 : 2,
+          );
+    _tipo = c.tipo;
+    _podeCobrar = c.podeCobrar;
+  }
+
+  Future<void> _salvar() async {
+    if (!_formKey.currentState!.validate()) return;
+    await _provider.salvar(
+      CamposColaborador.dados(
+        nome: _nomeController,
+        funcao: _funcaoController,
+        comissao: _comissaoController,
+        tipo: _tipo,
+        podeCobrar: _podeCobrar,
+      ),
+    );
+  }
+
+  Future<void> _convidar(Colaborador c) async {
+    final email = await _pedirEmail(c);
+    if (email == null || !mounted) return;
+    await _provider.convidar(email);
+  }
+
+  Future<String?> _pedirEmail(Colaborador c) {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Convidar para o app'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            validator: Validatorless.multiple([
+              Validatorless.required('Informe o e-mail'),
+              Validatorless.email('E-mail inválido'),
+            ]),
+            decoration: InputDecoration(
+              labelText: 'E-mail de ${c.nome}',
+              helperText: 'A pessoa recebe o link para criar a senha.',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(context).pop(controller.text.trim());
+              }
+            },
+            child: const Text('Enviar convite'),
+          ),
+        ],
+      ),
+    ).whenComplete(controller.dispose);
   }
 
   Future<void> _alterarAtivo(Colaborador c) async {
@@ -49,9 +135,11 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
       context,
       titulo: ativar ? 'Reativar' : 'Desativar',
       mensagem: ativar
-          ? '${c.nome} volta a entrar no app e a aparecer na agenda.'
-          : '${c.nome} perde o acesso na hora e sai dos serviços que '
-                'executa. Os agendamentos já marcados continuam.',
+          ? '${c.nome} volta a aparecer na agenda'
+                '${c.temAcesso ? ' e a entrar no app' : ''}.'
+          : '${c.nome} sai dos serviços que executa'
+                '${c.temAcesso ? ' e perde o acesso na hora' : ''}. '
+                'Os atendimentos já marcados continuam.',
       textoConfirmar: ativar ? 'Reativar' : 'Desativar',
       destrutivo: !ativar,
     );
@@ -70,8 +158,9 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     final ok = await confirmar(
       context,
       titulo: 'Remover da equipe',
-      mensagem:
-          'A conta de ${c.nome} é apagada e o acesso termina na hora.$aviso',
+      mensagem: c.temAcesso
+          ? 'A conta de ${c.nome} é apagada e o acesso termina na hora.$aviso'
+          : '${c.nome} sai da equipe. O histórico fica guardado.$aviso',
       textoConfirmar: 'Remover',
       destrutivo: true,
     );
@@ -79,8 +168,13 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     await _provider.remover();
   }
 
-  Future<void> _salvarFuncao() async {
-    await _provider.salvarFuncao(_funcaoController.text);
+  void _avisar(String texto) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(texto)));
+      }
+    });
   }
 
   @override
@@ -97,15 +191,9 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
             if (context.mounted) context.pop(true);
           });
         }
-        if (provider.funcaoSalva) {
-          provider.avisoDeFuncaoMostrado();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Função salva.')));
-            }
-          });
-        }
+        if (provider.salvo) _avisar('Ficha salva.');
+        if (provider.convidado) _avisar('Convite enviado por e-mail.');
+        provider.avisosMostrados();
 
         return Scaffold(
           appBar: AppBar(title: const Text('Colaborador')),
@@ -129,7 +217,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     }
 
     if (!_preenchido) {
-      _funcaoController.text = c.funcao;
+      _preencher(c);
       _preenchido = true;
     }
 
@@ -138,107 +226,136 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     // o dono não se desativa nem se remove; quem não é dono não mexe em nada
     final podeMexer = souProprietario && !c.ehProprietario;
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        if (provider.isLoading)
-          const LinearProgressIndicator(minHeight: 2)
-        else
-          const SizedBox(height: 2),
-        const SizedBox(height: 16),
-        Center(child: AvatarIniciais(nome: c.nome, raio: 40)),
-        const SizedBox(height: 12),
-        Text(
-          c.nome,
-          textAlign: TextAlign.center,
-          style: textos.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          c.email,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: colors.onSurfaceVariant),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          children: [
-            Chip(
-              label: Text(c.ehProprietario ? 'Proprietário' : 'Colaborador'),
-              visualDensity: VisualDensity.compact,
-            ),
-            Chip(
-              avatar: Icon(
-                c.ativo ? Icons.check_circle_outline : Icons.block,
-                size: 18,
-                color: c.ativo ? Colors.green.shade700 : colors.error,
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          if (provider.isLoading)
+            const LinearProgressIndicator(minHeight: 2)
+          else
+            const SizedBox(height: 2),
+          const SizedBox(height: 16),
+          Center(child: AvatarIniciais(nome: c.nome, raio: 40)),
+          const SizedBox(height: 12),
+          Text(
+            c.nome,
+            textAlign: TextAlign.center,
+            style: textos.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            c.temAcesso ? c.email : 'Sem acesso ao app',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              Chip(
+                label: Text(c.ehProprietario ? 'Proprietário' : c.tipo.nome),
+                visualDensity: VisualDensity.compact,
               ),
-              label: Text(c.ativo ? 'Ativo' : 'Inativo'),
-              visualDensity: VisualDensity.compact,
+              Chip(
+                avatar: Icon(
+                  c.ativo ? Icons.check_circle_outline : Icons.block,
+                  size: 18,
+                  color: c.ativo ? Colors.green.shade700 : colors.error,
+                ),
+                label: Text(c.ativo ? 'Ativo' : 'Inativo'),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+
+          if (provider.errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.errorContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                provider.errorMessage!,
+                style: TextStyle(color: colors.onErrorContainer),
+              ),
             ),
           ],
-        ),
 
-        if (provider.errorMessage != null) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: colors.errorContainer,
-              borderRadius: BorderRadius.circular(8),
+          const SizedBox(height: 24),
+          if (c.ehProprietario)
+            // o dono não tem vínculo nem comissão: só a função
+            TextFormField(
+              controller: _funcaoController,
+              enabled: souProprietario,
+              textCapitalization: TextCapitalization.sentences,
+              forceErrorText: provider.erroDoCampo('funcao'),
+              onChanged: (_) => provider.limparErroDoCampo('funcao'),
+              decoration: const InputDecoration(
+                labelText: 'Função',
+                hintText: 'Ex.: Barbeiro',
+                border: OutlineInputBorder(),
+              ),
+            )
+          else
+            CamposColaborador(
+              nomeController: _nomeController,
+              funcaoController: _funcaoController,
+              comissaoController: _comissaoController,
+              tipo: _tipo,
+              podeCobrar: _podeCobrar,
+              onTipo: (t) => setState(() => _tipo = t),
+              onPodeCobrar: (v) => setState(() => _podeCobrar = v),
+              erroDoCampo: provider.erroDoCampo,
+              limparErroDoCampo: provider.limparErroDoCampo,
+              habilitado: souProprietario,
             ),
-            child: Text(
-              provider.errorMessage!,
-              style: TextStyle(color: colors.onErrorContainer),
+          if (souProprietario) ...[
+            const SizedBox(height: 16),
+            FilledButton.tonal(
+              onPressed: provider.isLoading ? null : _salvar,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+              ),
+              child: const Text('Salvar'),
             ),
-          ),
-        ],
+          ],
 
-        const SizedBox(height: 24),
-        TextFormField(
-          controller: _funcaoController,
-          enabled: souProprietario,
-          textCapitalization: TextCapitalization.sentences,
-          forceErrorText: provider.erroDoCampo('funcao'),
-          onChanged: (_) => provider.limparErroDoCampo('funcao'),
-          decoration: const InputDecoration(
-            labelText: 'Função',
-            hintText: 'Ex.: Barbeiro',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        if (souProprietario) ...[
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: provider.isLoading ? null : _salvarFuncao,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
+          if (podeMexer) ...[
+            if (!c.temAcesso) ...[
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: provider.isLoading ? null : () => _convidar(c),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                icon: const Icon(Icons.mail_outline),
+                label: const Text('Convidar para o app'),
+              ),
+            ],
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: provider.isLoading ? null : () => _alterarAtivo(c),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: c.ativo ? colors.error : null,
+              ),
+              icon: Icon(c.ativo ? Icons.block : Icons.check_circle_outline),
+              label: Text(c.ativo ? 'Desativar' : 'Reativar'),
             ),
-            child: const Text('Salvar função'),
-          ),
-        ],
-
-        if (podeMexer) ...[
-          const SizedBox(height: 32),
-          OutlinedButton.icon(
-            onPressed: provider.isLoading ? null : () => _alterarAtivo(c),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-              foregroundColor: c.ativo ? colors.error : null,
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: provider.isLoading ? null : () => _remover(c),
+              style: TextButton.styleFrom(foregroundColor: colors.error),
+              icon: const Icon(Icons.person_remove_outlined),
+              label: const Text('Remover da equipe'),
             ),
-            icon: Icon(c.ativo ? Icons.block : Icons.check_circle_outline),
-            label: Text(c.ativo ? 'Desativar' : 'Reativar'),
-          ),
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: provider.isLoading ? null : () => _remover(c),
-            style: TextButton.styleFrom(foregroundColor: colors.error),
-            icon: const Icon(Icons.person_remove_outlined),
-            label: const Text('Remover da equipe'),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

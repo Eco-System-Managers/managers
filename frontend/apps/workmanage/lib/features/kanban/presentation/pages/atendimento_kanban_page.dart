@@ -8,6 +8,7 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
 import 'package:managers/features/financeiro/presentation/widgets/cobranca_sheet.dart';
 
@@ -243,6 +244,12 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                     : Text(a.objeto.detalhe),
               ),
               const Divider(),
+              if (a.colaboradorNome.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.badge_outlined),
+                  title: Text(a.colaboradorNome),
+                  subtitle: const Text('Profissional'),
+                ),
               ListTile(
                 leading: const Icon(Icons.design_services_outlined),
                 title: Text(a.servicoNome),
@@ -330,25 +337,29 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
           ),
           const SizedBox(height: 24),
         ],
-        if (!a.pago)
-          FilledButton.icon(
-            onPressed: ocupado ? null : () => _cobrar(a),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
+        // o colaborador comum só cobra com a flag ligada (a API recusa com
+        // sem_permissao_cobrar)
+        if (ref.read(negocioAtualProvider).podeCobrar) ...[
+          if (!a.pago)
+            FilledButton.icon(
+              onPressed: ocupado ? null : () => _cobrar(a),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+              ),
+              icon: const Icon(Icons.point_of_sale_outlined),
+              label: const Text('Cobrar'),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: ocupado ? null : _desfazerCobranca,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+              ),
+              icon: const Icon(Icons.undo),
+              label: const Text('Desfazer cobrança'),
             ),
-            icon: const Icon(Icons.point_of_sale_outlined),
-            label: const Text('Cobrar'),
-          )
-        else
-          OutlinedButton.icon(
-            onPressed: ocupado ? null : _desfazerCobranca,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-            ),
-            icon: const Icon(Icons.undo),
-            label: const Text('Desfazer cobrança'),
-          ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         Row(
           children: [
             Expanded(

@@ -1,6 +1,8 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/features/usuarios/data/datasources/usuarios_remote_datasource.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
+import 'package:managers/features/usuarios/domain/params/equipe_params.dart';
 
 import '../../helpers/fake_adapter.dart';
 import '../../helpers/fake_sessao_repository.dart';
@@ -8,11 +10,16 @@ import '../../helpers/fake_sessao_repository.dart';
 Map<String, dynamic> _colaboradorJson(
   int id, {
   bool ativo = true,
-  String papel = 'colaborador',
+  String? papel = 'colaborador',
 }) => {
   'id': id,
-  'user': {'first_name': 'Bia', 'last_name': 'Souza', 'email': 'bia@demo.com'},
+  'nome': 'Bia Souza',
+  'email': 'bia@demo.com',
+  'tem_acesso': true,
   'funcao': 'Barbeira',
+  'tipo': 'parceiro',
+  'comissao_percentual': null,
+  'pode_cobrar': true,
   'papel': papel,
   'ativo': ativo,
   'criado_em': '2026-10-20T10:00:00-03:00',
@@ -28,7 +35,8 @@ Map<String, dynamic> _conviteJson(int id) => {
 };
 
 void main() {
-  test('obter e atualizarFuncao falam com colaboradores/{id}/', () async {
+  test('obter e atualizar falam com colaboradores/{id}/; o corpo leva o '
+      'vínculo e a comissão como string', () async {
     final adapter = FakeAdapter(
       (_) async =>
           respostaJson(200, _colaboradorJson(2, papel: 'proprietario')),
@@ -36,7 +44,14 @@ void main() {
     final datasource = UsuariosRemoteDataSourceImpl(dioDeTeste(adapter));
 
     final obtido = (await datasource.obter(2)).toEntity();
-    await datasource.atualizarFuncao(2, 'Barbeira');
+    await datasource.atualizar(
+      2,
+      DadosColaborador(
+        nome: 'Bia Souza',
+        funcao: 'Barbeira',
+        comissaoPercentual: Decimal.parse('40'),
+      ),
+    );
 
     expect(obtido.nome, 'Bia Souza');
     expect(obtido.papel, Papel.proprietario);
@@ -44,8 +59,61 @@ void main() {
     expect(adapter.requisicoes[0].path, 'colaboradores/2/');
     expect(adapter.requisicoes[1].method, 'PATCH');
     expect(adapter.requisicoes[1].path, 'colaboradores/2/');
-    expect(adapter.requisicoes[1].data, {'funcao': 'Barbeira'});
+    expect(adapter.requisicoes[1].data, {
+      'nome': 'Bia Souza',
+      'funcao': 'Barbeira',
+      'tipo': 'parceiro',
+      'comissao_percentual': '40.00',
+      'pode_cobrar': true,
+    });
   });
+
+  test(
+    'criar cadastra sem login e convidar liga o convite ao registro',
+    () async {
+      final adapter = FakeAdapter((options) async {
+        if (options.path.endsWith('convidar/')) {
+          return respostaJson(201, {..._conviteJson(5), 'colaborador': 9});
+        }
+        return respostaJson(201, {
+          ..._colaboradorJson(9, papel: null),
+          'nome': 'João',
+          'email': '',
+          'tem_acesso': false,
+          'tipo': 'colaborador',
+        });
+      });
+      final datasource = UsuariosRemoteDataSourceImpl(dioDeTeste(adapter));
+
+      final criado = (await datasource.criar(
+        const DadosColaborador(
+          nome: 'João',
+          funcao: 'Lavador',
+          tipo: VinculoColaborador.colaborador,
+          podeCobrar: false,
+        ),
+      )).toEntity();
+      final convite = (await datasource.convidar(
+        9,
+        'joao@demo.com',
+      )).toEntity();
+
+      expect(criado.temAcesso, isFalse);
+      expect(criado.tipo, VinculoColaborador.colaborador);
+      expect(adapter.requisicoes[0].method, 'POST');
+      expect(adapter.requisicoes[0].path, 'colaboradores/');
+      expect(adapter.requisicoes[0].data, {
+        'nome': 'João',
+        'funcao': 'Lavador',
+        'tipo': 'colaborador',
+        'comissao_percentual': null,
+        'pode_cobrar': false,
+      });
+      expect(adapter.requisicoes[1].path, 'colaboradores/9/convidar/');
+      expect(adapter.requisicoes[1].data, {'email': 'joao@demo.com'});
+      expect(convite.email, 'caio@demo.com');
+    },
+  );
 
   test('ativar, desativar e remover usam as ações do contrato', () async {
     final adapter = FakeAdapter((options) async {

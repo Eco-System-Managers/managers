@@ -39,6 +39,8 @@ class FinanceiroRemoteDataSourceImpl implements FinanceiroRemoteDataSource {
       total: dinheiroDaApi(kpis['total'] as String? ?? '0'),
       ticketMedio: dinheiroDaApi(kpis['ticket_medio'] as String? ?? '0'),
       atendimentos: kpis['atendimentos'] as int? ?? 0,
+      repasse: dinheiroDaApi(kpis['repasse'] as String? ?? '0'),
+      casa: kpis['casa'] == null ? null : dinheiroDaApi(kpis['casa'] as String),
       porForma: [
         for (final f
             in (json['por_forma'] as List? ?? const [])

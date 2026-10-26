@@ -56,6 +56,8 @@ class AtendimentoKanbanModel {
       servicoNome: json['servico_nome'] as String? ?? '',
       servicoPreco: dinheiroDaApi(json['servico_preco'] as String? ?? '0'),
       servicoDuracao: json['servico_duracao'] as int? ?? 0,
+      colaboradorId: json['colaborador'] as int?,
+      colaboradorNome: json['colaborador_nome'] as String? ?? '',
       observacao: json['observacao'] as String? ?? '',
       data: data == null ? null : dataDaApi(data),
       horarioEntrada: hora == null ? null : horaDaApi(hora),
@@ -80,6 +82,7 @@ class AtendimentoKanbanModel {
       'horario_entrada': params.horarioEntrada == null
           ? null
           : horaParaApi(params.horarioEntrada!),
+      'colaborador': ?params.colaboradorId,
       'observacao': params.observacao,
     };
   }

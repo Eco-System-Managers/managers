@@ -87,7 +87,10 @@ class AtendimentoKanbanCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${a.servicoNome} · ${formatarDinheiro(a.valorTotal)}',
+                      [
+                        '${a.servicoNome} · ${formatarDinheiro(a.valorTotal)}',
+                        if (a.colaboradorNome.isNotEmpty) a.colaboradorNome,
+                      ].join(' · '),
                       style: textos.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),

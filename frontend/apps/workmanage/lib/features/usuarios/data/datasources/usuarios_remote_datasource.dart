@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:managers/core/network/paginacao.dart';
 import 'package:managers/core/session/sessao_model.dart';
 
+import '../../domain/params/equipe_params.dart';
 import '../models/colaborador_model.dart';
 import '../models/convite_model.dart';
 
@@ -17,7 +18,13 @@ abstract class UsuariosRemoteDataSource {
 
   Future<ColaboradorModel> obter(int id);
 
-  Future<ColaboradorModel> atualizarFuncao(int id, String funcao);
+  // cadastrar alguém sem login (só o proprietário)
+  Future<ColaboradorModel> criar(DadosColaborador dados);
+
+  Future<ColaboradorModel> atualizar(int id, DadosColaborador dados);
+
+  // dar login a quem já está na equipe: cria o convite ligado ao registro
+  Future<ConviteModel> convidar(int id, String email);
 
   Future<ColaboradorModel> ativar(int id);
 
@@ -79,12 +86,30 @@ class UsuariosRemoteDataSourceImpl implements UsuariosRemoteDataSource {
   }
 
   @override
-  Future<ColaboradorModel> atualizarFuncao(int id, String funcao) async {
-    final response = await dio.patch<Map<String, dynamic>>(
-      '$_colaboradores$id/',
-      data: {'funcao': funcao},
+  Future<ColaboradorModel> criar(DadosColaborador dados) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      _colaboradores,
+      data: ColaboradorModel.corpo(dados),
     );
     return ColaboradorModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<ColaboradorModel> atualizar(int id, DadosColaborador dados) async {
+    final response = await dio.patch<Map<String, dynamic>>(
+      '$_colaboradores$id/',
+      data: ColaboradorModel.corpo(dados),
+    );
+    return ColaboradorModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<ConviteModel> convidar(int id, String email) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      '$_colaboradores$id/convidar/',
+      data: {'email': email},
+    );
+    return ConviteModel.fromJson(response.data!);
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:dio/dio.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
@@ -44,11 +45,12 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         anteriorFim: dataDaApi(periodo['anterior_fim'] as String),
       ),
       colaboradorId: json['colaborador'] as int?,
-      faturamento: dinheiroDaApi(kpis['faturamento'] as String? ?? '0'),
+      faturamento: _dinheiroOuNulo(kpis['faturamento']),
       faturamentoVariacao: kpis['faturamento_variacao'] as int?,
       atendimentos: kpis['atendimentos'] as int? ?? 0,
       atendimentosVariacao: kpis['atendimentos_variacao'] as int?,
-      ticketMedio: dinheiroDaApi(kpis['ticket_medio'] as String? ?? '0'),
+      ticketMedio: _dinheiroOuNulo(kpis['ticket_medio']),
+      repasse: _dinheiroOuNulo(kpis['repasse']),
       clientesNovos: kpis['clientes_novos'] as int?,
       clientesNovosVariacao: kpis['clientes_novos_variacao'] as int?,
       rankingServicos: [
@@ -75,3 +77,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
     );
   }
 }
+
+// os kpis de dinheiro vêm nulos para quem não vê valores
+Decimal? _dinheiroOuNulo(Object? valor) =>
+    valor == null ? null : dinheiroDaApi(valor as String);

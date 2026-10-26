@@ -4,17 +4,25 @@ import 'package:equatable/equatable.dart';
 // o fechamento de caixa de um período: os números, o total por forma de
 // pagamento e cada pagamento. junta os dois modos de agenda
 class Caixa extends Equatable {
-  const Caixa({
+  Caixa({
     required this.total,
     required this.ticketMedio,
     required this.atendimentos,
     required this.porForma,
     required this.pagamentos,
-  });
+    Decimal? repasse,
+    this.casa,
+  }) : repasse = repasse ?? Decimal.zero;
 
   final Decimal total;
   final Decimal ticketMedio;
   final int atendimentos;
+
+  // a parte dos parceiros, congelada em cada pagamento na cobrança
+  final Decimal repasse;
+
+  // total - repasse; null para o parceiro, que vê só a parte dele
+  final Decimal? casa;
   final List<CaixaPorForma> porForma;
   final List<CaixaPagamento> pagamentos;
 
@@ -23,6 +31,8 @@ class Caixa extends Equatable {
     total,
     ticketMedio,
     atendimentos,
+    repasse,
+    casa,
     porForma,
     pagamentos,
   ];
@@ -59,7 +69,7 @@ class CaixaPagamento extends Equatable {
   final String clienteNome;
   final String servicoNome;
 
-  // vazio nos atendimentos do kanban
+  // vazio quando o atendimento não tem profissional
   final String colaboradorNome;
   final String forma;
   final Decimal valor;

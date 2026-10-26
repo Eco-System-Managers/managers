@@ -22,7 +22,10 @@ abstract class KanbanRemoteDataSource {
   Future<void> reordenarEtapas(List<int> ids);
 
   // o dia inteiro, seguindo a paginação
-  Future<List<AtendimentoKanbanModel>> listarDoDia(DateTime data);
+  Future<List<AtendimentoKanbanModel>> listarDoDia(
+    DateTime data, {
+    int? colaboradorId,
+  });
 
   Future<List<AtendimentoKanbanModel>> listarDoCliente(int clienteId);
 
@@ -89,11 +92,14 @@ class KanbanRemoteDataSourceImpl implements KanbanRemoteDataSource {
   }
 
   @override
-  Future<List<AtendimentoKanbanModel>> listarDoDia(DateTime data) {
+  Future<List<AtendimentoKanbanModel>> listarDoDia(
+    DateTime data, {
+    int? colaboradorId,
+  }) {
     return buscarTudo(
       dio,
       _atendimentos,
-      query: {'data': dataParaApi(data)},
+      query: {'data': dataParaApi(data), 'colaborador': ?colaboradorId},
       item: AtendimentoKanbanModel.fromJson,
     );
   }

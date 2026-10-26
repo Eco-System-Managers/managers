@@ -11,6 +11,7 @@ import 'package:managers/features/clientes/presentation/widgets/cliente_picker_s
 import 'package:managers/features/clientes/presentation/widgets/pet_form_sheet.dart';
 import 'package:managers/features/clientes/presentation/widgets/veiculo_form_sheet.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
+import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 
 import '../../kanban_provider.dart';
 import '../providers/atendimento_kanban_form_provider.dart';
@@ -236,6 +237,34 @@ class _AtendimentoKanbanFormPageState
               border: const OutlineInputBorder(),
             ),
           ),
+
+          // o profissional é opcional na esteira: só aparece com equipe
+          if (provider.colaboradores.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            DropdownButtonFormField<Colaborador?>(
+              key: ValueKey('colaborador-${provider.colaborador?.id}'),
+              initialValue: provider.colaborador,
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem<Colaborador?>(
+                  value: null,
+                  child: Text('Sem profissional'),
+                ),
+                for (final c in provider.colaboradores)
+                  DropdownMenuItem<Colaborador?>(
+                    value: c,
+                    child: Text(c.nome, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: provider.selecionarColaborador,
+              decoration: InputDecoration(
+                labelText: 'Profissional (opcional)',
+                prefixIcon: const Icon(Icons.badge_outlined),
+                errorText: provider.erroDoCampo('colaborador'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 16),
 

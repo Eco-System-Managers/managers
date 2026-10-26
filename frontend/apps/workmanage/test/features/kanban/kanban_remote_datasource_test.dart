@@ -192,6 +192,7 @@ void main() {
         objetoId: 10,
         servicoId: 3,
         data: DateTime(2026, 10, 25),
+        colaboradorId: 2,
       ),
     );
 
@@ -205,6 +206,12 @@ void main() {
       'observacao': 'Chaves no painel',
     });
     expect((adapter.requisicoes[1].data as Map)['horario_entrada'], isNull);
+    // o profissional só vai quando escolhido
+    expect(
+      (adapter.requisicoes[0].data as Map).containsKey('colaborador'),
+      isFalse,
+    );
+    expect((adapter.requisicoes[1].data as Map)['colaborador'], 2);
   });
 
   test(

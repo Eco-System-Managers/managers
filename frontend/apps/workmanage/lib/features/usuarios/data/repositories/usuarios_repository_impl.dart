@@ -6,6 +6,7 @@ import 'package:managers/core/session/sessao.dart';
 
 import '../../domain/entities/colaborador.dart';
 import '../../domain/entities/convite.dart';
+import '../../domain/params/equipe_params.dart';
 import '../../domain/repositories/usuarios_repository.dart';
 import '../datasources/usuarios_remote_datasource.dart';
 
@@ -42,11 +43,29 @@ class UsuariosRepositoryImpl implements UsuariosRepository {
   }
 
   @override
-  Future<Either<Failure, Colaborador>> atualizarFuncao(int id, String funcao) {
-    return _executar(() async {
-      final model = await _remoteDataSource.atualizarFuncao(id, funcao);
-      return model.toEntity();
-    });
+  Future<Either<Failure, Colaborador>> criarColaborador(
+    DadosColaborador dados,
+  ) {
+    return _executar(
+      () async => (await _remoteDataSource.criar(dados)).toEntity(),
+    );
+  }
+
+  @override
+  Future<Either<Failure, Colaborador>> atualizarColaborador(
+    int id,
+    DadosColaborador dados,
+  ) {
+    return _executar(
+      () async => (await _remoteDataSource.atualizar(id, dados)).toEntity(),
+    );
+  }
+
+  @override
+  Future<Either<Failure, Convite>> convidarColaborador(int id, String email) {
+    return _executar(
+      () async => (await _remoteDataSource.convidar(id, email)).toEntity(),
+    );
   }
 
   @override

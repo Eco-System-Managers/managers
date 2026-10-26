@@ -35,6 +35,7 @@ import 'package:managers/features/servicos/presentation/pages/servico_form_page.
 import 'package:managers/features/servicos/presentation/pages/servicos_page.dart';
 import 'package:managers/features/splash/presentation/pages/splash_page.dart';
 import 'package:managers/features/usuarios/presentation/pages/aceitar_convite_page.dart';
+import 'package:managers/features/usuarios/presentation/pages/colaborador_form_page.dart';
 import 'package:managers/features/usuarios/presentation/pages/colaborador_page.dart';
 import 'package:managers/features/usuarios/presentation/pages/convite_form_page.dart';
 import 'package:managers/features/usuarios/presentation/pages/equipe_page.dart';
@@ -324,6 +325,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, _) => const EquipePage(),
                     routes: [
+                      GoRoute(
+                        path: 'novo',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, _) => const ColaboradorFormPage(),
+                      ),
                       GoRoute(
                         path: 'convidar',
                         parentNavigatorKey: _rootNavigatorKey,

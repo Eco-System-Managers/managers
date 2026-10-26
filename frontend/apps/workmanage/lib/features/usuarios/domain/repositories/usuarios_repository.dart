@@ -4,6 +4,7 @@ import 'package:managers/core/session/sessao.dart';
 
 import '../entities/colaborador.dart';
 import '../entities/convite.dart';
+import '../params/equipe_params.dart';
 
 // contrato da equipe: o domain diz O QUE precisa, o data decide COMO.
 // toda falha volta como Left(Failure), com a mensagem que a tela mostra
@@ -17,8 +18,17 @@ abstract class UsuariosRepository {
 
   Future<Either<Failure, Colaborador>> obterColaborador(int id);
 
-  // só a função muda pelo PATCH; ativo é pelas ações
-  Future<Either<Failure, Colaborador>> atualizarFuncao(int id, String funcao);
+  // cadastrar alguém sem login (só o proprietário)
+  Future<Either<Failure, Colaborador>> criarColaborador(DadosColaborador dados);
+
+  // nome, função, vínculo, comissão e a flag de cobrar; ativo é pelas ações
+  Future<Either<Failure, Colaborador>> atualizarColaborador(
+    int id,
+    DadosColaborador dados,
+  );
+
+  // dar login a quem já está na equipe
+  Future<Either<Failure, Convite>> convidarColaborador(int id, String email);
 
   Future<Either<Failure, void>> ativarColaborador(int id);
 

@@ -106,6 +106,8 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
                 temRegistro: (_) => false,
                 onSelecionar: provider.selecionarDia,
               ),
+              if (provider.colaboradores.isNotEmpty)
+                _FiltroColaboradores(provider: provider),
               if (provider.isLoading && provider.carregado)
                 const LinearProgressIndicator(minHeight: 2)
               else
@@ -242,6 +244,43 @@ class _Coluna extends StatelessWidget {
                     ],
                   ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// os chips de profissional: todos, ou um da equipe. o filtro vai para a API
+class _FiltroColaboradores extends StatelessWidget {
+  const _FiltroColaboradores({required this.provider});
+
+  final QuadroProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: const Text('Todos'),
+              selected: provider.colaboradorId == null,
+              onSelected: (_) => provider.filtrarColaborador(null),
+            ),
+          ),
+          for (final c in provider.colaboradores)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(c.nome),
+                selected: provider.colaboradorId == c.id,
+                onSelected: (_) => provider.filtrarColaborador(c.id),
+              ),
+            ),
         ],
       ),
     );

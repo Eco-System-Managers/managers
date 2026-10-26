@@ -7,6 +7,7 @@ import 'package:managers/features/clientes/domain/entities/objeto_cliente.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/financeiro/financeiro_provider.dart';
 import 'package:managers/features/servicos/servicos_provider.dart';
+import 'package:managers/features/usuarios/usuarios_provider.dart';
 
 import 'data/datasources/kanban_remote_datasource.dart';
 import 'data/repositories/kanban_repository_impl.dart';
@@ -96,6 +97,7 @@ final quadroProvider = Provider<QuadroProvider>((ref) {
     listarDoDia: ref.watch(listarAtendimentosDoDiaUseCaseProvider),
     mover: ref.watch(moverAtendimentoUseCaseProvider),
     listarPendencias: ref.watch(listarPendenciasUseCaseProvider),
+    listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
   );
   ref.onDispose(provider.dispose);
   return provider;
@@ -110,6 +112,7 @@ final atendimentoKanbanFormProvider = Provider.autoDispose
         listarClientes: ref.watch(listarClientesUseCaseProvider),
         obterCliente: ref.watch(obterClienteUseCaseProvider),
         listarSlots: ref.watch(listarSlotsKanbanUseCaseProvider),
+        listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
         criar: ref.watch(criarAtendimentoKanbanUseCaseProvider),
         tipoObjeto:
             ref.watch(negocioAtualProvider).config?.tipoObjeto ??

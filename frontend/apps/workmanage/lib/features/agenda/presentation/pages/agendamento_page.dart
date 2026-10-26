@@ -7,6 +7,7 @@ import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
 import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
 import 'package:managers/features/financeiro/presentation/widgets/cobranca_sheet.dart';
@@ -289,13 +290,19 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton.icon(
-          onPressed: ocupado ? null : () => _cobrar(a),
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-          icon: const Icon(Icons.point_of_sale_outlined),
-          label: const Text('Cobrar'),
-        ),
-        const SizedBox(height: 12),
+        // o colaborador comum só cobra com a flag ligada (a API recusa com
+        // sem_permissao_cobrar)
+        if (ref.read(negocioAtualProvider).podeCobrar) ...[
+          FilledButton.icon(
+            onPressed: ocupado ? null : () => _cobrar(a),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
+            icon: const Icon(Icons.point_of_sale_outlined),
+            label: const Text('Cobrar'),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (a.status == StatusAgendamento.agendado) ...[
           FilledButton.tonalIcon(
             onPressed: ocupado

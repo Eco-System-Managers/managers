@@ -21,15 +21,39 @@ class ObterColaboradorUseCase implements UseCase<Colaborador, int> {
       _repository.obterColaborador(params);
 }
 
-class AtualizarFuncaoUseCase
-    implements UseCase<Colaborador, AtualizarFuncaoParams> {
-  const AtualizarFuncaoUseCase(this._repository);
+class CriarColaboradorUseCase
+    implements UseCase<Colaborador, DadosColaborador> {
+  const CriarColaboradorUseCase(this._repository);
 
   final UsuariosRepository _repository;
 
   @override
-  Future<Either<Failure, Colaborador>> call(AtualizarFuncaoParams params) =>
-      _repository.atualizarFuncao(params.id, params.funcao);
+  Future<Either<Failure, Colaborador>> call(DadosColaborador params) =>
+      _repository.criarColaborador(params);
+}
+
+class AtualizarColaboradorUseCase
+    implements UseCase<Colaborador, AtualizarColaboradorParams> {
+  const AtualizarColaboradorUseCase(this._repository);
+
+  final UsuariosRepository _repository;
+
+  @override
+  Future<Either<Failure, Colaborador>> call(
+    AtualizarColaboradorParams params,
+  ) => _repository.atualizarColaborador(params.id, params.dados);
+}
+
+// dar login a quem já está na equipe
+class ConvidarColaboradorUseCase
+    implements UseCase<Convite, ConvidarColaboradorParams> {
+  const ConvidarColaboradorUseCase(this._repository);
+
+  final UsuariosRepository _repository;
+
+  @override
+  Future<Either<Failure, Convite>> call(ConvidarColaboradorParams params) =>
+      _repository.convidarColaborador(params.id, params.email);
 }
 
 class AlterarAtivoColaboradorUseCase

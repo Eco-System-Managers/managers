@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/features/usuarios/data/datasources/usuarios_remote_datasource.dart';
@@ -6,20 +7,22 @@ import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 
 import '../../helpers/fake_adapter.dart';
 
-Map<String, dynamic> _colaboradorJson(int id, {String papel = 'colaborador'}) =>
-    {
-      'id': id,
-      'user': {
-        'id': id,
-        'first_name': 'Ana',
-        'last_name': 'Silva',
-        'email': 'ana$id@demo.com',
-      },
-      'funcao': 'Cabeleireira',
-      'papel': papel,
-      'ativo': true,
-      'criado_em': '2026-10-24T10:00:00-03:00',
-    };
+Map<String, dynamic> _colaboradorJson(
+  int id, {
+  String? papel = 'colaborador',
+}) => {
+  'id': id,
+  'nome': 'Ana Silva',
+  'email': 'ana$id@demo.com',
+  'tem_acesso': true,
+  'funcao': 'Cabeleireira',
+  'tipo': 'parceiro',
+  'comissao_percentual': '40.00',
+  'pode_cobrar': true,
+  'papel': papel,
+  'ativo': true,
+  'criado_em': '2026-10-24T10:00:00-03:00',
+};
 
 void main() {
   test('meuPerfil lê /colaboradores/me/ e traz o papel', () async {
@@ -37,6 +40,9 @@ void main() {
     expect(perfil.funcao, 'Cabeleireira');
     expect(perfil.papel, Papel.proprietario);
     expect(perfil.ehProprietario, isTrue);
+    expect(perfil.tipo, VinculoColaborador.parceiro);
+    expect(perfil.comissaoPercentual, Decimal.parse('40.00'));
+    expect(perfil.veValores, isTrue);
   });
 
   test('sem colaborador (404) a exceção sobe com o code da API', () async {
@@ -78,18 +84,27 @@ void main() {
     expect(uri.path, endsWith('colaboradores/'));
     expect(uri.queryParameters['search'], 'ana');
     expect(uri.queryParameters['page_size'], '100');
-    expect(lista.map((c) => c.id), [1, 2]);
+    expect(lista.map((c) => c.toEntity().id), [1, 2]);
   });
 
-  test('sem nome cadastrado, o e-mail identifica a pessoa', () {
-    final json = _colaboradorJson(7)
-      ..['user'] = {'first_name': '', 'last_name': '', 'email': 'x@y.com'}
-      ..['papel'] = null;
+  test('quem não tem login vem sem e-mail nem papel; o colaborador comum '
+      'não vê valores e só cobra com a flag', () {
+    final json = _colaboradorJson(7, papel: null)
+      ..['email'] = ''
+      ..['tem_acesso'] = false
+      ..['tipo'] = 'colaborador'
+      ..['comissao_percentual'] = null
+      ..['pode_cobrar'] = false;
 
     final colaborador = ColaboradorModel.fromJson(json).toEntity();
 
-    expect(colaborador.nome, 'x@y.com');
+    expect(colaborador.nome, 'Ana Silva');
+    expect(colaborador.temAcesso, isFalse);
     expect(colaborador.papel, isNull);
     expect(colaborador.ehProprietario, isFalse);
+    expect(colaborador.tipo, VinculoColaborador.colaborador);
+    expect(colaborador.comissaoPercentual, isNull);
+    expect(colaborador.veValores, isFalse);
+    expect(colaborador.cobra, isFalse);
   });
 }

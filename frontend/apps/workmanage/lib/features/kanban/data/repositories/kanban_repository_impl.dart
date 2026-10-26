@@ -46,9 +46,15 @@ class KanbanRepositoryImpl implements KanbanRepository {
       _executar(() => _remoteDataSource.reordenarEtapas(ids));
 
   @override
-  Future<Either<Failure, List<AtendimentoKanban>>> listarDoDia(DateTime data) {
+  Future<Either<Failure, List<AtendimentoKanban>>> listarDoDia(
+    DateTime data, {
+    int? colaboradorId,
+  }) {
     return _executar(() async {
-      final models = await _remoteDataSource.listarDoDia(data);
+      final models = await _remoteDataSource.listarDoDia(
+        data,
+        colaboradorId: colaboradorId,
+      );
       return models.map((m) => m.toEntity()).toList();
     });
   }

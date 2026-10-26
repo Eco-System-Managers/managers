@@ -9,6 +9,7 @@ import 'domain/usecases/buscar_meu_perfil_use_case.dart';
 import 'domain/usecases/equipe_use_cases.dart';
 import 'domain/usecases/listar_colaboradores_use_case.dart';
 import 'presentation/providers/aceitar_convite_provider.dart';
+import 'presentation/providers/colaborador_form_provider.dart';
 import 'presentation/providers/colaborador_provider.dart';
 import 'presentation/providers/convite_form_provider.dart';
 import 'presentation/providers/equipe_provider.dart';
@@ -35,8 +36,16 @@ final obterColaboradorUseCaseProvider = Provider(
   (ref) => ObterColaboradorUseCase(ref.watch(usuariosRepositoryProvider)),
 );
 
-final atualizarFuncaoUseCaseProvider = Provider(
-  (ref) => AtualizarFuncaoUseCase(ref.watch(usuariosRepositoryProvider)),
+final criarColaboradorUseCaseProvider = Provider(
+  (ref) => CriarColaboradorUseCase(ref.watch(usuariosRepositoryProvider)),
+);
+
+final atualizarColaboradorUseCaseProvider = Provider(
+  (ref) => AtualizarColaboradorUseCase(ref.watch(usuariosRepositoryProvider)),
+);
+
+final convidarColaboradorUseCaseProvider = Provider(
+  (ref) => ConvidarColaboradorUseCase(ref.watch(usuariosRepositoryProvider)),
 );
 
 final alterarAtivoColaboradorUseCaseProvider = Provider(
@@ -91,7 +100,8 @@ final colaboradorProvider = Provider.autoDispose
       final provider = ColaboradorProvider(
         id: id,
         obter: ref.watch(obterColaboradorUseCaseProvider),
-        atualizarFuncao: ref.watch(atualizarFuncaoUseCaseProvider),
+        atualizar: ref.watch(atualizarColaboradorUseCaseProvider),
+        convidar: ref.watch(convidarColaboradorUseCaseProvider),
         alterarAtivo: ref.watch(alterarAtivoColaboradorUseCaseProvider),
         contarPendentes: ref.watch(contarAgendamentosPendentesUseCaseProvider),
         remover: ref.watch(removerColaboradorUseCaseProvider),
@@ -99,6 +109,17 @@ final colaboradorProvider = Provider.autoDispose
       ref.onDispose(provider.dispose);
       return provider;
     });
+
+// cadastrar alguém sem login
+final colaboradorFormProvider = Provider.autoDispose<ColaboradorFormProvider>((
+  ref,
+) {
+  final provider = ColaboradorFormProvider(
+    criar: ref.watch(criarColaboradorUseCaseProvider),
+  );
+  ref.onDispose(provider.dispose);
+  return provider;
+});
 
 final conviteFormProvider = Provider.autoDispose<ConviteFormProvider>((ref) {
   final provider = ConviteFormProvider(

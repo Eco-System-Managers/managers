@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/utils/datas.dart';
@@ -134,6 +135,32 @@ class _CaixaViewState extends ConsumerState<_CaixaView> {
               ),
             ],
           ),
+
+          // a comissão dos parceiros e o que fica para a casa. o parceiro
+          // vê só a parte dele (casa vem nula); sem parceiro com acordo,
+          // a linha não aparece
+          if (caixa.repasse > Decimal.zero || caixa.casa != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _Kpi(
+                    rotulo: caixa.casa == null ? 'A receber' : 'Repasse',
+                    valor: formatarDinheiro(caixa.repasse),
+                  ),
+                ),
+                if (caixa.casa != null) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _Kpi(
+                      rotulo: 'Fica para a casa',
+                      valor: formatarDinheiro(caixa.casa!),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
 
           if (caixa.porForma.isNotEmpty) ...[
             const SizedBox(height: 24),

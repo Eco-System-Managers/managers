@@ -44,6 +44,11 @@ class NegocioAtualProvider extends ChangeNotifier {
   // vai recusar
   bool get ehProprietario => _perfil?.ehProprietario ?? false;
 
+  // o vínculo decide o que a pessoa vê (a API trava do lado dela; aqui só
+  // se esconde). sem perfil, o menor acesso
+  bool get veValores => _perfil?.veValores ?? false;
+  bool get podeCobrar => _perfil?.cobra ?? false;
+
   Future<void> carregar({bool forcar = false}) async {
     if (_carregando || (carregado && !forcar)) return;
     _carregando = true;

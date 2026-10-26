@@ -19,6 +19,7 @@ const _resumoJson = {
     'atendimentos': 20,
     'atendimentos_variacao': 12,
     'ticket_medio': '75.00',
+    'repasse': '600.00',
     'clientes_novos': null,
     'clientes_novos_variacao': null,
   },
@@ -63,6 +64,7 @@ void main() {
     // sem período anterior para comparar, a variação é nula (não é zero)
     expect(resumo.faturamentoVariacao, isNull);
     expect(resumo.atendimentosVariacao, 12);
+    expect(resumo.repasse, Decimal.parse('600.00'));
     // filtrado por profissional, cliente novo não se atribui
     expect(resumo.clientesNovos, isNull);
     expect(resumo.rankingServicos.map((r) => r.nome), ['Corte', 'Barba']);
@@ -77,5 +79,26 @@ void main() {
     await datasource.resumo();
 
     expect(adapter.requisicoes.single.uri.queryParameters, isEmpty);
+  });
+
+  test('para quem não vê valores os kpis de dinheiro vêm nulos', () async {
+    final json = {
+      ..._resumoJson,
+      'kpis': {
+        ...(_resumoJson['kpis'] as Map<String, dynamic>),
+        'faturamento': null,
+        'ticket_medio': null,
+        'repasse': null,
+      },
+    };
+    final adapter = FakeAdapter((_) async => respostaJson(200, json));
+    final datasource = DashboardRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    final resumo = await datasource.resumo();
+
+    expect(resumo.faturamento, isNull);
+    expect(resumo.ticketMedio, isNull);
+    expect(resumo.repasse, isNull);
+    expect(resumo.atendimentos, 20);
   });
 }
