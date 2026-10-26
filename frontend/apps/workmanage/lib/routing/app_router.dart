@@ -37,7 +37,6 @@ import 'package:managers/features/splash/presentation/pages/splash_page.dart';
 import 'package:managers/features/usuarios/presentation/pages/aceitar_convite_page.dart';
 import 'package:managers/features/usuarios/presentation/pages/colaborador_form_page.dart';
 import 'package:managers/features/usuarios/presentation/pages/colaborador_page.dart';
-import 'package:managers/features/usuarios/presentation/pages/convite_form_page.dart';
 import 'package:managers/features/usuarios/presentation/pages/equipe_page.dart';
 
 // as telas que abrem por cima da navegação inferior (formulários e
@@ -200,10 +199,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/clientes',
                 builder: (_, _) => const ClientesPage(),
                 routes: [
+                  // ?nome= ou ?telefone=: o que foi digitado numa busca sem
+                  // resultado (o seletor de cliente da agenda e do quadro)
                   GoRoute(
                     path: 'novo',
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, _) => const ClienteFormPage(),
+                    builder: (_, state) => ClienteFormPage(
+                      nomeInicial: state.uri.queryParameters['nome'] ?? '',
+                      telefoneInicial:
+                          state.uri.queryParameters['telefone'] ?? '',
+                    ),
                   ),
                   GoRoute(
                     path: ':id',
@@ -329,11 +334,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'novo',
                         parentNavigatorKey: _rootNavigatorKey,
                         builder: (_, _) => const ColaboradorFormPage(),
-                      ),
-                      GoRoute(
-                        path: 'convidar',
-                        parentNavigatorKey: _rootNavigatorKey,
-                        builder: (_, _) => const ConviteFormPage(),
                       ),
                       GoRoute(
                         path: ':id',

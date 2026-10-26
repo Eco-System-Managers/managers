@@ -1,13 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
 
 import '../../domain/entities/cliente.dart';
 
-// a folha para escolher o cliente de um agendamento ou atendimento: busca na API enquanto a
-// pessoa digita e devolve o escolhido
+// a folha para escolher o cliente de um agendamento ou atendimento: busca na
+// API enquanto a pessoa digita e devolve o escolhido. quem não existe é
+// cadastrado dali mesmo, com o que foi digitado já no campo, e volta
+// escolhido
 class ClientePickerSheet extends StatefulWidget {
   const ClientePickerSheet({super.key, required this.buscar});
 
@@ -17,10 +21,8 @@ class ClientePickerSheet extends StatefulWidget {
     BuildContext context, {
     required Future<List<Cliente>> Function(String busca) buscar,
   }) {
-    return showModalBottomSheet<Cliente>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    return abrirFolha<Cliente>(
+      context,
       builder: (_) => ClientePickerSheet(buscar: buscar),
     );
   }
@@ -56,6 +58,21 @@ class _ClientePickerSheetState extends State<ClientePickerSheet> {
   void _aoDigitar(String texto) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), () => _buscar(texto));
+  }
+
+  // o que foi digitado vai para a ficha nova: só dígitos é telefone, o
+  // resto é nome. a ficha devolve o cliente criado, e ele sai escolhido
+  Future<void> _cadastrar() async {
+    final texto = _controller.text.trim();
+    final telefone =
+        RegExp(r'^[\d\s()+-]+$').hasMatch(texto) && texto.isNotEmpty;
+    final campo = telefone ? 'telefone' : 'nome';
+    final uri = Uri(
+      path: '/clientes/novo',
+      queryParameters: texto.isEmpty ? null : {campo: texto},
+    );
+    final criado = await context.push<Cliente>(uri.toString());
+    if (criado != null && mounted) Navigator.of(context).pop(criado);
   }
 
   Future<void> _buscar(String texto) async {
@@ -117,13 +134,28 @@ class _ClientePickerSheetState extends State<ClientePickerSheet> {
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text(
-                        _controller.text.isEmpty
-                            ? 'Nenhum cliente cadastrado. Cadastre na aba '
-                                  'Clientes.'
-                            : 'Nenhum cliente encontrado.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colors.onSurfaceVariant),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _controller.text.trim().isEmpty
+                                ? 'Nenhum cliente cadastrado ainda.'
+                                : 'Nenhum cliente encontrado.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: colors.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.tonalIcon(
+                            onPressed: _cadastrar,
+                            icon: const Icon(Icons.person_add_alt_1),
+                            label: Text(
+                              _controller.text.trim().isEmpty
+                                  ? 'Cadastrar cliente'
+                                  : 'Cadastrar "${_controller.text.trim()}"',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   )
@@ -146,6 +178,19 @@ class _ClientePickerSheetState extends State<ClientePickerSheet> {
                     },
                   ),
           ),
+          // sempre à mão, mesmo com resultados: o cliente pode ser outro
+          if (!_carregando && _clientes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: OutlinedButton.icon(
+                onPressed: _cadastrar,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+                icon: const Icon(Icons.person_add_alt_1),
+                label: const Text('Novo cliente'),
+              ),
+            ),
         ],
       ),
     );

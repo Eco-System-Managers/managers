@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
 import 'package:validatorless/validatorless.dart';
 
@@ -11,13 +13,23 @@ import '../../clientes_provider.dart';
 import '../../domain/entities/cliente.dart';
 import '../providers/cliente_form_provider.dart';
 
-// cria ou edita um cliente. fecha com true quando salvou. para quem veio do
-// app, os campos espelhados ficam só leitura: a API ignoraria a mudança
+// cria ou edita um cliente. fecha devolvendo o cliente salvo (quem abriu a
+// partir de uma busca já o seleciona). para quem veio do app, os campos
+// espelhados ficam só leitura: a API ignoraria a mudança
 class ClienteFormPage extends ConsumerStatefulWidget {
-  const ClienteFormPage({super.key, this.id});
+  const ClienteFormPage({
+    super.key,
+    this.id,
+    this.nomeInicial = '',
+    this.telefoneInicial = '',
+  });
 
   // null = novo
   final int? id;
+
+  // o que foi digitado numa busca sem resultado: já entra no campo
+  final String nomeInicial;
+  final String telefoneInicial;
 
   @override
   ConsumerState<ClienteFormPage> createState() => _ClienteFormPageState();
@@ -56,6 +68,8 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
   @override
   void initState() {
     super.initState();
+    _nomeController.text = widget.nomeInicial;
+    _telefoneController.text = _telefoneMascara.aplicar(widget.telefoneInicial);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _provider.carregar();
     });
@@ -139,7 +153,7 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
         builder: (context, _) {
           if (provider.salvo) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.pop(true);
+              if (context.mounted) context.pop(provider.cliente);
             });
           }
 
@@ -179,7 +193,7 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
     return Form(
       key: _formKey,
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: paddingDaPagina(context),
         children: [
           if (espelhado) ...[
             Container(
@@ -294,8 +308,12 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
 
           CampoData(
             valor: _dataNascimento,
+            // nascimento é longe de hoje: digitar é mais rápido que rolar o
+            // calendário décadas para trás
+            modo: ModoCampoData.digitacao,
             enabled: habilitado && !espelhado,
             label: 'Nascimento (opcional)',
+            ultimaData: somenteData(DateTime.now()),
             forceErrorText: provider.erroDoCampo('data_nascimento'),
             onChanged: (data) => setState(() {
               _dataNascimento = data;

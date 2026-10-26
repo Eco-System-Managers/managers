@@ -2,14 +2,16 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/dinheiro_input_formatter.dart';
+import 'package:managers/core/widgets/folha.dart';
 
 import '../../domain/entities/pagamento.dart';
 import '../../domain/params/cobranca_params.dart';
 
 // a folha de cobrança, igual para a agenda e o kanban: desconto, crédito do
-// cliente, uma ou mais formas de pagamento e o troco que fica como crédito.
-// a soma precisa fechar com o total: a API recusa (soma_invalida) e a tela
-// já mostra o que falta
+// cliente, uma ou mais formas de pagamento e o troco. a pessoa lança o que o
+// cliente entregou; o que passa do total em dinheiro é troco, devolvido ou
+// deixado como crédito. a API quer a soma fechando com o total
+// (soma_invalida): a folha desconta o troco da linha de dinheiro ao mandar
 class CobrancaSheet extends StatefulWidget {
   const CobrancaSheet({
     super.key,
@@ -37,10 +39,8 @@ class CobrancaSheet extends StatefulWidget {
     required Decimal creditoDisponivel,
     required Future<String?> Function(CobrancaParams params) onCobrar,
   }) async {
-    final cobrou = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    final cobrou = await abrirFolha<bool>(
+      context,
       builder: (_) => CobrancaSheet(
         atendimentoId: atendimentoId,
         valorServicos: valorServicos,
@@ -68,8 +68,10 @@ class _LinhaPagamento {
 class _CobrancaSheetState extends State<CobrancaSheet> {
   final _descontoController = TextEditingController();
   final _creditoController = TextEditingController();
-  final _trocoController = TextEditingController();
   late final List<_LinhaPagamento> _linhas;
+
+  // o troco vira crédito na comanda do cliente, em vez de voltar em dinheiro
+  bool _trocoComoCredito = false;
 
   String? _erro;
   bool _enviando = false;
@@ -92,7 +94,6 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
   void dispose() {
     _descontoController.dispose();
     _creditoController.dispose();
-    _trocoController.dispose();
     for (final l in _linhas) {
       l.controller.dispose();
     }
@@ -101,8 +102,6 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
 
   Decimal get _desconto => dinheiroDoTexto(_descontoController.text) ?? _zero;
   Decimal get _credito => dinheiroDoTexto(_creditoController.text) ?? _zero;
-  Decimal get _troco => dinheiroDoTexto(_trocoController.text) ?? _zero;
-
   Decimal get _total => widget.valorServicos - _desconto;
 
   Decimal get _pago =>
@@ -110,12 +109,23 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
 
   Decimal get _diferenca => _total - _pago;
 
+  // o que passou do total e o que foi lançado em dinheiro. só é troco quando
+  // há dinheiro na mesa para devolver: cartão e PIX não dão troco, então o
+  // que passa neles é erro de digitação
+  Decimal get _excedente => _diferenca < _zero ? -_diferenca : _zero;
+
+  Decimal get _dinheiro => _linhas
+      .where((l) => l.forma == FormaPagamento.dinheiro)
+      .fold(_zero, (soma, l) => soma + (l.valor ?? _zero));
+
+  bool get _temTroco => _excedente > _zero && _excedente <= _dinheiro;
+
   bool get _creditoValido =>
       _credito <= widget.creditoDisponivel && _credito <= _total;
 
   bool get _podeConfirmar =>
       !_enviando &&
-      _diferenca == _zero &&
+      (_diferenca == _zero || _temTroco) &&
       _total >= _zero &&
       _creditoValido &&
       _linhas.every((l) => l.valor != null && l.valor! > _zero);
@@ -139,6 +149,25 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
     });
   }
 
+  // os pagamentos como a API espera: o troco sai das linhas de dinheiro
+  // (o negócio fica só com o que é dele), e uma linha que zerar não vai
+  List<Pagamento> _pagamentos() {
+    var troco = _excedente;
+    final pagamentos = <Pagamento>[];
+    for (final l in _linhas) {
+      var valor = l.valor!;
+      if (l.forma == FormaPagamento.dinheiro && troco > _zero) {
+        final devolvido = valor < troco ? valor : troco;
+        valor -= devolvido;
+        troco -= devolvido;
+      }
+      if (valor > _zero) {
+        pagamentos.add(Pagamento(forma: l.forma, valor: valor));
+      }
+    }
+    return pagamentos;
+  }
+
   Future<void> _confirmar() async {
     setState(() {
       _enviando = true;
@@ -147,12 +176,10 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
     final erro = await widget.onCobrar(
       CobrancaParams(
         id: widget.atendimentoId,
-        pagamentos: [
-          for (final l in _linhas) Pagamento(forma: l.forma, valor: l.valor!),
-        ],
+        pagamentos: _pagamentos(),
         desconto: _desconto,
         creditoAplicado: _credito,
-        trocoCredito: _troco,
+        trocoCredito: _trocoComoCredito ? _excedente : _zero,
       ),
     );
     if (!mounted) return;
@@ -172,163 +199,168 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
     final textos = Theme.of(context).textTheme;
     final temCredito = widget.creditoDisponivel > _zero;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        children: [
-          Text('Cobrar atendimento', style: textos.titleLarge),
-          const SizedBox(height: 4),
-          Text(
-            'Serviços: ${formatarDinheiro(widget.valorServicos)}',
-            style: TextStyle(color: colors.onSurfaceVariant),
-          ),
-          const SizedBox(height: 16),
+    return ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      children: [
+        Text('Cobrar atendimento', style: textos.titleLarge),
+        const SizedBox(height: 4),
+        Text(
+          'Serviços: ${formatarDinheiro(widget.valorServicos)}',
+          style: TextStyle(color: colors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
 
+        TextField(
+          controller: _descontoController,
+          keyboardType: TextInputType.number,
+          inputFormatters: const [DinheiroInputFormatter()],
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Desconto (opcional)',
+            prefixText: 'R\$ ',
+            border: OutlineInputBorder(),
+          ),
+        ),
+
+        if (temCredito) ...[
+          const SizedBox(height: 16),
           TextField(
-            controller: _descontoController,
+            controller: _creditoController,
             keyboardType: TextInputType.number,
             inputFormatters: const [DinheiroInputFormatter()],
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: 'Desconto (opcional)',
+            decoration: InputDecoration(
+              labelText: 'Usar crédito do cliente',
+              helperText:
+                  'Disponível: ${formatarDinheiro(widget.creditoDisponivel)}',
+              errorText: _creditoValido
+                  ? null
+                  : 'Maior que o disponível ou que o total',
               prefixText: 'R\$ ',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
             ),
-          ),
-
-          if (temCredito) ...[
-            const SizedBox(height: 16),
-            TextField(
-              controller: _creditoController,
-              keyboardType: TextInputType.number,
-              inputFormatters: const [DinheiroInputFormatter()],
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: 'Usar crédito do cliente',
-                helperText:
-                    'Disponível: ${formatarDinheiro(widget.creditoDisponivel)}',
-                errorText: _creditoValido
-                    ? null
-                    : 'Maior que o disponível ou que o total',
-                prefixText: 'R\$ ',
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 24),
-          Text('Pagamento', style: textos.titleSmall),
-          const SizedBox(height: 8),
-          for (final linha in _linhas) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<FormaPagamento>(
-                    key: ValueKey(linha),
-                    initialValue: linha.forma,
-                    items: [
-                      for (final f in FormaPagamento.values)
-                        DropdownMenuItem(value: f, child: Text(f.nome)),
-                    ],
-                    onChanged: (f) => setState(() => linha.forma = f!),
-                    decoration: const InputDecoration(
-                      labelText: 'Forma',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: linha.controller,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: const [DinheiroInputFormatter()],
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Valor',
-                      prefixText: 'R\$ ',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                if (_linhas.length > 1)
-                  IconButton(
-                    tooltip: 'Remover',
-                    icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: () => _removerLinha(linha),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _adicionarLinha,
-              icon: const Icon(Icons.add),
-              label: const Text('Outra forma de pagamento'),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-          TextField(
-            controller: _trocoController,
-            keyboardType: TextInputType.number,
-            inputFormatters: const [DinheiroInputFormatter()],
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: 'Troco que fica como crédito (opcional)',
-              helperText: 'Entra na comanda do cliente para a próxima vez',
-              prefixText: 'R\$ ',
-              border: OutlineInputBorder(),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-          _Resumo(total: _total, pago: _pago, diferenca: _diferenca),
-
-          if (_erro != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colors.errorContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _erro!,
-                style: TextStyle(color: colors.onErrorContainer),
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _podeConfirmar ? _confirmar : null,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-            ),
-            child: Text(_enviando ? 'Cobrando...' : 'Confirmar cobrança'),
           ),
         ],
-      ),
+
+        const SizedBox(height: 24),
+        Text('Pagamento', style: textos.titleSmall),
+        const SizedBox(height: 8),
+        for (final linha in _linhas) ...[
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<FormaPagamento>(
+                  key: ValueKey(linha),
+                  initialValue: linha.forma,
+                  items: [
+                    for (final f in FormaPagamento.values)
+                      DropdownMenuItem(value: f, child: Text(f.nome)),
+                  ],
+                  onChanged: (f) => setState(() => linha.forma = f!),
+                  decoration: const InputDecoration(
+                    labelText: 'Forma',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: linha.controller,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: const [DinheiroInputFormatter()],
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Valor',
+                    prefixText: 'R\$ ',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              if (_linhas.length > 1)
+                IconButton(
+                  tooltip: 'Remover',
+                  icon: const Icon(Icons.remove_circle_outline),
+                  onPressed: () => _removerLinha(linha),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _adicionarLinha,
+            icon: const Icon(Icons.add),
+            label: const Text('Outra forma de pagamento'),
+          ),
+        ),
+
+        if (_temTroco) ...[
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Deixar o troco de ${formatarDinheiro(_excedente)} como crédito',
+            ),
+            subtitle: const Text(
+              'Entra na comanda do cliente para a próxima vez. Desligado, o '
+              'troco volta em dinheiro.',
+            ),
+            value: _trocoComoCredito,
+            onChanged: (v) => setState(() => _trocoComoCredito = v),
+          ),
+        ],
+
+        const SizedBox(height: 16),
+        _Resumo(
+          total: _total,
+          pago: _pago,
+          diferenca: _diferenca,
+          temTroco: _temTroco,
+        ),
+
+        if (_erro != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colors.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _erro!,
+              style: TextStyle(color: colors.onErrorContainer),
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _podeConfirmar ? _confirmar : null,
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          child: Text(_enviando ? 'Cobrando...' : 'Confirmar cobrança'),
+        ),
+      ],
     );
   }
 }
 
-// total a cobrar, quanto já está lançado e o que falta ou sobra
+// total a cobrar, quanto já está lançado e o que falta, o troco ou o que
+// passou sem ter dinheiro para devolver
 class _Resumo extends StatelessWidget {
   const _Resumo({
     required this.total,
     required this.pago,
     required this.diferenca,
+    required this.temTroco,
   });
 
   final Decimal total;
   final Decimal pago;
   final Decimal diferenca;
+  final bool temTroco;
 
   @override
   Widget build(BuildContext context) {
@@ -336,6 +368,7 @@ class _Resumo extends StatelessWidget {
     final textos = Theme.of(context).textTheme;
     final zero = Decimal.fromInt(0);
     final fecha = diferenca == zero;
+    final ok = fecha || temTroco;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -371,10 +404,12 @@ class _Resumo extends StatelessWidget {
                     ? 'Confere'
                     : diferenca > zero
                     ? 'Falta ${formatarDinheiro(diferenca)}'
-                    : 'Sobra ${formatarDinheiro(-diferenca)}',
+                    : temTroco
+                    ? 'Troco ${formatarDinheiro(-diferenca)}'
+                    : 'Passa ${formatarDinheiro(-diferenca)}',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: fecha ? Colors.green.shade700 : colors.error,
+                  color: ok ? Colors.green.shade700 : colors.error,
                 ),
               ),
             ],
