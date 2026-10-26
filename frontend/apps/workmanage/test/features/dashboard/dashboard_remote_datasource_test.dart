@@ -4,50 +4,78 @@ import 'package:managers/features/dashboard/data/datasources/dashboard_remote_da
 
 import '../../helpers/fake_adapter.dart';
 
+const _resumoJson = {
+  'tipo_agenda': 'horario',
+  'periodo': {
+    'data_inicio': '2026-10-19',
+    'data_fim': '2026-10-25',
+    'anterior_inicio': '2026-10-12',
+    'anterior_fim': '2026-10-18',
+  },
+  'colaborador': 2,
+  'kpis': {
+    'faturamento': '1500.00',
+    'faturamento_variacao': null,
+    'atendimentos': 20,
+    'atendimentos_variacao': 12,
+    'ticket_medio': '75.00',
+    'clientes_novos': null,
+    'clientes_novos_variacao': null,
+  },
+  'ranking_servicos': [
+    {'nome': 'Corte', 'total': 12},
+    {'nome': 'Barba', 'total': 8},
+  ],
+  'agendamentos_hoje': [
+    {
+      'id': 3,
+      'cliente_nome': 'Ana',
+      'servico_nome': 'Corte',
+      'hora': '10:30',
+      'status': 'agendado',
+    },
+  ],
+};
+
 void main() {
-  test('resumo lê os números do mês, o ranking e o dia de hoje', () async {
-    final adapter = FakeAdapter(
-      (_) async => respostaJson(200, {
-        'tipo_agenda': 'horario',
-        'kpis': {
-          'faturamento_mes': '1500.00',
-          'faturamento_variacao': null,
-          'atendimentos_mes': 20,
-          'atendimentos_variacao': 12,
-          'ticket_medio': '75.00',
-          'clientes_novos_mes': 3,
-          'clientes_novos_variacao': -50,
-        },
-        'ranking_servicos': [
-          {'nome': 'Corte', 'total': 12},
-          {'nome': 'Barba', 'total': 8},
-        ],
-        'agendamentos_hoje': [
-          {
-            'id': 3,
-            'cliente_nome': 'Ana',
-            'servico_nome': 'Corte',
-            'hora': '10:30',
-            'status': 'agendado',
-          },
-        ],
-        'faturamento_30d': <Object>[],
-        'atendimentos_30d': <Object>[],
-      }),
-    );
+  test('resumo manda o período e o profissional e lê os números', () async {
+    final adapter = FakeAdapter((_) async => respostaJson(200, _resumoJson));
     final datasource = DashboardRemoteDataSourceImpl(dioDeTeste(adapter));
 
-    final resumo = await datasource.resumo();
+    final resumo = await datasource.resumo(
+      inicio: DateTime(2026, 10, 19),
+      fim: DateTime(2026, 10, 25),
+      colaboradorId: 2,
+    );
 
-    expect(adapter.requisicoes.single.path, 'dashboard/resumo/');
+    final uri = adapter.requisicoes.single.uri;
+    expect(uri.path, endsWith('dashboard/resumo/'));
+    expect(uri.queryParameters, {
+      'data_inicio': '2026-10-19',
+      'data_fim': '2026-10-25',
+      'colaborador': '2',
+    });
     expect(resumo.isKanban, isFalse);
-    expect(resumo.faturamentoMes, Decimal.parse('1500.00'));
-    // sem mês anterior para comparar, a variação é nula (não é zero)
+    expect(resumo.intervalo.inicio, DateTime(2026, 10, 19));
+    expect(resumo.intervalo.anteriorFim, DateTime(2026, 10, 18));
+    expect(resumo.colaboradorId, 2);
+    expect(resumo.faturamento, Decimal.parse('1500.00'));
+    // sem período anterior para comparar, a variação é nula (não é zero)
     expect(resumo.faturamentoVariacao, isNull);
     expect(resumo.atendimentosVariacao, 12);
-    expect(resumo.clientesNovosVariacao, -50);
+    // filtrado por profissional, cliente novo não se atribui
+    expect(resumo.clientesNovos, isNull);
     expect(resumo.rankingServicos.map((r) => r.nome), ['Corte', 'Barba']);
     expect(resumo.agendamentosHoje.single.hora, '10:30');
     expect(resumo.agendamentosHoje.single.id, 3);
+  });
+
+  test('resumo sem filtros não manda parâmetros: a API usa hoje', () async {
+    final adapter = FakeAdapter((_) async => respostaJson(200, _resumoJson));
+    final datasource = DashboardRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    await datasource.resumo();
+
+    expect(adapter.requisicoes.single.uri.queryParameters, isEmpty);
   });
 }

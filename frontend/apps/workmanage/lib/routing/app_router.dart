@@ -13,6 +13,7 @@ import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
 import 'package:managers/features/clientes/presentation/pages/cliente_form_page.dart';
 import 'package:managers/features/clientes/presentation/pages/cliente_page.dart';
 import 'package:managers/features/clientes/presentation/pages/clientes_page.dart';
+import 'package:managers/features/dashboard/presentation/pages/inicio_page.dart';
 import 'package:managers/features/empresa/presentation/pages/configuracoes_page.dart';
 import 'package:managers/features/empresa/presentation/pages/dados_negocio_page.dart';
 import 'package:managers/features/empresa/presentation/pages/horarios_page.dart';
@@ -135,12 +136,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             AtendimentoKanbanPage(id: int.parse(state.pathParameters['id']!)),
       ),
       // a home é a casca com as abas; /home abre na primeira
-      GoRoute(path: '/home', redirect: (_, _) => '/agenda'),
+      GoRoute(path: '/home', redirect: (_, _) => '/inicio'),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return HomeShellPage(navigationShell: navigationShell);
         },
         branches: [
+          StatefulShellBranch(
+            routes: [
+              // o painel: os números do período e o que vem hoje
+              GoRoute(path: '/inicio', builder: (_, _) => const InicioPage()),
+            ],
+          ),
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -222,12 +229,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              // a aba Financeiro: caixa e resumo
-              GoRoute(path: '/caixa', builder: (_, _) => const CaixaPage()),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
               GoRoute(
                 path: '/mais',
                 builder: (_, _) => const MaisPage(),
@@ -268,6 +269,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                         ),
                       ),
                     ],
+                  ),
+                  // o fechamento de caixa mora no Mais: a barra fica com o
+                  // painel
+                  GoRoute(
+                    path: 'financeiro',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const CaixaPage(),
                   ),
                   GoRoute(
                     path: 'equipe',

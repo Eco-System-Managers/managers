@@ -5,14 +5,13 @@ import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/estado_vazio.dart';
-import 'package:managers/features/dashboard/presentation/widgets/resumo_view.dart';
 
 import '../../domain/entities/caixa.dart';
 import '../../financeiro_provider.dart';
 import '../providers/caixa_provider.dart';
 
-// a aba Financeiro: o fechamento de caixa por período (com filtro por
-// profissional) e, no segundo segmento, o resumo do mês (painel)
+// Mais › Financeiro: o fechamento de caixa por período, com filtro por
+// profissional (o painel do período fica na aba Início)
 class CaixaPage extends ConsumerStatefulWidget {
   const CaixaPage({super.key});
 
@@ -21,9 +20,6 @@ class CaixaPage extends ConsumerStatefulWidget {
 }
 
 class _CaixaPageState extends ConsumerState<CaixaPage> {
-  // 0: caixa, 1: resumo
-  int _segmento = 0;
-
   @override
   void initState() {
     super.initState();
@@ -36,32 +32,7 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Financeiro')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(
-                  value: 0,
-                  icon: Icon(Icons.point_of_sale_outlined),
-                  label: Text('Caixa'),
-                ),
-                ButtonSegment(
-                  value: 1,
-                  icon: Icon(Icons.insights_outlined),
-                  label: Text('Resumo'),
-                ),
-              ],
-              selected: {_segmento},
-              onSelectionChanged: (s) => setState(() => _segmento = s.first),
-            ),
-          ),
-          Expanded(
-            child: _segmento == 0 ? const _CaixaView() : const ResumoView(),
-          ),
-        ],
-      ),
+      body: const _CaixaView(),
     );
   }
 }

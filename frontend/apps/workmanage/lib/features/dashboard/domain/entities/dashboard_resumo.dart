@@ -1,52 +1,83 @@
 import 'package:decimal/decimal.dart';
 import 'package:equatable/equatable.dart';
 
-// os números do mês e o dia de hoje, como a API agrega (dashboard/resumo/)
+// os números de um período, comparados com o anterior de mesmo tamanho, como
+// a API agrega (dashboard/resumo/)
 class DashboardResumo extends Equatable {
   const DashboardResumo({
     required this.isKanban,
-    required this.faturamentoMes,
+    required this.intervalo,
+    required this.colaboradorId,
+    required this.faturamento,
     required this.faturamentoVariacao,
-    required this.atendimentosMes,
+    required this.atendimentos,
     required this.atendimentosVariacao,
     required this.ticketMedio,
-    required this.clientesNovosMes,
+    required this.clientesNovos,
     required this.clientesNovosVariacao,
     required this.rankingServicos,
     required this.agendamentosHoje,
   });
 
   final bool isKanban;
-  final Decimal faturamentoMes;
+  final IntervaloResumo intervalo;
 
-  // variação % sobre o mês anterior; null sem base de comparação (a tela
-  // não mostra "+∞%" no primeiro mês)
+  // o profissional aplicado pela API: o pedido, ou o próprio de quem não é
+  // proprietário (a trava é do backend)
+  final int? colaboradorId;
+
+  final Decimal faturamento;
+
+  // variação % sobre o período anterior; null sem base de comparação (a tela
+  // não mostra "+∞%" no primeiro dia)
   final int? faturamentoVariacao;
-  final int atendimentosMes;
+  final int atendimentos;
   final int? atendimentosVariacao;
   final Decimal ticketMedio;
-  final int clientesNovosMes;
+
+  // null quando filtrado por profissional: cliente novo é do negócio
+  final int? clientesNovos;
   final int? clientesNovosVariacao;
 
-  // top 5 do mês
+  // top 5 do período
   final List<RankingServico> rankingServicos;
 
-  // até 10 do dia
+  // até 10 do dia de hoje, independente do período
   final List<AgendamentoHoje> agendamentosHoje;
 
   @override
   List<Object?> get props => [
     isKanban,
-    faturamentoMes,
+    intervalo,
+    colaboradorId,
+    faturamento,
     faturamentoVariacao,
-    atendimentosMes,
+    atendimentos,
     atendimentosVariacao,
     ticketMedio,
-    clientesNovosMes,
+    clientesNovos,
     clientesNovosVariacao,
     rankingServicos,
     agendamentosHoje,
   ];
+}
+
+// o período aplicado e o de comparação (mesmo tamanho, termina na véspera)
+class IntervaloResumo extends Equatable {
+  const IntervaloResumo({
+    required this.inicio,
+    required this.fim,
+    required this.anteriorInicio,
+    required this.anteriorFim,
+  });
+
+  final DateTime inicio;
+  final DateTime fim;
+  final DateTime anteriorInicio;
+  final DateTime anteriorFim;
+
+  @override
+  List<Object?> get props => [inicio, fim, anteriorInicio, anteriorFim];
 }
 
 class RankingServico extends Equatable {

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/network/dio_client.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
+import 'package:managers/features/usuarios/usuarios_provider.dart';
 
 import 'data/datasources/dashboard_remote_datasource.dart';
 import 'data/repositories/dashboard_repository_impl.dart';
@@ -22,10 +24,14 @@ final obterResumoUseCaseProvider = Provider(
   (ref) => ObterResumoUseCase(ref.watch(dashboardRepositoryProvider)),
 );
 
-// autoDispose: o resumo é recarregado a cada abertura
+// autoDispose: a aba vive dentro da casca, então o período escolhido dura
+// enquanto a sessão durar e é zerado quando outra pessoa entra
 final resumoProvider = Provider.autoDispose<ResumoProvider>((ref) {
   final provider = ResumoProvider(
     obterResumo: ref.watch(obterResumoUseCaseProvider),
+    listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
+    // a casca só monta as abas com o negócio (e o papel) carregados
+    filtraPorProfissional: ref.watch(negocioAtualProvider).ehProprietario,
   );
   ref.onDispose(provider.dispose);
   return provider;

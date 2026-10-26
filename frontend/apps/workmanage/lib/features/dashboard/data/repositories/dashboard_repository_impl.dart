@@ -13,9 +13,19 @@ class DashboardRepositoryImpl implements DashboardRepository {
   final DashboardRemoteDataSource _remoteDataSource;
 
   @override
-  Future<Either<Failure, DashboardResumo>> resumo() async {
+  Future<Either<Failure, DashboardResumo>> resumo({
+    DateTime? inicio,
+    DateTime? fim,
+    int? colaboradorId,
+  }) async {
     try {
-      return Right(await _remoteDataSource.resumo());
+      return Right(
+        await _remoteDataSource.resumo(
+          inicio: inicio,
+          fim: fim,
+          colaboradorId: colaboradorId,
+        ),
+      );
     } on DioException catch (e) {
       return Left(failureFrom(e));
     } catch (_) {

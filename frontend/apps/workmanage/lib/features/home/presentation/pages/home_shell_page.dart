@@ -5,8 +5,9 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 
-// a casca do app: a navegação inferior com as quatro abas, cada uma com a
-// própria pilha (StatefulShellRoute). antes de mostrar as abas, carrega o
+// a casca do app: a navegação inferior com as quatro abas (Início,
+// Agenda/Quadro, Clientes e Mais), cada uma com a própria pilha
+// (StatefulShellRoute). antes de mostrar as abas, carrega o
 // negócio atual: é ele que diz o modo de agenda e o papel de quem entrou
 class HomeShellPage extends ConsumerStatefulWidget {
   const HomeShellPage({super.key, required this.navigationShell});
@@ -58,6 +59,11 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
               initialLocation: index == shell.currentIndex,
             ),
             destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Início',
+              ),
               NavigationDestination(
                 icon: Icon(
                   negocio.isKanban
@@ -74,11 +80,6 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
                 icon: Icon(Icons.people_outline),
                 selectedIcon: Icon(Icons.people),
                 label: 'Clientes',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.attach_money),
-                selectedIcon: Icon(Icons.attach_money),
-                label: 'Financeiro',
               ),
               const NavigationDestination(
                 icon: Icon(Icons.more_horiz),

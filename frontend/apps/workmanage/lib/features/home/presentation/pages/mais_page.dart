@@ -6,7 +6,8 @@ import 'package:managers/features/empresa/empresa_provider.dart';
 
 import '../../home_provider.dart';
 
-// a aba "Mais": configurações, equipe, assinatura e sair
+// a aba "Mais": configurações, serviços, financeiro, equipe, assinatura e
+// sair
 class MaisPage extends ConsumerWidget {
   const MaisPage({super.key});
 
@@ -66,6 +67,13 @@ class MaisPage extends ConsumerWidget {
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/mais/servicos'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.point_of_sale_outlined),
+                title: const Text('Financeiro'),
+                subtitle: const Text('O caixa: o fechamento por período'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/mais/financeiro'),
               ),
               ListTile(
                 leading: const Icon(Icons.group_outlined),
