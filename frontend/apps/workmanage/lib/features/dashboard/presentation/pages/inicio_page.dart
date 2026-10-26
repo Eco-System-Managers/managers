@@ -143,33 +143,6 @@ class _InicioPageState extends ConsumerState<InicioPage> {
           ),
 
           const SizedBox(height: 24),
-          Text('Serviços mais feitos', style: textos.titleMedium),
-          const SizedBox(height: 4),
-          if (resumo.rankingServicos.isEmpty)
-            Text(
-              'Nenhum atendimento no período.',
-              style: TextStyle(color: colors.onSurfaceVariant),
-            )
-          else
-            for (final (i, r) in resumo.rankingServicos.indexed)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: colors.secondaryContainer,
-                  child: Text(
-                    '${i + 1}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSecondaryContainer,
-                    ),
-                  ),
-                ),
-                title: Text(r.nome),
-                trailing: Text('${r.total}'),
-              ),
-
-          const SizedBox(height: 24),
           Text('Hoje', style: textos.titleMedium),
           const SizedBox(height: 4),
           if (resumo.agendamentosHoje.isEmpty)
