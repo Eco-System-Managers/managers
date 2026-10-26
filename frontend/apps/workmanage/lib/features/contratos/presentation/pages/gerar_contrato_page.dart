@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/features/clientes/presentation/widgets/cliente_picker_sheet.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 
@@ -85,7 +86,7 @@ class _GerarContratoPageState extends ConsumerState<GerarContratoPage> {
     final erroCliente = provider.erroDoCampo('cliente');
 
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: paddingDaPagina(context),
       children: [
         if (provider.errorMessage != null) ...[
           Container(

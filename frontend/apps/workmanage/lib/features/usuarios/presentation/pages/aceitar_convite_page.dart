@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../usuarios_provider.dart';
@@ -78,7 +79,7 @@ class _AceitarConvitePageState extends ConsumerState<AceitarConvitePage> {
           return Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.all(24),
+              padding: paddingDaPagina(context),
               children: [
                 Icon(Icons.badge_outlined, size: 56, color: colors.primary),
                 const SizedBox(height: 16),

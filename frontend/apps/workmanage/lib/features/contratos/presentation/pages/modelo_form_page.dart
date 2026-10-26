@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../contratos_provider.dart';
@@ -145,7 +146,7 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
     return Form(
       key: _formKey,
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: paddingDaPagina(context),
         children: [
           if (provider.errorMessage != null) ...[
             Container(

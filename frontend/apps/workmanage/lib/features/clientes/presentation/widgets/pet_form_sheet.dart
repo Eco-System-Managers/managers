@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../clientes_provider.dart';
@@ -22,10 +23,8 @@ class PetFormSheet extends ConsumerStatefulWidget {
     required int clienteId,
     Pet? pet,
   }) async {
-    final mudou = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    final mudou = await abrirFolha<bool>(
+      context,
       builder: (_) => PetFormSheet(clienteId: clienteId, pet: pet),
     );
     return mudou ?? false;
@@ -106,123 +105,118 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
           });
         }
 
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-              children: [
+        return Form(
+          key: _formKey,
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            children: [
+              Text(
+                widget.pet == null ? 'Novo pet' : 'Editar pet',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              if (provider.errorMessage != null) ...[
                 Text(
-                  widget.pet == null ? 'Novo pet' : 'Editar pet',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  provider.errorMessage!,
+                  style: TextStyle(color: colors.error),
                 ),
-                const SizedBox(height: 16),
-                if (provider.errorMessage != null) ...[
-                  Text(
-                    provider.errorMessage!,
-                    style: TextStyle(color: colors.error),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextFormField(
-                  controller: _nomeController,
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  validator: Validatorless.regex(_notBlank, 'Informe o nome'),
-                  forceErrorText: provider.erroDoCampo('nome'),
-                  onChanged: (_) => provider.limparErroDoCampo('nome'),
-                  decoration: const InputDecoration(
-                    labelText: 'Nome',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _especieController,
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction: TextInputAction.next,
-                        forceErrorText: provider.erroDoCampo('especie'),
-                        onChanged: (_) => provider.limparErroDoCampo('especie'),
-                        decoration: const InputDecoration(
-                          labelText: 'Espécie',
-                          hintText: 'Cachorro, gato...',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _racaController,
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction: TextInputAction.done,
-                        forceErrorText: provider.erroDoCampo('raca'),
-                        onChanged: (_) => provider.limparErroDoCampo('raca'),
-                        decoration: const InputDecoration(
-                          labelText: 'Raça',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<PortePet?>(
-                  initialValue: _porte,
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Não informado'),
-                    ),
-                    for (final p in PortePet.values)
-                      DropdownMenuItem(value: p, child: Text(p.nome)),
-                  ],
-                  onChanged: (p) {
-                    setState(() => _porte = p);
-                    provider.limparErroDoCampo('porte');
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Porte',
-                    errorText: provider.erroDoCampo('porte'),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                CampoData(
-                  valor: _nascimento,
-                  onChanged: (d) {
-                    setState(() => _nascimento = d);
-                    provider.limparErroDoCampo('data_nascimento');
-                  },
-                  label: 'Nascimento (opcional)',
-                  forceErrorText: provider.erroDoCampo('data_nascimento'),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: provider.isLoading ? null : _salvar,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  child: const Text('Salvar'),
-                ),
-                if (widget.pet != null) ...[
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: provider.isLoading ? null : _remover,
-                    style: TextButton.styleFrom(foregroundColor: colors.error),
-                    child: const Text('Remover pet'),
-                  ),
-                ],
+                const SizedBox(height: 12),
               ],
-            ),
+              TextFormField(
+                controller: _nomeController,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                validator: Validatorless.regex(_notBlank, 'Informe o nome'),
+                forceErrorText: provider.erroDoCampo('nome'),
+                onChanged: (_) => provider.limparErroDoCampo('nome'),
+                decoration: const InputDecoration(
+                  labelText: 'Nome',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _especieController,
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.next,
+                      forceErrorText: provider.erroDoCampo('especie'),
+                      onChanged: (_) => provider.limparErroDoCampo('especie'),
+                      decoration: const InputDecoration(
+                        labelText: 'Espécie',
+                        hintText: 'Cachorro, gato...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _racaController,
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.done,
+                      forceErrorText: provider.erroDoCampo('raca'),
+                      onChanged: (_) => provider.limparErroDoCampo('raca'),
+                      decoration: const InputDecoration(
+                        labelText: 'Raça',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<PortePet?>(
+                initialValue: _porte,
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('Não informado'),
+                  ),
+                  for (final p in PortePet.values)
+                    DropdownMenuItem(value: p, child: Text(p.nome)),
+                ],
+                onChanged: (p) {
+                  setState(() => _porte = p);
+                  provider.limparErroDoCampo('porte');
+                },
+                decoration: InputDecoration(
+                  labelText: 'Porte',
+                  errorText: provider.erroDoCampo('porte'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              CampoData(
+                valor: _nascimento,
+                onChanged: (d) {
+                  setState(() => _nascimento = d);
+                  provider.limparErroDoCampo('data_nascimento');
+                },
+                label: 'Nascimento (opcional)',
+                forceErrorText: provider.erroDoCampo('data_nascimento'),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: provider.isLoading ? null : _salvar,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                ),
+                child: const Text('Salvar'),
+              ),
+              if (widget.pet != null) ...[
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: provider.isLoading ? null : _remover,
+                  style: TextButton.styleFrom(foregroundColor: colors.error),
+                  child: const Text('Remover pet'),
+                ),
+              ],
+            ],
           ),
         );
       },

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 
-// a casca do app: a navegação inferior com as quatro abas (Início,
+// a casca do app: a barra inferior flutuante com as quatro abas (Início,
 // Agenda/Quadro, Clientes e Mais), cada uma com a própria pilha
-// (StatefulShellRoute). antes de mostrar as abas, carrega o
-// negócio atual: é ele que diz o modo de agenda e o papel de quem entrou
+// (StatefulShellRoute). antes de mostrar as abas, carrega o negócio atual:
+// é ele que diz o modo de agenda e o papel de quem entrou
 class HomeShellPage extends ConsumerStatefulWidget {
   const HomeShellPage({super.key, required this.navigationShell});
 
@@ -49,47 +50,143 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
           return const Scaffold(body: Carregando());
         }
 
-        return Scaffold(
-          body: shell,
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: shell.currentIndex,
-            // tocar na aba atual volta para o começo da pilha dela
-            onDestinationSelected: (index) => shell.goBranch(
-              index,
-              initialLocation: index == shell.currentIndex,
-            ),
-            destinations: [
-              const NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
-                label: 'Início',
+        final claro = Theme.of(context).brightness == Brightness.light;
+        // a barra de navegação do Android fica transparente por cima do
+        // fundo da tela: os ícones dela seguem o tema
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarContrastEnforced: false,
+            systemNavigationBarIconBrightness: claro
+                ? Brightness.dark
+                : Brightness.light,
+          ),
+          child: Scaffold(
+            // o conteúdo das abas termina acima da barra, não por baixo dela
+            body: shell,
+            bottomNavigationBar: _BarraFlutuante(
+              indice: shell.currentIndex,
+              // tocar na aba atual volta para o começo da pilha dela
+              onSelecionar: (index) => shell.goBranch(
+                index,
+                initialLocation: index == shell.currentIndex,
               ),
-              NavigationDestination(
-                icon: Icon(
-                  negocio.isKanban
+              abas: [
+                const _Aba(icone: Icons.grid_view_outlined, rotulo: 'Início'),
+                _Aba(
+                  icone: negocio.isKanban
                       ? Icons.view_kanban_outlined
                       : Icons.calendar_month_outlined,
+                  // o rótulo segue o modo de agenda do negócio
+                  rotulo: negocio.isKanban ? 'Quadro' : 'Agenda',
                 ),
-                selectedIcon: Icon(
-                  negocio.isKanban ? Icons.view_kanban : Icons.calendar_month,
-                ),
-                // o rótulo segue o modo de agenda do negócio
-                label: negocio.isKanban ? 'Quadro' : 'Agenda',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.people_outline),
-                selectedIcon: Icon(Icons.people),
-                label: 'Clientes',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.more_horiz),
-                selectedIcon: Icon(Icons.more_horiz),
-                label: 'Mais',
-              ),
-            ],
+                const _Aba(icone: Icons.people_outline, rotulo: 'Clientes'),
+                const _Aba(icone: Icons.menu, rotulo: 'Mais'),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _Aba {
+  const _Aba({required this.icone, required this.rotulo});
+
+  final IconData icone;
+  final String rotulo;
+}
+
+// a barra inferior: uma pílula branca (escura no tema escuro) solta sobre o
+// conteúdo, com sombra e margem das bordas; a aba atual fica na cor
+// primária, as outras em cinza. a margem de baixo soma a área segura do
+// sistema, então ela nunca encosta nos botões do Android
+class _BarraFlutuante extends StatelessWidget {
+  const _BarraFlutuante({
+    required this.indice,
+    required this.onSelecionar,
+    required this.abas,
+  });
+
+  final int indice;
+  final ValueChanged<int> onSelecionar;
+  final List<_Aba> abas;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final claro = Theme.of(context).brightness == Brightness.light;
+    final areaSegura = MediaQuery.paddingOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + areaSegura),
+      child: Material(
+        color: claro
+            ? colors.surfaceContainerLowest
+            : colors.surfaceContainerHigh,
+        elevation: 6,
+        shadowColor: colors.shadow.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(32),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          height: 68,
+          child: Row(
+            children: [
+              for (var i = 0; i < abas.length; i++)
+                Expanded(
+                  child: _ItemDaBarra(
+                    aba: abas[i],
+                    selecionado: i == indice,
+                    onTap: () => onSelecionar(i),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ItemDaBarra extends StatelessWidget {
+  const _ItemDaBarra({
+    required this.aba,
+    required this.selecionado,
+    required this.onTap,
+  });
+
+  final _Aba aba;
+  final bool selecionado;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final cor = selecionado ? colors.primary : colors.onSurfaceVariant;
+
+    return InkWell(
+      onTap: onTap,
+      child: Semantics(
+        selected: selecionado,
+        button: true,
+        label: aba.rotulo,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(aba.icone, color: cor, size: 26),
+            const SizedBox(height: 4),
+            Text(
+              aba.rotulo,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selecionado ? FontWeight.w600 : FontWeight.w500,
+                color: cor,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

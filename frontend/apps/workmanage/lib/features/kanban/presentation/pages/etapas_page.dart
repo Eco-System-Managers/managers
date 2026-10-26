@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../domain/entities/etapa.dart';
@@ -29,10 +30,8 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
   }
 
   Future<void> _editar([Etapa? etapa]) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    await abrirFolha<void>(
+      context,
       builder: (_) => _EtapaFormSheet(etapa: etapa),
     );
   }
@@ -204,93 +203,88 @@ class _EtapaFormSheetState extends ConsumerState<_EtapaFormSheet> {
           });
         }
 
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-              children: [
+        return Form(
+          key: _formKey,
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            children: [
+              Text(
+                widget.etapa == null ? 'Nova etapa' : 'Editar etapa',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              if (provider.errorMessage != null) ...[
                 Text(
-                  widget.etapa == null ? 'Nova etapa' : 'Editar etapa',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  provider.errorMessage!,
+                  style: TextStyle(color: colors.error),
                 ),
-                const SizedBox(height: 16),
-                if (provider.errorMessage != null) ...[
-                  Text(
-                    provider.errorMessage!,
-                    style: TextStyle(color: colors.error),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextFormField(
-                  controller: _nomeController,
-                  textCapitalization: TextCapitalization.sentences,
-                  autofocus: true,
-                  validator: Validatorless.regex(_notBlank, 'Informe o nome'),
-                  forceErrorText: provider.erroDoCampo('nome'),
-                  onChanged: (_) => provider.limparErroDoCampo('nome'),
-                  decoration: const InputDecoration(
-                    labelText: 'Nome',
-                    hintText: 'Ex.: Lavando',
-                    border: OutlineInputBorder(),
-                  ),
+                const SizedBox(height: 12),
+              ],
+              TextFormField(
+                controller: _nomeController,
+                textCapitalization: TextCapitalization.sentences,
+                autofocus: true,
+                validator: Validatorless.regex(_notBlank, 'Informe o nome'),
+                forceErrorText: provider.erroDoCampo('nome'),
+                onChanged: (_) => provider.limparErroDoCampo('nome'),
+                decoration: const InputDecoration(
+                  labelText: 'Nome',
+                  hintText: 'Ex.: Lavando',
+                  border: OutlineInputBorder(),
                 ),
-                const SizedBox(height: 16),
-                Text('Cor', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    for (final hex in coresDeEtapa)
-                      InkWell(
-                        onTap: () => setState(() => _cor = hex),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: corDaEtapa(hex, colors),
-                            border: Border.all(
-                              color: _cor == hex
-                                  ? colors.onSurface
-                                  : Colors.transparent,
-                              width: 3,
-                            ),
+              ),
+              const SizedBox(height: 16),
+              Text('Cor', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final hex in coresDeEtapa)
+                    InkWell(
+                      onTap: () => setState(() => _cor = hex),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: corDaEtapa(hex, colors),
+                          border: Border.all(
+                            color: _cor == hex
+                                ? colors.onSurface
+                                : Colors.transparent,
+                            width: 3,
                           ),
-                          child: _cor == hex
-                              ? const Icon(
-                                  Icons.check,
-                                  size: 18,
-                                  color: Colors.white,
-                                )
-                              : null,
                         ),
+                        child: _cor == hex
+                            ? const Icon(
+                                Icons.check,
+                                size: 18,
+                                color: Colors.white,
+                              )
+                            : null,
                       ),
-                  ],
-                ),
-                if (provider.erroDoCampo('cor') != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    provider.erroDoCampo('cor')!,
-                    style: TextStyle(color: colors.error, fontSize: 12),
-                  ),
+                    ),
                 ],
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: provider.isLoading ? null : _salvar,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  child: const Text('Salvar'),
+              ),
+              if (provider.erroDoCampo('cor') != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  provider.erroDoCampo('cor')!,
+                  style: TextStyle(color: colors.error, fontSize: 12),
                 ),
               ],
-            ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: provider.isLoading ? null : _salvar,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                ),
+                child: const Text('Salvar'),
+              ),
+            ],
           ),
         );
       },

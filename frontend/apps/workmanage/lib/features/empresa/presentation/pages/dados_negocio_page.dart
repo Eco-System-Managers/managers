@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/widgets/folha.dart';
 
 import '../../empresa_provider.dart';
 import '../widgets/dados_negocio_form.dart';
@@ -36,7 +37,7 @@ class _DadosNegocioPageState extends ConsumerState<DadosNegocioPage> {
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: paddingDaPagina(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

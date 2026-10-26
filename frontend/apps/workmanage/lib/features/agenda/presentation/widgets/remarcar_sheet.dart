@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/campo_data.dart';
+import 'package:managers/core/widgets/folha.dart';
 
 import '../../domain/entities/slot.dart';
 import 'slots_grade.dart';
@@ -26,10 +27,8 @@ class RemarcarSheet extends StatefulWidget {
     required bool temGrade,
     required Future<List<Slot>> Function(DateTime data) buscarSlots,
   }) {
-    return showModalBottomSheet<DateTime>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    return abrirFolha<DateTime>(
+      context,
       builder: (_) => RemarcarSheet(
         dataHoraAtual: dataHoraAtual,
         temGrade: temGrade,
@@ -93,53 +92,48 @@ class _RemarcarSheetState extends State<RemarcarSheet> {
     final hoje = somenteData(DateTime.now());
     final hora = _hora;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        children: [
-          Text('Remarcar', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 4),
-          Text(
-            'Hoje marcado para ${formatarDataHora(widget.dataHoraAtual)}',
-            style: TextStyle(color: colors.onSurfaceVariant),
+    return ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      children: [
+        Text('Remarcar', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(
+          'Hoje marcado para ${formatarDataHora(widget.dataHoraAtual)}',
+          style: TextStyle(color: colors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
+        CampoData(
+          valor: _data,
+          onChanged: _mudarData,
+          label: 'Novo dia',
+          limpavel: false,
+          primeiraData: hoje,
+          ultimaData: DateTime(hoje.year + 1, hoje.month, hoje.day),
+        ),
+        const SizedBox(height: 16),
+        if (widget.temGrade)
+          SlotsGrade(
+            slots: _slots,
+            selecionada: _hora,
+            carregando: _carregando,
+            onSelecionar: (h) => setState(() => _hora = h),
+          )
+        else
+          OutlinedButton.icon(
+            onPressed: _escolherHora,
+            icon: const Icon(Icons.access_time),
+            label: Text(hora == null ? 'Escolher hora' : formatarHora(hora)),
           ),
-          const SizedBox(height: 16),
-          CampoData(
-            valor: _data,
-            onChanged: _mudarData,
-            label: 'Novo dia',
-            limpavel: false,
-            primeiraData: hoje,
-            ultimaData: DateTime(hoje.year + 1, hoje.month, hoje.day),
-          ),
-          const SizedBox(height: 16),
-          if (widget.temGrade)
-            SlotsGrade(
-              slots: _slots,
-              selecionada: _hora,
-              carregando: _carregando,
-              onSelecionar: (h) => setState(() => _hora = h),
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: _escolherHora,
-              icon: const Icon(Icons.access_time),
-              label: Text(hora == null ? 'Escolher hora' : formatarHora(hora)),
-            ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: hora == null
-                ? null
-                : () => Navigator.of(context).pop(juntarDataHora(_data, hora)),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-            ),
-            child: const Text('Remarcar'),
-          ),
-        ],
-      ),
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed: hora == null
+              ? null
+              : () => Navigator.of(context).pop(juntarDataHora(_data, hora)),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          child: const Text('Remarcar'),
+        ),
+      ],
     );
   }
 }

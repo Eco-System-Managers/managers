@@ -19,7 +19,10 @@ class App extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Work Manage',
       theme: _comAjustes(
-        brightness == Brightness.light ? theme.light() : theme.dark(),
+        theme,
+        brightness == Brightness.light
+            ? MaterialTheme.lightScheme()
+            : MaterialTheme.darkScheme(),
       ),
       routerConfig: ref.watch(routerProvider),
       // tudo em português: os textos dos widgets do Flutter (relógio,
@@ -33,16 +36,33 @@ class App extends ConsumerWidget {
 
 // o que o tema gerado (core/theme/theme.dart) não cobre bem. ele não é
 // editado à mão: é saído do Material Theme Builder
-ThemeData _comAjustes(ThemeData base) {
-  final colors = base.colorScheme;
-  return base.copyWith(
-    // o seletor de intervalo pinta os dias entre as pontas com
-    // primaryContainer, que neste tema é azul-escuro: com o texto escuro do
-    // modo claro a faixa ficava preta. a cor fixa clara mantém o texto legível
-    datePickerTheme: DatePickerThemeData(
-      rangeSelectionBackgroundColor: colors.brightness == Brightness.light
-          ? colors.primaryFixed
-          : colors.primaryContainer,
-    ),
+ThemeData _comAjustes(MaterialTheme tema, ColorScheme gerado) {
+  final claro = gerado.brightness == Brightness.light;
+
+  // a cor secundária do tema gerado é preto puro, e o Material 3 deriva dela
+  // o par secondaryContainer/onSecondaryContainer, usado em tudo que é
+  // "selecionado" (chip, botão segmentado, botão tonal) e nas caixas de
+  // aviso: no claro saía preto com letra cinza, no escuro cinza sobre cinza.
+  // o par passa a ser um azul derivado da primária
+  final colors = gerado.copyWith(
+    secondaryContainer: claro
+        ? gerado.primaryFixed
+        : gerado.onPrimaryFixedVariant,
+    onSecondaryContainer: claro
+        ? gerado.onPrimaryFixedVariant
+        : gerado.primaryFixed,
   );
+
+  return tema
+      .theme(colors)
+      .copyWith(
+        // o seletor de intervalo pinta os dias entre as pontas com
+        // primaryContainer, que neste tema é azul-escuro: com o texto escuro do
+        // modo claro a faixa ficava preta. a cor fixa clara mantém o texto legível
+        datePickerTheme: DatePickerThemeData(
+          rangeSelectionBackgroundColor: claro
+              ? colors.primaryFixed
+              : colors.primaryContainer,
+        ),
+      );
 }

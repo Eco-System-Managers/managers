@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/folha.dart';
 
 import '../../empresa_provider.dart';
 import '../widgets/horario_dia_card.dart';
@@ -59,7 +60,7 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
           final colors = Theme.of(context).colorScheme;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: paddingDaPagina(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

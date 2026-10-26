@@ -6,6 +6,7 @@ import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/features/clientes/presentation/widgets/cliente_picker_sheet.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
@@ -129,7 +130,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
     return Form(
       key: _formKey,
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: paddingDaPagina(context),
         children: [
           if (provider.errorMessage != null) ...[
             Container(
