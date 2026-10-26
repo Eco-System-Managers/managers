@@ -18,7 +18,9 @@ class App extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'Work Manage',
-      theme: brightness == Brightness.light ? theme.light() : theme.dark(),
+      theme: _comAjustes(
+        brightness == Brightness.light ? theme.light() : theme.dark(),
+      ),
       routerConfig: ref.watch(routerProvider),
       // tudo em português: os textos dos widgets do Flutter (relógio,
       // calendário, botões de diálogo) e os formatos de data
@@ -27,4 +29,20 @@ class App extends ConsumerWidget {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
     );
   }
+}
+
+// o que o tema gerado (core/theme/theme.dart) não cobre bem. ele não é
+// editado à mão: é saído do Material Theme Builder
+ThemeData _comAjustes(ThemeData base) {
+  final colors = base.colorScheme;
+  return base.copyWith(
+    // o seletor de intervalo pinta os dias entre as pontas com
+    // primaryContainer, que neste tema é azul-escuro: com o texto escuro do
+    // modo claro a faixa ficava preta. a cor fixa clara mantém o texto legível
+    datePickerTheme: DatePickerThemeData(
+      rangeSelectionBackgroundColor: colors.brightness == Brightness.light
+          ? colors.primaryFixed
+          : colors.primaryContainer,
+    ),
+  );
 }
