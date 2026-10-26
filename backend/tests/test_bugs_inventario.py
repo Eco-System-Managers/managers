@@ -37,7 +37,7 @@ class TestFaturamentoDoDashboard:
         PagamentoAgendamento.objects.create(agendamento=concluido, forma='pix', valor=Decimal('50.00'))
 
         kpis = api.get('/api/v1/dashboard/resumo/').json()['kpis']
-        assert kpis['faturamento_mes'] == '50.00'
+        assert kpis['faturamento'] == '50.00'
 
     def test_dashboard_e_caixa_concordam(self, api, cliente):
         cancelado = Agendamento.objects.create(cliente=cliente, data_hora=timezone.now(), status='cancelado')
@@ -48,7 +48,7 @@ class TestFaturamentoDoDashboard:
         hoje = timezone.localdate().isoformat()
         caixa = api.get(f'/api/v1/financeiro/caixa/?data_inicio={hoje}&data_fim={hoje}').json()
         dashboard = api.get('/api/v1/dashboard/resumo/').json()
-        assert dashboard['kpis']['faturamento_mes'] == caixa['kpis']['total'] == '70.00'
+        assert dashboard['kpis']['faturamento'] == caixa['kpis']['total'] == '70.00'
 
 
 @pytest.mark.django_db

@@ -8,7 +8,7 @@ from rest_framework import status as http_status
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
-from core.permissions import IsProprietario
+from core.permissions import IsProprietario, colaborador_aplicado
 from apps_work.clientes.models import Cliente
 from .models import Despesa, TransacaoCredito
 from .serializers import (
@@ -45,7 +45,11 @@ class CaixaView(APIView):
         parameters=[
             OpenApiParameter('data_inicio', OpenApiTypes.DATE, description='Padrão: hoje.'),
             OpenApiParameter('data_fim', OpenApiTypes.DATE, description='Padrão: hoje.'),
-            OpenApiParameter('colaborador', OpenApiTypes.INT, description='Filtra pelo colaborador (exclui o kanban).'),
+            OpenApiParameter(
+                'colaborador', OpenApiTypes.INT,
+                description='Filtra pelo colaborador (exclui o kanban). '
+                            'Quem não é proprietário vê sempre o próprio, ignorando este parâmetro.',
+            ),
         ],
     )
     def get(self, request):
@@ -64,6 +68,9 @@ class CaixaView(APIView):
                 colaborador_id = int(colaborador_str)
             except ValueError:
                 return erro('Colaborador inválido.', status_code=http_status.HTTP_400_BAD_REQUEST)
+
+        # a mesma trava do painel: o colaborador fecha só o próprio caixa
+        colaborador_id = colaborador_aplicado(request, colaborador_id)
 
         dados = CaixaService().obter_dados(data_inicio, data_fim, colaborador_id)
         return Response(dados)

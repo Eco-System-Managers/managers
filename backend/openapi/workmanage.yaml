@@ -3792,7 +3792,26 @@ paths:
   /api/v1/dashboard/resumo/:
     get:
       operationId: dashboard_resumo_retrieve
-      summary: Resumo do painel
+      summary: Resumo do painel por período
+      parameters:
+      - in: query
+        name: colaborador
+        schema:
+          type: integer
+        description: Só a agenda deste profissional (a esteira fica de fora). Quem
+          não é proprietário vê sempre os próprios números, ignorando este parâmetro.
+      - in: query
+        name: data_fim
+        schema:
+          type: string
+          format: date
+        description: 'Padrão: hoje.'
+      - in: query
+        name: data_inicio
+        schema:
+          type: string
+          format: date
+        description: 'Padrão: hoje.'
       tags:
       - dashboard
       security:
@@ -4492,7 +4511,8 @@ paths:
         name: colaborador
         schema:
           type: integer
-        description: Filtra pelo colaborador (exclui o kanban).
+        description: Filtra pelo colaborador (exclui o kanban). Quem não é proprietário
+          vê sempre o próprio, ignorando este parâmetro.
       - in: query
         name: data_fim
         schema:
@@ -7644,17 +7664,6 @@ components:
       - etapa
       - objeto
       - servico
-    AtendimentosDia:
-      type: object
-      properties:
-        data:
-          type: string
-          format: date
-        total:
-          type: integer
-      required:
-      - data
-      - total
     BlankEnum:
       enum:
       - ''
@@ -8195,15 +8204,15 @@ components:
     DashboardKpis:
       type: object
       properties:
-        faturamento_mes:
+        faturamento:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
         faturamento_variacao:
           type: integer
           nullable: true
-          description: Variação % sobre o mês anterior; null sem base de comparação.
-        atendimentos_mes:
+          description: Variação % sobre o período anterior; null sem base de comparação.
+        atendimentos:
           type: integer
         atendimentos_variacao:
           type: integer
@@ -8212,17 +8221,19 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-        clientes_novos_mes:
+        clientes_novos:
           type: integer
+          nullable: true
+          description: 'Null quando filtrado por profissional: cliente novo é do negócio.'
         clientes_novos_variacao:
           type: integer
           nullable: true
       required:
-      - atendimentos_mes
+      - atendimentos
       - atendimentos_variacao
-      - clientes_novos_mes
+      - clientes_novos
       - clientes_novos_variacao
-      - faturamento_mes
+      - faturamento
       - faturamento_variacao
       - ticket_medio
     DashboardResumo:
@@ -8230,31 +8241,29 @@ components:
       properties:
         tipo_agenda:
           $ref: '#/components/schemas/TipoAgendaEnum'
+        periodo:
+          $ref: '#/components/schemas/PeriodoDashboard'
+        colaborador:
+          type: integer
+          nullable: true
+          description: O profissional aplicado (o próprio, para quem não é proprietário).
         kpis:
           $ref: '#/components/schemas/DashboardKpis'
         ranking_servicos:
           type: array
           items:
             $ref: '#/components/schemas/RankingServico'
-          description: Top 5 do mês.
+          description: Top 5 do período.
         agendamentos_hoje:
           type: array
           items:
             $ref: '#/components/schemas/AgendamentoHoje'
-          description: Até 10 do dia.
-        faturamento_30d:
-          type: array
-          items:
-            $ref: '#/components/schemas/FaturamentoDia'
-        atendimentos_30d:
-          type: array
-          items:
-            $ref: '#/components/schemas/AtendimentosDia'
+          description: Até 10 do dia, independente do período.
       required:
       - agendamentos_hoje
-      - atendimentos_30d
-      - faturamento_30d
+      - colaborador
       - kpis
+      - periodo
       - ranking_servicos
       - tipo_agenda
     Despesa:
@@ -8541,19 +8550,6 @@ components:
           maxLength: 7
       required:
       - nome
-    FaturamentoDia:
-      type: object
-      properties:
-        data:
-          type: string
-          format: date
-        valor:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-      required:
-      - data
-      - valor
     FormaEnum:
       enum:
       - dinheiro
@@ -9717,6 +9713,27 @@ components:
       - nome
       - preco
       - servico_id
+    PeriodoDashboard:
+      type: object
+      properties:
+        data_inicio:
+          type: string
+          format: date
+        data_fim:
+          type: string
+          format: date
+        anterior_inicio:
+          type: string
+          format: date
+          description: 'O período de comparação: mesmo tamanho, termina na véspera.'
+        anterior_fim:
+          type: string
+          format: date
+      required:
+      - anterior_fim
+      - anterior_inicio
+      - data_fim
+      - data_inicio
     Pet:
       type: object
       properties:

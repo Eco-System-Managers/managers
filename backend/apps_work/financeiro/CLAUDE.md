@@ -81,6 +81,10 @@ Detalhe que já causou confusão: atendimento de esteira não tem colaborador
 vinculado. Filtrar o caixa por colaborador exclui esses registros por completo —
 por isso o filtro só é aplicado quando um colaborador é informado.
 
+Quem não é proprietário fecha **só o próprio caixa**: a view troca o
+`colaborador` pedido pelo do usuário (`core.permissions.colaborador_aplicado`,
+a mesma trava do painel). Sem perfil de colaborador, 404 `sem_colaborador`.
+
 ## O que é fácil errar aqui
 
 - **Aplicar crédito valida saldo disponível** e levanta `ValidationError` com
