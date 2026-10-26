@@ -13,6 +13,10 @@ import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
 import 'package:managers/features/clientes/presentation/pages/cliente_form_page.dart';
 import 'package:managers/features/clientes/presentation/pages/cliente_page.dart';
 import 'package:managers/features/clientes/presentation/pages/clientes_page.dart';
+import 'package:managers/features/contratos/presentation/pages/contrato_page.dart';
+import 'package:managers/features/contratos/presentation/pages/contratos_page.dart';
+import 'package:managers/features/contratos/presentation/pages/gerar_contrato_page.dart';
+import 'package:managers/features/contratos/presentation/pages/modelo_form_page.dart';
 import 'package:managers/features/dashboard/presentation/pages/inicio_page.dart';
 import 'package:managers/features/empresa/presentation/pages/configuracoes_page.dart';
 import 'package:managers/features/empresa/presentation/pages/dados_negocio_page.dart';
@@ -276,6 +280,44 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'financeiro',
                     parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, _) => const CaixaPage(),
+                  ),
+                  // contratos e modelos; gerar devolve o id do contrato novo.
+                  // gerar e modelos vêm antes de :id para não serem lidos
+                  // como id
+                  GoRoute(
+                    path: 'contratos',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const ContratosPage(),
+                    routes: [
+                      GoRoute(
+                        path: 'gerar',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, state) => GerarContratoPage(
+                          clienteId: int.tryParse(
+                            state.uri.queryParameters['cliente'] ?? '',
+                          ),
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'modelos/novo',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, _) => const ModeloFormPage(),
+                      ),
+                      GoRoute(
+                        path: 'modelos/:id',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, state) => ModeloFormPage(
+                          id: int.tryParse(state.pathParameters['id'] ?? ''),
+                        ),
+                      ),
+                      GoRoute(
+                        path: ':id',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, state) => ContratoPage(
+                          id: int.parse(state.pathParameters['id']!),
+                        ),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'equipe',
