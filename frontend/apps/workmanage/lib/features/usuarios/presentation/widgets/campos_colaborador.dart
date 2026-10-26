@@ -22,6 +22,7 @@ class CamposColaborador extends StatelessWidget {
     required this.erroDoCampo,
     required this.limparErroDoCampo,
     this.habilitado = true,
+    this.temAcesso = false,
   });
 
   // o required do Validatorless aceita só espaços; isto exige um caractere
@@ -37,6 +38,10 @@ class CamposColaborador extends StatelessWidget {
   final String? Function(String campo) erroDoCampo;
   final ValueChanged<String> limparErroDoCampo;
   final bool habilitado;
+
+  // registrar cobrança é coisa de quem entra no app: sem acesso (nem
+  // convite a caminho) a permissão não aparece
+  final bool temAcesso;
 
   // os dados a partir dos campos, já validados
   static DadosColaborador dados({
@@ -149,7 +154,7 @@ class CamposColaborador extends StatelessWidget {
               border: OutlineInputBorder(),
             ),
           ),
-        ] else
+        ] else if (temAcesso)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Pode registrar cobranças'),

@@ -10,6 +10,8 @@ class Convite extends Equatable {
     required this.aceito,
     required this.criadoEm,
     required this.expiraEm,
+    this.colaboradorId,
+    this.link = '',
   });
 
   final int id;
@@ -19,8 +21,24 @@ class Convite extends Equatable {
   final DateTime criadoEm;
   final DateTime expiraEm;
 
+  // quem da equipe ganha o login ao aceitar; null nos convites antigos,
+  // feitos sem a pessoa cadastrada
+  final int? colaboradorId;
+
+  // o mesmo link do e-mail, para mandar por WhatsApp
+  final String link;
+
   @override
-  List<Object?> get props => [id, nome, email, aceito, criadoEm, expiraEm];
+  List<Object?> get props => [
+    id,
+    nome,
+    email,
+    aceito,
+    criadoEm,
+    expiraEm,
+    colaboradorId,
+    link,
+  ];
 }
 
 // o que o convidado vê antes de aceitar (rota pública, pelo token)

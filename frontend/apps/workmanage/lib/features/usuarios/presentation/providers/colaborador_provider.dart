@@ -1,20 +1,26 @@
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
 
+import 'package:managers/core/usecases/use_case.dart';
+
 import '../../domain/entities/colaborador.dart';
+import '../../domain/entities/convite.dart';
 import '../../domain/params/equipe_params.dart';
 import '../../domain/usecases/equipe_use_cases.dart';
 
 // estado da ficha de um colaborador (montado em usuarios_provider.dart, na
 // raiz da feature): os dados (nome, função, vínculo, comissão, cobrar),
-// convidar para o app, ativar/desativar e remover. a API protege o
-// proprietário (proprietario_protegido); a tela nem oferece
+// convidar para o app (e o convite pendente: reenviar, cancelar, o link para
+// o WhatsApp), ativar/desativar e remover. a API protege o proprietário
+// (proprietario_protegido); a tela nem oferece
 class ColaboradorProvider extends ChangeNotifier {
   ColaboradorProvider({
     required this.id,
     required this._obter,
     required this._atualizar,
     required this._convidar,
+    required this._listarConvites,
+    required this._cancelarConvite,
     required this._alterarAtivo,
     required this._contarPendentes,
     required this._remover,
@@ -24,11 +30,14 @@ class ColaboradorProvider extends ChangeNotifier {
   final ObterColaboradorUseCase _obter;
   final AtualizarColaboradorUseCase _atualizar;
   final ConvidarColaboradorUseCase _convidar;
+  final ListarConvitesUseCase _listarConvites;
+  final CancelarConviteUseCase _cancelarConvite;
   final AlterarAtivoColaboradorUseCase _alterarAtivo;
   final ContarAgendamentosPendentesUseCase _contarPendentes;
   final RemoverColaboradorUseCase _remover;
 
   Colaborador? _colaborador;
+  Convite? _convite;
   bool _isLoading = false;
   Failure? _erroAoCarregar;
   String? _errorMessage;
@@ -41,6 +50,11 @@ class ColaboradorProvider extends ChangeNotifier {
   bool _disposed = false;
 
   Colaborador? get colaborador => _colaborador;
+
+  // o convite pendente desta pessoa; null sem convite (ou para quem não é
+  // o dono: a API nega a lista, e a ficha segue sem ele)
+  Convite? get convite => _convite;
+
   bool get isLoading => _isLoading;
   Failure? get erroAoCarregar => _erroAoCarregar;
 
@@ -65,12 +79,20 @@ class ColaboradorProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
-    final result = await _obter(id);
+    final (result, convites) = await (
+      _obter(id),
+      _listarConvites(NoParams()),
+    ).wait;
     if (_disposed) return;
 
     result.fold(
       (failure) => _erroAoCarregar = failure,
       (c) => _colaborador = c,
+    );
+    convites.fold(
+      (_) {},
+      (lista) =>
+          _convite = lista.where((c) => c.colaboradorId == id).firstOrNull,
     );
 
     _isLoading = false;
@@ -111,7 +133,50 @@ class ColaboradorProvider extends ChangeNotifier {
     );
     if (_disposed) return;
 
-    result.fold(_guardarFalha, (_) => _convidado = true);
+    result.fold(_guardarFalha, (convite) {
+      _convite = convite;
+      _convidado = true;
+    });
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  // o e-mail não chegou: cancela o pendente e manda outro para o mesmo
+  // endereço (a API recusa um segundo convite enquanto há um pendente)
+  Future<void> reenviarConvite() async {
+    final convite = _convite;
+    if (convite == null) return;
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final cancelado = await _cancelarConvite(convite.id);
+    if (_disposed) return;
+    final falha = cancelado.fold((f) => f, (_) => null);
+    if (falha != null) {
+      _errorMessage = falha.message;
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+    _convite = null;
+    await convidar(convite.email);
+  }
+
+  Future<void> cancelarConvite() async {
+    final convite = _convite;
+    if (convite == null) return;
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _cancelarConvite(convite.id);
+    if (_disposed) return;
+
+    result.fold((failure) => _errorMessage = failure.message, (_) {
+      _convite = null;
+    });
 
     _isLoading = false;
     notifyListeners();

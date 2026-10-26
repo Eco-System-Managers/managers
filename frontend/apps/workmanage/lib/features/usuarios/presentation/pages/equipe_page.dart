@@ -13,8 +13,8 @@ import '../../domain/entities/convite.dart';
 import '../../usuarios_provider.dart';
 import '../providers/equipe_provider.dart';
 
-// a equipe do negócio e os convites pendentes. só o proprietário adiciona,
-// convida, cancela convite e mexe na ficha; o resto da equipe só vê
+// a equipe do negócio, com o convite pendente de cada um na linha. só o
+// proprietário adiciona, cancela convite e mexe na ficha; o resto só vê
 class EquipePage extends ConsumerStatefulWidget {
   const EquipePage({super.key});
 
@@ -35,38 +35,6 @@ class _EquipePageState extends ConsumerState<EquipePage> {
   Future<void> _abrir(String rota) async {
     await context.push(rota);
     if (mounted) ref.read(equipeProvider).carregar();
-  }
-
-  // duas portas de entrada: cadastrar sem login (já aparece nos filtros)
-  // ou convidar por e-mail (a pessoa cria a senha e entra)
-  Future<void> _adicionar() async {
-    final rota = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('Adicionar à equipe'),
-              subtitle: const Text(
-                'Sem login. Aparece na agenda e nos filtros na hora.',
-              ),
-              onTap: () => Navigator.of(context).pop('/mais/equipe/novo'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.mail_outline),
-              title: const Text('Convidar por e-mail'),
-              subtitle: const Text('A pessoa cria a senha e entra no app.'),
-              onTap: () => Navigator.of(context).pop('/mais/equipe/convidar'),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (rota != null && mounted) await _abrir(rota);
   }
 
   Future<void> _cancelarConvite(Convite convite) async {
@@ -94,7 +62,7 @@ class _EquipePageState extends ConsumerState<EquipePage> {
           appBar: AppBar(title: const Text('Equipe')),
           floatingActionButton: negocio.ehProprietario
               ? FloatingActionButton.extended(
-                  onPressed: _adicionar,
+                  onPressed: () => _abrir('/mais/equipe/novo'),
                   icon: const Icon(Icons.person_add_alt_1),
                   label: const Text('Adicionar'),
                 )
@@ -148,18 +116,19 @@ class _EquipePageState extends ConsumerState<EquipePage> {
             _ColaboradorTile(
               colaborador: c,
               souEu: c.id == meuId,
+              conviteEnviado: provider.conviteDe(c.id) != null,
               onTap: () => _abrir('/mais/equipe/${c.id}'),
             ),
 
-          if (provider.convites.isNotEmpty) ...[
+          if (provider.convitesSoltos.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
               child: Text(
-                'Convites pendentes (${provider.convites.length})',
+                'Convites pendentes (${provider.convitesSoltos.length})',
                 style: textos.titleSmall,
               ),
             ),
-            for (final convite in provider.convites)
+            for (final convite in provider.convitesSoltos)
               ListTile(
                 leading: const Icon(Icons.mail_outline),
                 title: Text(convite.email),
@@ -188,11 +157,15 @@ class _ColaboradorTile extends StatelessWidget {
   const _ColaboradorTile({
     required this.colaborador,
     required this.souEu,
+    required this.conviteEnviado,
     required this.onTap,
   });
 
   final Colaborador colaborador;
   final bool souEu;
+
+  // sem login ainda, mas com o convite a caminho
+  final bool conviteEnviado;
   final VoidCallback onTap;
 
   @override
@@ -219,6 +192,17 @@ class _ColaboradorTile extends StatelessWidget {
           : c.ehProprietario
           ? Chip(
               label: const Text('Dono'),
+              visualDensity: VisualDensity.compact,
+              backgroundColor: colors.secondaryContainer,
+            )
+          : !c.temAcesso && conviteEnviado
+          ? Chip(
+              avatar: Icon(
+                Icons.mail_outline,
+                size: 16,
+                color: colors.onSecondaryContainer,
+              ),
+              label: const Text('Convite enviado'),
               visualDensity: VisualDensity.compact,
               backgroundColor: colors.secondaryContainer,
             )

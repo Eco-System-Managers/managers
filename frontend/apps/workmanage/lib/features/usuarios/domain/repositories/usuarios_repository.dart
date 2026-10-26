@@ -42,11 +42,6 @@ abstract class UsuariosRepository {
   // só os pendentes: a API não lista aceitos nem expirados
   Future<Either<Failure, List<Convite>>> listarConvites();
 
-  Future<Either<Failure, Convite>> criarConvite({
-    required String nome,
-    required String email,
-  });
-
   Future<Either<Failure, void>> cancelarConvite(int id);
 
   // rotas públicas, pelo token do link do e-mail

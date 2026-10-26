@@ -19,13 +19,10 @@ class ConviteModel {
       aceito: json['aceito'] as bool? ?? false,
       criadoEm: dataHoraDaApi(json['criado_em'] as String),
       expiraEm: dataHoraDaApi(json['expira_em'] as String),
+      colaboradorId: json['colaborador'] as int?,
+      link: json['link'] as String? ?? '',
     );
   }
-
-  static Map<String, dynamic> corpoDeCriacao(String nome, String email) => {
-    'nome': nome,
-    'email': email,
-  };
 }
 
 class ConviteInfoModel {

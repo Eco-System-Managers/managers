@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/compartilhar/whatsapp.dart';
+import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../domain/entities/colaborador.dart';
+import '../../domain/entities/convite.dart';
 import '../../usuarios_provider.dart';
 import '../providers/colaborador_provider.dart';
 import '../widgets/campos_colaborador.dart';
 
 // a ficha de alguém da equipe: nome, função, vínculo, comissão ou a flag de
 // cobrar (editáveis pelo proprietário), convidar para o app quem não tem
-// login, desativar/reativar e remover. o proprietário não se desativa nem se
-// remove (a API recusa com proprietario_protegido; a tela nem oferece)
+// login (e o convite pendente: mandar o link por WhatsApp, reenviar,
+// cancelar), desativar/reativar e remover. o proprietário não se desativa
+// nem se remove (a API recusa com proprietario_protegido; a tela nem oferece)
 class ColaboradorPage extends ConsumerStatefulWidget {
   const ColaboradorPage({super.key, required this.id});
 
@@ -129,6 +134,31 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     ).whenComplete(controller.dispose);
   }
 
+  // o mesmo link do e-mail, numa mensagem pronta. sem número: a pessoa da
+  // equipe não tem telefone na ficha, então o WhatsApp pede o contato
+  Future<void> _mandarPorWhatsApp(Colaborador c, Convite convite) async {
+    final negocio = ref.read(negocioAtualProvider).nome;
+    final texto =
+        'Oi, ${c.nome}! Você foi convidado(a) para a equipe'
+        '${negocio.isEmpty ? '' : ' de $negocio'} no Work Manage. '
+        'Crie sua senha pelo link: ${convite.link}\n'
+        'O link vale até ${formatarData(convite.expiraEm)}.';
+    final abriu = await abrirWhatsApp(texto: texto);
+    if (!abriu && mounted) _avisar('Não deu para abrir o WhatsApp.');
+  }
+
+  Future<void> _cancelarConvite(Convite convite) async {
+    final ok = await confirmar(
+      context,
+      titulo: 'Cancelar convite',
+      mensagem: 'O link enviado para ${convite.email} deixa de funcionar.',
+      textoConfirmar: 'Cancelar convite',
+      destrutivo: true,
+    );
+    if (!ok || !mounted) return;
+    await _provider.cancelarConvite();
+  }
+
   Future<void> _alterarAtivo(Colaborador c) async {
     final ativar = !c.ativo;
     final ok = await confirmar(
@@ -229,7 +259,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     return Form(
       key: _formKey,
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: paddingDaPagina(context),
         children: [
           if (provider.isLoading)
             const LinearProgressIndicator(minHeight: 2)
@@ -312,6 +342,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
               erroDoCampo: provider.erroDoCampo,
               limparErroDoCampo: provider.limparErroDoCampo,
               habilitado: souProprietario,
+              temAcesso: c.temAcesso || provider.convite != null,
             ),
           if (souProprietario) ...[
             const SizedBox(height: 16),
@@ -325,7 +356,16 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
           ],
 
           if (podeMexer) ...[
-            if (!c.temAcesso) ...[
+            if (!c.temAcesso && provider.convite != null) ...[
+              const SizedBox(height: 24),
+              _ConvitePendente(
+                convite: provider.convite!,
+                ocupado: provider.isLoading,
+                onWhatsApp: () => _mandarPorWhatsApp(c, provider.convite!),
+                onReenviar: provider.reenviarConvite,
+                onCancelar: () => _cancelarConvite(provider.convite!),
+              ),
+            ] else if (!c.temAcesso) ...[
               const SizedBox(height: 24),
               OutlinedButton.icon(
                 onPressed: provider.isLoading ? null : () => _convidar(c),
@@ -354,6 +394,90 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
               label: const Text('Remover da equipe'),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// o convite a caminho: para quem foi, até quando vale e o que fazer com ele
+class _ConvitePendente extends StatelessWidget {
+  const _ConvitePendente({
+    required this.convite,
+    required this.ocupado,
+    required this.onWhatsApp,
+    required this.onReenviar,
+    required this.onCancelar,
+  });
+
+  final Convite convite;
+  final bool ocupado;
+  final VoidCallback onWhatsApp;
+  final VoidCallback onReenviar;
+  final VoidCallback onCancelar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+      decoration: BoxDecoration(
+        color: colors.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.mail_outline, color: colors.onSecondaryContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Convite enviado para ${convite.email}',
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onSecondaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Vale até ${formatarData(convite.expiraEm)}. Se o '
+                      'e-mail não chegou, mande o link por WhatsApp.',
+                      style: textos.bodySmall?.copyWith(
+                        color: colors.onSecondaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            children: [
+              TextButton.icon(
+                onPressed: ocupado || convite.link.isEmpty ? null : onWhatsApp,
+                icon: const Icon(Icons.chat_outlined),
+                label: const Text('WhatsApp'),
+              ),
+              TextButton.icon(
+                onPressed: ocupado ? null : onReenviar,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reenviar'),
+              ),
+              TextButton.icon(
+                onPressed: ocupado ? null : onCancelar,
+                style: TextButton.styleFrom(foregroundColor: colors.error),
+                icon: const Icon(Icons.close),
+                label: const Text('Cancelar'),
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -11,7 +11,6 @@ import 'domain/usecases/listar_colaboradores_use_case.dart';
 import 'presentation/providers/aceitar_convite_provider.dart';
 import 'presentation/providers/colaborador_form_provider.dart';
 import 'presentation/providers/colaborador_provider.dart';
-import 'presentation/providers/convite_form_provider.dart';
 import 'presentation/providers/equipe_provider.dart';
 
 // injeção de dependências da equipe: é o único lugar que conhece as
@@ -66,10 +65,6 @@ final listarConvitesUseCaseProvider = Provider(
   (ref) => ListarConvitesUseCase(ref.watch(usuariosRepositoryProvider)),
 );
 
-final criarConviteUseCaseProvider = Provider(
-  (ref) => CriarConviteUseCase(ref.watch(usuariosRepositoryProvider)),
-);
-
 final cancelarConviteUseCaseProvider = Provider(
   (ref) => CancelarConviteUseCase(ref.watch(usuariosRepositoryProvider)),
 );
@@ -102,6 +97,8 @@ final colaboradorProvider = Provider.autoDispose
         obter: ref.watch(obterColaboradorUseCaseProvider),
         atualizar: ref.watch(atualizarColaboradorUseCaseProvider),
         convidar: ref.watch(convidarColaboradorUseCaseProvider),
+        listarConvites: ref.watch(listarConvitesUseCaseProvider),
+        cancelarConvite: ref.watch(cancelarConviteUseCaseProvider),
         alterarAtivo: ref.watch(alterarAtivoColaboradorUseCaseProvider),
         contarPendentes: ref.watch(contarAgendamentosPendentesUseCaseProvider),
         remover: ref.watch(removerColaboradorUseCaseProvider),
@@ -110,20 +107,13 @@ final colaboradorProvider = Provider.autoDispose
       return provider;
     });
 
-// cadastrar alguém sem login
+// adicionar alguém à equipe e, se tiver e-mail, já convidar para o app
 final colaboradorFormProvider = Provider.autoDispose<ColaboradorFormProvider>((
   ref,
 ) {
   final provider = ColaboradorFormProvider(
     criar: ref.watch(criarColaboradorUseCaseProvider),
-  );
-  ref.onDispose(provider.dispose);
-  return provider;
-});
-
-final conviteFormProvider = Provider.autoDispose<ConviteFormProvider>((ref) {
-  final provider = ConviteFormProvider(
-    criar: ref.watch(criarConviteUseCaseProvider),
+    convidar: ref.watch(convidarColaboradorUseCaseProvider),
   );
   ref.onDispose(provider.dispose);
   return provider;

@@ -37,11 +37,6 @@ abstract class UsuariosRemoteDataSource {
 
   Future<List<ConviteModel>> listarConvites();
 
-  Future<ConviteModel> criarConvite({
-    required String nome,
-    required String email,
-  });
-
   Future<void> cancelarConvite(int id);
 
   // públicas: vão sem sessão
@@ -141,18 +136,6 @@ class UsuariosRemoteDataSourceImpl implements UsuariosRemoteDataSource {
   @override
   Future<List<ConviteModel>> listarConvites() {
     return buscarTudo(dio, _convites, item: ConviteModel.fromJson);
-  }
-
-  @override
-  Future<ConviteModel> criarConvite({
-    required String nome,
-    required String email,
-  }) async {
-    final response = await dio.post<Map<String, dynamic>>(
-      _convites,
-      data: ConviteModel.corpoDeCriacao(nome, email),
-    );
-    return ConviteModel.fromJson(response.data!);
   }
 
   @override

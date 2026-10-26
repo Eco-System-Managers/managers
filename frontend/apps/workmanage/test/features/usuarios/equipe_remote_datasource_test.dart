@@ -179,32 +179,32 @@ void main() {
     );
   });
 
-  test(
-    'criarConvite manda nome e e-mail; cancelarConvite faz DELETE',
-    () async {
-      final adapter = FakeAdapter((options) async {
-        if (options.method == 'DELETE') return respostaJson(204, null);
-        return respostaJson(201, _conviteJson(5));
+  test('o convite traz a quem pertence e o link; cancelarConvite faz '
+      'DELETE', () async {
+    final adapter = FakeAdapter((options) async {
+      if (options.method == 'DELETE') return respostaJson(204, null);
+      return respostaJson(200, {
+        'count': 1,
+        'next': null,
+        'results': [
+          {
+            ..._conviteJson(5),
+            'colaborador': 9,
+            'link': 'http://localhost:5173/convite/abc-123',
+          },
+        ],
       });
-      final datasource = UsuariosRemoteDataSourceImpl(dioDeTeste(adapter));
+    });
+    final datasource = UsuariosRemoteDataSourceImpl(dioDeTeste(adapter));
 
-      final criado = await datasource.criarConvite(
-        nome: 'Caio',
-        email: 'caio@demo.com',
-      );
-      await datasource.cancelarConvite(5);
+    final convite = (await datasource.listarConvites()).single.toEntity();
+    await datasource.cancelarConvite(5);
 
-      expect(criado.toEntity().email, 'caio@demo.com');
-      expect(adapter.requisicoes[0].method, 'POST');
-      expect(adapter.requisicoes[0].path, 'convites/');
-      expect(adapter.requisicoes[0].data, {
-        'nome': 'Caio',
-        'email': 'caio@demo.com',
-      });
-      expect(adapter.requisicoes[1].method, 'DELETE');
-      expect(adapter.requisicoes[1].path, 'convites/5/');
-    },
-  );
+    expect(convite.colaboradorId, 9);
+    expect(convite.link, 'http://localhost:5173/convite/abc-123');
+    expect(adapter.requisicoes[1].method, 'DELETE');
+    expect(adapter.requisicoes[1].path, 'convites/5/');
+  });
 
   test('infoConvite e aceitarConvite usam o token na rota; aceitar devolve '
       'a sessão', () async {

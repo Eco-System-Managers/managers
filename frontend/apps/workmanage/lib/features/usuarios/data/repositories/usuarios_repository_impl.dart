@@ -97,20 +97,6 @@ class UsuariosRepositoryImpl implements UsuariosRepository {
   }
 
   @override
-  Future<Either<Failure, Convite>> criarConvite({
-    required String nome,
-    required String email,
-  }) {
-    return _executar(() async {
-      final model = await _remoteDataSource.criarConvite(
-        nome: nome,
-        email: email,
-      );
-      return model.toEntity();
-    });
-  }
-
-  @override
   Future<Either<Failure, void>> cancelarConvite(int id) {
     return _executar(() => _remoteDataSource.cancelarConvite(id));
   }

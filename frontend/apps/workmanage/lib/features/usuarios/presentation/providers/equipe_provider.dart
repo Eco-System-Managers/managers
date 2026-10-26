@@ -35,6 +35,15 @@ class EquipeProvider extends ChangeNotifier {
   // vazia para quem não é proprietário (a API nega a lista)
   List<Convite> get convites => _convites;
 
+  // o convite pendente de alguém da equipe, para a linha dele
+  Convite? conviteDe(int colaboradorId) =>
+      _convites.where((c) => c.colaboradorId == colaboradorId).firstOrNull;
+
+  // convites antigos, feitos sem a pessoa cadastrada: ficam numa lista à
+  // parte até serem aceitos ou cancelados
+  List<Convite> get convitesSoltos =>
+      _convites.where((c) => c.colaboradorId == null).toList();
+
   bool get carregado => _carregado;
   bool get isLoading => _isLoading;
   Failure? get erroAoCarregar => _erroAoCarregar;

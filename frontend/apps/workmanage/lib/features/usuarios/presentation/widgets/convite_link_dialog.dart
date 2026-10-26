@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-// o link do convite chega por e-mail e o app ainda não abre por deep link:
+// o link do convite chega por e-mail ou WhatsApp e o app ainda não abre por
+// deep link:
 // a pessoa cola o link (ou só o token) e a tela de aceite abre. o token é
 // o último pedaço do caminho do link
 Future<void> abrirConvitePorLink(BuildContext context) async {
@@ -13,7 +14,7 @@ Future<void> abrirConvitePorLink(BuildContext context) async {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Cole o link que você recebeu por e-mail.'),
+          const Text('Cole o link que você recebeu por e-mail ou WhatsApp.'),
           const SizedBox(height: 12),
           TextField(
             controller: controller,

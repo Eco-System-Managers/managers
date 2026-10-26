@@ -100,16 +100,6 @@ class ListarConvitesUseCase implements UseCase<List<Convite>, NoParams> {
       _repository.listarConvites();
 }
 
-class CriarConviteUseCase implements UseCase<Convite, NovoConviteParams> {
-  const CriarConviteUseCase(this._repository);
-
-  final UsuariosRepository _repository;
-
-  @override
-  Future<Either<Failure, Convite>> call(NovoConviteParams params) =>
-      _repository.criarConvite(nome: params.nome, email: params.email);
-}
-
 class CancelarConviteUseCase implements UseCase<void, int> {
   const CancelarConviteUseCase(this._repository);
 
