@@ -2443,6 +2443,11 @@ paths:
     get:
       operationId: contratos_list
       parameters:
+      - in: query
+        name: cliente
+        schema:
+          type: integer
+        description: Só os contratos deste cliente.
       - name: page
         required: false
         in: query
@@ -2455,6 +2460,15 @@ paths:
         description: Número de resultados a serem retornados por página.
         schema:
           type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - assinado
+          - enviado
+          - pendente
+          - recusado
       tags:
       - contratos
       security:
@@ -2823,6 +2837,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+  /api/v1/contratos/{id}/marcar/:
+    post:
+      operationId: contratos_marcar_create
+      description: 'Para o que acontece fora do sistema: o PDF compartilhado pelo
+        app, a assinatura no papel.'
+      summary: Marcar o contrato como enviado, assinado ou recusado
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Um valor inteiro único que identifica este Contrato.
+        required: true
+      tags:
+      - contratos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarcarContratoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MarcarContratoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MarcarContratoRequest'
+        required: true
+      security:
+      - workmanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contrato'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
   /api/v1/contratos/gerar/:
     post:
       operationId: contratos_gerar_create
@@ -2884,6 +2964,11 @@ paths:
     get:
       operationId: contratos_modelos_list
       parameters:
+      - in: query
+        name: ativo
+        schema:
+          type: boolean
+        description: Só os ativos (true) ou só os inativos (false).
       - name: page
         required: false
         in: query
@@ -8662,6 +8747,34 @@ components:
           format: uri
       required:
       - logo_url
+    MarcarContratoRequest:
+      type: object
+      properties:
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MarcarContratoStatusEnum'
+          description: |-
+            enviado só a partir de pendente; assinado e recusado encerram.
+
+            * `enviado` - enviado
+            * `assinado` - assinado
+            * `recusado` - recusado
+        nome_assinante:
+          type: string
+          description: Para assinado; vazio usa o nome do cliente.
+          maxLength: 255
+      required:
+      - status
+    MarcarContratoStatusEnum:
+      enum:
+      - enviado
+      - assinado
+      - recusado
+      type: string
+      description: |-
+        * `enviado` - enviado
+        * `assinado` - assinado
+        * `recusado` - recusado
     Mensagem:
       type: object
       description: 'Resposta de sucesso que só confirma a ação: {"detail": "..."}.'

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Contrato, ModeloContrato
+from .models import Contrato, ModeloContrato, StatusContrato
 
 
 class ModeloContratoSerializer(serializers.ModelSerializer):
@@ -31,6 +31,17 @@ class ContratoSerializer(serializers.ModelSerializer):
 class GerarContratoSerializer(serializers.Serializer):
     modelo_id = serializers.IntegerField()
     cliente_id = serializers.IntegerField()
+
+
+class MarcarContratoSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(
+        choices=[StatusContrato.ENVIADO, StatusContrato.ASSINADO, StatusContrato.RECUSADO],
+        help_text='enviado só a partir de pendente; assinado e recusado encerram.',
+    )
+    nome_assinante = serializers.CharField(
+        max_length=255, required=False, allow_blank=True,
+        help_text='Para assinado; vazio usa o nome do cliente.',
+    )
 
 
 class AssinarContratoSerializer(serializers.Serializer):

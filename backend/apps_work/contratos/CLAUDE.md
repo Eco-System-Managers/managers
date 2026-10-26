@@ -54,6 +54,26 @@ Registro da assinatura:
 O congelamento importa: mudar o modelo depois não reescreve contratos já
 gerados. O que a pessoa assinou continua sendo o que ela viu.
 
+## O fluxo do app (Work Manage)
+
+O app não usa o link de assinatura: ele **gera o PDF** do contrato e abre a
+folha de compartilhar do aparelho (WhatsApp, e-mail). O que acontece fora do
+sistema o dono registra em `POST contratos/{id}/marcar/` com `status`:
+
+| De | Para | Regra |
+|---|---|---|
+| `pendente` | `enviado` | PDF compartilhado. De outro status → 400 `contrato_ja_enviado` |
+| `pendente`/`enviado` | `assinado` | `nome_assinante` opcional (vazio usa o nome do cliente); `ip_assinante` fica nulo: a assinatura não veio pelo link |
+| `pendente`/`enviado` | `recusado` | |
+| `assinado`/`recusado` | qualquer | 400 `contrato_finalizado` |
+
+`DELETE contratos/{id}/` recusa contrato assinado (400 `contrato_assinado`).
+A lista filtra por `?cliente=` e `?status=`; modelos filtram por `?ativo=`.
+
+**Modelo só o proprietário escreve** (`IsProprietario` em criar, editar e
+apagar); qualquer um da equipe lista e gera contrato com ele. O app não apaga
+modelo: inativa por `PATCH ativo`, como faz com serviço.
+
 ## A parte pública
 
 `ContratoPublicoView` fica em `/api/v1/contratos/publico/<schema>/<token>/`,

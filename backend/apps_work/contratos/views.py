@@ -6,33 +6,66 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import BaseThrottle
 from rest_framework.views import APIView
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 
-from .models import Contrato, ModeloContrato
+from .models import Contrato, ModeloContrato, StatusContrato
 from .serializers import (
     AcaoContratoPublicoSerializer,
     AssinarContratoSerializer,
     ContratoPublicoSerializer,
     ContratoSerializer,
     GerarContratoSerializer,
+    MarcarContratoSerializer,
     ModeloContratoSerializer,
 )
 from .services import ContratoService
 from core.excecoes import erro
+from core.permissions import IsProprietario
 from core.schemas import schema_valido
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[OpenApiParameter('ativo', OpenApiTypes.BOOL, description='Só os ativos (true) ou só os inativos (false).')],
+    ),
+)
 class ModeloContratoViewSet(viewsets.ModelViewSet):
     serializer_class = ModeloContratoSerializer
     permission_classes = [IsAuthenticated]
 
+    # o modelo é texto do negócio: qualquer um da equipe gera contrato com
+    # ele, mas só o proprietário escreve
+    _ACOES_DO_PROPRIETARIO = ('create', 'update', 'partial_update', 'destroy')
+
+    def get_permissions(self):
+        if self.action in self._ACOES_DO_PROPRIETARIO:
+            return [IsAuthenticated(), IsProprietario()]
+        return super().get_permissions()
+
     def get_queryset(self):
-        return ModeloContrato.objects.all()
+        qs = ModeloContrato.objects.all()
+        ativo = self.request.query_params.get('ativo')
+        if ativo in ('true', 'false'):
+            qs = qs.filter(ativo=ativo == 'true')
+        return qs
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter('cliente', OpenApiTypes.INT, description='Só os contratos deste cliente.'),
+            OpenApiParameter('status', OpenApiTypes.STR, enum=[c.value for c in StatusContrato]),
+        ],
+    ),
+)
 class ContratoViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_destroy(self, instance):
+        ContratoService().remover(instance)
+
     def get_queryset(self):
         qs = Contrato.objects.select_related('cliente', 'modelo')
         cliente_id = self.request.query_params.get('cliente')
@@ -64,6 +97,22 @@ class ContratoViewSet(viewsets.ModelViewSet):
 
         contrato = ContratoService().gerar(modelo, cliente)
         return Response(ContratoSerializer(contrato).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=MarcarContratoSerializer, responses={200: ContratoSerializer},
+        summary='Marcar o contrato como enviado, assinado ou recusado',
+        description='Para o que acontece fora do sistema: o PDF compartilhado pelo app, a assinatura no papel.',
+    )
+    @action(detail=True, methods=['post'])
+    def marcar(self, request, pk=None):
+        serializer = MarcarContratoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contrato = ContratoService().marcar(
+            self.get_object(),
+            serializer.validated_data['status'],
+            serializer.validated_data.get('nome_assinante', ''),
+        )
+        return Response(ContratoSerializer(contrato).data)
 
     @extend_schema(request=None, responses={200: ContratoSerializer}, summary='Enviar contrato por e-mail ao cliente')
     @action(detail=True, methods=['post'])

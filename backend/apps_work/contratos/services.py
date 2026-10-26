@@ -104,6 +104,33 @@ class ContratoService:
         ])
         return contrato
 
+    def marcar(self, contrato: Contrato, novo_status: str, nome_assinante: str = '') -> Contrato:
+        """O dono registra o que aconteceu fora do sistema.
+
+        O app gera o PDF e manda pelo WhatsApp (enviado), o cliente devolve
+        assinado (assinado) ou diz que não assina (recusado). Finalizado não
+        volta: o que foi assinado ou recusado fica como está.
+        """
+        if contrato.status in (StatusContrato.ASSINADO, StatusContrato.RECUSADO):
+            raise ErroDeNegocio('Este contrato já está finalizado.', 'contrato_finalizado')
+        if novo_status == StatusContrato.ENVIADO:
+            if contrato.status != StatusContrato.PENDENTE:
+                raise ErroDeNegocio('Este contrato já foi enviado.', 'contrato_ja_enviado')
+            contrato.status = StatusContrato.ENVIADO
+            contrato.save(update_fields=['status', 'atualizado_em'])
+            return contrato
+        if novo_status == StatusContrato.ASSINADO:
+            # sem IP: a assinatura veio no papel ou no PDF, não pelo link
+            return self.assinar(contrato, nome_assinante or contrato.cliente.nome, ip=None)
+        if novo_status == StatusContrato.RECUSADO:
+            return self.recusar(contrato)
+        raise ErroDeNegocio('Status inválido.', 'status_invalido')
+
+    def remover(self, contrato: Contrato) -> None:
+        if contrato.status == StatusContrato.ASSINADO:
+            raise ErroDeNegocio('Contrato assinado não pode ser apagado.', 'contrato_assinado')
+        contrato.delete()
+
     def recusar(self, contrato: Contrato) -> Contrato:
         if contrato.status in (StatusContrato.ASSINADO, StatusContrato.RECUSADO):
             raise ErroDeNegocio('Contrato já está finalizado.', 'contrato_finalizado')
