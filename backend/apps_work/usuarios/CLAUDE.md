@@ -43,6 +43,10 @@ um depois, pelo `POST colaboradores/{id}/convidar/`.
 | `criado_em` | `DateTime` `auto_now_add` | |
 | `expira_em` | `DateTimeField` | |
 
+O serializer do convite expõe `link` (o mesmo `link_convite(token)` do e-mail):
+o dono manda por WhatsApp quando o e-mail não chega. Só o proprietário lista e
+cria convites, então o token não vaza; `info`/`aceitar` usam outro serializer.
+
 ## Vínculo: parceiro e colaborador
 
 O `tipo` decide o que a pessoa **vê**; o papel do `Membro` decide o que ela

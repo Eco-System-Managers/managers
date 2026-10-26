@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps_work.usuarios.models import Colaborador, ConviteColaborador
 from tenants.models import Membro
 from apps_work.usuarios.services import AceitarConviteService, ConviteService
+from core.links import link_convite
 
 
 @pytest.fixture
@@ -338,6 +339,9 @@ class TestConviteAPI:
         response = client_autenticado.post('/api/v1/convites/', payload)
         assert response.status_code == 201
         assert response.data['email'] == 'maria@email.com'
+        # o link é o mesmo do e-mail: o dono compartilha por WhatsApp
+        convite = ConviteColaborador.objects.get(pk=response.data['id'])
+        assert response.data['link'] == link_convite(convite.token)
 
     def test_criar_convite_com_falha_no_smtp_retorna_201(self, client_autenticado):
         """O e-mail sai por task: erro de SMTP não desfaz o convite nem vira 500."""

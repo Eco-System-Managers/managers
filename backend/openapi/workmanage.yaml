@@ -8386,6 +8386,10 @@ components:
           type: string
           format: date-time
           readOnly: true
+        link:
+          type: string
+          format: uri
+          readOnly: true
       required:
       - aceito
       - colaborador
@@ -8393,6 +8397,7 @@ components:
       - email
       - expira_em
       - id
+      - link
     ConviteColaboradorRequest:
       type: object
       properties:

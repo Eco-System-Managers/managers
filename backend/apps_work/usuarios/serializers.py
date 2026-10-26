@@ -4,6 +4,7 @@ from django.db import connection
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from core.links import link_convite
 from tenants.models import Membro, Papel
 from .models import Colaborador, ConviteColaborador, VinculoColaborador
 
@@ -67,10 +68,18 @@ class ConvidarColaboradorSerializer(serializers.Serializer):
 
 
 class ConviteColaboradorSerializer(serializers.ModelSerializer):
+    # o mesmo link do e-mail, para o dono mandar por WhatsApp quando o e-mail
+    # não chega. só o proprietário vê convites, então o token não vaza
+    link = serializers.SerializerMethodField()
+
     class Meta:
         model = ConviteColaborador
-        fields = ['id', 'nome', 'email', 'colaborador', 'aceito', 'criado_em', 'expira_em']
-        read_only_fields = ['id', 'colaborador', 'aceito', 'criado_em', 'expira_em']
+        fields = ['id', 'nome', 'email', 'colaborador', 'aceito', 'criado_em', 'expira_em', 'link']
+        read_only_fields = ['id', 'colaborador', 'aceito', 'criado_em', 'expira_em', 'link']
+
+    @extend_schema_field(serializers.URLField())
+    def get_link(self, obj) -> str:
+        return link_convite(obj.token)
 
 
 class ConviteInfoSerializer(serializers.Serializer):
