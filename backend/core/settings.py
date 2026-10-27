@@ -370,7 +370,7 @@ elif EMAIL_HOST_USER:
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # Com Resend, o remetente precisa ser de um domínio verificado lá.
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER or 'noreply@workmanager.com.br'
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER or 'noreply@workmanage.com.br'
 
 # Billing: gateway das assinaturas da plataforma e plano do trial/checkout
 BILLING_GATEWAY = os.getenv('BILLING_GATEWAY', 'mercadopago')
