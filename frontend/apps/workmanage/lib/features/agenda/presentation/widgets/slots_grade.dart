@@ -3,7 +3,9 @@ import 'package:managers/core/utils/datas.dart';
 
 import '../../domain/entities/slot.dart';
 
-// a grade de horários de um dia: um chip por slot, os ocupados apagados
+// a grade de horários de um dia: um chip por slot (a API da agenda só manda
+// os livres, de 15 em 15 min mais o fim de cada agendamento; um ocupado,
+// se vier, fica apagado)
 class SlotsGrade extends StatelessWidget {
   const SlotsGrade({
     super.key,

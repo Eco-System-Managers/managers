@@ -112,9 +112,18 @@ class SlotsAgendaService:
     e a ocupação de um não interfere na do outro.
     """
 
-    INTERVALO_MINUTOS = 30
+    # o passo da grade, igual ao da agenda do app
+    INTERVALO_MINUTOS = 15
 
     def listar(self, data: date, servico_id: int, colaborador_id: int) -> list[dict]:
+        """Os horários livres do dia para este serviço com este profissional.
+
+        Candidatos: a grade de 15 em 15 minutos a partir da abertura e, além
+        dela, o fim de cada agendamento já marcado — acabou um às 9:20, o 9:20
+        é oferecido, sem esperar o 9:30. Só os que cabem inteiros (o serviço
+        todo antes do fechamento, sem bater em ninguém) entram; a grade da
+        agenda já mostra o que está ocupado, então os ocupados não vêm.
+        """
         from apps_work.empresa.models import HorarioFuncionamento
         from apps_work.servicos.models import Servico
 
@@ -132,17 +141,20 @@ class SlotsAgendaService:
 
         ocupados = self._intervalos_ocupados(data, colaborador_id)
 
-        slots = []
+        candidatos = set()
         atual = abertura
-        # O último slot precisa caber inteiro dentro do expediente: oferecer um
-        # horário que termina depois do fechamento seria mentira.
         while atual + duracao <= fechamento:
-            fim = atual + duracao
-            livre = all(fim <= inicio_oc or atual >= fim_oc for inicio_oc, fim_oc in ocupados)
-            slots.append({'horario': atual.strftime('%H:%M'), 'disponivel': livre})
+            candidatos.add(atual)
             atual += timedelta(minutes=self.INTERVALO_MINUTOS)
+        for _, fim_oc in ocupados:
+            if abertura <= fim_oc and fim_oc + duracao <= fechamento:
+                candidatos.add(fim_oc)
 
-        return slots
+        return [
+            {'horario': inicio.strftime('%H:%M'), 'disponivel': True}
+            for inicio in sorted(candidatos)
+            if all(inicio + duracao <= inicio_oc or inicio >= fim_oc for inicio_oc, fim_oc in ocupados)
+        ]
 
     def _intervalos_ocupados(self, data: date, colaborador_id: int) -> list[tuple]:
         agendamentos = (

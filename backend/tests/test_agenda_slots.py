@@ -63,19 +63,35 @@ def _agendar(colaborador, servico, hora: time, nome='Ocupa') -> Agendamento:
 
 @pytest.mark.django_db
 class TestGradeDeSlots:
-    def test_grade_cobre_o_expediente_de_meia_em_meia_hora(self, expediente, servico, colaborador):
+    def test_grade_cobre_o_expediente_de_15_em_15_ate_o_servico_caber(self, expediente, servico, colaborador):
         slots = SlotsAgendaService().listar(DIA, servico.pk, colaborador.pk)
-        assert [s['horario'] for s in slots] == ['09:00', '09:30', '10:00', '10:30', '11:00']
+        # serviço de 60 min das 9 às 12: o último que cabe inteiro é 11:00
+        assert [s['horario'] for s in slots] == [
+            '09:00', '09:15', '09:30', '09:45', '10:00', '10:15', '10:30', '10:45', '11:00',
+        ]
+        assert all(s['disponivel'] for s in slots)
 
     def test_dia_sem_expediente_nao_tem_grade(self, patch_tenant_middleware, servico, colaborador):
         assert SlotsAgendaService().listar(DIA, servico.pk, colaborador.pk) == []
 
-    def test_horario_ocupado_fica_indisponivel(self, expediente, servico, colaborador):
+    def test_horario_ocupado_some_da_grade(self, expediente, servico, colaborador):
         _agendar(colaborador, servico, time(10, 0))
 
         slots = SlotsAgendaService().listar(DIA, servico.pk, colaborador.pk)
 
-        assert [s['horario'] for s in slots if not s['disponivel']] == ['09:30', '10:00', '10:30']
+        # 10:00-11:00 ocupado: de 9:15 a 10:45 o serviço de 60 min bateria nele
+        assert [s['horario'] for s in slots] == ['09:00', '11:00']
+
+    def test_o_fim_de_um_agendamento_vira_horario(self, expediente, colaborador):
+        """Acabou às 9:20, o 9:20 é oferecido: sem esperar o próximo da grade."""
+        curto = Servico.objects.create(nome='Barba', duracao=20, preco='20.00')
+        _agendar(colaborador, curto, time(9, 0))
+
+        slots = [s['horario'] for s in SlotsAgendaService().listar(DIA, curto.pk, colaborador.pk)]
+
+        assert slots[:3] == ['09:20', '09:30', '09:45']
+        # 9:15 bateria no que vai até 9:20
+        assert '09:15' not in slots
 
     def test_agenda_de_outro_colaborador_nao_afeta(self, expediente, servico, colaborador, outro_colaborador):
         _agendar(outro_colaborador, servico, time(10, 0))

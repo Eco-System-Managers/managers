@@ -92,3 +92,14 @@ faria horário sumir da tela sem erro nenhum.
   certo assim.
 - **Duração vem dos serviços, não do agendamento.** Não existe campo de duração;
   ela é sempre a soma dos serviços vinculados.
+
+## A grade de horários (`agenda/slots/`)
+
+`SlotsAgendaService` devolve só os horários **livres** de um profissional
+para um serviço num dia. Os candidatos são a grade de 15 em 15 minutos a
+partir da abertura (o passo da agenda do app) mais o fim de cada
+agendamento já marcado: acabou um às 9:20, o 9:20 é oferecido. Entra quem
+cabe inteiro, antes do fechamento e sem bater em ninguém; `disponivel` vem
+sempre `True` (o campo fica pelo contrato comum com os slots do kanban, que
+ainda marcam os ocupados). A ocupação é por profissional: a agenda de um não
+interfere na do outro.
