@@ -32,6 +32,10 @@ def _chave_jwt(produto: str) -> str:
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.localhost').split(',')
+# O Railway informa o domínio público do serviço (xxx.up.railway.app). Somar
+# aqui evita ter de copiar esse nome para ALLOWED_HOSTS à mão a cada ambiente.
+if os.getenv('RAILWAY_PUBLIC_DOMAIN'):
+    ALLOWED_HOSTS.append(os.getenv('RAILWAY_PUBLIC_DOMAIN'))
 
 SHARED_APPS = [
     'django_tenants',
@@ -48,8 +52,10 @@ SHARED_APPS = [
     'corsheaders',
     'drf_spectacular',
     'core',
+    'anymail',
     'apps_work.billing',
     'apps_work.autenticacao',
+    'apps_work.paginas',
     'apps_serv.autenticacao',
     'apps_serv.consumidores',
     'apps_serv.vitrine',
@@ -81,6 +87,8 @@ MIDDLEWARE = [
     # consegue ler o erro), e o preflight (OPTIONS) é respondido pelo CORS antes
     # de cair no bloqueio de assinatura. Nenhum dos dois depende do schema.
     'django.middleware.security.SecurityMiddleware',
+    # Serve os estáticos do admin com DEBUG=False, sem nginx na frente.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django_tenants.middleware.main.TenantMainMiddleware',
     'core.middleware.JWTTenantMiddleware',
@@ -158,6 +166,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+# Destino do collectstatic no build do deploy; o WhiteNoise serve dali.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -229,8 +239,11 @@ STORAGES = {
             # reconhece a assinatura.
         },
     },
+    # Comprimido, mas sem manifest: com manifest, todo template do admin
+    # quebraria (ValueError) em quem roda sem ter feito collectstatic — os
+    # testes, por exemplo, rodam com DEBUG=False.
     'staticfiles': {
-        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
 }
 
@@ -343,14 +356,21 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-# Sem credenciais de SMTP (desenvolvimento local), o e-mail sai no terminal do
-# runserver: os códigos de cadastro e de recuperação continuam chegando.
-EMAIL_BACKEND = (
-    'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST_USER
-    else 'django.core.mail.backends.console.EmailBackend'
-)
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER', 'noreply@workmanage.com.br')
+# Em produção o e-mail sai pela API HTTPS do Resend (django-anymail): o Railway
+# bloqueia SMTP nos planos Trial e Hobby. Sem a chave, vale o SMTP; sem
+# credenciais de SMTP (desenvolvimento local), o e-mail sai no terminal do
+# runserver: os códigos de cadastro e de recuperação continuam chegando.
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+if RESEND_API_KEY:
+    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
+    ANYMAIL = {'RESEND_API_KEY': RESEND_API_KEY}
+elif EMAIL_HOST_USER:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Com Resend, o remetente precisa ser de um domínio verificado lá.
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER or 'noreply@workmanager.com.br'
 
 # Billing: gateway das assinaturas da plataforma e plano do trial/checkout
 BILLING_GATEWAY = os.getenv('BILLING_GATEWAY', 'mercadopago')

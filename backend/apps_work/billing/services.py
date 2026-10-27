@@ -9,7 +9,9 @@ import requests
 from django.conf import settings
 from django.urls import reverse
 
-from .models import Assinatura, Gateway, PagamentoAssinatura, Plano, StatusAssinatura, StatusPagamento, TipoPlano
+from .models import (
+    VENCIMENTO_VITALICIO, Assinatura, Gateway, PagamentoAssinatura, Plano, StatusAssinatura, StatusPagamento, TipoPlano,
+)
 from tenants.models import Papel
 
 
@@ -346,6 +348,36 @@ PRECO_INICIAL_PLANO = {
     TipoPlano.BUSINESS: Decimal('99.90'),
     TipoPlano.ENTERPRISE: Decimal('199.90'),
 }
+
+
+def conceder_acesso_vitalicio(assinatura: Assinatura) -> None:
+    """Libera o negócio para sempre, sem cobrança.
+
+    Usa o que o bloqueio já entende — `ativa` nunca bloqueia —, então nem o
+    middleware nem o app precisam conhecer um status novo. Sem `id_externo`,
+    nenhuma notificação do gateway acha a assinatura pelo id.
+    """
+    if assinatura.status == StatusAssinatura.ATIVA and assinatura.id_externo:
+        # Zerar o id aqui deixaria a recorrência viva no gateway, cobrando
+        # alguém que já não teria como cancelar pelo app.
+        raise AssinaturaInvalidaError(
+            'Este negócio paga uma assinatura recorrente. Cancele-a antes, senão a cobrança continua.'
+        )
+    assinatura.status = StatusAssinatura.ATIVA
+    assinatura.id_externo = None
+    assinatura.trial_fim = None
+    assinatura.proximo_vencimento = VENCIMENTO_VITALICIO
+    assinatura.save(update_fields=['status', 'id_externo', 'trial_fim', 'proximo_vencimento'])
+
+
+def revogar_acesso_vitalicio(assinatura: Assinatura) -> None:
+    """Desfaz a concessão: o acesso vale até o fim do dia e depois bloqueia,
+    como uma assinatura cancelada que venceu. Para voltar, o negócio assina."""
+    if not assinatura.vitalicia:
+        raise AssinaturaInvalidaError('Este negócio não tem acesso vitalício.')
+    assinatura.status = StatusAssinatura.CANCELADA
+    assinatura.proximo_vencimento = date.today()
+    assinatura.save(update_fields=['status', 'proximo_vencimento'])
 
 
 def plano_padrao() -> Plano:

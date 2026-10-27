@@ -1,0 +1,16 @@
+{% extends "paginas/base.html" %}
+{% block titulo %}Convite — Work Manage{% endblock %}
+{% block conteudo %}
+  <h1>{% if nome %}Olá, {{ nome }}!{% else %}Olá!{% endif %}</h1>
+  <p>Você foi convidado para a equipe <strong>{{ empresa }}</strong> no Work Manage. Crie uma senha para acessar.</p>
+  <p class="suave">Seu login será <strong>{{ email }}</strong>.</p>
+  {% if erro %}<p class="erro">{{ erro }}</p>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <label for="senha">Senha</label>
+    <input type="password" id="senha" name="senha" autocomplete="new-password" minlength="8" required>
+    <label for="confirmacao">Repita a senha</label>
+    <input type="password" id="confirmacao" name="confirmacao" autocomplete="new-password" minlength="8" required>
+    <button type="submit">Criar minha conta</button>
+  </form>
+{% endblock %}

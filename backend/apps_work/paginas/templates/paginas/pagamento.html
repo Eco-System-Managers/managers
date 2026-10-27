@@ -1,0 +1,11 @@
+{% extends "paginas/base.html" %}
+{% block titulo %}Assinatura — Work Manage{% endblock %}
+{% block conteudo %}
+  <h1>Quase pronto!</h1>
+  <p>Volte ao app <strong>Work Manage</strong>. Assim que o Mercado Pago confirmar o pagamento, o acesso é liberado — normalmente em poucos instantes.</p>
+  {% if preapproval_id %}
+    <p class="suave">Se o app pedir o código da assinatura, use este:</p>
+    <p><code id="codigo">{{ preapproval_id }}</code></p>
+    <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('codigo').textContent).then(() => { this.textContent = 'Copiado' })">Copiar código</button>
+  {% endif %}
+{% endblock %}

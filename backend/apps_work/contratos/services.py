@@ -137,3 +137,20 @@ class ContratoService:
         contrato.status = StatusContrato.RECUSADO
         contrato.save(update_fields=['status', 'atualizado_em'])
         return contrato
+
+
+def contrato_publico(schema_name: str, token) -> Contrato | None:
+    """O contrato aberto pelo link do e-mail, ou None se o link não leva a um.
+
+    Usado pela API pública e pela página de assinatura (apps_work/paginas). O
+    schema vem da URL: sem checar, schema inexistente dava 500 e o público era
+    alcançável.
+    """
+    from django_tenants.utils import schema_context
+    from core.schemas import schema_valido
+    from tenants.models import Tenant
+
+    if not schema_valido(schema_name) or not Tenant.objects.filter(schema_name=schema_name).exists():
+        return None
+    with schema_context(schema_name):
+        return Contrato.objects.select_related('cliente').filter(token=token).first()

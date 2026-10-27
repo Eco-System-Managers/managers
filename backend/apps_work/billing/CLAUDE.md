@@ -13,6 +13,25 @@ negócio e os clientes dele. Este é o dinheiro entre o negócio e **nós**.
 | `services.py` | `GatewayPagamento` (a interface do provedor) e `MercadoPagoGateway`, a implementação: criar plano no gateway, gerar link, confirmar, cancelar e processar webhook. `gateway_de_pagamento()` devolve o configurado em `BILLING_GATEWAY` |
 | `views.py` | Assinatura atual, iniciar, confirmar, cancelar, histórico paginado e o endpoint de webhook |
 | `serializers.py` | Representação |
+| `admin.py` | Plano, assinatura e pagamentos no `/admin/`, com as ações de acesso vitalício. Preço e vínculo com o gateway são só leitura ali |
+
+## Preço do plano
+
+O preço vive em dois lugares — `Plano.preco_mensal` e o plano no Mercado Pago —
+e quem acerta os dois é `python manage.py configurar_plano --preco 69.90`. Ele
+cria um plano novo no Mercado Pago a cada execução e aponta o checkout para
+ele: quem assina dali em diante paga o valor novo; as recorrências já feitas
+continuam no valor antigo. Num banco novo, rodar uma vez antes de lançar —
+sem ele o plano fica sem `link_checkout` e ninguém consegue assinar.
+
+## Acesso vitalício
+
+`conceder_acesso_vitalicio()` (`services.py`, ou a ação no admin) deixa a
+assinatura `ativa`, sem `id_externo` e com vencimento em
+`VENCIMENTO_VITALICIO` (31/12/2099) — é essa combinação que
+`Assinatura.vitalicia` reconhece. Não há status novo: `ativa` já não bloqueia,
+e o app não precisa mudar. Recusa quem paga recorrência (cancele antes, senão
+o Mercado Pago continua cobrando). `revogar_acesso_vitalicio()` desfaz.
 
 ## Tabelas
 
@@ -105,6 +124,8 @@ driblar.
   (`webhook`), separado do de anônimo.
 - **Rotas de billing são isentas do bloqueio**, junto com `/colaboradores/me/` e
   `/empresa/config/` — senão o tenant bloqueado não alcança a tela que resolve.
-- **O `back_url` do preapproval é fixado na criação do plano** e aponta para o
-  `LINKS_BASE_URL` (`core/links.py`). Por isso o checkout do app mobile retorna pela web, com um
-  botão que abre o app de volta.
+- **O `back_url` do preapproval é fixado na criação do plano** e aponta para
+  `MERCADOPAGO_BACK_URL` + `billing/retorno/` — o domínio da API, com https.
+  Esse endpoint repassa a pessoa para `/app/pagamentos` (`core/links.py`), a
+  página que manda voltar ao app. Mudar o domínio exige rodar
+  `configurar_plano` de novo.

@@ -2,11 +2,11 @@
 
 O lado **B2B**: o painel que o negócio usa para se gerenciar.
 
-Doze apps, ~4.700 linhas. Quase todos vivem no **schema do tenant**
+Treze apps, ~4.900 linhas. Quase todos vivem no **schema do tenant**
 (`TENANT_APPS`) — cada negócio tem os próprios clientes, agenda e caixa, isolados
 no nível do banco.
 
-## Os doze apps
+## Os treze apps
 
 **Operação do dia a dia**
 
@@ -34,6 +34,7 @@ no nível do banco.
 | `contratos` | Modelos, geração e assinatura pública |
 | `dashboard` | Visão de leitura sobre os outros. Sem model próprio |
 | `notificacoes` | Avisos no painel. O menor app |
+| `paginas` | As páginas HTML dos links que abrem no navegador: convite, contrato e volta do checkout. Sem model; as regras são dos services de `usuarios`, `contratos` e `billing` |
 
 ## Sobre as tabelas
 
@@ -61,7 +62,9 @@ pendências de cobrança e a agenda do cliente no app precisam ler os dois.
 
 ## Quais são compartilhados
 
-Nem todos são de tenant. `autenticacao` e `billing` estão em `SHARED_APPS`:
+Nem todos são de tenant. `autenticacao`, `billing` e `paginas` estão em
+`SHARED_APPS` (`paginas` porque responde no schema público e troca para o do
+tenant pelo token do link):
 
 - `autenticacao` porque o relógio de inatividade precisa funcionar antes de o
   schema ser resolvido

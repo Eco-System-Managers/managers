@@ -7,3 +7,4 @@ __pycache__/
 
 # arquivos de importação com dados reais de clientes (ex.: export do GENDO)
 backend/tmp/
+backend/staticfiles/

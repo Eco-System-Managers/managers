@@ -84,6 +84,11 @@ assina o contrato sem ter conta no sistema.
 
 A assinatura registra nome e IP de quem assinou, mais o horário.
 
+O link do e-mail (`/contrato/<schema>/<token>`) abre a página HTML de
+`apps_work/paginas`, que lê e assina pelos mesmos caminhos da API:
+`contrato_publico()` (a checagem de schema e token, em `services.py`) e
+`ContratoService.assinar`/`recusar`.
+
 ## O que é fácil errar aqui
 
 - **O `schema_name` da rota pública é entrada do usuário.** `ContratoPublicoView`

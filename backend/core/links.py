@@ -9,6 +9,9 @@ mudar um caminho quebra o link no app.
 - /contrato/<schema>/<token>      página web de assinatura (cliente da empresa,
                                   que não tem o app)
 - /app/pagamentos?<query>         volta do checkout da assinatura
+
+Enquanto o app não abre esses links, quem os serve é a própria API, com
+páginas simples (apps_work/paginas) — LINKS_BASE_URL é o domínio da API.
 """
 from django.conf import settings
 

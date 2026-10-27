@@ -5,6 +5,7 @@ import hmac
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.contrib.auth.models import User
 from django.test import RequestFactory
 
 from apps_work.billing.models import Assinatura, PagamentoAssinatura, Plano
@@ -679,3 +680,135 @@ def test_plano_padrao_e_criado_uma_vez_e_reaproveitado(settings):
     primeiro = plano_padrao()
     assert (primeiro.nome, str(primeiro.preco_mensal)) == ('business', '99.90')
     assert plano_padrao().pk == primeiro.pk
+
+
+# ---------------------------------------------------------------------------
+# Acesso vitalício, configurar_plano e admin
+# ---------------------------------------------------------------------------
+
+def _assinatura(tenant, **campos):
+    plano = Plano.objects.get_or_create(nome='pro', defaults={'preco_mensal': '69.90'})[0]
+    dados = {
+        'status': 'trial', 'inicio': datetime.date.today(),
+        'proximo_vencimento': datetime.date.today(), 'trial_fim': datetime.date.today() - datetime.timedelta(days=1),
+    }
+    return Assinatura.objects.create(tenant=tenant, plano=plano, **{**dados, **campos})
+
+
+@pytest.mark.django_db
+class TestAcessoVitalicio:
+    def test_conceder_libera_trial_vencido(self, tenant):
+        from apps_work.billing.services import conceder_acesso_vitalicio
+        assinatura = _assinatura(tenant)
+        assert assinatura.bloqueada
+
+        conceder_acesso_vitalicio(assinatura)
+
+        assinatura.refresh_from_db()
+        assert assinatura.status == 'ativa'
+        assert assinatura.vitalicia
+        assert not assinatura.bloqueada
+
+    def test_conceder_recusa_quem_paga_recorrencia(self, tenant):
+        from apps_work.billing.services import AssinaturaInvalidaError, conceder_acesso_vitalicio
+        assinatura = _assinatura(tenant, status='ativa', id_externo='pre-1')
+
+        with pytest.raises(AssinaturaInvalidaError):
+            conceder_acesso_vitalicio(assinatura)
+
+        assinatura.refresh_from_db()
+        assert assinatura.id_externo == 'pre-1'
+
+    def test_revogar_vale_ate_o_fim_do_dia(self, tenant):
+        from apps_work.billing.services import conceder_acesso_vitalicio, revogar_acesso_vitalicio
+        assinatura = _assinatura(tenant)
+        conceder_acesso_vitalicio(assinatura)
+
+        revogar_acesso_vitalicio(assinatura)
+
+        assinatura.refresh_from_db()
+        assert assinatura.status == 'cancelada'
+        assert not assinatura.vitalicia
+        assert not assinatura.bloqueada
+
+    def test_revogar_recusa_quem_nao_e_vitalicio(self, tenant):
+        from apps_work.billing.services import AssinaturaInvalidaError, revogar_acesso_vitalicio
+        with pytest.raises(AssinaturaInvalidaError):
+            revogar_acesso_vitalicio(_assinatura(tenant, status='ativa'))
+
+    def test_acao_do_admin(self, tenant):
+        from django.test import Client
+        assinatura = _assinatura(tenant)
+        admin = User.objects.create_superuser('admin@x.com', 'admin@x.com', 'SenhaForte@2024!')
+        navegador = Client(HTTP_HOST='localhost')
+        navegador.force_login(admin)
+
+        resposta = navegador.post(
+            '/admin/billing/assinatura/',
+            {'action': 'conceder_vitalicio', '_selected_action': [assinatura.pk]},
+        )
+
+        assert resposta.status_code == 302
+        assinatura.refresh_from_db()
+        assert assinatura.vitalicia
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures('mp_settings')
+class TestConfigurarPlano:
+    @pytest.fixture(autouse=True)
+    def _back_url(self, settings):
+        settings.MERCADOPAGO_BACK_URL = 'https://api.exemplo.com.br'
+        settings.PLANO_PADRAO = 'pro'
+
+    def _recurso_plano(self, id_plano):
+        recurso = MagicMock()
+        recurso.create.return_value = {
+            'status': 201, 'response': {'id': id_plano, 'init_point': f'https://mp.example/checkout/{id_plano}'},
+        }
+        return recurso
+
+    def _rodar(self, recurso, *args):
+        from django.core.management import call_command
+        with patch('apps_work.billing.services.mercadopago.SDK', return_value=_mock_sdk(plan=recurso)):
+            call_command('configurar_plano', *args, stdout=MagicMock())
+
+    def test_cria_o_plano_com_o_preco(self):
+        recurso = self._recurso_plano('plan-1')
+
+        self._rodar(recurso, '--preco', '79,90')
+
+        plano = Plano.objects.get(nome='pro')
+        assert str(plano.preco_mensal) == '79.90'
+        assert plano.id_externo == 'plan-1'
+        assert plano.link_checkout == 'https://mp.example/checkout/plan-1'
+        enviado = recurso.create.call_args.args[0]
+        assert enviado['auto_recurring']['transaction_amount'] == 79.9
+        assert enviado['back_url'] == 'https://api.exemplo.com.br/api/v1/billing/retorno/'
+
+    def test_mudar_o_preco_cria_outro_plano_no_gateway(self):
+        self._rodar(self._recurso_plano('plan-1'), '--preco', '69.90')
+
+        self._rodar(self._recurso_plano('plan-2'), '--preco', '89.90')
+
+        plano = Plano.objects.get(nome='pro')
+        assert (str(plano.preco_mensal), plano.id_externo) == ('89.90', 'plan-2')
+
+    def test_gateway_recusou_mantem_o_preco_anterior(self):
+        from django.core.management.base import CommandError
+        self._rodar(self._recurso_plano('plan-1'), '--preco', '69.90')
+        recusa = MagicMock()
+        recusa.create.return_value = {'status': 400, 'response': {'message': 'erro'}}
+
+        with pytest.raises(CommandError):
+            self._rodar(recusa, '--preco', '99.90')
+
+        plano = Plano.objects.get(nome='pro')
+        assert (str(plano.preco_mensal), plano.id_externo) == ('69.90', 'plan-1')
+
+    def test_exige_back_url_https(self, settings):
+        from django.core.management.base import CommandError
+        settings.MERCADOPAGO_BACK_URL = 'http://localhost:8000'
+        with pytest.raises(CommandError):
+            self._rodar(self._recurso_plano('plan-1'), '--preco', '69.90')
+        assert not Plano.objects.filter(nome='pro', id_externo='plan-1').exists()

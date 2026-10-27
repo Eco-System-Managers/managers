@@ -1,0 +1,18 @@
+# Configuração do serviço da API no Railway.
+# Em monorepo o Railway não acha este arquivo sozinho: em Settings do serviço,
+# Root Directory = /backend e Config File Path = /backend/railway.toml.
+
+[build]
+builder = "RAILPACK"
+buildCommand = "python manage.py collectstatic --noinput"
+
+[deploy]
+# Roda antes de cada deploy entrar no ar; se falhar, o deploy é abortado e a
+# versão anterior continua servindo. migrate_schemas migra o public e todos os
+# tenants.
+preDeployCommand = ["python manage.py migrate_schemas"]
+# O gunicorn escuta em 0.0.0.0:$PORT sozinho quando o Railway define PORT, e
+# lê o número de workers de WEB_CONCURRENCY.
+startCommand = "gunicorn core.wsgi:application"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

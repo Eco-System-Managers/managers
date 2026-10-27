@@ -24,6 +24,12 @@ class StatusAssinatura(models.TextChoices):
     TRIAL = 'trial', 'Trial'
 
 
+# Vencimento de quem ganhou acesso vitalício (billing.services.conceder_acesso_vitalicio).
+# A data marca a concessão sem coluna nova, e o app, que exibe o próximo
+# vencimento, mostra uma data coerente em vez de uma já passada.
+VENCIMENTO_VITALICIO = date(2099, 12, 31)
+
+
 class StatusPagamento(models.TextChoices):
     """Status de um pagamento da mensalidade da plataforma."""
     PAGO = 'pago', 'Pago'
@@ -72,6 +78,14 @@ class Assinatura(models.Model):
             # fim do período já pago (mesma data usada pra cobrar de novo).
             return self.proximo_vencimento is None or self.proximo_vencimento < date.today()
         return False
+
+    @property
+    def vitalicia(self) -> bool:
+        return (
+            self.status == StatusAssinatura.ATIVA
+            and not self.id_externo
+            and self.proximo_vencimento == VENCIMENTO_VITALICIO
+        )
 
     def _invalidar_cache(self) -> None:
         """Derruba o estado memorizado pelo AssinaturaBloqueadaMiddleware.

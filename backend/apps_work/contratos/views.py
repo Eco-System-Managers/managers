@@ -19,10 +19,9 @@ from .serializers import (
     MarcarContratoSerializer,
     ModeloContratoSerializer,
 )
-from .services import ContratoService
+from .services import ContratoService, contrato_publico
 from core.excecoes import erro
 from core.permissions import IsProprietario
-from core.schemas import schema_valido
 
 
 @extend_schema_view(
@@ -135,16 +134,7 @@ class ContratoPublicoView(APIView):
     permission_classes = [AllowAny]
 
     def _get_contrato(self, schema_name: str, token: str):
-        # schema_name vem da URL pública: sem checar, schema inexistente dava
-        # 500 e o público era alcançável.
-        from tenants.models import Tenant
-        if not schema_valido(schema_name) or not Tenant.objects.filter(schema_name=schema_name).exists():
-            return None
-        try:
-            with schema_context(schema_name):
-                return Contrato.objects.select_related('cliente').get(token=token)
-        except Contrato.DoesNotExist:
-            return None
+        return contrato_publico(schema_name, token)
 
     @extend_schema(responses=ContratoPublicoSerializer, summary='Contrato aberto pelo link do e-mail')
     def get(self, request, schema_name: str, token: str):

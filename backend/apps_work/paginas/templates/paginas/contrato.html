@@ -1,0 +1,28 @@
+{% extends "paginas/base.html" %}
+{% block titulo %}{{ titulo }} — Work Manage{% endblock %}
+{% block conteudo %}
+  {% if negocio_nome %}<p class="suave">{{ negocio_nome }}</p>{% endif %}
+  <h1>{{ titulo }}</h1>
+  {% if status == "assinado" %}
+    <p class="ok">Assinado por {{ contrato.nome_assinante }} em {{ contrato.assinado_em|date:"d/m/Y \à\s H:i" }}.</p>
+  {% elif status == "recusado" %}
+    <p class="erro">Este contrato foi recusado.</p>
+  {% endif %}
+  <div class="corpo">{{ corpo|linebreaks }}</div>
+  {% if aberto %}
+    {% if erro %}<p class="erro">{{ erro }}</p>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="assinar">
+      <label for="nome">Seu nome completo</label>
+      <input type="text" id="nome" name="nome_assinante" autocomplete="name" maxlength="255" required>
+      <label class="check"><input type="checkbox" required> Li o contrato e concordo com os termos.</label>
+      <button type="submit">Assinar contrato</button>
+    </form>
+    <form method="post" onsubmit="return confirm('Recusar este contrato?')">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="recusar">
+      <button type="submit" class="secundario">Recusar</button>
+    </form>
+  {% endif %}
+{% endblock %}
