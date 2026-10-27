@@ -6,6 +6,7 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/estado_vazio.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
+import 'package:managers/core/widgets/sombra_de_borda.dart';
 
 import '../../clientes_provider.dart';
 import '../providers/clientes_provider.dart';
@@ -71,32 +72,34 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             tooltip: 'Novo cliente',
             child: const Icon(Icons.person_add_alt_1),
           ),
-          body: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: TextField(
-                  controller: _buscaController,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: provider.buscar,
-                  decoration: InputDecoration(
-                    hintText: 'Nome, telefone, e-mail ou CPF',
-                    prefixIcon: const Icon(Icons.search),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: _buscaController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _buscaController.clear();
-                              provider.buscar('');
-                            },
-                          ),
+          body: comSombraEmBaixo(
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: TextField(
+                    controller: _buscaController,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: provider.buscar,
+                    decoration: InputDecoration(
+                      hintText: 'Nome, telefone, e-mail ou CPF',
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: _buscaController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _buscaController.clear();
+                                provider.buscar('');
+                              },
+                            ),
+                    ),
                   ),
                 ),
-              ),
-              Expanded(child: _corpo(provider)),
-            ],
+                Expanded(child: _corpo(provider)),
+              ],
+            ),
           ),
         );
       },

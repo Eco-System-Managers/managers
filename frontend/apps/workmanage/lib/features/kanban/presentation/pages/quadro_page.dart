@@ -5,6 +5,7 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/faixa_semana.dart';
+import 'package:managers/core/widgets/sombra_de_borda.dart';
 import 'package:managers/features/usuarios/presentation/widgets/filtro_profissionais.dart';
 
 import '../../domain/entities/etapa.dart';
@@ -101,38 +102,40 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
             icon: const Icon(Icons.add),
             label: const Text('Receber'),
           ),
-          body: Column(
-            children: [
-              FaixaSemana(
-                dia: provider.dia,
-                hoje: provider.hoje,
-                // o quadro não tem as bolinhas: a API não lista dias com
-                // registro para a esteira
-                temRegistro: (_) => false,
-                onSelecionar: provider.selecionarDia,
-                expandido: _mesAberto,
-                onExpandir: (aberto) => setState(() => _mesAberto = aberto),
-              ),
-              if (provider.colaboradores.isNotEmpty)
-                FiltroProfissionais(
-                  colaboradores: provider.colaboradores,
-                  selecionadoId: provider.colaboradorId,
-                  onSelecionar: provider.filtrarColaborador,
+          body: comSombraEmBaixo(
+            Column(
+              children: [
+                FaixaSemana(
+                  dia: provider.dia,
+                  hoje: provider.hoje,
+                  // o quadro não tem as bolinhas: a API não lista dias com
+                  // registro para a esteira
+                  temRegistro: (_) => false,
+                  onSelecionar: provider.selecionarDia,
+                  expandido: _mesAberto,
+                  onExpandir: (aberto) => setState(() => _mesAberto = aberto),
                 ),
-              if (provider.isLoading && provider.carregado)
-                const LinearProgressIndicator(minHeight: 2)
-              else
-                const Divider(height: 2),
-              if (provider.errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Text(
-                    provider.errorMessage!,
-                    style: TextStyle(color: colors.error),
+                if (provider.colaboradores.isNotEmpty)
+                  FiltroProfissionais(
+                    colaboradores: provider.colaboradores,
+                    selecionadoId: provider.colaboradorId,
+                    onSelecionar: provider.filtrarColaborador,
                   ),
-                ),
-              Expanded(child: _corpo(provider)),
-            ],
+                if (provider.isLoading && provider.carregado)
+                  const LinearProgressIndicator(minHeight: 2)
+                else
+                  const Divider(height: 2),
+                if (provider.errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Text(
+                      provider.errorMessage!,
+                      style: TextStyle(color: colors.error),
+                    ),
+                  ),
+                Expanded(child: _corpo(provider)),
+              ],
+            ),
           ),
         );
       },

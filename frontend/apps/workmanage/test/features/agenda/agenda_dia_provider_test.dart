@@ -217,11 +217,14 @@ void main() {
       expect(provider.expedienteDoDia?.abertura.emMinutos, 9 * 60);
       expect(provider.expedienteDoDia?.fechamento.emMinutos, 13 * 60);
       expect(provider.passoMinutos, passoDaGrade);
-      // os horários vão à API uma vez só
+      // os horários vão à API uma vez só ao trocar de dia...
       await provider.selecionarDia(DateTime(2026, 10, 26));
       verify(() => buscarHorarios(any())).called(1);
       // segunda fechada: sem expediente
       expect(provider.expedienteDoDia, isNull);
+      // ...e de novo no recarregar: podem ter mudado em Mais
+      await provider.recarregar();
+      verify(() => buscarHorarios(any())).called(1);
     },
   );
 }

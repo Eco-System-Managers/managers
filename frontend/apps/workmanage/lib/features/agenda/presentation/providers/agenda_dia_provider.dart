@@ -156,10 +156,12 @@ class AgendaDiaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ao voltar de uma tela que pode ter criado ou cancelado agendamento, as
-  // bolinhas são buscadas de novo
+  // ao voltar de uma tela que pode ter criado ou cancelado agendamento (ou
+  // mudado os horários de funcionamento, em Mais), as bolinhas e o
+  // expediente são buscados de novo
   Future<void> recarregar() async {
     _meses.clear();
+    _horariosCarregados = false;
     await carregar();
   }
 

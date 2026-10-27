@@ -40,10 +40,20 @@ class RankingServicoSerializer(serializers.Serializer):
     total = serializers.IntegerField()
 
 
+class PontoDaSerieSerializer(serializers.Serializer):
+    data = serializers.DateField()
+    faturamento = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True, help_text='Nulo para quem não vê valores.',
+    )
+    atendimentos = serializers.IntegerField()
+
+
 class AgendamentoHojeSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     cliente_nome = serializers.CharField()
+    cliente_telefone = serializers.CharField(help_text='Só dígitos; para o WhatsApp.')
     servico_nome = serializers.CharField()
+    colaborador_nome = serializers.CharField(help_text='Vazio sem profissional.')
     hora = serializers.CharField(help_text='HH:MM')
     status = serializers.CharField()
 
@@ -55,5 +65,6 @@ class DashboardResumoSerializer(serializers.Serializer):
         allow_null=True, help_text='O profissional aplicado (o próprio, para quem não é proprietário).',
     )
     kpis = DashboardKpisSerializer()
+    serie = PontoDaSerieSerializer(many=True, help_text='Um ponto por dia do período, com os critérios dos kpis.')
     ranking_servicos = RankingServicoSerializer(many=True, help_text='Top 5 do período.')
     agendamentos_hoje = AgendamentoHojeSerializer(many=True, help_text='Até 10 do dia, independente do período.')

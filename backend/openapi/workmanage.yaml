@@ -7581,8 +7581,14 @@ components:
           type: integer
         cliente_nome:
           type: string
+        cliente_telefone:
+          type: string
+          description: Só dígitos; para o WhatsApp.
         servico_nome:
           type: string
+        colaborador_nome:
+          type: string
+          description: Vazio sem profissional.
         hora:
           type: string
           description: HH:MM
@@ -7590,6 +7596,8 @@ components:
           type: string
       required:
       - cliente_nome
+      - cliente_telefone
+      - colaborador_nome
       - hora
       - id
       - servico_nome
@@ -8504,6 +8512,11 @@ components:
           description: O profissional aplicado (o próprio, para quem não é proprietário).
         kpis:
           $ref: '#/components/schemas/DashboardKpis'
+        serie:
+          type: array
+          items:
+            $ref: '#/components/schemas/PontoDaSerie'
+          description: Um ponto por dia do período, com os critérios dos kpis.
         ranking_servicos:
           type: array
           items:
@@ -8520,6 +8533,7 @@ components:
       - kpis
       - periodo
       - ranking_servicos
+      - serie
       - tipo_agenda
     Despesa:
       type: object
@@ -10094,6 +10108,24 @@ components:
       required:
       - cliente
       - nome
+    PontoDaSerie:
+      type: object
+      properties:
+        data:
+          type: string
+          format: date
+        faturamento:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+          description: Nulo para quem não vê valores.
+        atendimentos:
+          type: integer
+      required:
+      - atendimentos
+      - data
+      - faturamento
     PorteEnum:
       enum:
       - pequeno

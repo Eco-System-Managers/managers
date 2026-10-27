@@ -73,6 +73,11 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
   // o troco vira crédito na comanda do cliente, em vez de voltar em dinheiro
   bool _trocoComoCredito = false;
 
+  // a primeira linha nasce com o total e o acompanha (desconto, crédito)
+  // enquanto ninguém mexer no valor dela: senão, um desconto deixava a
+  // linha com o valor cheio, e só em dinheiro isso passava (como troco)
+  bool _valorMexido = false;
+
   String? _erro;
   bool _enviando = false;
 
@@ -129,6 +134,14 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
       _total >= _zero &&
       _creditoValido &&
       _linhas.every((l) => l.valor != null && l.valor! > _zero);
+
+  void _acompanharTotal() {
+    if (_valorMexido || _linhas.length != 1) return;
+    final restante = _total - _credito;
+    _linhas.single.controller.text = restante > _zero
+        ? DinheiroInputFormatter.formatar(restante)
+        : '';
+  }
 
   void _adicionarLinha() {
     setState(() {
@@ -215,7 +228,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
           controller: _descontoController,
           keyboardType: TextInputType.number,
           inputFormatters: const [DinheiroInputFormatter()],
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => setState(_acompanharTotal),
           decoration: const InputDecoration(
             labelText: 'Desconto (opcional)',
             prefixText: 'R\$ ',
@@ -229,7 +242,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
             controller: _creditoController,
             keyboardType: TextInputType.number,
             inputFormatters: const [DinheiroInputFormatter()],
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(_acompanharTotal),
             decoration: InputDecoration(
               labelText: 'Usar crédito do cliente',
               helperText:
@@ -270,7 +283,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
                   controller: linha.controller,
                   keyboardType: TextInputType.number,
                   inputFormatters: const [DinheiroInputFormatter()],
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => setState(() => _valorMexido = true),
                   decoration: const InputDecoration(
                     labelText: 'Valor',
                     prefixText: 'R\$ ',

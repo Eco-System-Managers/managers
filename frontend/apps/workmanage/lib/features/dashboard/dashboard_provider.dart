@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/network/dio_client.dart';
+import 'package:managers/features/agenda/agenda_provider.dart'
+    show listarPendenciasUseCaseProvider;
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/usuarios/usuarios_provider.dart';
 
@@ -30,6 +32,7 @@ final resumoProvider = Provider.autoDispose<ResumoProvider>((ref) {
   final provider = ResumoProvider(
     obterResumo: ref.watch(obterResumoUseCaseProvider),
     listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
+    listarPendencias: ref.watch(listarPendenciasUseCaseProvider),
     // a casca só monta as abas com o negócio (e o papel) carregados
     filtraPorProfissional: ref.watch(negocioAtualProvider).ehProprietario,
   );

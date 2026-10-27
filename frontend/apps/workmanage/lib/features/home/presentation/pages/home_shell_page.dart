@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/features/agenda/agenda_provider.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
+import 'package:managers/features/kanban/kanban_provider.dart';
 
 // a casca do app: a barra inferior flutuante com as quatro abas (Início,
 // Agenda/Quadro, Clientes e Mais), cada uma com a própria pilha
@@ -29,6 +30,23 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
     });
   }
 
+  // a aba da agenda (ou do quadro) fica viva enquanto a pessoa mexe nas
+  // outras: ao voltar para ela, o dia vem da API de novo, com os horários
+  // de funcionamento que podem ter mudado em Mais
+  void _selecionarAba(int index) {
+    final shell = widget.navigationShell;
+    final voltouParaAgenda = index == 1 && index != shell.currentIndex;
+    // tocar na aba atual volta para o começo da pilha dela
+    shell.goBranch(index, initialLocation: index == shell.currentIndex);
+    if (voltouParaAgenda) {
+      if (ref.read(negocioAtualProvider).isKanban) {
+        ref.read(quadroProvider).recarregar();
+      } else {
+        ref.read(agendaDiaProvider).recarregar();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final negocio = ref.watch(negocioAtualProvider);
@@ -50,40 +68,25 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
           return const Scaffold(body: Carregando());
         }
 
-        final claro = Theme.of(context).brightness == Brightness.light;
-        // a barra de navegação do Android fica transparente por cima do
-        // fundo da tela: os ícones dela seguem o tema
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: SystemUiOverlayStyle(
-            systemNavigationBarColor: Colors.transparent,
-            systemNavigationBarContrastEnforced: false,
-            systemNavigationBarIconBrightness: claro
-                ? Brightness.dark
-                : Brightness.light,
-          ),
-          child: Scaffold(
-            // o conteúdo das abas termina acima da barra, não por baixo dela
-            body: shell,
-            bottomNavigationBar: _BarraFlutuante(
-              indice: shell.currentIndex,
-              // tocar na aba atual volta para o começo da pilha dela
-              onSelecionar: (index) => shell.goBranch(
-                index,
-                initialLocation: index == shell.currentIndex,
+        return Scaffold(
+          // o conteúdo das abas termina acima da barra, não por baixo dela;
+          // a sombra branca encostada nela é de cada aba (comSombraEmBaixo)
+          body: shell,
+          bottomNavigationBar: _BarraFlutuante(
+            indice: shell.currentIndex,
+            onSelecionar: _selecionarAba,
+            abas: [
+              const _Aba(icone: Icons.grid_view_outlined, rotulo: 'Início'),
+              _Aba(
+                icone: negocio.isKanban
+                    ? Icons.view_kanban_outlined
+                    : Icons.calendar_month_outlined,
+                // o rótulo segue o modo de agenda do negócio
+                rotulo: negocio.isKanban ? 'Quadro' : 'Agenda',
               ),
-              abas: [
-                const _Aba(icone: Icons.grid_view_outlined, rotulo: 'Início'),
-                _Aba(
-                  icone: negocio.isKanban
-                      ? Icons.view_kanban_outlined
-                      : Icons.calendar_month_outlined,
-                  // o rótulo segue o modo de agenda do negócio
-                  rotulo: negocio.isKanban ? 'Quadro' : 'Agenda',
-                ),
-                const _Aba(icone: Icons.people_outline, rotulo: 'Clientes'),
-                const _Aba(icone: Icons.menu, rotulo: 'Mais'),
-              ],
-            ),
+              const _Aba(icone: Icons.people_outline, rotulo: 'Clientes'),
+              const _Aba(icone: Icons.menu, rotulo: 'Mais'),
+            ],
           ),
         );
       },

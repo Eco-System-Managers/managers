@@ -53,6 +53,16 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       repasse: _dinheiroOuNulo(kpis['repasse']),
       clientesNovos: kpis['clientes_novos'] as int?,
       clientesNovosVariacao: kpis['clientes_novos_variacao'] as int?,
+      serie: [
+        for (final p
+            in (json['serie'] as List? ?? const [])
+                .cast<Map<String, dynamic>>())
+          PontoDaSerie(
+            data: dataDaApi(p['data'] as String),
+            faturamento: _dinheiroOuNulo(p['faturamento']),
+            atendimentos: p['atendimentos'] as int? ?? 0,
+          ),
+      ],
       rankingServicos: [
         for (final r
             in (json['ranking_servicos'] as List? ?? const [])
@@ -69,7 +79,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
           AgendamentoHoje(
             id: a['id'] as int,
             clienteNome: a['cliente_nome'] as String? ?? '',
+            clienteTelefone: a['cliente_telefone'] as String? ?? '',
             servicoNome: a['servico_nome'] as String? ?? '',
+            colaboradorNome: a['colaborador_nome'] as String? ?? '',
             hora: a['hora'] as String? ?? '',
             status: a['status'] as String? ?? '',
           ),

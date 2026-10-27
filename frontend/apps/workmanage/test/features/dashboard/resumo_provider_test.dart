@@ -3,6 +3,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/features/agenda/domain/usecases/agenda_use_cases.dart';
 import 'package:managers/features/dashboard/domain/entities/dashboard_resumo.dart';
 import 'package:managers/features/dashboard/domain/usecases/obter_resumo_use_case.dart';
 import 'package:managers/features/dashboard/presentation/providers/resumo_provider.dart';
@@ -11,6 +12,8 @@ import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_
 import 'package:mocktail/mocktail.dart';
 
 class _MockObterResumo extends Mock implements ObterResumoUseCase {}
+
+class _MockListarPendencias extends Mock implements ListarPendenciasUseCase {}
 
 class _MockListarColaboradores extends Mock
     implements ListarColaboradoresUseCase {}
@@ -48,6 +51,7 @@ final _resumo = DashboardResumo(
 void main() {
   late _MockObterResumo obterResumo;
   late _MockListarColaboradores listarColaboradores;
+  late _MockListarPendencias listarPendencias;
 
   setUpAll(() {
     registerFallbackValue(const ResumoParams());
@@ -57,6 +61,7 @@ void main() {
   ResumoProvider montar({bool filtraPorProfissional = true}) => ResumoProvider(
     obterResumo: obterResumo,
     listarColaboradores: listarColaboradores,
+    listarPendencias: listarPendencias,
     filtraPorProfissional: filtraPorProfissional,
     hoje: _hoje,
   );
@@ -68,6 +73,9 @@ void main() {
   setUp(() {
     obterResumo = _MockObterResumo();
     listarColaboradores = _MockListarColaboradores();
+    listarPendencias = _MockListarPendencias();
+    when(() => listarPendencias(any()))
+        .thenAnswer((_) async => const Right([]));
     when(() => listarColaboradores(any()))
         .thenAnswer((_) async => const Right([_bia, _inativo]));
     when(() => obterResumo(any())).thenAnswer((_) async => Right(_resumo));

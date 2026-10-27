@@ -3,16 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
+import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
-import 'package:managers/core/widgets/estado_vazio.dart';
+import 'package:managers/core/widgets/filtros.dart';
+import 'package:managers/core/widgets/folha.dart';
+import 'package:managers/core/widgets/painel.dart';
 
 import '../../domain/entities/caixa.dart';
 import '../../financeiro_provider.dart';
 import '../providers/caixa_provider.dart';
 
-// Mais › Financeiro: o fechamento de caixa por período, com filtro por
-// profissional (o painel do período fica na aba Início)
+// Mais › Caixa: o fechamento de um período, na linguagem do Início (chips
+// de filtro, painéis neutros, um número grande) mas com a cara de caixa: o
+// que entrou, como entrou (por forma de pagamento) e para onde vai (casa e
+// parceiros), e cada pagamento agrupado por dia. filtro por profissional
+// para o dono; o parceiro vê só a parte dele (casa vem nula)
 class CaixaPage extends ConsumerStatefulWidget {
   const CaixaPage({super.key});
 
@@ -29,24 +35,32 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Financeiro')),
-      body: const _CaixaView(),
+  Future<void> _escolherPeriodo(CaixaProvider provider) async {
+    final escolha = await escolherNaFolha<PeriodoCaixa>(
+      context,
+      titulo: 'Período',
+      opcoes: [
+        for (final (periodo, rotulo) in const [
+          (PeriodoCaixa.hoje, 'Hoje'),
+          (PeriodoCaixa.semana, 'Últimos 7 dias'),
+          (PeriodoCaixa.mes, 'Este mês'),
+          (PeriodoCaixa.personalizado, 'Escolher as datas'),
+        ])
+          OpcaoDaFolha(
+            valor: periodo,
+            texto: rotulo,
+            selecionada: provider.periodo == periodo,
+            icone: periodo == PeriodoCaixa.personalizado
+                ? Icons.date_range_outlined
+                : null,
+          ),
+      ],
     );
-  }
-}
-
-class _CaixaView extends ConsumerStatefulWidget {
-  const _CaixaView();
-
-  @override
-  ConsumerState<_CaixaView> createState() => _CaixaViewState();
-}
-
-class _CaixaViewState extends ConsumerState<_CaixaView> {
-  Future<void> _escolherIntervalo(CaixaProvider provider) async {
+    if (escolha == null || !mounted) return;
+    if (escolha != PeriodoCaixa.personalizado) {
+      provider.selecionarPeriodo(escolha);
+      return;
+    }
     final hoje = DateTime.now();
     final intervalo = await showDateRangePicker(
       context: context,
@@ -62,30 +76,59 @@ class _CaixaViewState extends ConsumerState<_CaixaView> {
     }
   }
 
+  Future<void> _escolherProfissional(CaixaProvider provider) async {
+    // o id, ou 0 para todos (null fecharia sem escolher)
+    final escolha = await escolherNaFolha<int>(
+      context,
+      titulo: 'Profissional',
+      opcoes: [
+        OpcaoDaFolha(
+          valor: 0,
+          texto: 'Todos',
+          selecionada: provider.colaboradorId == null,
+          icone: Icons.groups_outlined,
+        ),
+        for (final c in provider.colaboradores)
+          OpcaoDaFolha(
+            valor: c.id,
+            texto: c.nome,
+            selecionada: provider.colaboradorId == c.id,
+            avatar: AvatarIniciais(nome: c.nome, raio: 16),
+          ),
+      ],
+    );
+    if (escolha == null || !mounted) return;
+    provider.filtrarColaborador(escolha == 0 ? null : escolha);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // watch: mantém o provider vivo enquanto a aba estiver aberta
+    // watch: mantém o provider vivo enquanto a tela estiver aberta
     final provider = ref.watch(caixaProvider);
 
-    return ListenableBuilder(
-      listenable: provider,
-      builder: (context, _) {
-        return Column(
-          children: [
-            if (provider.colaboradores.isNotEmpty)
-              _FiltroColaboradores(provider: provider),
-            _Periodos(
-              provider: provider,
-              onPersonalizado: () => _escolherIntervalo(provider),
-            ),
-            if (provider.isLoading && provider.carregado)
-              const LinearProgressIndicator(minHeight: 2)
-            else
-              const SizedBox(height: 2),
-            Expanded(child: _corpo(provider)),
-          ],
-        );
-      },
+    return Scaffold(
+      appBar: AppBar(title: const Text('Financeiro')),
+      body: ListenableBuilder(
+        listenable: provider,
+        builder: (context, _) {
+          return Column(
+            children: [
+              _Filtros(
+                provider: provider,
+                onPeriodo: () => _escolherPeriodo(provider),
+                onProfissional: provider.colaboradores.isEmpty
+                    ? null
+                    : () => _escolherProfissional(provider),
+              ),
+              if (provider.isLoading && provider.carregado)
+                const LinearProgressIndicator(minHeight: 2)
+              else
+                const SizedBox(height: 2),
+              Expanded(child: _corpo(provider)),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -104,258 +147,562 @@ class _CaixaViewState extends ConsumerState<_CaixaView> {
 
     final colors = Theme.of(context).colorScheme;
     final textos = Theme.of(context).textTheme;
+    final vazio = caixa.pagamentos.isEmpty;
+    // só o dono vê a divisão; o parceiro vê a parte dele como "a receber"
+    final temDivisao = caixa.casa != null && caixa.repasse > Decimal.zero;
+    final porDia = _agruparPorDia(caixa.pagamentos);
 
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: paddingDaPagina(
+          context,
+          topo: 8,
+        ).copyWith(left: 16, right: 16),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _Kpi(
-                  rotulo: 'Total',
-                  valor: formatarDinheiro(caixa.total),
-                  destaque: true,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _Kpi(
-                  rotulo: 'Atendimentos',
-                  valor: '${caixa.atendimentos}',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _Kpi(
-                  rotulo: 'Ticket médio',
-                  valor: formatarDinheiro(caixa.ticketMedio),
-                ),
-              ),
-            ],
-          ),
-
-          // a comissão dos parceiros e o que fica para a casa. o parceiro
-          // vê só a parte dele (casa vem nula); sem parceiro com acordo,
-          // a linha não aparece
-          if (caixa.repasse > Decimal.zero || caixa.casa != null) ...[
-            const SizedBox(height: 12),
-            Row(
+          // ---- o que entrou ----
+          Painel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _Kpi(
-                    rotulo: caixa.casa == null ? 'A receber' : 'Repasse',
-                    valor: formatarDinheiro(caixa.repasse),
+                Text(
+                  'Recebido ${_rotuloDoPeriodo(provider)}',
+                  style: textos.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
                   ),
                 ),
-                if (caixa.casa != null) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _Kpi(
-                      rotulo: 'Fica para a casa',
-                      valor: formatarDinheiro(caixa.casa!),
-                    ),
+                const SizedBox(height: 2),
+                Text(
+                  formatarDinheiro(caixa.total),
+                  style: textos.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  vazio
+                      ? 'Nenhuma cobrança no período.'
+                      : '${caixa.atendimentos} '
+                            '${caixa.atendimentos == 1 ? 'atendimento' : 'atendimentos'}'
+                            ' · ticket médio ${formatarDinheiro(caixa.ticketMedio)}',
+                  style: textos.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+
+                // para onde vai: a casa e os parceiros, numa barra dividida
+                if (temDivisao) ...[
+                  const SizedBox(height: 16),
+                  _Divisao(casa: caixa.casa!, repasse: caixa.repasse),
+                ] else if (caixa.casa == null) ...[
+                  const Divider(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Sua parte a receber',
+                          style: textos.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        formatarDinheiro(caixa.repasse),
+                        style: textos.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
             ),
-          ],
+          ),
 
+          // ---- como entrou ----
           if (caixa.porForma.isNotEmpty) ...[
             const SizedBox(height: 24),
-            Text('Por forma de pagamento', style: textos.titleMedium),
-            const SizedBox(height: 8),
-            for (final f in caixa.porForma) ...[
-              Row(
+            const TituloDaSecao('Por forma de pagamento'),
+            const SizedBox(height: 12),
+            Painel(
+              child: Column(
                 children: [
-                  Expanded(child: Text(nomeDaForma(f.forma))),
-                  Text('${f.percentual}%', style: textos.bodySmall),
-                  const SizedBox(width: 12),
-                  Text(
-                    formatarDinheiro(f.total),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  for (final (i, f) in caixa.porForma.indexed) ...[
+                    if (i > 0) const SizedBox(height: 12),
+                    _LinhaDaForma(forma: f),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
+          // ---- cada pagamento, por dia ----
+          const SizedBox(height: 24),
+          TituloDaSecao(
+            'Pagamentos',
+            detalhe: vazio ? null : '${caixa.pagamentos.length}',
+          ),
+          const SizedBox(height: 12),
+          if (vazio)
+            Painel(
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: colors.secondaryContainer,
+                    child: Icon(
+                      Icons.receipt_long_outlined,
+                      color: colors.onSecondaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Caixa vazio',
+                          style: textos.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          'As cobranças feitas na agenda e no quadro '
+                          'aparecem aqui.',
+                          style: textos.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: f.percentual / 100,
-                  minHeight: 6,
-                  backgroundColor: colors.surfaceContainerHighest,
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-          ],
-
-          const SizedBox(height: 16),
-          Text('Pagamentos', style: textos.titleMedium),
-          if (caixa.pagamentos.isEmpty)
-            const EstadoVazio(
-              icone: Icons.receipt_long_outlined,
-              titulo: 'Nenhum pagamento no período',
-              mensagem: 'As cobranças feitas na agenda aparecem aqui.',
             )
           else
-            for (final p in caixa.pagamentos)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(p.clienteNome),
-                subtitle: Text(
-                  [
-                    p.servicoNome,
-                    if (p.colaboradorNome.isNotEmpty) p.colaboradorNome,
-                    nomeDaForma(p.forma),
-                  ].join(' · '),
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      formatarDinheiro(p.valor),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(formatarDataHora(p.dataHora), style: textos.bodySmall),
-                  ],
-                ),
-              ),
+            for (final (i, dia) in porDia.indexed) ...[
+              if (i > 0) const SizedBox(height: 12),
+              _DiaDoCaixa(dia: dia, mostraData: porDia.length > 1),
+            ],
         ],
       ),
     );
   }
+
+  String _rotuloDoPeriodo(CaixaProvider provider) {
+    switch (provider.periodo) {
+      case PeriodoCaixa.hoje:
+        return 'hoje';
+      case PeriodoCaixa.semana:
+        return 'nos últimos 7 dias';
+      case PeriodoCaixa.mes:
+        return 'este mês';
+      case PeriodoCaixa.personalizado:
+        return mesmoDia(provider.inicio, provider.fim)
+            ? 'em ${formatarData(provider.inicio)}'
+            : 'de ${formatarData(provider.inicio)} a '
+                  '${formatarData(provider.fim)}';
+    }
+  }
+
+  // do mais recente para o mais antigo, cada dia com o seu total
+  static List<_DiaComPagamentos> _agruparPorDia(List<CaixaPagamento> lista) {
+    final ordenada = [...lista]
+      ..sort((a, b) => b.dataHora.compareTo(a.dataHora));
+    final dias = <_DiaComPagamentos>[];
+    for (final p in ordenada) {
+      final data = somenteData(p.dataHora.toLocal());
+      if (dias.isEmpty || !mesmoDia(dias.last.data, data)) {
+        dias.add(_DiaComPagamentos(data: data, pagamentos: []));
+      }
+      dias.last.pagamentos.add(p);
+    }
+    return dias;
+  }
 }
 
-// os chips de profissional: todos, ou um da equipe. o filtro vai para a API
-class _FiltroColaboradores extends StatelessWidget {
-  const _FiltroColaboradores({required this.provider});
+class _DiaComPagamentos {
+  _DiaComPagamentos({required this.data, required this.pagamentos});
+
+  final DateTime data;
+  final List<CaixaPagamento> pagamentos;
+
+  Decimal get total =>
+      pagamentos.fold(Decimal.zero, (soma, p) => soma + p.valor);
+}
+
+// os dois filtros, com o mesmo desenho do Início
+class _Filtros extends StatelessWidget {
+  const _Filtros({
+    required this.provider,
+    required this.onPeriodo,
+    this.onProfissional,
+  });
 
   final CaixaProvider provider;
+  final VoidCallback onPeriodo;
+  final VoidCallback? onProfissional;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+    final periodo = switch (provider.periodo) {
+      PeriodoCaixa.hoje => 'Hoje',
+      PeriodoCaixa.semana => '7 dias',
+      PeriodoCaixa.mes => 'Este mês',
+      PeriodoCaixa.personalizado =>
+        mesmoDia(provider.inicio, provider.fim)
+            ? formatarData(provider.inicio)
+            : '${provider.inicio.day}/${provider.inicio.month} a '
+                  '${provider.fim.day}/${provider.fim.month}',
+    };
+    final escolhido = provider.colaboradores
+        .where((c) => c.id == provider.colaboradorId)
+        .firstOrNull;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: const Text('Todos'),
-              selected: provider.colaboradorId == null,
-              onSelected: (_) => provider.filtrarColaborador(null),
-            ),
+          ChipDeFiltro(
+            icone: Icons.calendar_today_outlined,
+            texto: periodo,
+            onTap: onPeriodo,
           ),
-          for (final c in provider.colaboradores)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(c.nome),
-                selected: provider.colaboradorId == c.id,
-                onSelected: (_) => provider.filtrarColaborador(c.id),
-              ),
+          if (onProfissional != null) ...[
+            const SizedBox(width: 8),
+            ChipDeFiltro(
+              icone: Icons.person_outline,
+              texto: escolhido == null ? 'Todos' : primeiroNome(escolhido.nome),
+              onTap: onProfissional!,
             ),
+          ],
         ],
       ),
     );
   }
 }
 
-// os atalhos de período e o intervalo escolhido
-class _Periodos extends StatelessWidget {
-  const _Periodos({required this.provider, required this.onPersonalizado});
+// a divisão do recebido: a casa na primária, os parceiros num tom claro,
+// numa barra só, com os dois valores embaixo
+class _Divisao extends StatelessWidget {
+  const _Divisao({required this.casa, required this.repasse});
 
-  final CaixaProvider provider;
-  final VoidCallback onPersonalizado;
+  final Decimal casa;
+  final Decimal repasse;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final intervalo = mesmoDia(provider.inicio, provider.fim)
-        ? formatarData(provider.inicio)
-        : '${formatarData(provider.inicio)} a ${formatarData(provider.fim)}';
+    final textos = Theme.of(context).textTheme;
+    final total = casa + repasse;
+    final fracaoCasa = total == Decimal.zero
+        ? 1.0
+        : (casa / total).toDouble().clamp(0.0, 1.0);
+    final corCasa = colors.primary;
+    final corRepasse = colors.primary.withValues(alpha: 0.28);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final (periodo, rotulo) in const [
-                (PeriodoCaixa.hoje, 'Hoje'),
-                (PeriodoCaixa.semana, '7 dias'),
-                (PeriodoCaixa.mes, 'Este mês'),
-              ])
-                ChoiceChip(
-                  label: Text(rotulo),
-                  selected: provider.periodo == periodo,
-                  onSelected: (_) => provider.selecionarPeriodo(periodo),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: SizedBox(
+            height: 10,
+            child: Row(
+              children: [
+                // flex nunca zero: uma parte vazia some sem quebrar a Row
+                Expanded(
+                  flex: (fracaoCasa * 1000).round().clamp(1, 1000),
+                  child: ColoredBox(color: corCasa),
                 ),
-              ChoiceChip(
-                label: const Text('Período'),
-                avatar: const Icon(Icons.date_range, size: 18),
-                selected: provider.periodo == PeriodoCaixa.personalizado,
-                onSelected: (_) => onPersonalizado(),
-              ),
-            ],
+                // um fio de superfície entre as duas partes
+                const SizedBox(width: 2),
+                Expanded(
+                  flex: ((1 - fracaoCasa) * 1000).round().clamp(1, 1000),
+                  child: ColoredBox(color: corRepasse),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 4),
-          Text(intervalo, style: TextStyle(color: colors.onSurfaceVariant)),
-        ],
-      ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _Legenda(
+                cor: corCasa,
+                rotulo: 'Fica para a casa',
+                valor: formatarDinheiro(casa),
+              ),
+            ),
+            Expanded(
+              child: _Legenda(
+                cor: corRepasse,
+                rotulo: 'Repasse a parceiros',
+                valor: formatarDinheiro(repasse),
+                aDireita: true,
+              ),
+            ),
+          ],
+        ),
+        if (total > Decimal.zero)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              '${(fracaoCasa * 100).round()}% da casa',
+              style: textos.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _Kpi extends StatelessWidget {
-  const _Kpi({
+class _Legenda extends StatelessWidget {
+  const _Legenda({
+    required this.cor,
     required this.rotulo,
     required this.valor,
-    this.destaque = false,
+    this.aDireita = false,
   });
 
+  final Color cor;
   final String rotulo;
   final String valor;
-  final bool destaque;
+  final bool aDireita;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    final alinhamento = aDireita
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start;
+
+    return Column(
+      crossAxisAlignment: alinhamento,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: cor),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              rotulo,
+              style: textos.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          valor,
+          style: textos.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+// uma forma de pagamento: ícone, nome, a barra da fatia, o percentual e o
+// valor
+class _LinhaDaForma extends StatelessWidget {
+  const _LinhaDaForma({required this.forma});
+
+  final CaixaPorForma forma;
+
+  static IconData _icone(String forma) => switch (forma) {
+    'dinheiro' => Icons.payments_outlined,
+    'pix' => Icons.bolt_outlined,
+    'credito' || 'debito' => Icons.credit_card_outlined,
+    'qr_code' => Icons.qr_code_2_outlined,
+    _ => Icons.paid_outlined,
+  };
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textos = Theme.of(context).textTheme;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: destaque
-            ? colors.primaryContainer
-            : colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return Row(
+      children: [
+        Icon(_icone(forma.forma), size: 20, color: colors.onSurfaceVariant),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 64,
+          child: Text(
+            nomeDaForma(forma.forma),
+            style: textos.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: forma.percentual / 100,
+              minHeight: 8,
+              backgroundColor: colors.surfaceContainerHighest,
+              color: colors.primary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 34,
+          child: Text(
+            '${forma.percentual}%',
+            textAlign: TextAlign.right,
+            style: textos.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 84,
+          child: Text(
+            formatarDinheiro(forma.total),
+            textAlign: TextAlign.right,
+            style: textos.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// um dia do caixa: a data e o total do dia em cima, cada pagamento embaixo
+class _DiaDoCaixa extends StatelessWidget {
+  const _DiaDoCaixa({required this.dia, required this.mostraData});
+
+  final _DiaComPagamentos dia;
+
+  // num período de um dia só a data é redundante
+  final bool mostraData;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+
+    return Painel(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            rotulo,
-            style: textos.bodySmall?.copyWith(
-              color: destaque ? colors.onPrimaryContainer : null,
+          if (mostraData) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    formatarDataPorExtenso(dia.data),
+                    style: textos.labelLarge?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Text(
+                  formatarDinheiro(dia.total),
+                  style: textos.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+          ],
+          for (final (i, p) in dia.pagamentos.indexed) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                color: colors.outlineVariant.withValues(alpha: 0.4),
+              ),
+            _LinhaDoPagamento(pagamento: p),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LinhaDoPagamento extends StatelessWidget {
+  const _LinhaDoPagamento({required this.pagamento});
+
+  final CaixaPagamento pagamento;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    final p = pagamento;
+    final hora = p.dataHora.toLocal();
+    final detalhe = [
+      if (p.servicoNome.isNotEmpty) p.servicoNome,
+      if (p.colaboradorNome.isNotEmpty) p.colaboradorNome,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 44,
+            child: Text(
+              formatarHora((hora: hora.hour, minuto: hora.minute)),
+              style: textos.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            valor,
-            style: textos.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: destaque ? colors.onPrimaryContainer : null,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.clienteNome,
+                  style: textos.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (detalhe.isNotEmpty)
+                  Text(
+                    detalhe,
+                    style: textos.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formatarDinheiro(p.valor),
+                style: textos.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              Text(
+                nomeDaForma(p.forma),
+                style: textos.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ],
       ),

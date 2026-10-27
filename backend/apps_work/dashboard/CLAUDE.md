@@ -27,7 +27,11 @@ que os outros apps já registraram.
 - `colaborador` devolve o id aplicado — o que o dono pediu, ou o próprio para
   quem não é proprietário.
 - `agendamentos_hoje` é sempre o dia de hoje, independente do período: é "o
-  que vem agora", não um relatório.
+  que vem agora", não um relatório. Leva `cliente_telefone` e
+  `colaborador_nome` para o card do próximo no app (WhatsApp).
+- `serie` é um ponto por dia do período (`data`, `faturamento`,
+  `atendimentos`), com os mesmos critérios dos kpis, zerado nos dias sem
+  nada: é o gráfico do painel. `faturamento` vem nulo para quem não vê valores.
 
 ## A trava do colaborador
 

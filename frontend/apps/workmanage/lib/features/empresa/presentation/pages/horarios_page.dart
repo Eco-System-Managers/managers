@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/botao_de_rodape.dart';
 import 'package:managers/core/widgets/folha.dart';
 
 import '../../empresa_provider.dart';
@@ -33,6 +34,16 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Horários')),
+      // o salvar fica fixo embaixo, fora da rolagem
+      bottomNavigationBar: ListenableBuilder(
+        listenable: provider,
+        builder: (context, _) => BotaoDeRodape(
+          texto: 'Salvar',
+          onPressed: provider.isLoading || !provider.carregado
+              ? null
+              : provider.salvar,
+        ),
+      ),
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
@@ -59,48 +70,42 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
 
           final colors = Theme.of(context).colorScheme;
 
-          return SingleChildScrollView(
-            padding: paddingDaPagina(context),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  provider.isKanban
-                      ? 'Marque os dias abertos, o horário e quantos '
-                            'atendimentos cabem em cada dia.'
-                      : 'Marque os dias abertos e o horário de cada um.',
-                  style: TextStyle(color: colors.onSurfaceVariant),
-                ),
-
-                const SizedBox(height: 16),
-
-                for (final horario in provider.horarios) ...[
-                  HorarioDiaCard(
-                    horario: horario,
-                    isKanban: provider.isKanban,
-                    erro: provider.erroDoDia(horario),
-                    enabled: !provider.isLoading,
-                    onChanged: provider.atualizarHorario,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                if (provider.errorMessage != null) ...[
+          return comBotaoDeRodape(
+            SingleChildScrollView(
+              padding: paddingDaPagina(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   Text(
-                    provider.errorMessage!,
-                    style: TextStyle(color: colors.error),
+                    provider.isKanban
+                        ? 'Marque os dias abertos, o horário e quantos '
+                              'atendimentos cabem em cada dia.'
+                        : 'Marque os dias abertos e o horário de cada um.',
+                    style: TextStyle(color: colors.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 12),
-                ],
 
-                FilledButton(
-                  onPressed: provider.isLoading ? null : provider.salvar,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  child: const Text('Salvar'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+
+                  for (final horario in provider.horarios) ...[
+                    HorarioDiaCard(
+                      horario: horario,
+                      isKanban: provider.isKanban,
+                      erro: provider.erroDoDia(horario),
+                      enabled: !provider.isLoading,
+                      onChanged: provider.atualizarHorario,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  if (provider.errorMessage != null)
+                    Text(
+                      provider.errorMessage!,
+                      style: TextStyle(color: colors.error),
+                    ),
+                  // espaço para o fim da lista passar da sombra do botão
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           );
         },

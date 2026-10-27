@@ -7,6 +7,7 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/faixa_semana.dart';
+import 'package:managers/core/widgets/sombra_de_borda.dart';
 import 'package:managers/features/usuarios/presentation/widgets/filtro_profissionais.dart';
 
 import '../../agenda_provider.dart';
@@ -132,28 +133,30 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
             tooltip: 'Novo agendamento',
             child: const Icon(Icons.add),
           ),
-          body: Column(
-            children: [
-              FaixaSemana(
-                dia: provider.dia,
-                hoje: provider.hoje,
-                temRegistro: provider.temRegistro,
-                onSelecionar: _selecionarDia,
-                expandido: _mesAberto,
-                onExpandir: (aberto) => setState(() => _mesAberto = aberto),
-              ),
-              if (provider.colaboradores.isNotEmpty)
-                FiltroProfissionais(
-                  colaboradores: provider.colaboradores,
-                  selecionadoId: provider.colaboradorId,
-                  onSelecionar: provider.filtrarColaborador,
+          body: comSombraEmBaixo(
+            Column(
+              children: [
+                FaixaSemana(
+                  dia: provider.dia,
+                  hoje: provider.hoje,
+                  temRegistro: provider.temRegistro,
+                  onSelecionar: _selecionarDia,
+                  expandido: _mesAberto,
+                  onExpandir: (aberto) => setState(() => _mesAberto = aberto),
                 ),
-              if (provider.isLoading && provider.carregado)
-                const LinearProgressIndicator(minHeight: 2)
-              else
-                const Divider(height: 2),
-              Expanded(child: _corpo(provider)),
-            ],
+                if (provider.colaboradores.isNotEmpty)
+                  FiltroProfissionais(
+                    colaboradores: provider.colaboradores,
+                    selecionadoId: provider.colaboradorId,
+                    onSelecionar: provider.filtrarColaborador,
+                  ),
+                if (provider.isLoading && provider.carregado)
+                  const LinearProgressIndicator(minHeight: 2)
+                else
+                  const Divider(height: 2),
+                Expanded(child: _corpo(provider)),
+              ],
+            ),
           ),
         );
       },

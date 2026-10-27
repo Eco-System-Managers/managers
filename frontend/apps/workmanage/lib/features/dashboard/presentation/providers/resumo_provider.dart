@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/core/utils/datas.dart';
+import 'package:managers/features/agenda/domain/usecases/agenda_use_cases.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 
@@ -12,11 +13,14 @@ import '../../domain/usecases/obter_resumo_use_case.dart';
 enum AtalhoPeriodo { hoje, semana, mes, personalizado }
 
 // estado da aba Início (montado em dashboard_provider.dart, na raiz da
-// feature): o período e o profissional escolhidos e os números deles
+// feature): o período e o profissional escolhidos, os números deles e
+// quantas cobranças estão pendentes (o use case é da agenda: a API junta
+// os dois modos)
 class ResumoProvider extends ChangeNotifier {
   ResumoProvider({
     required this._obterResumo,
     required this._listarColaboradores,
+    required this._listarPendencias,
     required this.filtraPorProfissional,
     DateTime? hoje,
   }) : _hoje = somenteData(hoje ?? DateTime.now()) {
@@ -26,6 +30,7 @@ class ResumoProvider extends ChangeNotifier {
 
   final ObterResumoUseCase _obterResumo;
   final ListarColaboradoresUseCase _listarColaboradores;
+  final ListarPendenciasUseCase _listarPendencias;
 
   // só o proprietário escolhe o profissional. para o resto a API já devolve
   // os próprios números, então a equipe nem é carregada
@@ -40,6 +45,7 @@ class ResumoProvider extends ChangeNotifier {
   late DateTime _inicio;
   late DateTime _fim;
   DashboardResumo? _resumo;
+  int _pendencias = 0;
   bool _isLoading = false;
   Failure? _erroAoCarregar;
 
@@ -52,6 +58,10 @@ class ResumoProvider extends ChangeNotifier {
   DateTime get inicio => _inicio;
   DateTime get fim => _fim;
   DashboardResumo? get resumo => _resumo;
+
+  // atendimentos passados sem cobrança; 0 também quando a consulta falhou
+  int get pendencias => _pendencias;
+
   bool get carregado => _resumo != null;
   bool get isLoading => _isLoading;
   Failure? get erroAoCarregar => _erroAoCarregar;
@@ -61,15 +71,17 @@ class ResumoProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
-    final (result, _) = await (
+    final (result, _, pendencias) = await (
       _obterResumo(
         ResumoParams(inicio: _inicio, fim: _fim, colaboradorId: _colaboradorId),
       ),
       _garantirColaboradores(),
+      _listarPendencias(NoParams()),
     ).wait;
     if (_disposed) return;
 
     result.fold((failure) => _erroAoCarregar = failure, (r) => _resumo = r);
+    pendencias.fold((_) {}, (lista) => _pendencias = lista.length);
 
     _isLoading = false;
     notifyListeners();

@@ -77,6 +77,12 @@ class TestResumoPorPeriodo:
         assert corpo['kpis']['clientes_novos'] == 1
         assert [r['nome'] for r in corpo['ranking_servicos']] == ['Corte', 'Barba']
         assert [a['hora'] for a in corpo['agendamentos_hoje']] == ['17:00']
+        # o próximo traz o que a tela precisa para abrir e chamar no WhatsApp
+        proximo = corpo['agendamentos_hoje'][0]
+        assert proximo['cliente_telefone'] == '11999990000'
+        assert proximo['colaborador_nome'] == cenario['bia'].nome_exibido
+        # hoje é um ponto só na série, com os mesmos números dos kpis
+        assert corpo['serie'] == [{'data': hoje.isoformat(), 'faturamento': '60.00', 'atendimentos': 2}]
 
     def test_periodo_de_sete_dias_compara_com_os_sete_anteriores(self, cenario, proprietario):
         hoje = cenario['hoje']
@@ -91,6 +97,12 @@ class TestResumoPorPeriodo:
         assert corpo['kpis']['atendimentos'] == 4
         # sem nada nos sete dias anteriores, não há base de comparação
         assert corpo['kpis']['faturamento_variacao'] is None
+        # um ponto por dia, zerado nos dias sem nada, somando os kpis
+        serie = corpo['serie']
+        assert [p['data'] for p in serie] == [(inicio + timedelta(days=i)).isoformat() for i in range(7)]
+        assert serie[-1] == {'data': hoje.isoformat(), 'faturamento': '60.00', 'atendimentos': 2}
+        assert serie[-2]['faturamento'] == '80.00'
+        assert serie[0] == {'data': inicio.isoformat(), 'faturamento': '0.00', 'atendimentos': 0}
 
     def test_filtro_por_profissional_so_conta_a_agenda_dele(self, cenario, proprietario):
         corpo = _client(proprietario).get(

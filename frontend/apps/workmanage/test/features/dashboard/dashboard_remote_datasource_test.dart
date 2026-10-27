@@ -23,6 +23,10 @@ const _resumoJson = {
     'clientes_novos': null,
     'clientes_novos_variacao': null,
   },
+  'serie': [
+    {'data': '2026-10-19', 'faturamento': '0.00', 'atendimentos': 0},
+    {'data': '2026-10-20', 'faturamento': '300.00', 'atendimentos': 4},
+  ],
   'ranking_servicos': [
     {'nome': 'Corte', 'total': 12},
     {'nome': 'Barba', 'total': 8},
@@ -31,7 +35,9 @@ const _resumoJson = {
     {
       'id': 3,
       'cliente_nome': 'Ana',
+      'cliente_telefone': '11999990000',
       'servico_nome': 'Corte',
+      'colaborador_nome': 'Bia',
       'hora': '10:30',
       'status': 'agendado',
     },
@@ -69,7 +75,16 @@ void main() {
     expect(resumo.clientesNovos, isNull);
     expect(resumo.rankingServicos.map((r) => r.nome), ['Corte', 'Barba']);
     expect(resumo.agendamentosHoje.single.hora, '10:30');
+    expect(resumo.agendamentosHoje.single.minutos, 10 * 60 + 30);
     expect(resumo.agendamentosHoje.single.id, 3);
+    expect(resumo.agendamentosHoje.single.clienteTelefone, '11999990000');
+    expect(resumo.agendamentosHoje.single.colaboradorNome, 'Bia');
+    expect(resumo.serie.map((p) => p.data), [
+      DateTime(2026, 10, 19),
+      DateTime(2026, 10, 20),
+    ]);
+    expect(resumo.serie.last.faturamento, Decimal.parse('300.00'));
+    expect(resumo.serie.last.atendimentos, 4);
   });
 
   test('resumo sem filtros não manda parâmetros: a API usa hoje', () async {

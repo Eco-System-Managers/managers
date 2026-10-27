@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db.models import Count, Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 from apps_work.agenda.models import StatusAgendamento
@@ -92,9 +93,55 @@ class DashboardService:
                     if atual['clientes_novos'] is not None else None
                 ),
             },
+            'serie': [
+                {**ponto, 'faturamento': valor(ponto['faturamento'])}
+                for ponto in self._serie(periodo, colaborador_id)
+            ],
             'ranking_servicos': self._ranking(periodo, colaborador_id),
             'agendamentos_hoje': self._hoje(tipo_agenda, hoje, colaborador_id),
         }
+
+    # Um ponto por dia do período, com os mesmos critérios de `_numeros`:
+    # é o gráfico do painel. Dias sem nada saem zerados, para a barra existir.
+    def _serie(self, periodo: Periodo, colaborador_id: int | None) -> list[dict]:
+        from apps_work.agenda.models import Agendamento
+        from apps_work.kanban.models import AtendimentoKanban
+
+        kanban_efetivados, agenda_efetivados = pagamentos_efetivados()
+        intervalo = (periodo.inicio, periodo.fim)
+
+        agenda_pagos = agenda_efetivados.filter(agendamento__data_hora__date__range=intervalo)
+        agenda_concluidos = Agendamento.objects.filter(
+            data_hora__date__range=intervalo, status=StatusAgendamento.CONCLUIDO,
+        )
+        kanban_pagos = kanban_efetivados.filter(atendimento__criado_em__date__range=intervalo)
+        kanban_concluidos = AtendimentoKanban.objects.filter(criado_em__date__range=intervalo, pago=True)
+        if colaborador_id is not None:
+            agenda_pagos = agenda_pagos.filter(agendamento__colaborador_id=colaborador_id)
+            agenda_concluidos = agenda_concluidos.filter(colaborador_id=colaborador_id)
+            kanban_pagos = kanban_pagos.filter(atendimento__colaborador_id=colaborador_id)
+            kanban_concluidos = kanban_concluidos.filter(colaborador_id=colaborador_id)
+
+        faturamento: dict[date, Decimal] = {}
+        atendimentos: dict[date, int] = {}
+
+        def somar(linhas, alvo):
+            for row in linhas:
+                alvo[row['dia']] = alvo.get(row['dia'], 0) + row['total']
+
+        somar(agenda_pagos.values(dia=TruncDate('agendamento__data_hora')).annotate(total=Sum('valor')), faturamento)
+        somar(kanban_pagos.values(dia=TruncDate('atendimento__criado_em')).annotate(total=Sum('valor')), faturamento)
+        somar(agenda_concluidos.values(dia=TruncDate('data_hora')).annotate(total=Count('id')), atendimentos)
+        somar(kanban_concluidos.values(dia=TruncDate('criado_em')).annotate(total=Count('id')), atendimentos)
+
+        return [
+            {
+                'data': dia.isoformat(),
+                'faturamento': str(Decimal(faturamento.get(dia, 0)).quantize(Decimal('0.01'))),
+                'atendimentos': atendimentos.get(dia, 0),
+            }
+            for dia in (periodo.inicio + timedelta(days=i) for i in range(periodo.dias))
+        ]
 
     def _numeros(self, periodo: Periodo, colaborador_id: int | None) -> dict:
         from apps_work.agenda.models import Agendamento
@@ -176,7 +223,7 @@ class DashboardService:
             kanban_qs = (
                 AtendimentoKanban.objects
                 .filter(criado_em__date=hoje, pago=False)
-                .select_related('objeto__cliente', 'servico', 'etapa')
+                .select_related('objeto__cliente', 'servico', 'etapa', 'colaborador__user')
                 .order_by('horario_entrada', 'criado_em')
             )
             if colaborador_id is not None:
@@ -186,7 +233,9 @@ class DashboardService:
                 {
                     'id': at.id,
                     'cliente_nome': at.objeto.cliente.nome,
+                    'cliente_telefone': at.objeto.cliente.telefone,
                     'servico_nome': at.servico.nome,
+                    'colaborador_nome': at.colaborador.nome_exibido if at.colaborador_id else '',
                     'hora': (
                         at.horario_entrada.strftime('%H:%M')
                         if at.horario_entrada
@@ -203,7 +252,7 @@ class DashboardService:
                 data_hora__date=hoje,
                 status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO],
             )
-            .select_related('cliente')
+            .select_related('cliente', 'colaborador__user')
             .prefetch_related('servicos__servico')
             .order_by('data_hora')
         )
@@ -215,7 +264,9 @@ class DashboardService:
             resultado.append({
                 'id': ag.id,
                 'cliente_nome': ag.cliente.nome,
+                'cliente_telefone': ag.cliente.telefone,
                 'servico_nome': primeiro.servico.nome if primeiro else '',
+                'colaborador_nome': ag.colaborador.nome_exibido if ag.colaborador_id else '',
                 # data_hora é UTC no banco; a hora mostrada é a local.
                 'hora': timezone.localtime(ag.data_hora).strftime('%H:%M'),
                 'status': ag.status,

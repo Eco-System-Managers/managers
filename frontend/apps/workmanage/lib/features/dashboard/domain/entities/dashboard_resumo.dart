@@ -16,6 +16,7 @@ class DashboardResumo extends Equatable {
     this.repasse,
     required this.clientesNovos,
     required this.clientesNovosVariacao,
+    this.serie = const [],
     required this.rankingServicos,
     required this.agendamentosHoje,
   });
@@ -46,6 +47,9 @@ class DashboardResumo extends Equatable {
   final int? clientesNovos;
   final int? clientesNovosVariacao;
 
+  // um ponto por dia do período, com os critérios dos kpis: o gráfico
+  final List<PontoDaSerie> serie;
+
   // top 5 do período
   final List<RankingServico> rankingServicos;
 
@@ -65,9 +69,28 @@ class DashboardResumo extends Equatable {
     repasse,
     clientesNovos,
     clientesNovosVariacao,
+    serie,
     rankingServicos,
     agendamentosHoje,
   ];
+}
+
+// o faturamento e os atendimentos de um dia do período
+class PontoDaSerie extends Equatable {
+  const PontoDaSerie({
+    required this.data,
+    required this.faturamento,
+    required this.atendimentos,
+  });
+
+  final DateTime data;
+
+  // null para quem não vê valores
+  final Decimal? faturamento;
+  final int atendimentos;
+
+  @override
+  List<Object?> get props => [data, faturamento, atendimentos];
 }
 
 // o período aplicado e o de comparação (mesmo tamanho, termina na véspera)
@@ -102,19 +125,42 @@ class AgendamentoHoje extends Equatable {
   const AgendamentoHoje({
     required this.id,
     required this.clienteNome,
+    this.clienteTelefone = '',
     required this.servicoNome,
+    this.colaboradorNome = '',
     required this.hora,
     required this.status,
   });
 
   final int id;
   final String clienteNome;
+
+  // só dígitos, para o WhatsApp
+  final String clienteTelefone;
   final String servicoNome;
+
+  // vazio sem profissional (a esteira)
+  final String colaboradorNome;
 
   // "HH:MM"
   final String hora;
   final String status;
 
+  // a hora como minutos desde a meia-noite, para ordenar e comparar
+  int get minutos {
+    final partes = hora.split(':');
+    if (partes.length != 2) return 0;
+    return (int.tryParse(partes[0]) ?? 0) * 60 + (int.tryParse(partes[1]) ?? 0);
+  }
+
   @override
-  List<Object?> get props => [id, clienteNome, servicoNome, hora, status];
+  List<Object?> get props => [
+    id,
+    clienteNome,
+    clienteTelefone,
+    servicoNome,
+    colaboradorNome,
+    hora,
+    status,
+  ];
 }
