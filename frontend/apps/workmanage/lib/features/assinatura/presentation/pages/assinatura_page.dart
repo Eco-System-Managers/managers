@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/selo_de_status.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -63,14 +65,11 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
               'Informe o id da assinatura mostrado ao final do pagamento '
               '(preapproval_id).',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: BrandSpacing.space3),
             TextField(
               controller: controller,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Id da assinatura',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Id da assinatura'),
             ),
           ],
         ),
@@ -100,6 +99,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
           'O acesso continua até o fim do período já pago. Depois '
           'disso, o app fica bloqueado até uma nova assinatura.',
       textoConfirmar: 'Cancelar assinatura',
+      textoCancelar: 'Voltar',
       destrutivo: true,
     );
     if (!ok || !mounted) return;
@@ -134,7 +134,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
       return const Carregando();
     }
 
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final assinatura = provider.assinatura;
     final bloqueio = provider.mensagemDeBloqueio;
@@ -142,7 +142,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(BrandSpacing.space4),
         children: [
           if (provider.isLoading)
             const LinearProgressIndicator(minHeight: 2)
@@ -150,34 +150,38 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
             const SizedBox(height: 2),
 
           if (bloqueio != null) ...[
-            const SizedBox(height: 8),
-            _Aviso(texto: bloqueio, icone: Icons.lock_outline, erro: true),
+            const SizedBox(height: BrandSpacing.space2),
+            _Aviso(
+              texto: bloqueio,
+              icone: Icons.lock_outline_rounded,
+              erro: true,
+            ),
           ],
           if (provider.errorMessage != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: BrandSpacing.space2),
             _Aviso(
               texto: provider.errorMessage!,
-              icone: Icons.error_outline,
+              icone: Icons.error_outline_rounded,
               erro: true,
             ),
           ],
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
           if (assinatura == null)
             _Aviso(
               texto: 'Este negócio ainda não tem assinatura.',
-              icone: Icons.info_outline,
+              icone: Icons.info_outline_rounded,
               erro: false,
             )
           else
             _CartaoAssinatura(assinatura: assinatura),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
           if (!souProprietario)
             Text(
               'Só o proprietário pode alterar a assinatura.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: colors.onSurfaceVariant),
+              style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             )
           else ...[
             if (provider.podeAssinar) ...[
@@ -186,62 +190,74 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
-                icon: const Icon(Icons.open_in_new),
+                icon: const Icon(Icons.open_in_new_rounded),
                 label: const Text('Assinar agora'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: BrandSpacing.space3),
               OutlinedButton.icon(
                 onPressed: provider.isLoading ? null : _confirmar,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
-                icon: const Icon(Icons.verified_outlined),
+                icon: const Icon(Icons.verified_rounded),
                 label: const Text('Já paguei: confirmar assinatura'),
               ),
             ],
             if (assinatura?.status == StatusAssinatura.ativa) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: BrandSpacing.space3),
+              // cancelar encerra o acesso: danger
               TextButton(
                 onPressed: provider.isLoading ? null : _cancelar,
-                style: TextButton.styleFrom(foregroundColor: colors.error),
+                style: TextButton.styleFrom(foregroundColor: cores.danger),
                 child: const Text('Cancelar assinatura'),
               ),
             ],
           ],
 
-          const SizedBox(height: 24),
-          Text('Cobranças', style: textos.titleMedium),
-          const SizedBox(height: 4),
+          const SizedBox(height: BrandSpacing.space5),
+          Text('Cobranças', style: textos.titleLarge),
+          const SizedBox(height: BrandSpacing.space1),
           if (provider.pagamentos.isEmpty)
             Text(
               'Nenhuma cobrança ainda.',
-              style: TextStyle(color: colors.onSurfaceVariant),
+              style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             )
           else
+            // pago é success, pendente é atenção e falha é danger: a cor
+            // vai no ícone e no texto do status
             for (final p in provider.pagamentos)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  switch (p.status) {
-                    StatusPagamentoAssinatura.pago =>
-                      Icons.check_circle_outline,
-                    StatusPagamentoAssinatura.pendente => Icons.schedule,
-                    StatusPagamentoAssinatura.falhou => Icons.error_outline,
-                  },
-                  color: switch (p.status) {
-                    StatusPagamentoAssinatura.pago => Colors.green.shade700,
-                    StatusPagamentoAssinatura.pendente =>
-                      colors.onSurfaceVariant,
-                    StatusPagamentoAssinatura.falhou => colors.error,
-                  },
-                ),
+                leading: Icon(switch (p.status) {
+                  StatusPagamentoAssinatura.pago =>
+                    Icons.check_circle_outline_rounded,
+                  StatusPagamentoAssinatura.pendente => Icons.schedule_rounded,
+                  StatusPagamentoAssinatura.falhou =>
+                    Icons.error_outline_rounded,
+                }, color: _corDoPagamento(p.status, cores)),
                 title: Text(formatarDinheiro(p.valor)),
                 subtitle: Text(formatarData(p.data)),
-                trailing: Text(p.status.nome),
+                trailing: Text(
+                  p.status.nome,
+                  style: textos.labelMedium?.copyWith(
+                    color: _corDoPagamento(p.status, cores),
+                  ),
+                ),
               ),
         ],
       ),
     );
+  }
+
+  static Color _corDoPagamento(
+    StatusPagamentoAssinatura status,
+    BrandColors cores,
+  ) {
+    return switch (status) {
+      StatusPagamentoAssinatura.pago => cores.success,
+      StatusPagamentoAssinatura.pendente => cores.warning,
+      StatusPagamentoAssinatura.falhou => cores.danger,
+    };
   }
 }
 
@@ -252,65 +268,57 @@ class _CartaoAssinatura extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final a = assinatura;
+    // ativa é success; o teste é atenção, porque acaba numa data; cancelada
+    // e inadimplente levam ao bloqueio: danger
     final cor = switch (a.status) {
-      StatusAssinatura.ativa => Colors.green.shade700,
-      StatusAssinatura.trial => colors.primary,
-      StatusAssinatura.cancelada => colors.outline,
-      StatusAssinatura.inadimplente => colors.error,
+      StatusAssinatura.ativa => cores.success,
+      StatusAssinatura.trial => cores.warning,
+      StatusAssinatura.cancelada => cores.danger,
+      StatusAssinatura.inadimplente => cores.danger,
     };
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  a.planoNome.isEmpty ? 'Plano' : 'Plano ${a.planoNome}',
-                  style: textos.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+    // o cartão do tema: fundo da página com borda, sem sombra
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(BrandSpacing.space4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    a.planoNome.isEmpty ? 'Plano' : 'Plano ${a.planoNome}',
+                    style: textos.titleLarge,
                   ),
                 ),
+                SeloDeStatus(texto: a.status.nome, cor: cor),
+              ],
+            ),
+            const SizedBox(height: BrandSpacing.space2),
+            _Linha(rotulo: 'Início', valor: formatarData(a.inicio)),
+            if (a.status == StatusAssinatura.trial && a.trialFim != null)
+              _Linha(rotulo: 'Teste até', valor: formatarData(a.trialFim!))
+            else
+              _Linha(
+                rotulo: a.status == StatusAssinatura.cancelada
+                    ? 'Acesso até'
+                    : 'Próximo vencimento',
+                valor: formatarData(a.proximoVencimento),
               ),
-              Chip(
-                label: Text(a.status.nome),
-                labelStyle: TextStyle(color: cor, fontSize: 12),
-                side: BorderSide(color: cor.withValues(alpha: 0.5)),
-                visualDensity: VisualDensity.compact,
+            if (a.bloqueada) ...[
+              const SizedBox(height: BrandSpacing.space2),
+              Text(
+                'Acesso bloqueado',
+                style: textos.titleMedium?.copyWith(color: cores.danger),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          _Linha(rotulo: 'Início', valor: formatarData(a.inicio)),
-          if (a.status == StatusAssinatura.trial && a.trialFim != null)
-            _Linha(rotulo: 'Teste até', valor: formatarData(a.trialFim!))
-          else
-            _Linha(
-              rotulo: a.status == StatusAssinatura.cancelada
-                  ? 'Acesso até'
-                  : 'Próximo vencimento',
-              valor: formatarData(a.proximoVencimento),
-            ),
-          if (a.bloqueada) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Acesso bloqueado',
-              style: TextStyle(
-                color: colors.error,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -324,18 +332,19 @@ class _Linha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: BrandSpacing.space1),
       child: Row(
         children: [
           Expanded(
             child: Text(
               rotulo,
-              style: TextStyle(color: colors.onSurfaceVariant),
+              style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             ),
           ),
-          Text(valor),
+          Text(valor, style: textos.bodyMedium),
         ],
       ),
     );
@@ -352,20 +361,24 @@ class _Aviso extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final fundo = erro ? colors.errorContainer : colors.secondaryContainer;
-    final frente = erro ? colors.onErrorContainer : colors.onSecondaryContainer;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
+    // a caixa de erro é o fundo 2 com texto danger; o aviso neutro é o
+    // destaque em azul suave com texto ink
+    final fundo = erro ? colors.errorContainer : cores.blueSoft;
+    final frente = erro ? colors.onErrorContainer : cores.ink;
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: fundo,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      padding: const EdgeInsets.all(BrandSpacing.space3),
+      decoration: BoxDecoration(color: fundo, borderRadius: BrandRadius.mdAll),
       child: Row(
         children: [
           Icon(icone, color: frente),
-          const SizedBox(width: 12),
+          const SizedBox(width: BrandSpacing.space3),
           Expanded(
-            child: Text(texto, style: TextStyle(color: frente)),
+            child: Text(
+              texto,
+              style: textos.bodyMedium?.copyWith(color: frente),
+            ),
           ),
         ],
       ),
