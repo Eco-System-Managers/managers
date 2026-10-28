@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
@@ -171,6 +172,8 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
     Servico? servico,
   ) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return Form(
       key: _formKey,
@@ -179,17 +182,19 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
         children: [
           if (provider.errorMessage != null) ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(BrandSpacing.space3),
               decoration: BoxDecoration(
                 color: colors.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BrandRadius.mdAll,
               ),
               child: Text(
                 provider.errorMessage!,
-                style: TextStyle(color: colors.onErrorContainer),
+                style: textos.bodyMedium?.copyWith(
+                  color: colors.onErrorContainer,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
           ],
 
           TextFormField(
@@ -199,13 +204,10 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
             validator: Validatorless.regex(_notBlank, 'Informe o nome'),
             forceErrorText: provider.erroDoCampo('nome'),
             onChanged: (_) => provider.limparErroDoCampo('nome'),
-            decoration: const InputDecoration(
-              labelText: 'Nome',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Nome'),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           TextFormField(
             controller: _descricaoController,
@@ -215,11 +217,10 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
             onChanged: (_) => provider.limparErroDoCampo('descricao'),
             decoration: const InputDecoration(
               labelText: 'Descrição (opcional)',
-              border: OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,11 +241,10 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
                   decoration: const InputDecoration(
                     labelText: 'Duração',
                     suffixText: 'min',
-                    border: OutlineInputBorder(),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: BrandSpacing.space4),
               Expanded(
                 child: TextFormField(
                   controller: _precoController,
@@ -263,25 +263,21 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
                   decoration: const InputDecoration(
                     labelText: 'Preço',
                     prefixText: 'R\$ ',
-                    border: OutlineInputBorder(),
                   ),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
-          Text(
-            'Taxa de cancelamento',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 4),
+          Text('Taxa de cancelamento', style: textos.titleSmall),
+          const SizedBox(height: BrandSpacing.space1),
           Text(
             'Cobrada só quando o cliente cancela fora do prazo. No máximo 30% do preço.',
-            style: TextStyle(color: colors.onSurfaceVariant),
+            style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
           SegmentedButton<TipoTaxaCancelamento?>(
             segments: const [
               ButtonSegment(value: null, label: Text('Sem taxa')),
@@ -303,7 +299,7 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
           ),
 
           if (_taxaTipo != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: BrandSpacing.space3),
             TextFormField(
               // a key nova recria o campo: as máscaras são formatters diferentes
               key: ValueKey(_taxaTipo),
@@ -334,20 +330,19 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
                 suffixText: _taxaTipo == TipoTaxaCancelamento.percentual
                     ? '%'
                     : null,
-                border: const OutlineInputBorder(),
               ),
             ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
-          Text('Quem executa', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
+          Text('Quem executa', style: textos.titleSmall),
+          const SizedBox(height: BrandSpacing.space1),
           Text(
             provider.colaboradores.isEmpty
                 ? 'Sem equipe cadastrada: qualquer um executa.'
                 : 'Sem ninguém marcado, qualquer um executa.',
-            style: TextStyle(color: colors.onSurfaceVariant),
+            style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
           ),
           for (final colaborador in provider.colaboradores)
             CheckboxListTile(
@@ -366,7 +361,7 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
               }),
             ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
           FilledButton(
             onPressed: provider.isLoading ? null : _salvar,
@@ -377,14 +372,14 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
           ),
 
           if (servico != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: BrandSpacing.space3),
             OutlinedButton(
               onPressed: provider.isLoading
                   ? null
                   : () => _alterarAtivo(!servico.ativo),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
-                foregroundColor: servico.ativo ? colors.error : null,
+                foregroundColor: servico.ativo ? cores.danger : null,
               ),
               child: Text(servico.ativo ? 'Inativar' : 'Reativar'),
             ),
