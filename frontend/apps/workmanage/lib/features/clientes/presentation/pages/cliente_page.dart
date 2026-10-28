@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/carregando.dart';
@@ -87,12 +88,12 @@ class _ClientePageState extends ConsumerState<ClientePage> {
                 : [
                     IconButton(
                       tooltip: 'Editar',
-                      icon: const Icon(Icons.edit_outlined),
+                      icon: const Icon(Icons.mode_edit_outline_rounded),
                       onPressed: provider.isLoading ? null : _editar,
                     ),
                     IconButton(
                       tooltip: 'Remover',
-                      icon: const Icon(Icons.delete_outline),
+                      icon: const Icon(Icons.delete_outline_rounded),
                       onPressed: provider.isLoading
                           ? null
                           : () => _remover(cliente),
@@ -122,6 +123,8 @@ class _ClientePageState extends ConsumerState<ClientePage> {
     }
 
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    final cores = BrandColors.of(context);
     // o modo do negócio não muda com a ficha aberta: ler basta
     final negocio = ref.read(negocioAtualProvider);
     final tipoObjeto = negocio.config?.tipoObjeto;
@@ -141,7 +144,7 @@ class _ClientePageState extends ConsumerState<ClientePage> {
     return ListView(
       children: [
         Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(BrandSpacing.space5),
           child: Column(
             children: [
               AvatarIniciais(
@@ -149,19 +152,20 @@ class _ClientePageState extends ConsumerState<ClientePage> {
                 fotoUrl: cliente.fotoUrl,
                 raio: 40,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: BrandSpacing.space3),
+              // o nome é o título da ficha: h2, acima do h3 dos cartões
               Text(
                 cliente.nome,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: BrandText.h2.copyWith(color: cores.ink),
               ),
               if (cliente.veioDoApp) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: BrandSpacing.space2),
                 Chip(
-                  avatar: const Icon(Icons.phone_android, size: 18),
+                  avatar: const Icon(Icons.phone_android_rounded, size: 18),
                   label: const Text('Cadastro feito pelo app'),
-                  backgroundColor: colors.secondaryContainer,
+                  backgroundColor: cores.blueSoft,
+                  side: BorderSide.none,
                 ),
               ],
             ],
@@ -169,15 +173,20 @@ class _ClientePageState extends ConsumerState<ClientePage> {
         ),
         if (provider.errorMessage != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space4,
+              0,
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+            ),
             child: Text(
               provider.errorMessage!,
               textAlign: TextAlign.center,
-              style: TextStyle(color: colors.error),
+              style: textos.bodyMedium?.copyWith(color: colors.error),
             ),
           ),
         SaldoClienteCard(clienteId: cliente.id),
-        const SizedBox(height: 8),
+        const SizedBox(height: BrandSpacing.space4),
         // só os negócios por esteira recebem um objeto do cliente
         if (tipoObjeto != null) ...[
           ObjetosClienteSection(
@@ -185,43 +194,44 @@ class _ClientePageState extends ConsumerState<ClientePage> {
             tipo: tipoObjeto,
             onMudou: provider.carregar,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: BrandSpacing.space4),
         ],
         if (negocio.isKanban)
           HistoricoKanbanCard(clienteId: cliente.id)
         else
           HistoricoClienteCard(clienteId: cliente.id),
-        const SizedBox(height: 8),
+        const SizedBox(height: BrandSpacing.space4),
         ContratosClienteCard(clienteId: cliente.id),
-        const SizedBox(height: 8),
+        // mais o espaço do próprio divisor: a linha fica a space-4 do cartão
+        const SizedBox(height: BrandSpacing.space2),
         const Divider(),
-        _Dado(icone: Icons.phone_outlined, rotulo: 'Telefone', valor: telefone),
+        _Dado(icone: Icons.phone_rounded, rotulo: 'Telefone', valor: telefone),
         _Dado(
-          icone: Icons.email_outlined,
+          icone: Icons.mail_outline_rounded,
           rotulo: 'E-mail',
           valor: cliente.email,
         ),
-        _Dado(icone: Icons.badge_outlined, rotulo: 'CPF', valor: cpf),
+        _Dado(icone: Icons.badge_rounded, rotulo: 'CPF', valor: cpf),
         _Dado(
-          icone: Icons.cake_outlined,
+          icone: Icons.cake_rounded,
           rotulo: 'Nascimento',
           valor: cliente.dataNascimento == null
               ? ''
               : formatarData(cliente.dataNascimento!),
         ),
-        _Dado(icone: Icons.place_outlined, rotulo: 'Endereço', valor: endereco),
+        _Dado(icone: Icons.place_rounded, rotulo: 'Endereço', valor: endereco),
         _Dado(
-          icone: Icons.notes_outlined,
+          icone: Icons.notes_rounded,
           rotulo: 'Observação',
           valor: cliente.observacao,
         ),
         _Dado(
-          icone: Icons.warning_amber_outlined,
+          icone: Icons.warning_amber_rounded,
           rotulo: 'Alergias',
           valor: cliente.alergia,
         ),
         _Dado(
-          icone: Icons.event_available_outlined,
+          icone: Icons.event_available_rounded,
           rotulo: 'Cliente desde',
           valor: cliente.criadoEm == null
               ? ''
@@ -232,7 +242,8 @@ class _ClientePageState extends ConsumerState<ClientePage> {
   }
 }
 
-// uma linha da ficha; o que está vazio aparece como "Não informado"
+// uma linha da ficha: o rótulo pequeno em cima e o valor embaixo. o que
+// está vazio aparece como "Não informado", no cinza do texto secundário
 class _Dado extends StatelessWidget {
   const _Dado({required this.icone, required this.rotulo, required this.valor});
 
@@ -243,16 +254,19 @@ class _Dado extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
     final vazio = valor.isEmpty;
 
     return ListTile(
       leading: Icon(icone),
-      title: Text(rotulo, style: TextStyle(color: colors.onSurfaceVariant)),
+      title: Text(
+        rotulo,
+        style: textos.labelLarge?.copyWith(color: colors.onSurfaceVariant),
+      ),
       subtitle: Text(
         vazio ? 'Não informado' : valor,
-        style: TextStyle(
-          color: vazio ? colors.outline : colors.onSurface,
-          fontStyle: vazio ? FontStyle.italic : null,
+        style: textos.bodyLarge?.copyWith(
+          color: vazio ? colors.onSurfaceVariant : colors.onSurface,
         ),
       ),
     );

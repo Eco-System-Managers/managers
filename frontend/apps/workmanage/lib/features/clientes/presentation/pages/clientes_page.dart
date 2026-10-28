@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
@@ -70,25 +71,29 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
           floatingActionButton: FloatingActionButton(
             onPressed: () => _abrir('/clientes/novo'),
             tooltip: 'Novo cliente',
-            child: const Icon(Icons.person_add_alt_1),
+            child: const Icon(Icons.person_add_alt_1_rounded),
           ),
           body: comSombraEmBaixo(
             Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                    BrandSpacing.space4,
+                    BrandSpacing.space2,
+                    BrandSpacing.space4,
+                    BrandSpacing.space2,
+                  ),
                   child: TextField(
                     controller: _buscaController,
                     textInputAction: TextInputAction.search,
                     onSubmitted: provider.buscar,
                     decoration: InputDecoration(
                       hintText: 'Nome, telefone, e-mail ou CPF',
-                      prefixIcon: const Icon(Icons.search),
-                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: _buscaController.text.isEmpty
                           ? null
                           : IconButton(
-                              icon: const Icon(Icons.clear),
+                              icon: const Icon(Icons.clear_rounded),
                               onPressed: () {
                                 _buscaController.clear();
                                 provider.buscar('');
@@ -121,7 +126,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     if (provider.clientes.isEmpty) {
       final buscando = provider.busca.isNotEmpty;
       return EstadoVazio(
-        icone: Icons.people_outline,
+        icone: Icons.people_outline_rounded,
         titulo: buscando ? 'Nada encontrado' : 'Nenhum cliente ainda',
         mensagem: buscando
             ? 'Tente outro nome, telefone, e-mail ou CPF.'
@@ -130,19 +135,20 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             ? null
             : FilledButton.icon(
                 onPressed: () => _abrir('/clientes/novo'),
-                icon: const Icon(Icons.person_add_alt_1),
+                icon: const Icon(Icons.person_add_alt_1_rounded),
                 label: const Text('Cadastrar cliente'),
               ),
       );
     }
 
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
 
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView.separated(
         controller: _scrollController,
-        padding: const EdgeInsets.only(bottom: 88),
+        // folga para o botão flutuante não cobrir o fim da lista
+        padding: const EdgeInsets.only(bottom: BrandSpacing.space7),
         // uma linha a mais no fim: o indicador da próxima página ou o erro
         itemCount: provider.clientes.length + 1,
         separatorBuilder: (_, _) => const Divider(height: 1),
@@ -168,9 +174,10 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                 ? Chip(
                     label: const Text('App'),
                     visualDensity: VisualDensity.compact,
-                    backgroundColor: colors.secondaryContainer,
+                    backgroundColor: cores.blueSoft,
+                    side: BorderSide.none,
                   )
-                : const Icon(Icons.chevron_right),
+                : const Icon(Icons.chevron_right_rounded),
             onTap: () => _abrir('/clientes/${cliente.id}'),
           );
         },
@@ -199,19 +206,23 @@ class _Rodape extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     if (carregandoMais) {
       return const Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(BrandSpacing.space4),
         child: Center(child: CircularProgressIndicator()),
       );
     }
     if (erro != null) {
       return Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(BrandSpacing.space4),
         child: Column(
           children: [
-            Text(erro!, style: TextStyle(color: colors.error)),
+            Text(
+              erro!,
+              style: textos.bodyMedium?.copyWith(color: colors.error),
+            ),
             TextButton(
               onPressed: onTentarDeNovo,
               child: const Text('Tentar de novo'),
@@ -221,11 +232,11 @@ class _Rodape extends StatelessWidget {
       );
     }
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(BrandSpacing.space4),
       child: Text(
         '$mostrando de $total',
         textAlign: TextAlign.center,
-        style: TextStyle(color: colors.onSurfaceVariant),
+        style: textos.bodySmall,
       ),
     );
   }

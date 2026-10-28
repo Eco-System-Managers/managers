@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 
 import '../../domain/entities/cliente.dart';
 import '../../domain/entities/objeto_cliente.dart';
@@ -52,40 +53,48 @@ class ObjetosClienteSection extends StatelessWidget {
     final objetos = cliente.objetosDoTipo(tipo);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.symmetric(horizontal: BrandSpacing.space4),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        padding: const EdgeInsets.fromLTRB(
+          BrandSpacing.space4,
+          BrandSpacing.space2,
+          BrandSpacing.space2,
+          BrandSpacing.space2,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // o ícone do cartão é neutro: o azul fica para o "Adicionar"
             Row(
               children: [
                 Icon(
-                  _veiculos ? Icons.directions_car_outlined : Icons.pets,
-                  color: colors.primary,
+                  _veiculos ? Icons.directions_car_rounded : Icons.pets_rounded,
+                  color: colors.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: BrandSpacing.space2),
                 Expanded(
                   child: Text(
                     _veiculos ? 'Veículos' : 'Pets',
-                    style: textos.titleSmall,
+                    style: textos.titleLarge,
                   ),
                 ),
                 TextButton.icon(
                   onPressed: () => _novo(context),
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add_rounded),
                   label: const Text('Adicionar'),
                 ),
               ],
             ),
             if (objetos.isEmpty)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: BrandSpacing.space2),
                 child: Text(
                   _veiculos
                       ? 'Nenhum veículo cadastrado.'
                       : 'Nenhum pet cadastrado.',
-                  style: TextStyle(color: colors.onSurfaceVariant),
+                  style: textos.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
               ),
             for (final objeto in objetos)
@@ -94,7 +103,7 @@ class ObjetosClienteSection extends StatelessWidget {
                 dense: true,
                 title: Text(objeto.titulo),
                 subtitle: objeto.detalhe.isEmpty ? null : Text(objeto.detalhe),
-                trailing: const Icon(Icons.edit_outlined, size: 20),
+                trailing: const Icon(Icons.mode_edit_outline_rounded, size: 20),
                 onTap: () => _editar(context, objeto),
               ),
           ],

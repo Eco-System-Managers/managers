@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/carregando.dart';
@@ -186,9 +187,17 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
     Cliente? cliente,
   ) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    final cores = BrandColors.of(context);
     // quem veio do app mantém a própria ficha por lá
     final espelhado = cliente?.veioDoApp ?? false;
     final habilitado = !provider.isLoading;
+    // o que vem do app aparece travado: o texto no cinza do secundário e o
+    // cadeado no fim do campo, no lugar do apagado do campo desabilitado
+    final estiloTravado = espelhado
+        ? textos.bodyLarge?.copyWith(color: colors.onSurfaceVariant)
+        : null;
+    final cadeado = espelhado ? const Icon(Icons.lock_outline_rounded) : null;
 
     return Form(
       key: _formKey,
@@ -197,56 +206,69 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
         children: [
           if (espelhado) ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(BrandSpacing.space3),
               decoration: BoxDecoration(
-                color: colors.secondaryContainer,
-                borderRadius: BorderRadius.circular(8),
+                color: cores.blueSoft,
+                borderRadius: BrandRadius.mdAll,
               ),
-              child: Text(
-                'Cadastro feito pelo app: nome, telefone, CPF, nascimento e '
-                'endereço só mudam por lá. Você edita o e-mail, a observação '
-                'e as alergias.',
-                style: TextStyle(color: colors.onSecondaryContainer),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.lock_outline_rounded, size: 20),
+                  const SizedBox(width: BrandSpacing.space2),
+                  Expanded(
+                    child: Text(
+                      'Cadastro feito pelo app: nome, telefone, CPF, '
+                      'nascimento e endereço só mudam por lá. Você edita o '
+                      'e-mail, a observação e as alergias.',
+                      style: textos.bodyMedium?.copyWith(color: cores.ink),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
           ],
 
           if (provider.errorMessage != null) ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(BrandSpacing.space3),
               decoration: BoxDecoration(
                 color: colors.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BrandRadius.mdAll,
               ),
               child: Text(
                 provider.errorMessage!,
-                style: TextStyle(color: colors.onErrorContainer),
+                style: textos.bodyMedium?.copyWith(
+                  color: colors.onErrorContainer,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
           ],
 
           TextFormField(
             controller: _nomeController,
             enabled: habilitado && !espelhado,
+            style: estiloTravado,
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.next,
             validator: Validatorless.regex(_notBlank, 'Informe o nome'),
             forceErrorText: provider.erroDoCampo('nome'),
             onChanged: (_) => provider.limparErroDoCampo('nome'),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Nome',
-              prefixIcon: Icon(Icons.person_outline),
-              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.person_outline_rounded),
+              suffixIcon: cadeado,
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           TextFormField(
             controller: _telefoneController,
             enabled: habilitado && !espelhado,
+            style: estiloTravado,
             keyboardType: TextInputType.phone,
             textInputAction: TextInputAction.next,
             inputFormatters: [_telefoneMascara],
@@ -256,15 +278,15 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
             ]),
             forceErrorText: provider.erroDoCampo('telefone'),
             onChanged: (_) => provider.limparErroDoCampo('telefone'),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Telefone',
               hintText: '(00) 00000-0000',
-              prefixIcon: Icon(Icons.phone_outlined),
-              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.phone_rounded),
+              suffixIcon: cadeado,
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           TextFormField(
             controller: _emailController,
@@ -279,16 +301,16 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
             onChanged: (_) => provider.limparErroDoCampo('email'),
             decoration: const InputDecoration(
               labelText: 'E-mail (opcional)',
-              prefixIcon: Icon(Icons.email_outlined),
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.mail_outline_rounded),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           TextFormField(
             controller: _cpfController,
             enabled: habilitado && !espelhado,
+            style: estiloTravado,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.next,
             inputFormatters: [_cpfMascara],
@@ -297,15 +319,17 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
                 : Validatorless.cpf('CPF inválido')(valor),
             forceErrorText: provider.erroDoCampo('cpf'),
             onChanged: (_) => provider.limparErroDoCampo('cpf'),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'CPF (opcional)',
-              prefixIcon: Icon(Icons.badge_outlined),
-              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.badge_rounded),
+              suffixIcon: cadeado,
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
+          // a data fica no CampoData mesmo travada: ele não aceita o estilo
+          // nem o cadeado, mas é ele que valida a data no salvar
           CampoData(
             valor: _dataNascimento,
             // nascimento é longe de hoje: digitar é mais rápido que rolar o
@@ -321,11 +345,12 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
             }),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           TextFormField(
             controller: _cepController,
             enabled: habilitado && !espelhado,
+            style: estiloTravado,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.next,
             inputFormatters: [_cepMascara],
@@ -340,23 +365,22 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
             decoration: InputDecoration(
               labelText: 'CEP (opcional)',
               hintText: '00000-000',
-              prefixIcon: const Icon(Icons.location_on_outlined),
-              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.location_on_rounded),
               // erro da busca (ex.: CEP não encontrado), separado do validator
               errorText: provider.cepErrorMessage,
               suffixIcon: provider.buscandoCep
                   ? const Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: EdgeInsets.all(BrandSpacing.space3),
                       child: SizedBox.square(
                         dimension: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     )
-                  : null,
+                  : cadeado,
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,35 +390,36 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
                 child: TextFormField(
                   controller: _enderecoController,
                   enabled: habilitado && !espelhado,
+                  style: estiloTravado,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   forceErrorText: provider.erroDoCampo('endereco'),
                   onChanged: (_) => provider.limparErroDoCampo('endereco'),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Endereço',
-                    border: OutlineInputBorder(),
+                    suffixIcon: cadeado,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: BrandSpacing.space3),
               Expanded(
+                // estreito demais para o cadeado: o do endereço, ao lado,
+                // vale para os dois
                 child: TextFormField(
                   controller: _numeroController,
                   enabled: habilitado && !espelhado,
+                  style: estiloTravado,
                   textInputAction: TextInputAction.next,
                   forceErrorText: provider.erroDoCampo('numero_endereco'),
                   onChanged: (_) =>
                       provider.limparErroDoCampo('numero_endereco'),
-                  decoration: const InputDecoration(
-                    labelText: 'Nº',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Nº'),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           TextFormField(
             controller: _observacaoController,
@@ -406,11 +431,10 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
             decoration: const InputDecoration(
               labelText: 'Observação',
               alignLabelWithHint: true,
-              border: OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           TextFormField(
             controller: _alergiaController,
@@ -423,11 +447,10 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
               labelText: 'Alergias',
               hintText: 'Ex.: amônia, látex',
               alignLabelWithHint: true,
-              border: OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
           FilledButton(
             onPressed: habilitado ? _salvar : null,

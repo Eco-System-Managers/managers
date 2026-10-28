@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/folha.dart';
@@ -95,6 +96,7 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
     // watch: mantém o provider vivo enquanto a folha estiver aberta
     final provider = ref.watch(objetoFormProvider);
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     return ListenableBuilder(
       listenable: provider,
@@ -109,19 +111,24 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
           key: _formKey,
           child: ListView(
             shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space5,
+              BrandSpacing.space4,
+              BrandSpacing.space5,
+              BrandSpacing.space5,
+            ),
             children: [
               Text(
                 widget.pet == null ? 'Novo pet' : 'Editar pet',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: textos.titleLarge,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               if (provider.errorMessage != null) ...[
                 Text(
                   provider.errorMessage!,
-                  style: TextStyle(color: colors.error),
+                  style: textos.bodyMedium?.copyWith(color: colors.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: BrandSpacing.space3),
               ],
               TextFormField(
                 controller: _nomeController,
@@ -130,12 +137,9 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
                 validator: Validatorless.regex(_notBlank, 'Informe o nome'),
                 forceErrorText: provider.erroDoCampo('nome'),
                 onChanged: (_) => provider.limparErroDoCampo('nome'),
-                decoration: const InputDecoration(
-                  labelText: 'Nome',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Nome'),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -149,11 +153,10 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
                       decoration: const InputDecoration(
                         labelText: 'Espécie',
                         hintText: 'Cachorro, gato...',
-                        border: OutlineInputBorder(),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: BrandSpacing.space3),
                   Expanded(
                     child: TextFormField(
                       controller: _racaController,
@@ -161,17 +164,16 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
                       textInputAction: TextInputAction.done,
                       forceErrorText: provider.erroDoCampo('raca'),
                       onChanged: (_) => provider.limparErroDoCampo('raca'),
-                      decoration: const InputDecoration(
-                        labelText: 'Raça',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Raça'),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               DropdownButtonFormField<PortePet?>(
                 initialValue: _porte,
+                // a lista que abre é um menu: o raio dos menus do tema
+                borderRadius: BrandRadius.mdAll,
                 items: [
                   const DropdownMenuItem(
                     value: null,
@@ -187,10 +189,9 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
                 decoration: InputDecoration(
                   labelText: 'Porte',
                   errorText: provider.erroDoCampo('porte'),
-                  border: const OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               CampoData(
                 valor: _nascimento,
                 onChanged: (d) {
@@ -200,7 +201,7 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
                 label: 'Nascimento (opcional)',
                 forceErrorText: provider.erroDoCampo('data_nascimento'),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: BrandSpacing.space5),
               FilledButton(
                 onPressed: provider.isLoading ? null : _salvar,
                 style: FilledButton.styleFrom(
@@ -209,7 +210,7 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
                 child: const Text('Salvar'),
               ),
               if (widget.pet != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: BrandSpacing.space2),
                 TextButton(
                   onPressed: provider.isLoading ? null : _remover,
                   style: TextButton.styleFrom(foregroundColor: colors.error),

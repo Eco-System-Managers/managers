@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/folha.dart';
 import 'package:validatorless/validatorless.dart';
@@ -96,6 +97,7 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
     // watch: mantém o provider vivo enquanto a folha estiver aberta
     final provider = ref.watch(objetoFormProvider);
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     return ListenableBuilder(
       listenable: provider,
@@ -110,19 +112,24 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
           key: _formKey,
           child: ListView(
             shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space5,
+              BrandSpacing.space4,
+              BrandSpacing.space5,
+              BrandSpacing.space5,
+            ),
             children: [
               Text(
                 widget.veiculo == null ? 'Novo veículo' : 'Editar veículo',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: textos.titleLarge,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               if (provider.errorMessage != null) ...[
                 Text(
                   provider.errorMessage!,
-                  style: TextStyle(color: colors.error),
+                  style: textos.bodyMedium?.copyWith(color: colors.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: BrandSpacing.space3),
               ],
               TextFormField(
                 controller: _placaController,
@@ -135,12 +142,9 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
                 validator: Validatorless.regex(_notBlank, 'Informe a placa'),
                 forceErrorText: provider.erroDoCampo('placa'),
                 onChanged: (_) => provider.limparErroDoCampo('placa'),
-                decoration: const InputDecoration(
-                  labelText: 'Placa',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Placa'),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -155,13 +159,10 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
                       ),
                       forceErrorText: provider.erroDoCampo('marca'),
                       onChanged: (_) => provider.limparErroDoCampo('marca'),
-                      decoration: const InputDecoration(
-                        labelText: 'Marca',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Marca'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: BrandSpacing.space3),
                   Expanded(
                     child: TextFormField(
                       controller: _modeloController,
@@ -173,15 +174,12 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
                       ),
                       forceErrorText: provider.erroDoCampo('modelo'),
                       onChanged: (_) => provider.limparErroDoCampo('modelo'),
-                      decoration: const InputDecoration(
-                        labelText: 'Modelo',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Modelo'),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               TextFormField(
                 controller: _corController,
                 textCapitalization: TextCapitalization.words,
@@ -190,12 +188,9 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
                 validator: Validatorless.regex(_notBlank, 'Informe a cor'),
                 forceErrorText: provider.erroDoCampo('cor'),
                 onChanged: (_) => provider.limparErroDoCampo('cor'),
-                decoration: const InputDecoration(
-                  labelText: 'Cor',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Cor'),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: BrandSpacing.space5),
               FilledButton(
                 onPressed: provider.isLoading ? null : _salvar,
                 style: FilledButton.styleFrom(
@@ -204,7 +199,7 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
                 child: const Text('Salvar'),
               ),
               if (widget.veiculo != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: BrandSpacing.space2),
                 TextButton(
                   onPressed: provider.isLoading ? null : _remover,
                   style: TextButton.styleFrom(foregroundColor: colors.error),

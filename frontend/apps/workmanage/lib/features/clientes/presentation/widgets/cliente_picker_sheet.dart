@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
@@ -89,6 +90,7 @@ class _ClientePickerSheetState extends State<ClientePickerSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
     final altura = MediaQuery.sizeOf(context).height * 0.8;
 
     return SizedBox(
@@ -96,44 +98,47 @@ class _ClientePickerSheetState extends State<ClientePickerSheet> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space2,
+            ),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Escolher cliente',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  child: Text('Escolher cliente', style: textos.titleLarge),
                 ),
                 IconButton(
                   tooltip: 'Fechar',
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close_rounded),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: BrandSpacing.space4,
+            ),
             child: TextField(
               controller: _controller,
               autofocus: true,
               onChanged: _aoDigitar,
               decoration: const InputDecoration(
                 hintText: 'Nome, telefone, e-mail ou CPF',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search_rounded),
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: BrandSpacing.space2),
           Expanded(
             child: _carregando
                 ? const Center(child: CircularProgressIndicator())
                 : _clientes.isEmpty
                 ? Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(BrandSpacing.space5),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -142,12 +147,14 @@ class _ClientePickerSheetState extends State<ClientePickerSheet> {
                                 ? 'Nenhum cliente cadastrado ainda.'
                                 : 'Nenhum cliente encontrado.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: colors.onSurfaceVariant),
+                            style: textos.bodyMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: BrandSpacing.space4),
                           FilledButton.tonalIcon(
                             onPressed: _cadastrar,
-                            icon: const Icon(Icons.person_add_alt_1),
+                            icon: const Icon(Icons.person_add_alt_1_rounded),
                             label: Text(
                               _controller.text.trim().isEmpty
                                   ? 'Cadastrar cliente'
@@ -181,13 +188,18 @@ class _ClientePickerSheetState extends State<ClientePickerSheet> {
           // sempre à mão, mesmo com resultados: o cliente pode ser outro
           if (!_carregando && _clientes.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              padding: const EdgeInsets.fromLTRB(
+                BrandSpacing.space4,
+                BrandSpacing.space2,
+                BrandSpacing.space4,
+                BrandSpacing.space2,
+              ),
               child: OutlinedButton.icon(
                 onPressed: _cadastrar,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(44),
                 ),
-                icon: const Icon(Icons.person_add_alt_1),
+                icon: const Icon(Icons.person_add_alt_1_rounded),
                 label: const Text('Novo cliente'),
               ),
             ),
