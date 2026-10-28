@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/brand.dart';
+
 // o estado "ainda não tem nada" de uma lista: texto curto e, quando faz
 // sentido, a ação que cria o primeiro item
 class EstadoVazio extends StatelessWidget {
@@ -18,30 +20,35 @@ class EstadoVazio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(BrandSpacing.space5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icone, size: 56, color: colors.outline),
-            const SizedBox(height: 16),
+            // o ícone é neutro: a borda sumiria sobre o fundo
+            Icon(icone, size: 56, color: cores.inkMuted),
+            const SizedBox(height: BrandSpacing.space4),
             Text(
               titulo,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: textos.titleMedium,
             ),
             if (mensagem != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: BrandSpacing.space2),
               Text(
                 mensagem!,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceVariant),
+                style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
               ),
             ],
-            if (acao != null) ...[const SizedBox(height: 24), acao!],
+            if (acao != null) ...[
+              const SizedBox(height: BrandSpacing.space5),
+              acao!,
+            ],
           ],
         ),
       ),

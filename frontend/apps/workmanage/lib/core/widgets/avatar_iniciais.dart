@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/brand.dart';
+
 // o avatar de uma pessoa: a foto, quando existe, ou as iniciais do nome
 class AvatarIniciais extends StatelessWidget {
   const AvatarIniciais({
@@ -22,6 +24,27 @@ class AvatarIniciais extends StatelessWidget {
     return '$primeira$ultima'.toUpperCase();
   }
 
+  // o estilo do Design System mais próximo de 0,8 × raio (no empate, o
+  // menor): o raio padrão (20) dá o body-strong; o da ficha (40), o h1
+  static TextStyle estiloDaInicial(double raio) {
+    final alvo = raio * 0.8;
+    const escala = [
+      BrandText.caption,
+      BrandText.label,
+      BrandText.bodyStrong,
+      BrandText.h3,
+      BrandText.h2,
+      BrandText.h1,
+    ];
+    var melhor = escala.first;
+    for (final estilo in escala) {
+      if ((estilo.fontSize! - alvo).abs() < (melhor.fontSize! - alvo).abs()) {
+        melhor = estilo;
+      }
+    }
+    return melhor;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -32,10 +55,9 @@ class AvatarIniciais extends StatelessWidget {
       foregroundImage: fotoUrl.isNotEmpty ? NetworkImage(fotoUrl) : null,
       child: Text(
         iniciais(nome),
-        style: TextStyle(
-          color: colors.onPrimaryContainer,
-          fontSize: raio * 0.8,
+        style: estiloDaInicial(raio).copyWith(
           fontWeight: FontWeight.w600,
+          color: colors.onPrimaryContainer,
         ),
       ),
     );

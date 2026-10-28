@@ -127,7 +127,9 @@ abstract final class AppTheme {
         displayColor: c.onBrand,
       ),
       scaffoldBackgroundColor: c.bg,
-      canvasColor: c.bg,
+      // o menu do DropdownButton é desenhado no canvasColor: ele flutua, então
+      // no escuro é o fundo 2, como o diálogo e a folha
+      canvasColor: superficieFlutuante,
       dividerColor: c.border,
       hintColor: c.inkMuted,
       iconTheme: IconThemeData(color: c.ink),

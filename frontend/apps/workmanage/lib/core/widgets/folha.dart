@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/brand.dart';
+
 // abre uma folha de baixo que respeita o teclado e a barra de navegação do
 // sistema. com o app de ponta a ponta (edge-to-edge), o Android desenha os
 // botões de navegação por cima do app, e o último botão da folha ficava
@@ -20,15 +22,18 @@ Future<T?> abrirFolha<T>(
   );
 }
 
-// o recuo padrão das telas de formulário e ficha que rolam, com espaço extra
-// embaixo para a barra de navegação do sistema: a lista rola por baixo dela,
-// mas o último botão para acima. nas abas (que têm a barra inferior do app)
-// o extra é zero
-EdgeInsets paddingDaPagina(BuildContext context, {double topo = 24}) {
+// o recuo padrão das telas de formulário e ficha que rolam (space-5, o
+// padding de seções), com espaço extra embaixo para a barra de navegação do
+// sistema: a lista rola por baixo dela, mas o último botão para acima. nas
+// abas (que têm a barra inferior do app) o extra é zero
+EdgeInsets paddingDaPagina(
+  BuildContext context, {
+  double topo = BrandSpacing.space5,
+}) {
   return EdgeInsets.fromLTRB(
-    24,
+    BrandSpacing.space5,
     topo,
-    24,
-    24 + MediaQuery.paddingOf(context).bottom,
+    BrandSpacing.space5,
+    BrandSpacing.space5 + MediaQuery.paddingOf(context).bottom,
   );
 }
