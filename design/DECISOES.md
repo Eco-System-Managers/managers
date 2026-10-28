@@ -152,6 +152,76 @@ App: **Work Manage** (`frontend/apps/workmanage`).
 - **O nome na ficha vai em `h2`; nos dados, o rótulo em `label` e o valor em `body`.** Antes o rótulo pesava mais que o valor.
 - **O vão entre os cartões da ficha é `space-4`** ("vão entre cartões"). O ícone de editar é `mode_edit_outline_rounded`, a versão de linha.
 
+### Equipe (usuarios)
+
+- **Status de pessoa como selo (`SeloDeStatus`, no core):** a cor vai no texto e no ícone, sobre fundo neutro com borda fina. "Convite enviado" é pendente (`warning`); "Inativo" e "Sem acesso" são neutros (`inkMuted`); "Dono" é o selo em `blueSoft` sem borda, como o "App" do cliente. O mesmo selo serve ao contrato, ao modelo e ao serviço inativos e à assinatura.
+- **Quem está inativo vai em `inkMuted`, e a linha continua tocável.** Antes a linha era desabilitada, o que apagava o texto a 38 % e, de quebra, não deixava abrir a ficha, onde se reativa.
+- **No cartão do convite pendente (`blueSoft`), mandar o link é o primário;** reenviar é contornado sobre `bg` (a borda some sobre o azul suave, como no Início) e cancelar é texto em `danger`.
+- **O filtro de profissionais marca o escolhido pelo anel azul e pela cor do nome, sem engrossar o texto.** A folga de 2 px entre o anel e o avatar é medida do anel, não espaçamento.
+- **"Ativo" é `success` e "Inativo" é neutro;** desativar e remover são `danger`.
+- **O ícone da tela do convite é neutro (`inkMuted`):** o azul é só da ação. O convite inválido leva `link_off` em `danger`, e "Ir para o login" é o primário.
+
+### Contratos
+
+- **`StatusContratoChip`:** pendente → `warning`, enviado → `ink`, assinado → `success`, recusado → `danger`; a borda é a `border`, e não a cor do status com transparência.
+- **O PDF usa os neutros do tema claro** (`ink` no texto, `inkMuted` nos metadados e no rodapé, `border` na linha do cabeçalho e `ink` na linha de assinatura), porque é impresso sobre branco. As medidas são de impressão (pontos) e viraram constantes nomeadas; não seguem a escala do app.
+- **O título do contrato é o título da ficha (h2).** O texto corrido vai no `body` (22/15), sem entrelinha própria.
+- **O modelo inativo vai em `inkMuted` com o selo neutro, sem o riscado.** O selo já diz o estado.
+- **A linha de escolher o cliente na geração é um campo:** `radius-sm` com a `border`, que vira `danger` quando falta escolher.
+
+### Configurações (empresa)
+
+- **A área do logo é o `bg2` com o ícone em `inkMuted`** ("bg-2: área do logo"), nas Configurações e no Mais. O nome do negócio é h2, como nas fichas.
+- **Os ícones dos nichos foram para a família Round;** não havia cor decorativa por nicho.
+- **A folga de 40 no fim dos horários ficou:** 40 é o `space-6`.
+
+### Assinatura
+
+- **Ativa → `success`; teste → `warning`, porque acaba numa data; cancelada e inadimplente → `danger`, porque levam ao bloqueio.** Nas cobranças: pago `success`, pendente `warning`, falhou `danger`, com a cor no ícone e no texto do status.
+- **O cartão da assinatura é o `Card` do tema** (fundo com borda), e não um bloco em `bg2`: o `bg2` é para campos e áreas, não para cartão.
+- **O aviso neutro ("ainda não tem assinatura") é `blueSoft` com texto `ink`;** o de erro é a caixa de erro.
+
+### Onboarding
+
+- **O nicho e o modo de atendimento escolhidos vão em `blueSoft` com contorno `primary` de 2 px;** os outros, `bg` com a `border`. O conteúdo fica em `ink` nos dois estados: o escolhido se marca pelo fundo e pela borda, sem engrossar o texto.
+- **O título da etapa é h3** (`titleLarge`), porque a barra de cima já tem o título da tela. Não é capa: nada de MuseoModerno.
+- **O erro ao carregar usa o `EstadoErro` do core**, no lugar de uma cópia local.
+
+### Serviços
+
+- **Inativo em `inkMuted` com o selo neutro, sem o riscado.** Na lista, a duração é detalhe (`inkMuted`) e o preço vai em `ink`.
+
+### Casca (home)
+
+- **A barra inferior deixou de ser pílula com elevação do Material:** é um cartão em `radius-lg` com a `shadow-card`, fundo `bg` no claro e `bg2` com borda no escuro (onde o `bg2` quase se confunde com a página). A altura de 68 ficou.
+- **Ícone de aba em 24 e rótulo em `labelMedium`;** a aba atual é `primary` e as outras `inkMuted`, sem engrossar o rótulo.
+- **"Sair" é a ação destrutiva do menu:** `danger` no ícone e no texto.
+
+### Abertura (auth e register)
+
+- **Os títulos do painel são h2** ("Bom ver você de novo", "Cadastro", "Verifique seu e-mail", "Recuperar senha"...), com o apoio em `body` `inkMuted`.
+- **As caixinhas do código (`Pinput`) são campos:** fundo `bg2`, `border`, `radius-sm`; em foco, `primary` em 2 px; com erro, `danger`; o dígito em `headlineSmall`.
+- **A seta de voltar sobre o marinho é branca nos dois temas** (`onBrand`): o `onPrimary` do tema escuro é o próprio marinho e sumia.
+- **"Código reenviado" vai em `success`,** porque deu certo e o azul é só da ação.
+
+### Core
+
+- **`BotaoDeRodape` usa a forma e o texto do tema** (`radius-md`, `bodyStrong`), sem a pílula.
+- **`ChipDeFiltro`: `radius-sm` com a `border`, texto em `titleSmall`;** na folha de opções, o título é h3, a escolhida vai em `primary` com `bodyStrong` e `check`, e as outras em `body`.
+- **`Painel`: `bg` com a `border` inteira e `radius-md`;** `TituloDaSecao` em h3 com o detalhe em `bodySmall`.
+- **`EstadoVazio` com o ícone em `inkMuted`** (a `border` sumia); **`EstadoErro` com o ícone em `danger`** e "Tentar de novo" como primário; **`SuccessView` com o ícone em `success`** e a barra em `radius-sm`.
+- **`AvatarIniciais`: a inicial sai da escala tipográfica,** o estilo mais próximo de 0,8 × raio (no empate, o menor): raio 20 dá o `bodyStrong`, raio 40 dá o h1.
+- **`FaixaSemana`: o dia escolhido é `brandBlue` com número branco; hoje é `primary` com contorno inteiro (sem transparência); os dias de outro mês e as bolinhas vão em `inkMuted` (a bolinha é branca no escolhido).** O número vai em `bodyStrong` (escolhido e hoje) ou `body`. As folgas de dentro da célula (2, 3 e 6) ficaram: a altura das linhas é fixa e não cabe mais.
+- **`confirmar()` ganhou `textoCancelar`:** quando a ação se chama cancelar (agendamento, convite, assinatura), fechar vira "Voltar".
+- **`CampoData` ganhou o modo `travado`:** texto `inkMuted` e cadeado, com o validador valendo; é como o nascimento de quem veio do app aparece.
+- **`paddingDaPagina` é o `space-5`** (24), o padding de seções.
+
+### Transversais
+
+- **O menu do `DropdownButton` sai no `canvasColor`,** que passou a ser a superfície que flutua (`bg` no claro, `bg2` no escuro), como o diálogo e a folha. Nenhum `Material` do app depende do `canvasColor`.
+- **"Confirmar" da ficha de agendamento é contornado;** cobrar é o primário. O `FilledButton.tonal` saiu do app: onde era a ação principal, virou `FilledButton`.
+- **As caixas da cobrança (resumo e erro) passaram a `radius-md`.**
+
 ### Textos que mudaram (tom de voz)
 
 - **Início:**
@@ -164,3 +234,12 @@ App: **Work Manage** (`frontend/apps/workmanage`).
   - "Nenhum atendimento" (era "Nada aqui").
   - O caminho das etapas passou a "Mais › Configurações › Etapas do quadro".
   - "Escolha outro dia ou receba sem hora marcada."
+- **Equipe:**
+  - "Não deu para abrir o WhatsApp." → a mesma frase do Início.
+  - A mensagem do convite por WhatsApp perdeu o "!" e o "(a)": "Olá, Ana. Você recebeu um convite para a equipe...".
+  - Na tela do convite: "Você recebeu um convite para a equipe" (era "Você foi convidado...").
+- **Abertura:**
+  - "Bem-vindo de volta" → "Bom ver você de novo".
+  - "Senha alterada!" → "Senha alterada"; "Você será redirecionado para o login." → "Em instantes você volta para o login.".
+  - "Fazer Login" → "Já tenho conta".
+- **Onboarding:** "Tudo pronto!" → "Tudo pronto".
