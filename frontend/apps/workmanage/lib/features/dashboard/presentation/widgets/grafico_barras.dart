@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 
-// um gráfico de barras mínimo, numa série só: barras finas na cor primária,
-// pontas arredondadas, sem eixo e sem grade. a última barra (hoje) é cheia;
-// as outras, mais claras. o rótulo embaixo é opcional e esparso: só alguns,
-// para não virar uma fileira de números. valor é a altura relativa
+// um gráfico de barras mínimo, numa série só: barras finas em inkMuted,
+// pontas arredondadas, sem eixo e sem grade. a última barra (hoje) é a de
+// destaque, no azul; as outras ficam neutras. o rótulo embaixo é opcional e
+// esparso: só alguns, para não virar uma fileira de números. valor é a
+// altura relativa
 class GraficoBarras extends StatelessWidget {
   const GraficoBarras({
     super.key,
@@ -38,14 +40,14 @@ class GraficoBarras extends StatelessWidget {
             painter: _BarrasPainter(
               valores: valores,
               cheia: cheia,
-              cor: colors.primary,
-              corClara: colors.primary.withValues(alpha: 0.28),
-              corBase: colors.outlineVariant,
+              corDaCheia: colors.primary,
+              corDasOutras: colors.onSurfaceVariant,
+              corBase: colors.outline,
             ),
           ),
         ),
         if (rotulos.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: BrandSpacing.space1),
           Row(
             children: [
               for (var i = 0; i < rotulos.length; i++)
@@ -59,7 +61,6 @@ class GraficoBarras extends StatelessWidget {
                       color: i == cheia
                           ? colors.onSurface
                           : colors.onSurfaceVariant,
-                      fontWeight: i == cheia ? FontWeight.w600 : null,
                     ),
                   ),
                 ),
@@ -85,15 +86,15 @@ class _BarrasPainter extends CustomPainter {
   const _BarrasPainter({
     required this.valores,
     required this.cheia,
-    required this.cor,
-    required this.corClara,
+    required this.corDaCheia,
+    required this.corDasOutras,
     required this.corBase,
   });
 
   final List<double> valores;
   final int cheia;
-  final Color cor;
-  final Color corClara;
+  final Color corDaCheia;
+  final Color corDasOutras;
   final Color corBase;
 
   @override
@@ -125,7 +126,10 @@ class _BarrasPainter extends CustomPainter {
         topLeft: raio,
         topRight: raio,
       );
-      canvas.drawRRect(rect, Paint()..color = i == cheia ? cor : corClara);
+      canvas.drawRRect(
+        rect,
+        Paint()..color = i == cheia ? corDaCheia : corDasOutras,
+      );
     }
   }
 
@@ -133,6 +137,7 @@ class _BarrasPainter extends CustomPainter {
   bool shouldRepaint(_BarrasPainter antigo) =>
       antigo.valores != valores ||
       antigo.cheia != cheia ||
-      antigo.cor != cor ||
-      antigo.corClara != corClara;
+      antigo.corDaCheia != corDaCheia ||
+      antigo.corDasOutras != corDasOutras ||
+      antigo.corBase != corBase;
 }
