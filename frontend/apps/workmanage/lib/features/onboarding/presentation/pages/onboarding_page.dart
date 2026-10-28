@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
+import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/success_view.dart';
 
 import '../../onboarding_provider.dart';
@@ -50,7 +52,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             automaticallyImplyLeading: false,
             leading: podeVoltar
                 ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(Icons.arrow_back_rounded),
                     onPressed: wizard.isLoading ? null : wizard.voltar,
                   )
                 : null,
@@ -65,7 +67,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     // primeira carga: ainda não sabe em que etapa abrir
     if (!wizard.carregado) {
       if (wizard.errorMessage != null) {
-        return _ErroAoCarregar(
+        return EstadoErro(
           mensagem: wizard.errorMessage!,
           onTentarDeNovo: wizard.carregar,
         );
@@ -75,10 +77,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
     if (wizard.step == WizardStep.concluido) {
       return Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(BrandSpacing.space5),
         child: Center(
           child: SuccessView(
-            title: 'Tudo pronto!',
+            title: 'Tudo pronto',
             message: 'Seu negócio está configurado.',
             // a sessão já existe desde o cadastro: o fim do wizard é a home.
             // go, não push: o onboarding não fica no histórico do "voltar"
@@ -99,7 +101,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(BrandSpacing.space5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -107,19 +109,19 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   'Etapa ${wizard.step.index + 1} de $_totalEtapas',
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: BrandSpacing.space1),
+                // o título da etapa é um título de seção: h3
                 Text(
                   _titulo(wizard.step),
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: BrandSpacing.space5),
 
                 // erro da última ação (salvar, concluir...)
                 if (wizard.errorMessage != null) ...[
                   _MensagemDeErro(mensagem: wizard.errorMessage!),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: BrandSpacing.space4),
                 ],
 
                 // troca de etapa com um fade, sem precisar de PageView
@@ -165,40 +167,17 @@ class _MensagemDeErro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(BrandSpacing.space3),
       decoration: BoxDecoration(
         color: colors.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BrandRadius.mdAll,
       ),
-      child: Text(mensagem, style: TextStyle(color: colors.onErrorContainer)),
-    );
-  }
-}
-
-class _ErroAoCarregar extends StatelessWidget {
-  const _ErroAoCarregar({required this.mensagem, required this.onTentarDeNovo});
-
-  final String mensagem;
-  final VoidCallback onTentarDeNovo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(mensagem, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onTentarDeNovo,
-              child: const Text('Tentar de novo'),
-            ),
-          ],
-        ),
+      child: Text(
+        mensagem,
+        style: textos.bodyMedium?.copyWith(color: colors.onErrorContainer),
       ),
     );
   }

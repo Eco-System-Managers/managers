@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/features/empresa/presentation/widgets/horario_dia_card.dart';
 
 import '../providers/wizard_provider.dart';
@@ -21,12 +22,11 @@ class HorariosStep extends StatelessWidget {
               ? 'Marque os dias abertos, o horário e quantos atendimentos '
                     'cabem em cada dia.'
               : 'Marque os dias abertos e o horário de cada um.',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: BrandColors.of(context).inkMuted),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
 
         for (final horario in provider.horarios) ...[
           HorarioDiaCard(
@@ -36,10 +36,10 @@ class HorariosStep extends StatelessWidget {
             enabled: !provider.isLoading,
             onChanged: provider.atualizarHorario,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
         ],
 
-        const SizedBox(height: 12),
+        const SizedBox(height: BrandSpacing.space3),
 
         FilledButton(
           onPressed: provider.isLoading ? null : provider.concluir,

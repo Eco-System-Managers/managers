@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:validatorless/validatorless.dart';
 
 import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
@@ -51,6 +52,8 @@ class _NichoStepState extends State<NichoStep> {
   @override
   Widget build(BuildContext context) {
     final selecionado = _provider.config.nicho;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return Form(
       key: _formKey,
@@ -59,12 +62,10 @@ class _NichoStepState extends State<NichoStep> {
         children: [
           Text(
             'Escolha o que melhor descreve o seu negócio.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           // 3 colunas no celular, 4 no tablet
           LayoutBuilder(
@@ -73,8 +74,8 @@ class _NichoStepState extends State<NichoStep> {
 
               return GridView.count(
                 crossAxisCount: colunas,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
+                mainAxisSpacing: BrandSpacing.space3,
+                crossAxisSpacing: BrandSpacing.space3,
                 childAspectRatio: 0.9,
                 // a rolagem é da página: a grade só ocupa a altura dela
                 shrinkWrap: true,
@@ -97,7 +98,7 @@ class _NichoStepState extends State<NichoStep> {
           ),
 
           if (selecionado == Nicho.outro) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: BrandSpacing.space5),
             TextFormField(
               controller: _descricaoController,
               maxLength: 60,
@@ -109,19 +110,15 @@ class _NichoStepState extends State<NichoStep> {
               decoration: const InputDecoration(
                 labelText: 'Qual é o seu negócio?',
                 hintText: 'Ex.: oficina mecânica, psicologia',
-                prefixIcon: Icon(Icons.storefront_outlined),
-                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.storefront_rounded),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Como você atende?',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: BrandSpacing.space2),
+            Text('Como você atende?', style: textos.titleSmall),
+            const SizedBox(height: BrandSpacing.space2),
             for (final modo in _Modo.values)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: BrandSpacing.space2),
                 child: _ModoOpcao(
                   modo: modo,
                   selecionado: modo == _Modo.de(_provider.config),
@@ -135,7 +132,7 @@ class _NichoStepState extends State<NichoStep> {
               ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
           FilledButton(
             // sem nicho escolhido não há o que salvar
@@ -161,21 +158,21 @@ enum _Modo {
     null,
     'Com horário marcado',
     'O cliente agenda um horário com você ou com a equipe',
-    Icons.event_outlined,
+    Icons.event_rounded,
   ),
   veiculo(
     TipoAgenda.kanban,
     TipoObjeto.veiculo,
     'Recebo veículos',
     'O cliente deixa o veículo e busca quando ficar pronto',
-    Icons.directions_car_outlined,
+    Icons.directions_car_rounded,
   ),
   pet(
     TipoAgenda.kanban,
     TipoObjeto.pet,
     'Recebo pets',
     'O cliente deixa o pet e busca quando ficar pronto',
-    Icons.pets_outlined,
+    Icons.pets_rounded,
   );
 
   const _Modo(
@@ -218,13 +215,16 @@ class _ModoOpcao extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
 
+    // a opção escolhida é o azul suave com contorno azul (estado ativo); as
+    // outras, o fundo da página com a borda fina
     return Material(
-      color: selecionado ? colors.primaryContainer : colors.surface,
+      color: selecionado ? cores.blueSoft : cores.bg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BrandRadius.mdAll,
         side: BorderSide(
-          color: selecionado ? colors.primary : colors.outlineVariant,
+          color: selecionado ? colors.primary : cores.border,
           width: selecionado ? 2 : 1,
         ),
       ),
@@ -235,10 +235,9 @@ class _ModoOpcao extends StatelessWidget {
         title: Text(modo.titulo),
         subtitle: Text(modo.descricao),
         trailing: selecionado
-            ? Icon(Icons.check_circle, color: colors.primary)
+            ? Icon(Icons.check_circle_rounded, color: colors.primary)
             : null,
-        textColor: selecionado ? colors.onPrimaryContainer : null,
-        iconColor: selecionado ? colors.onPrimaryContainer : null,
+        iconColor: selecionado ? cores.ink : null,
       ),
     );
   }
@@ -258,16 +257,16 @@ class _NichoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final corConteudo = selecionado
-        ? colors.onPrimaryContainer
-        : colors.onSurface;
+    final cores = BrandColors.of(context);
 
+    // o nicho escolhido é o azul suave com contorno azul; o conteúdo fica
+    // em ink nos dois estados, e o escolhido se marca pelo fundo e pela borda
     return Material(
-      color: selecionado ? colors.primaryContainer : colors.surface,
+      color: selecionado ? cores.blueSoft : cores.bg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BrandRadius.mdAll,
         side: BorderSide(
-          color: selecionado ? colors.primary : colors.outlineVariant,
+          color: selecionado ? colors.primary : cores.border,
           width: selecionado ? 2 : 1,
         ),
       ),
@@ -275,21 +274,18 @@ class _NichoCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(BrandSpacing.space2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(nicho.icone, size: 32, color: corConteudo),
-              const SizedBox(height: 8),
+              Icon(nicho.icone, size: 32, color: cores.ink),
+              const SizedBox(height: BrandSpacing.space2),
               Text(
                 nicho.nome,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: corConteudo,
-                  fontWeight: selecionado ? FontWeight.w600 : null,
-                ),
+                style: Theme.of(context).textTheme.labelMedium,
               ),
             ],
           ),
