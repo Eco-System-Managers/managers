@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
@@ -82,10 +83,7 @@ class _ContratoPageState extends ConsumerState<ContratoPage> {
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Quem assinou',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'Quem assinou'),
         ),
         actions: [
           TextButton(
@@ -149,7 +147,7 @@ class _ContratoPageState extends ConsumerState<ContratoPage> {
                   contrato.status != StatusContrato.assinado)
                 IconButton(
                   tooltip: 'Apagar',
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(Icons.delete_outline_rounded),
                   onPressed: provider.isLoading ? null : _remover,
                 ),
             ],
@@ -177,22 +175,24 @@ class _ContratoPageState extends ConsumerState<ContratoPage> {
     }
 
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final assinadoEm = contrato.assinadoEm;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(BrandSpacing.space4),
       children: [
-        Text(contrato.titulo, style: textos.titleLarge),
-        const SizedBox(height: 8),
+        // o título do contrato é o título da ficha: h2
+        Text(contrato.titulo, style: BrandText.h2.copyWith(color: cores.ink)),
+        const SizedBox(height: BrandSpacing.space2),
         Row(
           children: [
             Icon(
-              Icons.person_outline,
+              Icons.person_outline_rounded,
               size: 18,
               color: colors.onSurfaceVariant,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: BrandSpacing.space1),
             Expanded(
               child: Text(
                 contrato.clienteNome,
@@ -203,54 +203,54 @@ class _ContratoPageState extends ConsumerState<ContratoPage> {
             StatusContratoChip(status: contrato.status),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: BrandSpacing.space1),
         Text(
           'Gerado em ${formatarDataHora(contrato.criadoEm)}',
-          style: textos.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          style: textos.bodySmall,
         ),
         if (assinadoEm != null)
           Text(
             'Assinado por ${contrato.nomeAssinante} em '
             '${formatarDataHora(assinadoEm)}',
-            style: textos.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            style: textos.bodySmall,
           ),
 
         if (provider.errorMessage != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(BrandSpacing.space3),
             decoration: BoxDecoration(
               color: colors.errorContainer,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BrandRadius.mdAll,
             ),
             child: Text(
               provider.errorMessage!,
-              style: TextStyle(color: colors.onErrorContainer),
+              style: textos.bodyMedium?.copyWith(
+                color: colors.onErrorContainer,
+              ),
             ),
           ),
         ],
 
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
         Card(
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SelectableText(
-              contrato.corpo,
-              style: textos.bodyMedium?.copyWith(height: 1.5),
-            ),
+            padding: const EdgeInsets.all(BrandSpacing.space4),
+            // o texto corrido do contrato na entrelinha do body (22/15)
+            child: SelectableText(contrato.corpo, style: textos.bodyMedium),
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
         FilledButton.icon(
           onPressed: provider.isLoading ? null : () => _compartilhar(contrato),
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-          icon: const Icon(Icons.share_outlined),
+          icon: const Icon(Icons.share_rounded),
           label: const Text('Compartilhar PDF'),
         ),
         if (!contrato.status.finalizado) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
           OutlinedButton.icon(
             onPressed: provider.isLoading
                 ? null
@@ -258,13 +258,14 @@ class _ContratoPageState extends ConsumerState<ContratoPage> {
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
-            icon: const Icon(Icons.task_alt),
+            icon: const Icon(Icons.task_alt_rounded),
             label: const Text('Marcar como assinado'),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: BrandSpacing.space1),
+          // recusa encerra o contrato: danger
           TextButton(
             onPressed: provider.isLoading ? null : _marcarRecusado,
-            style: TextButton.styleFrom(foregroundColor: colors.error),
+            style: TextButton.styleFrom(foregroundColor: cores.danger),
             child: const Text('Cliente recusou'),
           ),
         ],
