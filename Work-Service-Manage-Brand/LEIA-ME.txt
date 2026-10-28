@@ -1,0 +1,16 @@
+WORK MANAGE · SERVICE MANAGE — DESIGN SYSTEM (exportação)
+
+Mesma estrutura do Design System publicado no Claude:
+
+00-overview      Brand book (README.md: essência, tom de voz, princípios, logos, cores, tipografia) e a capa em PNG
+01-colors        Paleta em TXT, JSON, CSS, SVG (swatches) e Dart (Flutter)
+02-typography    MuseoModerno (TTF variável) + guia de uso e CSS dos estilos (Inter vem do Google Fonts)
+03-spacing       Escala de espaçamento (TXT, CSS, Dart)
+04-corners       Raios (TXT, CSS)
+05-shadows       Sombras (TXT, CSS, claro e escuro)
+06-components    Capa (preview.html) — demais componentes ainda não desenhados
+07-assets        Logos e símbolos em SVG e PNG (colorido / marinho / branco / azul), ícones de app (1024–48 px), perfis e capas para redes sociais
+tokens           tokens.json (fonte de tudo) e tokens.css (variáveis para web, temas claro e escuro)
+
+Cores da marca: Azul Manage #1B6AF3 · Marinho #0B1C35
+Wordmark: MuseoModerno SemiBold · Interface: Inter

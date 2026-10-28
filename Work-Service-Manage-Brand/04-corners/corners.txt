@@ -1,0 +1,10 @@
+CANTOS (RAIO)
+
+radius-sm      6px
+    Campos, badges, chips.
+radius-md      12px
+    Botões e cartões. É o raio dos cantos dos símbolos (≈ 1/10 da altura).
+radius-lg      20px
+    Painéis grandes e diálogos.
+radius-icon    22%
+    Ícone do app: 22 % do lado do quadrado.

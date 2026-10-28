@@ -1,0 +1,5 @@
+COMPONENTES
+
+Por enquanto o Design System tem um componente: a Capa (Cover/preview.html), que o Overview mostra acima do brand book.
+Ela usa as variáveis de tokens/tokens.css (navy, blue, blue-soft, bg, ink, ink-muted, radius-md) e as fontes de 02-typography.
+Botões, campos, cartões e demais componentes ainda não foram desenhados — quando forem, entram aqui em uma pasta por componente (README.md + preview.html).

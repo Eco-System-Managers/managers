@@ -1,0 +1,16 @@
+ESPAÇAMENTO — escala base 4 px
+
+space-1        4px
+    Entre ícone e texto; dentro de badges.
+space-2        8px
+    Entre rótulo e campo; itens de lista compacta.
+space-3        12px
+    Padding interno de botões e inputs.
+space-4        16px
+    Padding de cartões; vão entre cartões.
+space-5        24px
+    Padding de seções; área de respiro mínima ao redor do logo (= 1/4 da altura do símbolo a 96 px).
+space-6        40px
+    Entre blocos de página.
+space-7        64px
+    Margens de hero e de capa.
