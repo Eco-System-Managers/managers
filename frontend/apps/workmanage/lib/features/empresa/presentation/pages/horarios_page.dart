@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/botao_de_rodape.dart';
@@ -69,6 +70,8 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
           }
 
           final colors = Theme.of(context).colorScheme;
+          final cores = BrandColors.of(context);
+          final textos = Theme.of(context).textTheme;
 
           return comBotaoDeRodape(
             SingleChildScrollView(
@@ -81,10 +84,10 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
                         ? 'Marque os dias abertos, o horário e quantos '
                               'atendimentos cabem em cada dia.'
                         : 'Marque os dias abertos e o horário de cada um.',
-                    style: TextStyle(color: colors.onSurfaceVariant),
+                    style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: BrandSpacing.space4),
 
                   for (final horario in provider.horarios) ...[
                     HorarioDiaCard(
@@ -94,16 +97,16 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
                       enabled: !provider.isLoading,
                       onChanged: provider.atualizarHorario,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: BrandSpacing.space3),
                   ],
 
                   if (provider.errorMessage != null)
                     Text(
                       provider.errorMessage!,
-                      style: TextStyle(color: colors.error),
+                      style: textos.bodyMedium?.copyWith(color: colors.error),
                     ),
                   // espaço para o fim da lista passar da sombra do botão
-                  const SizedBox(height: 40),
+                  const SizedBox(height: BrandSpacing.space6),
                 ],
               ),
             ),

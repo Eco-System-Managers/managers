@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:managers/core/theme/brand.dart';
 
 import '../../domain/entities/empresa_config.dart';
 import '../../empresa_provider.dart';
@@ -54,27 +55,27 @@ class ConfiguracoesPage extends ConsumerWidget {
               ),
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.business_outlined),
+                leading: const Icon(Icons.business_rounded),
                 title: const Text('Dados do negócio'),
                 subtitle: const Text('Nome, telefone, documento e endereço'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 enabled: proprietario,
                 onTap: () => context.push('/mais/configuracoes/negocio'),
               ),
               ListTile(
-                leading: const Icon(Icons.schedule_outlined),
+                leading: const Icon(Icons.schedule_rounded),
                 title: const Text('Horários'),
                 subtitle: const Text('Dias e horários de funcionamento'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 enabled: proprietario,
                 onTap: () => context.push('/mais/configuracoes/horarios'),
               ),
               if (config.tipoAgenda == TipoAgenda.kanban)
                 ListTile(
-                  leading: const Icon(Icons.view_kanban_outlined),
+                  leading: const Icon(Icons.view_kanban_rounded),
                   title: const Text('Etapas do quadro'),
                   subtitle: const Text('As colunas da esteira e a ordem delas'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   enabled: proprietario,
                   onTap: () => context.push('/mais/etapas'),
                 ),
@@ -82,12 +83,12 @@ class ConfiguracoesPage extends ConsumerWidget {
               // o que foi definido no onboarding e a API não deixa trocar:
               // mostrar como editável só geraria o erro modo_agenda_bloqueado
               ListTile(
-                leading: const Icon(Icons.storefront_outlined),
+                leading: const Icon(Icons.storefront_rounded),
                 title: const Text('Ramo do negócio'),
                 subtitle: Text(_nomeDoNicho(config)),
               ),
               ListTile(
-                leading: const Icon(Icons.view_agenda_outlined),
+                leading: const Icon(Icons.view_agenda_rounded),
                 title: const Text('Modo de agenda'),
                 subtitle: Text(
                   config.tipoAgenda == TipoAgenda.kanban
@@ -96,11 +97,13 @@ class ConfiguracoesPage extends ConsumerWidget {
                 ),
               ),
               if (!proprietario)
-                const Padding(
-                  padding: EdgeInsets.all(16),
+                Padding(
+                  padding: const EdgeInsets.all(BrandSpacing.space4),
                   child: Text(
                     'Só o proprietário altera as configurações.',
                     textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: BrandColors.of(context).inkMuted),
                   ),
                 ),
             ],
@@ -136,45 +139,49 @@ class _Logo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(BrandSpacing.space5),
       child: Column(
         children: [
+          // a área do logo é o fundo 2, com o ícone neutro enquanto o
+          // negócio não tem logo
           CircleAvatar(
             radius: 48,
-            backgroundColor: colors.primaryContainer,
+            backgroundColor: cores.bg2,
             foregroundImage: url.isNotEmpty ? NetworkImage(url) : null,
             child: enviando
                 ? const CircularProgressIndicator()
                 : Icon(
-                    Icons.storefront_outlined,
+                    Icons.storefront_rounded,
                     size: 40,
-                    color: colors.onPrimaryContainer,
+                    color: cores.inkMuted,
                   ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
+          // o nome do negócio é o título da tela: h2, como nas fichas
           Text(
             nome,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w600),
+            style: BrandText.h2.copyWith(color: cores.ink),
           ),
           if (onTrocar != null || enviando) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: BrandSpacing.space2),
             TextButton.icon(
               onPressed: onTrocar,
-              icon: const Icon(Icons.photo_outlined),
+              icon: const Icon(Icons.photo_rounded),
               label: Text(url.isEmpty ? 'Adicionar logo' : 'Trocar logo'),
             ),
           ],
           if (erro != null)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: BrandSpacing.space2),
               child: Text(
                 erro!,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: colors.error),
+                style: textos.bodyMedium?.copyWith(color: colors.error),
               ),
             ),
         ],

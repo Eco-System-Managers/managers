@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
 import 'package:validatorless/validatorless.dart';
 
@@ -165,12 +166,11 @@ class _DadosNegocioFormState extends State<DadosNegocioForm> {
             validator: Validatorless.regex(_notBlank, 'Informe a empresa'),
             decoration: const InputDecoration(
               labelText: 'Nome da empresa',
-              prefixIcon: Icon(Icons.business_outlined),
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.business_rounded),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           // telefone
           TextFormField(
@@ -185,12 +185,11 @@ class _DadosNegocioFormState extends State<DadosNegocioForm> {
             decoration: const InputDecoration(
               labelText: 'Telefone',
               hintText: '(00) 00000-0000',
-              prefixIcon: Icon(Icons.phone_outlined),
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.phone_rounded),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           // tipo de documento: troca a máscara e a validação do campo abaixo
           SegmentedButton<TipoDocumento>(
@@ -203,7 +202,7 @@ class _DadosNegocioFormState extends State<DadosNegocioForm> {
                 _trocarTipoDocumento(selecao.first),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           // documento
           TextFormField(
@@ -225,12 +224,11 @@ class _DadosNegocioFormState extends State<DadosNegocioForm> {
                   ]),
             decoration: InputDecoration(
               labelText: _tipoDocumento == TipoDocumento.cpf ? 'CPF' : 'CNPJ',
-              prefixIcon: const Icon(Icons.badge_outlined),
-              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.badge_rounded),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           // CEP: busca o endereço sozinho quando completa os 8 dígitos
           TextFormField(
@@ -246,13 +244,12 @@ class _DadosNegocioFormState extends State<DadosNegocioForm> {
             decoration: InputDecoration(
               labelText: 'CEP',
               hintText: '00000-000',
-              prefixIcon: const Icon(Icons.location_on_outlined),
-              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.location_on_rounded),
               // erro da busca (ex.: CEP não encontrado), separado do validator
               errorText: widget.cepErro,
               suffixIcon: widget.buscandoCep
                   ? const Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: EdgeInsets.all(BrandSpacing.space3),
                       child: SizedBox.square(
                         dimension: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
@@ -264,16 +261,16 @@ class _DadosNegocioFormState extends State<DadosNegocioForm> {
 
           // endereço encontrado + número: só depois que a busca achou o CEP
           if (_temEndereco) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
             Card(
               margin: EdgeInsets.zero,
               child: ListTile(
-                leading: const Icon(Icons.place_outlined),
+                leading: const Icon(Icons.place_rounded),
                 title: Text(config.endereco),
                 subtitle: Text('${config.cidade} - ${config.uf}'),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
             TextFormField(
               controller: _numeroController,
               keyboardType: TextInputType.text,
@@ -282,13 +279,12 @@ class _DadosNegocioFormState extends State<DadosNegocioForm> {
               validator: Validatorless.regex(_notBlank, 'Informe o número'),
               decoration: const InputDecoration(
                 labelText: 'Número do estabelecimento',
-                prefixIcon: Icon(Icons.pin_outlined),
-                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.pin_rounded),
               ),
             ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
           FilledButton(
             onPressed: widget.enabled ? _submit : null,

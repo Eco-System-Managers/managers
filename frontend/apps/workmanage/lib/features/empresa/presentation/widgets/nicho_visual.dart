@@ -22,19 +22,20 @@ extension NichoVisual on Nicho {
     Nicho.outro => 'Outro',
   };
 
+  // na família Round, como todo ícone do app
   IconData get icone => switch (this) {
-    Nicho.cabeleireiro => Icons.content_cut,
-    Nicho.barbearia => Icons.face_outlined,
-    Nicho.manicure => Icons.back_hand_outlined,
-    Nicho.pedicure => Icons.self_improvement,
-    Nicho.depilacao => Icons.water_drop_outlined,
-    Nicho.designSobrancelhas => Icons.visibility_outlined,
-    Nicho.micropigmentacao => Icons.brush_outlined,
-    Nicho.cilios => Icons.remove_red_eye_outlined,
-    Nicho.maquiagem => Icons.face_retouching_natural,
-    Nicho.massagem => Icons.spa_outlined,
-    Nicho.lavaRapido => Icons.local_car_wash_outlined,
-    Nicho.banhoTosa => Icons.pets_outlined,
-    Nicho.outro => Icons.more_horiz,
+    Nicho.cabeleireiro => Icons.content_cut_rounded,
+    Nicho.barbearia => Icons.face_rounded,
+    Nicho.manicure => Icons.back_hand_rounded,
+    Nicho.pedicure => Icons.self_improvement_rounded,
+    Nicho.depilacao => Icons.water_drop_rounded,
+    Nicho.designSobrancelhas => Icons.visibility_rounded,
+    Nicho.micropigmentacao => Icons.brush_rounded,
+    Nicho.cilios => Icons.remove_red_eye_rounded,
+    Nicho.maquiagem => Icons.face_retouching_natural_rounded,
+    Nicho.massagem => Icons.spa_rounded,
+    Nicho.lavaRapido => Icons.local_car_wash_rounded,
+    Nicho.banhoTosa => Icons.pets_rounded,
+    Nicho.outro => Icons.more_horiz_rounded,
   };
 }

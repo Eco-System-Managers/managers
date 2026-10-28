@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/folha.dart';
 
 import '../../empresa_provider.dart';
@@ -43,7 +44,7 @@ class _DadosNegocioPageState extends ConsumerState<DadosNegocioPage> {
               children: [
                 if (provider.errorMessage != null) ...[
                   _MensagemDeErro(mensagem: provider.errorMessage!),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: BrandSpacing.space4),
                 ],
                 DadosNegocioForm(
                   config: provider.config,
@@ -71,14 +72,18 @@ class _MensagemDeErro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(BrandSpacing.space3),
       decoration: BoxDecoration(
         color: colors.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BrandRadius.mdAll,
       ),
-      child: Text(mensagem, style: TextStyle(color: colors.onErrorContainer)),
+      child: Text(
+        mensagem,
+        style: textos.bodyMedium?.copyWith(color: colors.onErrorContainer),
+      ),
     );
   }
 }
