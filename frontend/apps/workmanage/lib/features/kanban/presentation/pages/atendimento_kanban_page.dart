@@ -2,6 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
@@ -137,6 +138,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
     }
 
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final etapaAtual = provider.etapas
         .where((e) => e.id == a.etapaId)
@@ -153,28 +155,28 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
           const SizedBox(height: 2),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.only(bottom: BrandSpacing.space5),
             children: [
               Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(BrandSpacing.space5),
                 child: Column(
                   children: [
                     Text(
                       a.horarioEntrada == null
                           ? 'Sem hora marcada'
                           : formatarHora(a.horarioEntrada!),
-                      style: textos.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: textos.headlineMedium,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: BrandSpacing.space1),
                     Text(
                       a.data == null ? '' : formatarDataPorExtenso(a.data!),
-                      style: TextStyle(color: colors.onSurfaceVariant),
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: BrandSpacing.space3),
                     Wrap(
-                      spacing: 8,
+                      spacing: BrandSpacing.space2,
                       alignment: WrapAlignment.center,
                       children: [
                         Chip(
@@ -182,24 +184,31 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                           label: Text(a.etapaNome),
                           visualDensity: VisualDensity.compact,
                         ),
+                        // status: a cor vai no ícone e no texto
                         if (a.pago)
                           Chip(
                             avatar: Icon(
-                              Icons.check_circle_outline,
+                              Icons.check_circle_outline_rounded,
                               size: 16,
-                              color: Colors.green.shade700,
+                              color: cores.success,
                             ),
                             label: const Text('Pago'),
+                            labelStyle: textos.labelLarge?.copyWith(
+                              color: cores.success,
+                            ),
                             visualDensity: VisualDensity.compact,
                           ),
                         if (a.faltou)
                           Chip(
                             avatar: Icon(
-                              Icons.person_off_outlined,
+                              Icons.person_off_rounded,
                               size: 16,
-                              color: colors.error,
+                              color: cores.danger,
                             ),
                             label: const Text('Faltou'),
+                            labelStyle: textos.labelLarge?.copyWith(
+                              color: cores.danger,
+                            ),
                             visualDensity: VisualDensity.compact,
                           ),
                       ],
@@ -210,33 +219,40 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
 
               if (provider.errorMessage != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                    BrandSpacing.space4,
+                    0,
+                    BrandSpacing.space4,
+                    BrandSpacing.space2,
+                  ),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(BrandSpacing.space3),
                     decoration: BoxDecoration(
                       color: colors.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BrandRadius.mdAll,
                     ),
                     child: Text(
                       provider.errorMessage!,
-                      style: TextStyle(color: colors.onErrorContainer),
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onErrorContainer,
+                      ),
                     ),
                   ),
                 ),
 
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.person_outline),
+                leading: const Icon(Icons.person_outline_rounded),
                 title: Text(a.clienteNome),
                 subtitle: telefone.isEmpty ? null : Text(telefone),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => context.push('/clientes/${a.clienteId}'),
               ),
               ListTile(
                 leading: Icon(
                   a.objeto.veiculo != null
-                      ? Icons.directions_car_outlined
-                      : Icons.pets,
+                      ? Icons.directions_car_rounded
+                      : Icons.pets_rounded,
                 ),
                 title: Text(a.objeto.titulo),
                 subtitle: a.objeto.detalhe.isEmpty
@@ -246,12 +262,12 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
               const Divider(),
               if (a.colaboradorNome.isNotEmpty)
                 ListTile(
-                  leading: const Icon(Icons.badge_outlined),
+                  leading: const Icon(Icons.badge_rounded),
                   title: Text(a.colaboradorNome),
                   subtitle: const Text('Profissional'),
                 ),
               ListTile(
-                leading: const Icon(Icons.design_services_outlined),
+                leading: const Icon(Icons.design_services_rounded),
                 title: Text(a.servicoNome),
                 subtitle: a.servicoDuracao > 0
                     ? Text('${a.servicoDuracao} min')
@@ -260,29 +276,22 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
               ),
               if (a.desconto > Decimal.fromInt(0))
                 ListTile(
-                  leading: const Icon(Icons.discount_outlined),
+                  leading: const Icon(Icons.discount_rounded),
                   title: const Text('Desconto'),
                   trailing: Text('- ${formatarDinheiro(a.desconto)}'),
                 ),
               ListTile(
-                title: Text(
-                  'Total',
-                  style: textos.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                title: Text('Total', style: textos.titleMedium),
                 trailing: Text(
                   formatarDinheiro(a.valorTotal),
-                  style: textos.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: textos.titleMedium,
                 ),
               ),
               if (a.pagamentos.isNotEmpty) ...[
                 const Divider(),
                 for (final p in a.pagamentos)
                   ListTile(
-                    leading: const Icon(Icons.payments_outlined),
+                    leading: const Icon(Icons.payments_rounded),
                     title: Text(p.forma.nome),
                     subtitle: const Text('Pago'),
                     trailing: Text(formatarDinheiro(p.valor)),
@@ -291,15 +300,17 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
               if (a.observacao.isNotEmpty) ...[
                 const Divider(),
                 ListTile(
-                  leading: const Icon(Icons.notes_outlined),
+                  leading: const Icon(Icons.notes_rounded),
                   title: const Text('Observação'),
                   subtitle: Text(a.observacao),
                 ),
               ],
 
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BrandSpacing.space5,
+                ),
                 child: _acoes(a, provider),
               ),
             ],
@@ -319,10 +330,10 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
       children: [
         if (outras.isNotEmpty) ...[
           Text('Mover para', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
+          const SizedBox(height: BrandSpacing.space2),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: BrandSpacing.space2,
+            runSpacing: BrandSpacing.space2,
             children: [
               for (final e in outras)
                 ActionChip(
@@ -335,7 +346,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                 ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
         ],
         // o colaborador comum só cobra com a flag ligada (a API recusa com
         // sem_permissao_cobrar)
@@ -346,7 +357,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
               ),
-              icon: const Icon(Icons.point_of_sale_outlined),
+              icon: const Icon(Icons.point_of_sale_rounded),
               label: const Text('Cobrar'),
             )
           else
@@ -355,10 +366,10 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
               ),
-              icon: const Icon(Icons.undo),
+              icon: const Icon(Icons.undo_rounded),
               label: const Text('Desfazer cobrança'),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
         ],
         Row(
           children: [
@@ -368,7 +379,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                       onPressed: ocupado
                           ? null
                           : () => provider.alterarFalta(false),
-                      icon: const Icon(Icons.undo),
+                      icon: const Icon(Icons.undo_rounded),
                       label: const Text('Desfazer falta'),
                     )
                   : TextButton.icon(
@@ -376,7 +387,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                       onPressed: ocupado || a.pago
                           ? null
                           : () => _marcarFalta(a),
-                      icon: const Icon(Icons.person_off_outlined),
+                      icon: const Icon(Icons.person_off_rounded),
                       label: const Text('Faltou'),
                     ),
             ),
@@ -385,7 +396,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                 child: TextButton.icon(
                   onPressed: ocupado ? null : () => _excluir(a),
                   style: TextButton.styleFrom(foregroundColor: colors.error),
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(Icons.delete_outline_rounded),
                   label: const Text('Excluir'),
                 ),
               ),

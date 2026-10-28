@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
@@ -47,6 +48,8 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
     // watch: mantém o provider vivo enquanto a aba estiver aberta
     final provider = ref.watch(quadroProvider);
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return ListenableBuilder(
       listenable: provider,
@@ -56,9 +59,11 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
             // o dia por extenso; com o mês aberto, o mês. tocar abre e fecha
             title: InkWell(
               onTap: () => setState(() => _mesAberto = !_mesAberto),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BrandRadius.smAll,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BrandSpacing.space1,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -73,7 +78,7 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
                     AnimatedRotation(
                       turns: _mesAberto ? 0.5 : 0,
                       duration: const Duration(milliseconds: 200),
-                      child: const Icon(Icons.arrow_drop_down),
+                      child: const Icon(Icons.arrow_drop_down_rounded),
                     ),
                   ],
                 ),
@@ -88,10 +93,14 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
               IconButton(
                 tooltip: 'Cobranças pendentes',
                 onPressed: () => _abrir('/agenda/pendencias'),
+                // pendente é atenção: o contador em warning, como na agenda e
+                // no Início (o badge do tema é danger)
                 icon: Badge(
                   isLabelVisible: provider.pendencias > 0,
+                  backgroundColor: cores.warning,
+                  textColor: cores.bg,
                   label: Text('${provider.pendencias}'),
-                  child: const Icon(Icons.pending_actions_outlined),
+                  child: const Icon(Icons.pending_actions_rounded),
                 ),
               ),
             ],
@@ -99,7 +108,7 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () =>
                 _abrir('/quadro/novo?data=${dataParaApi(provider.dia)}'),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_rounded),
             label: const Text('Receber'),
           ),
           body: comSombraEmBaixo(
@@ -127,10 +136,15 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
                   const Divider(height: 2),
                 if (provider.errorMessage != null)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(
+                      BrandSpacing.space4,
+                      BrandSpacing.space2,
+                      BrandSpacing.space4,
+                      0,
+                    ),
                     child: Text(
                       provider.errorMessage!,
-                      style: TextStyle(color: colors.error),
+                      style: textos.bodyMedium?.copyWith(color: colors.error),
                     ),
                   ),
                 Expanded(child: _corpo(provider)),
@@ -162,7 +176,13 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
       onRefresh: provider.recarregar,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 88),
+        // embaixo, a folga do botão flutuante
+        padding: const EdgeInsets.fromLTRB(
+          BrandSpacing.space2,
+          BrandSpacing.space2,
+          BrandSpacing.space2,
+          BrandSpacing.space7,
+        ),
         children: [
           for (final etapa in provider.etapas)
             SizedBox(
@@ -200,25 +220,33 @@ class _Coluna extends StatelessWidget {
     final cards = provider.naEtapa(etapa.id);
     final cor = corDaEtapa(etapa.cor, colors);
 
+    // a coluna é um painel no fundo 2; o corte acompanha o canto ao rolar
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: const EdgeInsets.symmetric(horizontal: BrandSpacing.space1),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        color: BrandColors.of(context).bg2,
+        borderRadius: BrandRadius.lgAll,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space3,
+              BrandSpacing.space3,
+              BrandSpacing.space3,
+              BrandSpacing.space2,
+            ),
             child: Row(
               children: [
+                // a cor da etapa só marca a coluna; o nome fica em ink
                 Container(
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(shape: BoxShape.circle, color: cor),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: BrandSpacing.space2),
                 Expanded(
                   child: Text(
                     etapa.nome,
@@ -227,12 +255,7 @@ class _Coluna extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Text(
-                  '${cards.length}',
-                  style: textos.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
+                Text('${cards.length}', style: textos.bodySmall),
               ],
             ),
           ),
@@ -240,12 +263,14 @@ class _Coluna extends StatelessWidget {
             child: cards.isEmpty
                 ? Center(
                     child: Text(
-                      'Nada aqui',
-                      style: TextStyle(color: colors.outline),
+                      'Nenhum atendimento',
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   )
                 : ListView(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: BrandSpacing.space2),
                     children: [
                       for (final a in cards)
                         AtendimentoKanbanCard(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/campo_data.dart';
@@ -123,6 +124,7 @@ class _AtendimentoKanbanFormPageState
     bool veiculo,
   ) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
     final hoje = somenteData(DateTime.now());
     final objetos = provider.objetos;
 
@@ -133,17 +135,19 @@ class _AtendimentoKanbanFormPageState
         children: [
           if (provider.errorMessage != null) ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(BrandSpacing.space3),
               decoration: BoxDecoration(
                 color: colors.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BrandRadius.mdAll,
               ),
               child: Text(
                 provider.errorMessage!,
-                style: TextStyle(color: colors.onErrorContainer),
+                style: textos.bodyMedium?.copyWith(
+                  color: colors.onErrorContainer,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
           ],
 
           // o cliente é escolhido numa folha; o campo só mostra o nome
@@ -155,14 +159,13 @@ class _AtendimentoKanbanFormPageState
                 provider.cliente == null ? 'Escolha o cliente' : null,
             decoration: const InputDecoration(
               labelText: 'Cliente',
-              prefixIcon: Icon(Icons.person_outline),
-              suffixIcon: Icon(Icons.chevron_right),
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person_outline_rounded),
+              suffixIcon: Icon(Icons.chevron_right_rounded),
             ),
           ),
 
           if (provider.cliente != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
             DropdownButtonFormField<ObjetoCliente>(
               // a key nova recria o campo quando o provider troca o valor
               key: ValueKey(
@@ -189,7 +192,7 @@ class _AtendimentoKanbanFormPageState
               decoration: InputDecoration(
                 labelText: veiculo ? 'Veículo' : 'Pet',
                 prefixIcon: Icon(
-                  veiculo ? Icons.directions_car_outlined : Icons.pets,
+                  veiculo ? Icons.directions_car_rounded : Icons.pets_rounded,
                 ),
                 helperText: objetos.isEmpty
                     ? (veiculo
@@ -197,20 +200,19 @@ class _AtendimentoKanbanFormPageState
                           : 'Este cliente ainda não tem pet cadastrado.')
                     : null,
                 errorText: provider.erroDoCampo('objeto'),
-                border: const OutlineInputBorder(),
               ),
             ),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: _novoObjeto,
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add_rounded),
                 label: Text(veiculo ? 'Novo veículo' : 'Novo pet'),
               ),
             ),
           ],
 
-          const SizedBox(height: 8),
+          const SizedBox(height: BrandSpacing.space2),
 
           DropdownButtonFormField<Servico>(
             key: ValueKey('servico-${provider.servico?.id}'),
@@ -230,18 +232,17 @@ class _AtendimentoKanbanFormPageState
             validator: (s) => s == null ? 'Escolha o serviço' : null,
             decoration: InputDecoration(
               labelText: 'Serviço',
-              prefixIcon: const Icon(Icons.design_services_outlined),
+              prefixIcon: const Icon(Icons.design_services_rounded),
               helperText: provider.servicos.isEmpty
                   ? 'Cadastre um serviço ativo em Mais › Serviços.'
                   : null,
               errorText: provider.erroDoCampo('servico'),
-              border: const OutlineInputBorder(),
             ),
           ),
 
           // o profissional é opcional na esteira: só aparece com equipe
           if (provider.colaboradores.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
             DropdownButtonFormField<Colaborador?>(
               key: ValueKey('colaborador-${provider.colaborador?.id}'),
               initialValue: provider.colaborador,
@@ -260,14 +261,13 @@ class _AtendimentoKanbanFormPageState
               onChanged: provider.selecionarColaborador,
               decoration: InputDecoration(
                 labelText: 'Profissional (opcional)',
-                prefixIcon: const Icon(Icons.badge_outlined),
+                prefixIcon: const Icon(Icons.badge_rounded),
                 errorText: provider.erroDoCampo('colaborador'),
-                border: const OutlineInputBorder(),
               ),
             ),
           ],
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           CampoData(
             valor: provider.data,
@@ -281,13 +281,10 @@ class _AtendimentoKanbanFormPageState
             forceErrorText: provider.erroDoCampo('data'),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
-          Text(
-            'Hora de entrada',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 8),
+          Text('Hora de entrada', style: textos.titleSmall),
+          const SizedBox(height: BrandSpacing.space2),
           SegmentedButton<bool>(
             segments: const [
               ButtonSegment(value: false, label: Text('Sem hora marcada')),
@@ -300,18 +297,18 @@ class _AtendimentoKanbanFormPageState
             },
           ),
           if (_comHora) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: BrandSpacing.space3),
             _GradeDeEntrada(provider: provider),
           ],
           if (provider.erroDoCampo('horario_entrada') != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: BrandSpacing.space2),
             Text(
               provider.erroDoCampo('horario_entrada')!,
-              style: TextStyle(color: colors.error, fontSize: 12),
+              style: textos.bodySmall?.copyWith(color: colors.error),
             ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
           TextFormField(
             controller: _observacaoController,
@@ -320,11 +317,10 @@ class _AtendimentoKanbanFormPageState
             forceErrorText: provider.erroDoCampo('observacao'),
             decoration: const InputDecoration(
               labelText: 'Observação (opcional)',
-              border: OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
           FilledButton(
             onPressed: provider.isLoading ? null : _salvar,
@@ -348,10 +344,11 @@ class _GradeDeEntrada extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     if (provider.carregandoSlots) {
       return const Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(BrandSpacing.space4),
         child: Center(child: CircularProgressIndicator()),
       );
     }
@@ -360,7 +357,7 @@ class _GradeDeEntrada extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(erro, style: TextStyle(color: colors.error)),
+          Text(erro, style: textos.bodyMedium?.copyWith(color: colors.error)),
           TextButton(
             onPressed: provider.recarregarGrade,
             child: const Text('Tentar de novo'),
@@ -371,13 +368,14 @@ class _GradeDeEntrada extends StatelessWidget {
     if (provider.slots.isEmpty) {
       return Text(
         'Sem horas livres neste dia: o negócio não abre, não tem capacidade '
-        'definida nos horários ou já lotou.',
-        style: TextStyle(color: colors.onSurfaceVariant),
+        'definida nos horários ou já lotou. Escolha outro dia ou receba sem '
+        'hora marcada.',
+        style: textos.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
       );
     }
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: BrandSpacing.space2,
+      runSpacing: BrandSpacing.space2,
       children: [
         for (final hora in provider.slots)
           ChoiceChip(

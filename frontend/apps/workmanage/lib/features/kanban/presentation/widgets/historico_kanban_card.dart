@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 
@@ -44,6 +45,7 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
     // watch: mantém o provider vivo enquanto a ficha estiver aberta
     final provider = ref.watch(historicoKanbanProvider(widget.clienteId));
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
     return ListenableBuilder(
@@ -55,18 +57,26 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
             .toList();
 
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          margin: const EdgeInsets.symmetric(horizontal: BrandSpacing.space4),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space2,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.event_note_outlined, color: colors.primary),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.event_note_rounded,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: BrandSpacing.space2),
                     Expanded(
-                      child: Text('Atendimentos', style: textos.titleSmall),
+                      child: Text('Atendimentos', style: textos.titleLarge),
                     ),
                     if (provider.carregado)
                       Text(
@@ -74,9 +84,7 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
                             ? 'nenhum'
                             : '${provider.total} · '
                                   '${formatarDinheiro(provider.totalPago)}',
-                        style: textos.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
+                        style: textos.bodySmall,
                       )
                     else if (erro == null)
                       const SizedBox(
@@ -87,8 +95,11 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
                   ],
                 ),
                 if (erro != null) ...[
-                  const SizedBox(height: 8),
-                  Text(erro.message, style: TextStyle(color: colors.error)),
+                  const SizedBox(height: BrandSpacing.space2),
+                  Text(
+                    erro.message,
+                    style: textos.bodyMedium?.copyWith(color: colors.error),
+                  ),
                   TextButton(
                     onPressed: provider.carregar,
                     child: const Text('Tentar de novo'),
@@ -96,10 +107,14 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
                 ],
                 if (provider.carregado && provider.total == 0)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: BrandSpacing.space2,
+                    ),
                     child: Text(
                       'Nenhum atendimento ainda.',
-                      style: TextStyle(color: colors.onSurfaceVariant),
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 for (final a in recentes)
@@ -124,9 +139,7 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
                       children: [
                         Text(
                           formatarDinheiro(a.valorTotal),
-                          style: textos.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: textos.titleMedium,
                         ),
                         Text(
                           a.faltou
@@ -136,9 +149,9 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
                               : a.etapaNome,
                           style: textos.bodySmall?.copyWith(
                             color: a.faltou
-                                ? colors.error
+                                ? cores.danger
                                 : a.pago
-                                ? Colors.green.shade700
+                                ? cores.success
                                 : colors.onSurfaceVariant,
                           ),
                         ),
@@ -148,12 +161,10 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
                   ),
                 if (provider.total > HistoricoKanbanCard.recentes)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.only(top: BrandSpacing.space1),
                     child: Text(
                       'e mais ${provider.total - HistoricoKanbanCard.recentes}',
-                      style: textos.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
+                      style: textos.bodySmall,
                     ),
                   ),
               ],

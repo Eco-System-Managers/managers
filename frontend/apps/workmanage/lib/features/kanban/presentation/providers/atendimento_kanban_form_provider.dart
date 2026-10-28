@@ -236,7 +236,9 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     final etapa = etapaDeEntrada;
     if (objeto == null || servico == null) return;
     if (etapa == null) {
-      _errorMessage = 'O quadro não tem etapas. Cadastre em Mais > Etapas.';
+      _errorMessage =
+          'O quadro não tem etapas. Cadastre em Mais › Configurações › '
+          'Etapas do quadro.';
       notifyListeners();
       return;
     }

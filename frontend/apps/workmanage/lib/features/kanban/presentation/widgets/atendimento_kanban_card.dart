@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 
@@ -24,17 +25,26 @@ class AtendimentoKanbanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final a = atendimento;
     final destinos = etapas.where((e) => e.id != a.etapaId).toList();
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(
+        horizontal: BrandSpacing.space2,
+        vertical: BrandSpacing.space1,
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BrandRadius.mdAll,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+          padding: const EdgeInsets.fromLTRB(
+            BrandSpacing.space3,
+            BrandSpacing.space2,
+            BrandSpacing.space1,
+            BrandSpacing.space2,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -45,34 +55,29 @@ class AtendimentoKanbanCard extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          Icons.schedule,
+                          Icons.schedule_rounded,
                           size: 14,
                           color: colors.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: BrandSpacing.space1),
                         Text(
                           a.horarioEntrada == null
                               ? 'Sem hora'
                               : formatarHora(a.horarioEntrada!),
-                          style: textos.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
+                          style: textos.bodySmall,
                         ),
                         const Spacer(),
-                        if (a.pago)
-                          _Marca(texto: 'Pago', cor: Colors.green.shade700),
+                        if (a.pago) _Marca(texto: 'Pago', cor: cores.success),
                         if (a.faltou) ...[
-                          const SizedBox(width: 4),
-                          _Marca(texto: 'Faltou', cor: colors.error),
+                          const SizedBox(width: BrandSpacing.space1),
+                          _Marca(texto: 'Faltou', cor: cores.danger),
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: BrandSpacing.space1),
                     Text(
                       a.clienteNome,
-                      style: textos.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: textos.titleMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -85,15 +90,13 @@ class AtendimentoKanbanCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: BrandSpacing.space1),
                     Text(
                       [
                         '${a.servicoNome} · ${formatarDinheiro(a.valorTotal)}',
                         if (a.colaboradorNome.isNotEmpty) a.colaboradorNome,
                       ].join(' · '),
-                      style: textos.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
+                      style: textos.bodySmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -103,7 +106,7 @@ class AtendimentoKanbanCard extends StatelessWidget {
               if (destinos.isNotEmpty)
                 PopupMenuButton<Etapa>(
                   tooltip: 'Mover para',
-                  icon: const Icon(Icons.drive_file_move_outline),
+                  icon: const Icon(Icons.drive_file_move_rounded),
                   onSelected: onMover,
                   itemBuilder: (context) => [
                     for (final e in destinos)
@@ -126,15 +129,16 @@ class _Marca extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // a cor do status vai só no texto; o fundo é o do card, com a borda fina
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.all(BrandSpacing.space1),
       decoration: BoxDecoration(
-        border: Border.all(color: cor.withValues(alpha: 0.6)),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: BrandColors.of(context).border),
+        borderRadius: BrandRadius.smAll,
       ),
       child: Text(
         texto,
-        style: TextStyle(fontSize: 11, color: cor, fontWeight: FontWeight.w600),
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: cor),
       ),
     );
   }

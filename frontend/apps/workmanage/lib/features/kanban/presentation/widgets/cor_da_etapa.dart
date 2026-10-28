@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+// cor de etapa é dado do negócio, não token: o único lugar com cor literal
+
 // a cor de uma etapa vem da API como "#F59E0B"; sem cor (ou cor inválida),
 // a cor primária do tema
 Color corDaEtapa(String hex, ColorScheme colors) {

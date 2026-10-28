@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
@@ -55,6 +56,7 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
     final provider = ref.watch(etapasProvider);
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     return ListenableBuilder(
       listenable: provider,
@@ -63,7 +65,7 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
           appBar: AppBar(title: const Text('Etapas do quadro')),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: provider.carregado ? () => _editar() : null,
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_rounded),
             label: const Text('Nova etapa'),
           ),
           body: !provider.carregado
@@ -80,29 +82,57 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
                     else
                       const SizedBox(height: 2),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      padding: const EdgeInsets.fromLTRB(
+                        BrandSpacing.space4,
+                        BrandSpacing.space3,
+                        BrandSpacing.space4,
+                        BrandSpacing.space1,
+                      ),
                       child: Text(
                         'Arraste para mudar a ordem. A primeira coluna é onde '
                         'o atendimento entra; a última é a de concluído.',
-                        style: TextStyle(color: colors.onSurfaceVariant),
+                        style: textos.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
                       ),
                     ),
                     if (provider.errorMessage != null)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(
+                          BrandSpacing.space4,
+                          BrandSpacing.space1,
+                          BrandSpacing.space4,
+                          0,
+                        ),
                         child: Text(
                           provider.errorMessage!,
-                          style: TextStyle(color: colors.error),
+                          style: textos.bodyMedium?.copyWith(
+                            color: colors.error,
+                          ),
                         ),
                       ),
                     Expanded(
                       child: ReorderableListView.builder(
-                        padding: const EdgeInsets.only(bottom: 88),
+                        // embaixo, a folga do botão flutuante
+                        padding: const EdgeInsets.only(
+                          bottom: BrandSpacing.space7,
+                        ),
                         itemCount: provider.etapas.length,
                         // onReorderItem já desconta o item removido do índice de destino
                         onReorderItem: (de, para) {
                           if (para != de) provider.reordenar(de, para);
                         },
+                        // a linha arrastada flutua sobre a lista: o azul suave
+                        // de destaque com a sombra do Design System
+                        proxyDecorator: (child, _, _) => DecoratedBox(
+                          decoration: BoxDecoration(
+                            boxShadow: BrandShadows.card(context),
+                          ),
+                          child: Material(
+                            color: BrandColors.of(context).blueSoft,
+                            child: child,
+                          ),
+                        ),
                         itemBuilder: (context, index) {
                           final etapa = provider.etapas[index];
                           return ListTile(
@@ -124,19 +154,23 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
                               children: [
                                 IconButton(
                                   tooltip: 'Editar',
-                                  icon: const Icon(Icons.edit_outlined),
+                                  icon: const Icon(Icons.edit_rounded),
                                   onPressed: () => _editar(etapa),
                                 ),
                                 IconButton(
                                   tooltip: 'Remover',
-                                  icon: const Icon(Icons.delete_outline),
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                  ),
                                   onPressed: () => _remover(etapa),
                                 ),
                                 ReorderableDragStartListener(
                                   index: index,
                                   child: const Padding(
-                                    padding: EdgeInsets.all(8),
-                                    child: Icon(Icons.drag_handle),
+                                    padding: EdgeInsets.all(
+                                      BrandSpacing.space2,
+                                    ),
+                                    child: Icon(Icons.drag_handle_rounded),
                                   ),
                                 ),
                               ],
@@ -188,10 +222,20 @@ class _EtapaFormSheetState extends ConsumerState<_EtapaFormSheet> {
         .salvar(base.copyWith(nome: _nomeController.text.trim(), cor: _cor));
   }
 
+  // a amostra é a mesma nos dois temas: o check é marinho sobre a cor clara
+  // e branco sobre a escura (o ink do tema escuro sumiria na cor clara)
+  Color _corDoCheck(Color amostra) {
+    final cores = BrandColors.of(context);
+    return ThemeData.estimateBrightnessForColor(amostra) == Brightness.light
+        ? cores.navy
+        : cores.onBrand;
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = ref.watch(etapasProvider);
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     return ListenableBuilder(
       listenable: provider,
@@ -207,19 +251,24 @@ class _EtapaFormSheetState extends ConsumerState<_EtapaFormSheet> {
           key: _formKey,
           child: ListView(
             shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space5,
+              BrandSpacing.space4,
+              BrandSpacing.space5,
+              BrandSpacing.space5,
+            ),
             children: [
               Text(
                 widget.etapa == null ? 'Nova etapa' : 'Editar etapa',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: textos.titleLarge,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               if (provider.errorMessage != null) ...[
                 Text(
                   provider.errorMessage!,
-                  style: TextStyle(color: colors.error),
+                  style: textos.bodyMedium?.copyWith(color: colors.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: BrandSpacing.space3),
               ],
               TextFormField(
                 controller: _nomeController,
@@ -231,20 +280,19 @@ class _EtapaFormSheetState extends ConsumerState<_EtapaFormSheet> {
                 decoration: const InputDecoration(
                   labelText: 'Nome',
                   hintText: 'Ex.: Lavando',
-                  border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text('Cor', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
+              const SizedBox(height: BrandSpacing.space4),
+              Text('Cor', style: textos.titleSmall),
+              const SizedBox(height: BrandSpacing.space2),
               Wrap(
-                spacing: 10,
-                runSpacing: 10,
+                spacing: BrandSpacing.space2,
+                runSpacing: BrandSpacing.space2,
                 children: [
                   for (final hex in coresDeEtapa)
                     InkWell(
                       onTap: () => setState(() => _cor = hex),
-                      borderRadius: BorderRadius.circular(20),
+                      customBorder: const CircleBorder(),
                       child: Container(
                         width: 36,
                         height: 36,
@@ -259,10 +307,10 @@ class _EtapaFormSheetState extends ConsumerState<_EtapaFormSheet> {
                           ),
                         ),
                         child: _cor == hex
-                            ? const Icon(
-                                Icons.check,
+                            ? Icon(
+                                Icons.check_rounded,
                                 size: 18,
-                                color: Colors.white,
+                                color: _corDoCheck(corDaEtapa(hex, colors)),
                               )
                             : null,
                       ),
@@ -270,13 +318,13 @@ class _EtapaFormSheetState extends ConsumerState<_EtapaFormSheet> {
                 ],
               ),
               if (provider.erroDoCampo('cor') != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: BrandSpacing.space2),
                 Text(
                   provider.erroDoCampo('cor')!,
-                  style: TextStyle(color: colors.error, fontSize: 12),
+                  style: textos.bodySmall?.copyWith(color: colors.error),
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: BrandSpacing.space5),
               FilledButton(
                 onPressed: provider.isLoading ? null : _salvar,
                 style: FilledButton.styleFrom(
