@@ -347,10 +347,10 @@ abstract final class AppTheme {
         space: BrandSpacing.space4,
       ),
       // linha de lista: o nome em body-strong, o detalhe em inkMuted; a linha
-      // selecionada é o azul suave
+      // selecionada é o azul suave. sem textColor: o ListTile pinta com ele o
+      // título, o detalhe e as pontas, e o detalhe perderia o inkMuted
       listTileTheme: ListTileThemeData(
         iconColor: c.inkMuted,
-        textColor: c.ink,
         titleTextStyle: BrandText.bodyStrong.copyWith(color: c.ink),
         subtitleTextStyle: BrandText.body.copyWith(color: c.inkMuted),
         leadingAndTrailingTextStyle: BrandText.label.copyWith(

@@ -211,6 +211,32 @@ void main() {
     });
   });
 
+  testWidgets('o detalhe da linha de lista sai em inkMuted, o nome em ink', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const Scaffold(
+          body: ListTile(title: Text('Ana Silva'), subtitle: Text('Cliente')),
+        ),
+      ),
+    );
+    Color? corDe(String texto) => tester
+        .widget<AnimatedDefaultTextStyle>(
+          find
+              .ancestor(
+                of: find.text(texto),
+                matching: find.byType(AnimatedDefaultTextStyle),
+              )
+              .first,
+        )
+        .style
+        .color;
+    expect(corDe('Ana Silva'), BrandColors.light.ink);
+    expect(corDe('Cliente'), BrandColors.light.inkMuted);
+  });
+
   // monta os componentes com tema nos dois modos: pega erro de tema que só
   // aparece na hora de desenhar
   for (final (nome, tema) in [
