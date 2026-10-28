@@ -73,6 +73,8 @@ dev_dependencies:
 flutter:
   assets:
     - assets/images/
+    # logos e símbolos do Design System (design/07-assets), só os do Work Manage
+    - assets/brand/
     # as licenças OFL da Inter e da MuseoModerno (registradas no main.dart)
     - assets/fonts/OFL-Inter.txt
     - assets/fonts/OFL-MuseoModerno.txt

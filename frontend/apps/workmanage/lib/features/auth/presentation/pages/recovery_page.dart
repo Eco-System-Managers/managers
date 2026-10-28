@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/auth_logo.dart';
 import 'package:managers/core/widgets/auth_panel.dart';
 import 'package:managers/core/widgets/success_view.dart';
@@ -87,39 +89,44 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
     final provider = ref.watch(recoveryProvider);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: BrandColors.brandNavy,
 
-      body: SafeArea(
-        child: Column(
-          children: [
-            // botão de voltar: o login abriu esta tela com push, então ele volta
-            Align(
-              alignment: Alignment.centerLeft,
-              child: BackButton(color: Theme.of(context).colorScheme.onPrimary),
-            ),
-            // área superior: logo completo (símbolo + texto)
-            const Expanded(child: AuthLogo()),
-            // painel inferior arredondado, igual ao do login
-            AuthPanel(
-              child: Form(
-                key: _formKey,
-                // redesenha o painel sempre que o provider avisar
-                // (troca de etapa, loading ou erro)
-                child: ListenableBuilder(
-                  listenable: provider,
-                  builder: (context, _) {
-                    // mostra só a etapa atual
-                    return switch (provider.step) {
-                      RecoveryStep.email => _emailStep(provider),
-                      RecoveryStep.code => _codeStep(provider),
-                      RecoveryStep.newPassword => _newPasswordStep(provider),
-                      RecoveryStep.success => _successStep(),
-                    };
-                  },
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: estiloDaBarraDeAbertura,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // botão de voltar: o login abriu esta tela com push, então ele volta
+              Align(
+                alignment: Alignment.centerLeft,
+                child: BackButton(
+                  color: Theme.of(context).colorScheme.onPrimary,
                 ),
               ),
-            ),
-          ],
+              // área superior: logo completo (símbolo + texto)
+              const Expanded(child: AuthLogo()),
+              // painel inferior arredondado, igual ao do login
+              AuthPanel(
+                child: Form(
+                  key: _formKey,
+                  // redesenha o painel sempre que o provider avisar
+                  // (troca de etapa, loading ou erro)
+                  child: ListenableBuilder(
+                    listenable: provider,
+                    builder: (context, _) {
+                      // mostra só a etapa atual
+                      return switch (provider.step) {
+                        RecoveryStep.email => _emailStep(provider),
+                        RecoveryStep.code => _codeStep(provider),
+                        RecoveryStep.newPassword => _newPasswordStep(provider),
+                        RecoveryStep.success => _successStep(),
+                      };
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

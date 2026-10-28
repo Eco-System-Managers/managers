@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:validatorless/validatorless.dart';
 
 import 'package:managers/core/widgets/auth_logo.dart';
@@ -84,201 +86,210 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     final provider = ref.watch(registerProvider);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: BrandColors.brandNavy,
 
-      body: SafeArea(
-        child: Column(
-          children: [
-            // área superior (logo/ilustração)
-            const Expanded(child: AuthLogo(showName: false)),
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: estiloDaBarraDeAbertura,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // área superior (logo/ilustração)
+              const Expanded(child: AuthLogo(showName: false)),
 
-            // painel inferior arredondado que contém o formulário
-            AuthPanel(
-              // form agrupa os campos e controla a validação. o
-              // ListenableBuilder redesenha quando a API aponta erro num
-              // campo ou o loading muda
-              child: Form(
-                key: _formKey,
-                child: ListenableBuilder(
-                  listenable: provider,
-                  builder: (context, _) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Cadastro',
-                        style: Theme.of(context).textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // nome da empresa
-                      TextFormField(
-                        controller: _companyController,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                        validator: Validatorless.regex(
-                          _notBlank,
-                          'Informe a empresa',
+              // painel inferior arredondado que contém o formulário
+              AuthPanel(
+                // form agrupa os campos e controla a validação. o
+                // ListenableBuilder redesenha quando a API aponta erro num
+                // campo ou o loading muda
+                child: Form(
+                  key: _formKey,
+                  child: ListenableBuilder(
+                    listenable: provider,
+                    builder: (context, _) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Cadastro',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
-                        // erro que a API apontou neste campo
-                        forceErrorText: provider.erroDoCampo('nome_empresa'),
-                        onChanged: (_) =>
-                            provider.limparErroDoCampo('nome_empresa'),
-                        decoration: const InputDecoration(
-                          labelText: 'Nome da empresa',
-                          prefixIcon: Icon(Icons.business_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
 
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 24),
 
-                      // nome do proprietário
-                      TextFormField(
-                        controller: _ownerController,
-                        keyboardType: TextInputType.name,
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                        validator: Validatorless.regex(
-                          _notBlank,
-                          'Informe o nome',
-                        ),
-                        forceErrorText: provider.erroDoCampo('nome'),
-                        onChanged: (_) => provider.limparErroDoCampo('nome'),
-                        decoration: const InputDecoration(
-                          labelText: 'Seu nome',
-                          prefixIcon: Icon(Icons.person_outline),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // e-mail
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        validator: Validatorless.multiple([
-                          Validatorless.regex(_notBlank, 'Informe seu e-mail'),
-                          Validatorless.regex(_emailPattern, 'E-mail inválido'),
-                        ]),
-                        forceErrorText: provider.erroDoCampo('email'),
-                        onChanged: (_) => provider.limparErroDoCampo('email'),
-                        decoration: const InputDecoration(
-                          labelText: 'E-mail',
-                          prefixIcon: Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // senha
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        textInputAction: TextInputAction.next,
-                        // mesmas regras do backend (validadores de senha do Django)
-                        validator: Validatorless.multiple([
-                          Validatorless.regex(_notBlank, 'Informe uma senha'),
-                          Validatorless.min(8, 'Mínimo de 8 caracteres'),
-                          Validatorless.regex(
-                            RegExp(r'\D'),
-                            'A senha não pode ter só números',
+                        // nome da empresa
+                        TextFormField(
+                          controller: _companyController,
+                          keyboardType: TextInputType.text,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          validator: Validatorless.regex(
+                            _notBlank,
+                            'Informe a empresa',
                           ),
-                        ]),
-                        forceErrorText: provider.erroDoCampo('senha'),
-                        onChanged: (_) => provider.limparErroDoCampo('senha'),
-                        decoration: InputDecoration(
-                          labelText: 'Senha',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          border: const OutlineInputBorder(),
+                          // erro que a API apontou neste campo
+                          forceErrorText: provider.erroDoCampo('nome_empresa'),
+                          onChanged: (_) =>
+                              provider.limparErroDoCampo('nome_empresa'),
+                          decoration: const InputDecoration(
+                            labelText: 'Nome da empresa',
+                            prefixIcon: Icon(Icons.business_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
 
-                          // botão de "olhinho" da senha
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
+                        const SizedBox(height: 16),
+
+                        // nome do proprietário
+                        TextFormField(
+                          controller: _ownerController,
+                          keyboardType: TextInputType.name,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          validator: Validatorless.regex(
+                            _notBlank,
+                            'Informe o nome',
+                          ),
+                          forceErrorText: provider.erroDoCampo('nome'),
+                          onChanged: (_) => provider.limparErroDoCampo('nome'),
+                          decoration: const InputDecoration(
+                            labelText: 'Seu nome',
+                            prefixIcon: Icon(Icons.person_outline),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // e-mail
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          validator: Validatorless.multiple([
+                            Validatorless.regex(
+                              _notBlank,
+                              'Informe seu e-mail',
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // confirmação de senha
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        obscureText: _obscureConfirmPassword,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _submit(),
-
-                        validator: Validatorless.multiple([
-                          Validatorless.required('Confirme sua senha'),
-                          Validatorless.compare(
-                            _passwordController,
-                            'As senhas não conferem',
-                          ),
-                        ]),
-
-                        decoration: InputDecoration(
-                          labelText: 'Confirmar senha',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          border: const OutlineInputBorder(),
-
-                          // botão de "olhinho" da confirmação
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureConfirmPassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
+                            Validatorless.regex(
+                              _emailPattern,
+                              'E-mail inválido',
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _obscureConfirmPassword =
-                                    !_obscureConfirmPassword;
-                              });
-                            },
+                          ]),
+                          forceErrorText: provider.erroDoCampo('email'),
+                          onChanged: (_) => provider.limparErroDoCampo('email'),
+                          decoration: const InputDecoration(
+                            labelText: 'E-mail',
+                            prefixIcon: Icon(Icons.email_outlined),
+                            border: OutlineInputBorder(),
                           ),
                         ),
-                      ),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 16),
 
-                      // botão de cadastrar: desabilita durante o loading
-                      FilledButton(
-                        onPressed: provider.isLoading ? null : _submit,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
+                        // senha
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.next,
+                          // mesmas regras do backend (validadores de senha do Django)
+                          validator: Validatorless.multiple([
+                            Validatorless.regex(_notBlank, 'Informe uma senha'),
+                            Validatorless.min(8, 'Mínimo de 8 caracteres'),
+                            Validatorless.regex(
+                              RegExp(r'\D'),
+                              'A senha não pode ter só números',
+                            ),
+                          ]),
+                          forceErrorText: provider.erroDoCampo('senha'),
+                          onChanged: (_) => provider.limparErroDoCampo('senha'),
+                          decoration: InputDecoration(
+                            labelText: 'Senha',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: const OutlineInputBorder(),
+
+                            // botão de "olhinho" da senha
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
                         ),
-                        child: const Text('Cadastrar'),
-                      ),
 
-                      const SizedBox(height: 8),
+                        const SizedBox(height: 16),
 
-                      // volta para o login (o painel encolhe de volta);
-                      // se abriu direto no cadastro, não há o que desempilhar
-                      TextButton(
-                        onPressed: () => context.canPop()
-                            ? context.pop()
-                            : context.go('/login'),
-                        child: const Text('Fazer Login'),
-                      ),
-                    ],
+                        // confirmação de senha
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          obscureText: _obscureConfirmPassword,
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) => _submit(),
+
+                          validator: Validatorless.multiple([
+                            Validatorless.required('Confirme sua senha'),
+                            Validatorless.compare(
+                              _passwordController,
+                              'As senhas não conferem',
+                            ),
+                          ]),
+
+                          decoration: InputDecoration(
+                            labelText: 'Confirmar senha',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: const OutlineInputBorder(),
+
+                            // botão de "olhinho" da confirmação
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmPassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscureConfirmPassword =
+                                      !_obscureConfirmPassword;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // botão de cadastrar: desabilita durante o loading
+                        FilledButton(
+                          onPressed: provider.isLoading ? null : _submit,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                          child: const Text('Cadastrar'),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // volta para o login (o painel encolhe de volta);
+                        // se abriu direto no cadastro, não há o que desempilhar
+                        TextButton(
+                          onPressed: () => context.canPop()
+                              ? context.pop()
+                              : context.go('/login'),
+                          child: const Text('Fazer Login'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

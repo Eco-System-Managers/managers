@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/brand.dart';
+import '../../../../core/widgets/auth_logo.dart';
 import '../../../../core/widgets/work_manage_loader.dart';
 import '../../splash_provider.dart';
 import '../providers/splash_provider.dart';
@@ -41,17 +44,21 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
     ref.watch(splashProvider);
 
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      backgroundColor: dark ? const Color(0xFF0E0F12) : const Color(0xFFF5F6F9),
-      body: Center(
-        child: WorkManageLoader(
-          size: 120,
-          startFull: true,
-          // pausa longa para dar destaque à marca: ciclo da splash ≈ 3 s
-          pauseDuration: const Duration(milliseconds: 1200),
-          color: dark ? Colors.white : WorkManageLoader.brandBlue,
-          onCycleEnd: _provider.onAnimationCycleEnd,
+    // fora do app, a marca: o marinho com o símbolo branco nos dois temas,
+    // igual à splash nativa, que ela continua sem salto
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: estiloDaBarraDeAbertura,
+      child: Scaffold(
+        backgroundColor: BrandColors.brandNavy,
+        body: Center(
+          child: WorkManageLoader(
+            size: 120,
+            startFull: true,
+            // pausa longa para dar destaque à marca: ciclo da splash ≈ 3 s
+            pauseDuration: const Duration(milliseconds: 1200),
+            color: BrandColors.light.onBrand,
+            onCycleEnd: _provider.onAnimationCycleEnd,
+          ),
         ),
       ),
     );

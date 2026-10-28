@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/auth_logo.dart';
 import 'package:managers/core/widgets/auth_panel.dart';
 import 'package:pinput/pinput.dart';
@@ -76,136 +78,139 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     );
 
     return Scaffold(
-      backgroundColor: colors.primary,
+      backgroundColor: BrandColors.brandNavy,
 
-      body: SafeArea(
-        child: Column(
-          children: [
-            const Expanded(child: AuthLogo(showName: false)),
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: estiloDaBarraDeAbertura,
+        child: SafeArea(
+          child: Column(
+            children: [
+              const Expanded(child: AuthLogo(showName: false)),
 
-            AuthPanel(
-              child: Form(
-                key: _formKey,
-                child: ListenableBuilder(
-                  listenable: provider,
-                  builder: (context, _) {
-                    final loading = provider.isLoading;
+              AuthPanel(
+                child: Form(
+                  key: _formKey,
+                  child: ListenableBuilder(
+                    listenable: provider,
+                    builder: (context, _) {
+                      final loading = provider.isLoading;
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Verifique seu e-mail',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Digite o código de $_codeLength dígitos enviado '
-                          'para ${widget.email}.',
-                          style: TextStyle(color: colors.onSurfaceVariant),
-                        ),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Verifique seu e-mail',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Digite o código de $_codeLength dígitos enviado '
+                            'para ${widget.email}.',
+                            style: TextStyle(color: colors.onSurfaceVariant),
+                          ),
 
-                        const SizedBox(height: 24),
+                          const SizedBox(height: 24),
 
-                        // 8 caixinhas não cabem em celular estreito:
-                        // o FittedBox encolhe em vez de estourar a tela
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Pinput(
-                            length: _codeLength,
-                            controller: _codeController,
-                            autofocus: true,
-                            enabled: !loading,
-                            defaultPinTheme: pinTheme,
-                            // caixinha em foco ganha a cor da marca
-                            focusedPinTheme: pinTheme.copyBorderWith(
-                              border: Border.all(
-                                color: colors.primary,
-                                width: 2,
+                          // 8 caixinhas não cabem em celular estreito:
+                          // o FittedBox encolhe em vez de estourar a tela
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Pinput(
+                              length: _codeLength,
+                              controller: _codeController,
+                              autofocus: true,
+                              enabled: !loading,
+                              defaultPinTheme: pinTheme,
+                              // caixinha em foco ganha a cor da marca
+                              focusedPinTheme: pinTheme.copyBorderWith(
+                                border: Border.all(
+                                  color: colors.primary,
+                                  width: 2,
+                                ),
                               ),
-                            ),
-                            separatorBuilder: (_) => const SizedBox(width: 6),
-                            validator: Validatorless.multiple([
-                              Validatorless.required('Informe o código'),
-                              Validatorless.number('O código tem só números'),
-                              Validatorless.length(
-                                _codeLength,
-                                'O código tem $_codeLength dígitos',
-                              ),
-                            ]),
-                            // ao digitar o último dígito, já confirma
-                            onCompleted: (_) => _confirm(),
-                          ),
-                        ),
-
-                        if (provider.errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text(
-                              provider.errorMessage!,
-                              style: TextStyle(color: colors.error),
+                              separatorBuilder: (_) => const SizedBox(width: 6),
+                              validator: Validatorless.multiple([
+                                Validatorless.required('Informe o código'),
+                                Validatorless.number('O código tem só números'),
+                                Validatorless.length(
+                                  _codeLength,
+                                  'O código tem $_codeLength dígitos',
+                                ),
+                              ]),
+                              // ao digitar o último dígito, já confirma
+                              onCompleted: (_) => _confirm(),
                             ),
                           ),
 
-                        if (provider.infoMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text(
-                              provider.infoMessage!,
-                              style: TextStyle(color: colors.primary),
-                            ),
-                          ),
-
-                        const SizedBox(height: 24),
-
-                        FilledButton(
-                          onPressed: loading ? null : _confirm,
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                          ),
-                          child: loading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('Confirmar'),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // errou o e-mail: volta para o formulário
-                            TextButton(
-                              onPressed: loading
-                                  ? null
-                                  : () => context.go('/register'),
-                              child: const Text('Trocar e-mail'),
-                            ),
-                            TextButton(
-                              onPressed: loading || provider.secondsLeft > 0
-                                  ? null
-                                  : _resend,
+                          if (provider.errorMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
                               child: Text(
-                                provider.secondsLeft > 0
-                                    ? 'Reenviar em ${provider.secondsLeft}s'
-                                    : 'Reenviar código',
+                                provider.errorMessage!,
+                                style: TextStyle(color: colors.error),
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
+
+                          if (provider.infoMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Text(
+                                provider.infoMessage!,
+                                style: TextStyle(color: colors.primary),
+                              ),
+                            ),
+
+                          const SizedBox(height: 24),
+
+                          FilledButton(
+                            onPressed: loading ? null : _confirm,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                            ),
+                            child: loading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Confirmar'),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // errou o e-mail: volta para o formulário
+                              TextButton(
+                                onPressed: loading
+                                    ? null
+                                    : () => context.go('/register'),
+                                child: const Text('Trocar e-mail'),
+                              ),
+                              TextButton(
+                                onPressed: loading || provider.secondsLeft > 0
+                                    ? null
+                                    : _resend,
+                                child: Text(
+                                  provider.secondsLeft > 0
+                                      ? 'Reenviar em ${provider.secondsLeft}s'
+                                      : 'Reenviar código',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

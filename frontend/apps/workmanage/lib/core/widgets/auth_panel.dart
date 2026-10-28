@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-// painel branco arredondado das telas de auth (login e cadastro).
+import '../theme/brand.dart';
+
+// painel arredondado das telas de auth (login e cadastro).
 // ao entrar numa tela nova, o painel parte da altura do painel anterior
 // e cresce/encolhe até o tamanho do próprio conteúdo, que aparece em fade.
 // na volta (pop) tudo roda ao contrário, porque segue a animação da rota.
@@ -33,10 +35,15 @@ class _AuthPanelState extends State<AuthPanel> {
         ? kAlwaysCompleteAnimation
         : routeAnimation;
 
+    // sobre o marinho da abertura: o fundo da página no claro e o fundo 2 no
+    // escuro, onde o fundo da página é o próprio marinho
+    final cores = BrandColors.of(context);
+    final claro = Theme.of(context).brightness == Brightness.light;
+
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        color: claro ? cores.bg : cores.bg2,
+        borderRadius: BrandRadius.lgTop,
       ),
       child: AnimatedBuilder(
         animation: animation,
@@ -44,7 +51,7 @@ class _AuthPanelState extends State<AuthPanel> {
         child: FadeTransition(
           opacity: animation.drive(CurveTween(curve: _contentFade)),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            padding: const EdgeInsets.all(BrandSpacing.space5),
             child: widget.child,
           ),
         ),
