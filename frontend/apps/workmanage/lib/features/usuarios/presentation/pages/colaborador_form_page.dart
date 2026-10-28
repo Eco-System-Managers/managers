@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/folha.dart';
 import 'package:validatorless/validatorless.dart';
 
@@ -60,6 +61,7 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
     final provider = ref.watch(colaboradorFormProvider);
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -84,25 +86,27 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
                 Text(
                   'A pessoa passa a aparecer na agenda, no quadro e nos '
                   'filtros na hora.',
-                  style: TextStyle(color: colors.onSurfaceVariant),
+                  style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: BrandSpacing.space5),
                 if (provider.errorMessage != null) ...[
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(BrandSpacing.space3),
                     decoration: BoxDecoration(
                       color: colors.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BrandRadius.mdAll,
                     ),
                     child: Text(
                       soConvite
                           ? '${provider.criado!.nome} já está na equipe, mas '
                                 'o convite não saiu: ${provider.errorMessage}'
                           : provider.errorMessage!,
-                      style: TextStyle(color: colors.onErrorContainer),
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onErrorContainer,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: BrandSpacing.space4),
                 ],
                 CamposColaborador(
                   nomeController: _nomeController,
@@ -119,7 +123,7 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
                   temAcesso: _convidar,
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: BrandSpacing.space5),
                 Text('Acesso ao app', style: textos.titleSmall),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -132,7 +136,7 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
                   onChanged: (v) => setState(() => _convidar = v),
                 ),
                 if (_convidar) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: BrandSpacing.space2),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -148,13 +152,12 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
                     decoration: const InputDecoration(
                       labelText: 'E-mail',
                       helperText: 'O convite vale por 2 dias.',
-                      prefixIcon: Icon(Icons.mail_outline),
-                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.mail_outline_rounded),
                     ),
                   ),
                 ],
 
-                const SizedBox(height: 24),
+                const SizedBox(height: BrandSpacing.space5),
                 FilledButton(
                   onPressed: provider.isLoading ? null : _salvar,
                   style: FilledButton.styleFrom(

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/compartilhar/whatsapp.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/folha.dart';
+import 'package:managers/core/widgets/selo_de_status.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:validatorless/validatorless.dart';
 
@@ -112,7 +114,6 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
             decoration: InputDecoration(
               labelText: 'E-mail de ${c.nome}',
               helperText: 'A pessoa recebe o link para criar a senha.',
-              border: const OutlineInputBorder(),
             ),
           ),
         ),
@@ -139,12 +140,17 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
   Future<void> _mandarPorWhatsApp(Colaborador c, Convite convite) async {
     final negocio = ref.read(negocioAtualProvider).nome;
     final texto =
-        'Oi, ${c.nome}! Você foi convidado(a) para a equipe'
+        'Olá, ${c.nome}. Você recebeu um convite para a equipe'
         '${negocio.isEmpty ? '' : ' de $negocio'} no Work Manage. '
         'Crie sua senha pelo link: ${convite.link}\n'
         'O link vale até ${formatarData(convite.expiraEm)}.';
     final abriu = await abrirWhatsApp(texto: texto);
-    if (!abriu && mounted) _avisar('Não deu para abrir o WhatsApp.');
+    if (!abriu && mounted) {
+      _avisar(
+        'Não foi possível abrir o WhatsApp. Confira se ele está instalado e '
+        'tente de novo.',
+      );
+    }
   }
 
   Future<void> _cancelarConvite(Convite convite) async {
@@ -153,6 +159,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
       titulo: 'Cancelar convite',
       mensagem: 'O link enviado para ${convite.email} deixa de funcionar.',
       textoConfirmar: 'Cancelar convite',
+      textoCancelar: 'Voltar',
       destrutivo: true,
     );
     if (!ok || !mounted) return;
@@ -252,6 +259,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     }
 
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     // o dono não se desativa nem se remove; quem não é dono não mexe em nada
     final podeMexer = souProprietario && !c.ehProprietario;
@@ -265,57 +273,59 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
             const LinearProgressIndicator(minHeight: 2)
           else
             const SizedBox(height: 2),
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
           Center(child: AvatarIniciais(nome: c.nome, raio: 40)),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
+          // o nome é o título da ficha: h2, como na ficha do cliente
           Text(
             c.nome,
             textAlign: TextAlign.center,
-            style: textos.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+            style: BrandText.h2.copyWith(color: cores.ink),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: BrandSpacing.space1),
           Text(
             c.temAcesso ? c.email : 'Sem acesso ao app',
             textAlign: TextAlign.center,
-            style: TextStyle(color: colors.onSurfaceVariant),
+            style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
           Wrap(
             alignment: WrapAlignment.center,
-            spacing: 8,
+            spacing: BrandSpacing.space2,
             children: [
               Chip(
                 label: Text(c.ehProprietario ? 'Proprietário' : c.tipo.nome),
                 visualDensity: VisualDensity.compact,
               ),
-              Chip(
-                avatar: Icon(
-                  c.ativo ? Icons.check_circle_outline : Icons.block,
-                  size: 18,
-                  color: c.ativo ? Colors.green.shade700 : colors.error,
-                ),
-                label: Text(c.ativo ? 'Ativo' : 'Inativo'),
-                visualDensity: VisualDensity.compact,
+              // ativo é status (success); inativo é neutro, como na lista
+              SeloDeStatus(
+                texto: c.ativo ? 'Ativo' : 'Inativo',
+                icone: c.ativo
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.block_rounded,
+                cor: c.ativo ? cores.success : cores.inkMuted,
               ),
             ],
           ),
 
           if (provider.errorMessage != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(BrandSpacing.space3),
               decoration: BoxDecoration(
                 color: colors.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BrandRadius.mdAll,
               ),
               child: Text(
                 provider.errorMessage!,
-                style: TextStyle(color: colors.onErrorContainer),
+                style: textos.bodyMedium?.copyWith(
+                  color: colors.onErrorContainer,
+                ),
               ),
             ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
           if (c.ehProprietario)
             // o dono não tem vínculo nem comissão: só a função
             TextFormField(
@@ -327,7 +337,6 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
               decoration: const InputDecoration(
                 labelText: 'Função',
                 hintText: 'Ex.: Barbeiro',
-                border: OutlineInputBorder(),
               ),
             )
           else
@@ -345,8 +354,8 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
               temAcesso: c.temAcesso || provider.convite != null,
             ),
           if (souProprietario) ...[
-            const SizedBox(height: 16),
-            FilledButton.tonal(
+            const SizedBox(height: BrandSpacing.space4),
+            FilledButton(
               onPressed: provider.isLoading ? null : _salvar,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
@@ -357,7 +366,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
 
           if (podeMexer) ...[
             if (!c.temAcesso && provider.convite != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: BrandSpacing.space5),
               _ConvitePendente(
                 convite: provider.convite!,
                 ocupado: provider.isLoading,
@@ -366,31 +375,36 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
                 onCancelar: () => _cancelarConvite(provider.convite!),
               ),
             ] else if (!c.temAcesso) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: BrandSpacing.space5),
               OutlinedButton.icon(
                 onPressed: provider.isLoading ? null : () => _convidar(c),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
                 ),
-                icon: const Icon(Icons.mail_outline),
+                icon: const Icon(Icons.mail_outline_rounded),
                 label: const Text('Convidar para o app'),
               ),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: BrandSpacing.space5),
+            // desativar e remover são destrutivos: danger
             OutlinedButton.icon(
               onPressed: provider.isLoading ? null : () => _alterarAtivo(c),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
-                foregroundColor: c.ativo ? colors.error : null,
+                foregroundColor: c.ativo ? cores.danger : null,
               ),
-              icon: Icon(c.ativo ? Icons.block : Icons.check_circle_outline),
+              icon: Icon(
+                c.ativo
+                    ? Icons.block_rounded
+                    : Icons.check_circle_outline_rounded,
+              ),
               label: Text(c.ativo ? 'Desativar' : 'Reativar'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: BrandSpacing.space3),
             TextButton.icon(
               onPressed: provider.isLoading ? null : () => _remover(c),
-              style: TextButton.styleFrom(foregroundColor: colors.error),
-              icon: const Icon(Icons.person_remove_outlined),
+              style: TextButton.styleFrom(foregroundColor: cores.danger),
+              icon: const Icon(Icons.person_remove_alt_1_rounded),
               label: const Text('Remover da equipe'),
             ),
           ],
@@ -418,62 +432,67 @@ class _ConvitePendente extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
+    // destaque de bloco: o azul suave com o texto em ink
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+      padding: const EdgeInsets.all(BrandSpacing.space4),
       decoration: BoxDecoration(
-        color: colors.secondaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        color: cores.blueSoft,
+        borderRadius: BrandRadius.mdAll,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.mail_outline, color: colors.onSecondaryContainer),
-              const SizedBox(width: 12),
+              Icon(Icons.mail_outline_rounded, color: cores.ink),
+              const SizedBox(width: BrandSpacing.space3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Convite enviado para ${convite.email}',
-                      style: textos.bodyMedium?.copyWith(
-                        color: colors.onSecondaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: textos.titleMedium,
                     ),
+                    const SizedBox(height: BrandSpacing.space1),
                     Text(
                       'Vale até ${formatarData(convite.expiraEm)}. Se o '
                       'e-mail não chegou, mande o link por WhatsApp.',
-                      style: textos.bodySmall?.copyWith(
-                        color: colors.onSecondaryContainer,
-                      ),
+                      style: textos.bodyMedium,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: BrandSpacing.space3),
+          // mandar o link é a ação principal; reenviar é a secundária e
+          // cancelar, a destrutiva. quebra a linha se não couberem lado a lado
           Wrap(
+            spacing: BrandSpacing.space2,
+            runSpacing: BrandSpacing.space2,
             children: [
-              TextButton.icon(
+              FilledButton.icon(
                 onPressed: ocupado || convite.link.isEmpty ? null : onWhatsApp,
-                icon: const Icon(Icons.chat_outlined),
+                icon: const Icon(Icons.chat_rounded, size: 18),
                 label: const Text('WhatsApp'),
               ),
-              TextButton.icon(
+              OutlinedButton.icon(
                 onPressed: ocupado ? null : onReenviar,
-                icon: const Icon(Icons.refresh),
+                // a borda do tema some sobre o azul suave: o botão fica no
+                // fundo da página, como no card do Início
+                style: OutlinedButton.styleFrom(backgroundColor: cores.bg),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Reenviar'),
               ),
               TextButton.icon(
                 onPressed: ocupado ? null : onCancelar,
-                style: TextButton.styleFrom(foregroundColor: colors.error),
-                icon: const Icon(Icons.close),
+                style: TextButton.styleFrom(foregroundColor: cores.danger),
+                icon: const Icon(Icons.close_rounded, size: 18),
                 label: const Text('Cancelar'),
               ),
             ],

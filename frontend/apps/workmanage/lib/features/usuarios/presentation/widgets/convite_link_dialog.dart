@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 
 // o link do convite chega por e-mail ou WhatsApp e o app ainda não abre por
 // deep link:
@@ -15,15 +16,12 @@ Future<void> abrirConvitePorLink(BuildContext context) async {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text('Cole o link que você recebeu por e-mail ou WhatsApp.'),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
           TextField(
             controller: controller,
             autofocus: true,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'Link do convite',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Link do convite'),
           ),
         ],
       ),
