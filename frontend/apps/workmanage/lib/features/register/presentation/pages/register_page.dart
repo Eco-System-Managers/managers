@@ -108,13 +108,15 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     builder: (context, _) => Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // o título do painel é h2
                         Text(
                           'Cadastro',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
+                          style: BrandText.h2.copyWith(
+                            color: BrandColors.of(context).ink,
+                          ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: BrandSpacing.space5),
 
                         // nome da empresa
                         TextFormField(
@@ -132,12 +134,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                               provider.limparErroDoCampo('nome_empresa'),
                           decoration: const InputDecoration(
                             labelText: 'Nome da empresa',
-                            prefixIcon: Icon(Icons.business_outlined),
-                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.business_rounded),
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: BrandSpacing.space4),
 
                         // nome do proprietário
                         TextFormField(
@@ -153,12 +154,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           onChanged: (_) => provider.limparErroDoCampo('nome'),
                           decoration: const InputDecoration(
                             labelText: 'Seu nome',
-                            prefixIcon: Icon(Icons.person_outline),
-                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.person_outline_rounded),
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: BrandSpacing.space4),
 
                         // e-mail
                         TextFormField(
@@ -179,12 +179,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           onChanged: (_) => provider.limparErroDoCampo('email'),
                           decoration: const InputDecoration(
                             labelText: 'E-mail',
-                            prefixIcon: Icon(Icons.email_outlined),
-                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.mail_outline_rounded),
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: BrandSpacing.space4),
 
                         // senha
                         TextFormField(
@@ -204,15 +203,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           onChanged: (_) => provider.limparErroDoCampo('senha'),
                           decoration: InputDecoration(
                             labelText: 'Senha',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.lock_outline_rounded),
 
                             // botão de "olhinho" da senha
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                                    ? Icons.visibility_rounded
+                                    : Icons.visibility_off_rounded,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -223,7 +221,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: BrandSpacing.space4),
 
                         // confirmação de senha
                         TextFormField(
@@ -242,15 +240,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
                           decoration: InputDecoration(
                             labelText: 'Confirmar senha',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.lock_outline_rounded),
 
                             // botão de "olhinho" da confirmação
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscureConfirmPassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                                    ? Icons.visibility_rounded
+                                    : Icons.visibility_off_rounded,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -262,7 +259,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: BrandSpacing.space5),
 
                         // botão de cadastrar: desabilita durante o loading
                         FilledButton(
@@ -273,7 +270,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           child: const Text('Cadastrar'),
                         ),
 
-                        const SizedBox(height: 8),
+                        const SizedBox(height: BrandSpacing.space2),
 
                         // volta para o login (o painel encolhe de volta);
                         // se abriu direto no cadastro, não há o que desempilhar
@@ -281,7 +278,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           onPressed: () => context.canPop()
                               ? context.pop()
                               : context.go('/login'),
-                          child: const Text('Fazer Login'),
+                          child: const Text('Já tenho conta'),
                         ),
                       ],
                     ),
