@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/sombra_de_borda.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
@@ -28,7 +29,8 @@ class MaisPage extends ConsumerWidget {
     // watch: mantém o provider vivo enquanto a aba estiver aberta
     final mais = ref.watch(maisProvider);
     final negocio = ref.watch(negocioAtualProvider);
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mais')),
@@ -39,14 +41,16 @@ class MaisPage extends ConsumerWidget {
             return ListView(
               children: [
                 ListTile(
+                  // a área do logo é o fundo 2, com o ícone neutro enquanto
+                  // o negócio não tem logo
                   leading: CircleAvatar(
-                    backgroundColor: colors.primaryContainer,
+                    backgroundColor: cores.bg2,
                     foregroundImage: negocio.logoUrl.isNotEmpty
                         ? NetworkImage(negocio.logoUrl)
                         : null,
                     child: Icon(
-                      Icons.storefront_outlined,
-                      color: colors.onPrimaryContainer,
+                      Icons.storefront_rounded,
+                      color: cores.inkMuted,
                     ),
                   ),
                   title: Text(negocio.nome),
@@ -56,52 +60,56 @@ class MaisPage extends ConsumerWidget {
                 ),
                 const Divider(),
                 ListTile(
-                  leading: const Icon(Icons.settings_outlined),
+                  leading: const Icon(Icons.settings_rounded),
                   title: const Text('Configurações'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/mais/configuracoes'),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.design_services_outlined),
+                  leading: const Icon(Icons.design_services_rounded),
                   title: const Text('Serviços'),
                   subtitle: const Text(
                     'O catálogo: o que você vende e por quanto',
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/mais/servicos'),
                 ),
                 // o colaborador comum não vê dinheiro (a API também nega)
                 if (negocio.veValores)
                   ListTile(
-                    leading: const Icon(Icons.point_of_sale_outlined),
+                    leading: const Icon(Icons.point_of_sale_rounded),
                     title: const Text('Financeiro'),
                     subtitle: const Text('O caixa: o fechamento por período'),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/mais/financeiro'),
                   ),
                 ListTile(
-                  leading: const Icon(Icons.description_outlined),
+                  leading: const Icon(Icons.description_rounded),
                   title: const Text('Contratos'),
                   subtitle: const Text('Modelos, contratos gerados e o PDF'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/mais/contratos'),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.group_outlined),
+                  leading: const Icon(Icons.group_rounded),
                   title: const Text('Equipe'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/mais/equipe'),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.workspace_premium_outlined),
+                  leading: const Icon(Icons.workspace_premium_rounded),
                   title: const Text('Assinatura'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/mais/assinatura'),
                 ),
                 const Divider(),
+                // sair é a ação destrutiva do menu: danger
                 ListTile(
-                  leading: Icon(Icons.logout, color: colors.error),
-                  title: Text('Sair', style: TextStyle(color: colors.error)),
+                  leading: Icon(Icons.logout_rounded, color: cores.danger),
+                  title: Text(
+                    'Sair',
+                    style: textos.titleMedium?.copyWith(color: cores.danger),
+                  ),
                   enabled: !mais.saindo,
                   onTap: () => _sair(context, ref),
                 ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/features/agenda/agenda_provider.dart';
@@ -76,16 +77,19 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
             indice: shell.currentIndex,
             onSelecionar: _selecionarAba,
             abas: [
-              const _Aba(icone: Icons.grid_view_outlined, rotulo: 'Início'),
+              const _Aba(icone: Icons.grid_view_rounded, rotulo: 'Início'),
               _Aba(
                 icone: negocio.isKanban
-                    ? Icons.view_kanban_outlined
-                    : Icons.calendar_month_outlined,
+                    ? Icons.view_kanban_rounded
+                    : Icons.calendar_month_rounded,
                 // o rótulo segue o modo de agenda do negócio
                 rotulo: negocio.isKanban ? 'Quadro' : 'Agenda',
               ),
-              const _Aba(icone: Icons.people_outline, rotulo: 'Clientes'),
-              const _Aba(icone: Icons.menu, rotulo: 'Mais'),
+              const _Aba(
+                icone: Icons.people_outline_rounded,
+                rotulo: 'Clientes',
+              ),
+              const _Aba(icone: Icons.menu_rounded, rotulo: 'Mais'),
             ],
           ),
         );
@@ -101,10 +105,11 @@ class _Aba {
   final String rotulo;
 }
 
-// a barra inferior: uma pílula branca (escura no tema escuro) solta sobre o
-// conteúdo, com sombra e margem das bordas; a aba atual fica na cor
-// primária, as outras em cinza. a margem de baixo soma a área segura do
-// sistema, então ela nunca encosta nos botões do Android
+// a barra inferior: um cartão solto sobre o conteúdo, com a única sombra do
+// Design System e margem das bordas; o fundo da página no claro e o fundo 2
+// com borda no escuro, em radius-lg. a aba atual fica na cor primária, as
+// outras em cinza. a margem de baixo soma a área segura do sistema, então
+// ela nunca encosta nos botões do Android
 class _BarraFlutuante extends StatelessWidget {
   const _BarraFlutuante({
     required this.indice,
@@ -118,33 +123,47 @@ class _BarraFlutuante extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final claro = Theme.of(context).brightness == Brightness.light;
     final areaSegura = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + areaSegura),
-      child: Material(
-        color: claro
-            ? colors.surfaceContainerLowest
-            : colors.surfaceContainerHigh,
-        elevation: 6,
-        shadowColor: colors.shadow.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(32),
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          height: 68,
-          child: Row(
-            children: [
-              for (var i = 0; i < abas.length; i++)
-                Expanded(
-                  child: _ItemDaBarra(
-                    aba: abas[i],
-                    selecionado: i == indice,
-                    onTap: () => onSelecionar(i),
+      padding: EdgeInsets.fromLTRB(
+        BrandSpacing.space4,
+        0,
+        BrandSpacing.space4,
+        BrandSpacing.space3 + areaSegura,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: claro ? cores.bg : cores.bg2,
+          borderRadius: BrandRadius.lgAll,
+          // no escuro o fundo 2 quase se confunde com a página: a borda
+          // desenha o contorno
+          border: claro ? null : Border.all(color: cores.border),
+          boxShadow: BrandShadows.card(context),
+        ),
+        // o Material transparente é só para o toque das abas, recortado no
+        // mesmo raio
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BrandRadius.lgAll,
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            // a altura da barra é medida do componente
+            height: 68,
+            child: Row(
+              children: [
+                for (var i = 0; i < abas.length; i++)
+                  Expanded(
+                    child: _ItemDaBarra(
+                      aba: abas[i],
+                      selecionado: i == indice,
+                      onTap: () => onSelecionar(i),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -166,6 +185,9 @@ class _ItemDaBarra extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    // a aba atual é o estado ativo (azul); as outras, o cinza do texto
+    // secundário. o rótulo é label-medium nos dois casos
     final cor = selecionado ? colors.primary : colors.onSurfaceVariant;
 
     return InkWell(
@@ -177,16 +199,9 @@ class _ItemDaBarra extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(aba.icone, color: cor, size: 26),
-            const SizedBox(height: 4),
-            Text(
-              aba.rotulo,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selecionado ? FontWeight.w600 : FontWeight.w500,
-                color: cor,
-              ),
-            ),
+            Icon(aba.icone, color: cor, size: 24),
+            const SizedBox(height: BrandSpacing.space1),
+            Text(aba.rotulo, style: textos.labelMedium?.copyWith(color: cor)),
           ],
         ),
       ),
