@@ -1,6 +1,7 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
@@ -51,7 +52,7 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
             texto: rotulo,
             selecionada: provider.periodo == periodo,
             icone: periodo == PeriodoCaixa.personalizado
-                ? Icons.date_range_outlined
+                ? Icons.date_range_rounded
                 : null,
           ),
       ],
@@ -86,7 +87,7 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
           valor: 0,
           texto: 'Todos',
           selecionada: provider.colaboradorId == null,
-          icone: Icons.groups_outlined,
+          icone: Icons.groups_rounded,
         ),
         for (final c in provider.colaboradores)
           OpcaoDaFolha(
@@ -146,6 +147,7 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
     }
 
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final vazio = caixa.pagamentos.isEmpty;
     // só o dono vê a divisão; o parceiro vê a parte dele como "a receber"
@@ -157,8 +159,8 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
       child: ListView(
         padding: paddingDaPagina(
           context,
-          topo: 8,
-        ).copyWith(left: 16, right: 16),
+          topo: BrandSpacing.space2,
+        ).copyWith(left: BrandSpacing.space4, right: BrandSpacing.space4),
         children: [
           // ---- o que entrou ----
           Painel(
@@ -167,21 +169,16 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
               children: [
                 Text(
                   'Recebido ${_rotuloDoPeriodo(provider)}',
-                  style: textos.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+                  style: textos.bodySmall,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: BrandSpacing.space1),
                 Text(
                   formatarDinheiro(caixa.total),
-                  style: textos.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
+                  style: textos.headlineMedium,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: BrandSpacing.space1),
                 Text(
                   vazio
                       ? 'Nenhuma cobrança no período.'
@@ -195,10 +192,10 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
 
                 // para onde vai: a casa e os parceiros, numa barra dividida
                 if (temDivisao) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: BrandSpacing.space4),
                   _Divisao(casa: caixa.casa!, repasse: caixa.repasse),
                 ] else if (caixa.casa == null) ...[
-                  const Divider(height: 24),
+                  const Divider(height: BrandSpacing.space5),
                   Row(
                     children: [
                       Expanded(
@@ -211,9 +208,7 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
                       ),
                       Text(
                         formatarDinheiro(caixa.repasse),
-                        style: textos.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: textos.titleMedium,
                       ),
                     ],
                   ),
@@ -224,14 +219,14 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
 
           // ---- como entrou ----
           if (caixa.porForma.isNotEmpty) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: BrandSpacing.space5),
             const TituloDaSecao('Por forma de pagamento'),
-            const SizedBox(height: 12),
+            const SizedBox(height: BrandSpacing.space3),
             Painel(
               child: Column(
                 children: [
                   for (final (i, f) in caixa.porForma.indexed) ...[
-                    if (i > 0) const SizedBox(height: 12),
+                    if (i > 0) const SizedBox(height: BrandSpacing.space3),
                     _LinhaDaForma(forma: f),
                   ],
                 ],
@@ -240,41 +235,34 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
           ],
 
           // ---- cada pagamento, por dia ----
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
           TituloDaSecao(
             'Pagamentos',
             detalhe: vazio ? null : '${caixa.pagamentos.length}',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
           if (vazio)
             Painel(
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 22,
-                    backgroundColor: colors.secondaryContainer,
+                    backgroundColor: cores.bg2,
                     child: Icon(
-                      Icons.receipt_long_outlined,
-                      color: colors.onSecondaryContainer,
+                      Icons.receipt_long_rounded,
+                      color: colors.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: BrandSpacing.space3),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Caixa vazio',
-                          style: textos.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        Text('Caixa vazio', style: textos.titleMedium),
                         Text(
                           'As cobranças feitas na agenda e no quadro '
                           'aparecem aqui.',
-                          style: textos.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
+                          style: textos.bodySmall,
                         ),
                       ],
                     ),
@@ -284,7 +272,7 @@ class _CaixaPageState extends ConsumerState<CaixaPage> {
             )
           else
             for (final (i, dia) in porDia.indexed) ...[
-              if (i > 0) const SizedBox(height: 12),
+              if (i > 0) const SizedBox(height: BrandSpacing.space3),
               _DiaDoCaixa(dia: dia, mostraData: porDia.length > 1),
             ],
         ],
@@ -363,18 +351,21 @@ class _Filtros extends StatelessWidget {
         .firstOrNull;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: BrandSpacing.space4,
+        vertical: BrandSpacing.space2,
+      ),
       child: Row(
         children: [
           ChipDeFiltro(
-            icone: Icons.calendar_today_outlined,
+            icone: Icons.calendar_today_rounded,
             texto: periodo,
             onTap: onPeriodo,
           ),
           if (onProfissional != null) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: BrandSpacing.space2),
             ChipDeFiltro(
-              icone: Icons.person_outline,
+              icone: Icons.person_outline_rounded,
               texto: escolhido == null ? 'Todos' : primeiroNome(escolhido.nome),
               onTap: onProfissional!,
             ),
@@ -385,8 +376,9 @@ class _Filtros extends StatelessWidget {
   }
 }
 
-// a divisão do recebido: a casa na primária, os parceiros num tom claro,
-// numa barra só, com os dois valores embaixo
+// a divisão do recebido: a casa em ink e os parceiros em inkMuted, numa
+// barra só sobre o fundo 2, com os dois valores embaixo. é dado, não ação:
+// fica sem azul
 class _Divisao extends StatelessWidget {
   const _Divisao({required this.casa, required this.repasse});
 
@@ -395,40 +387,43 @@ class _Divisao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final total = casa + repasse;
     final fracaoCasa = total == Decimal.zero
         ? 1.0
         : (casa / total).toDouble().clamp(0.0, 1.0);
-    final corCasa = colors.primary;
-    final corRepasse = colors.primary.withValues(alpha: 0.28);
+    final corCasa = cores.ink;
+    final corRepasse = cores.inkMuted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(5),
-          child: SizedBox(
-            height: 10,
-            child: Row(
-              children: [
-                // flex nunca zero: uma parte vazia some sem quebrar a Row
-                Expanded(
-                  flex: (fracaoCasa * 1000).round().clamp(1, 1000),
-                  child: ColoredBox(color: corCasa),
-                ),
-                // um fio de superfície entre as duas partes
-                const SizedBox(width: 2),
-                Expanded(
-                  flex: ((1 - fracaoCasa) * 1000).round().clamp(1, 1000),
-                  child: ColoredBox(color: corRepasse),
-                ),
-              ],
+          borderRadius: BrandRadius.smAll,
+          child: ColoredBox(
+            color: cores.bg2,
+            child: SizedBox(
+              height: 10,
+              child: Row(
+                children: [
+                  // flex nunca zero: uma parte vazia some sem quebrar a Row
+                  Expanded(
+                    flex: (fracaoCasa * 1000).round().clamp(1, 1000),
+                    child: ColoredBox(color: corCasa),
+                  ),
+                  // um fio do trilho entre as duas partes
+                  const SizedBox(width: 2),
+                  Expanded(
+                    flex: ((1 - fracaoCasa) * 1000).round().clamp(1, 1000),
+                    child: ColoredBox(color: corRepasse),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: BrandSpacing.space2),
         Row(
           children: [
             Expanded(
@@ -450,12 +445,10 @@ class _Divisao extends StatelessWidget {
         ),
         if (total > Decimal.zero)
           Padding(
-            padding: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(top: BrandSpacing.space1),
             child: Text(
               '${(fracaoCasa * 100).round()}% da casa',
-              style: textos.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
+              style: textos.bodySmall,
             ),
           ),
       ],
@@ -478,7 +471,6 @@ class _Legenda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final textos = Theme.of(context).textTheme;
     final alinhamento = aDireita
         ? CrossAxisAlignment.end
@@ -495,19 +487,11 @@ class _Legenda extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(shape: BoxShape.circle, color: cor),
             ),
-            const SizedBox(width: 6),
-            Text(
-              rotulo,
-              style: textos.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
+            const SizedBox(width: BrandSpacing.space1),
+            Text(rotulo, style: textos.bodySmall),
           ],
         ),
-        Text(
-          valor,
-          style: textos.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
+        Text(valor, style: textos.titleSmall),
       ],
     );
   }
@@ -521,22 +505,23 @@ class _LinhaDaForma extends StatelessWidget {
   final CaixaPorForma forma;
 
   static IconData _icone(String forma) => switch (forma) {
-    'dinheiro' => Icons.payments_outlined,
-    'pix' => Icons.bolt_outlined,
-    'credito' || 'debito' => Icons.credit_card_outlined,
-    'qr_code' => Icons.qr_code_2_outlined,
-    _ => Icons.paid_outlined,
+    'dinheiro' => Icons.payments_rounded,
+    'pix' => Icons.bolt_rounded,
+    'credito' || 'debito' => Icons.credit_card_rounded,
+    'qr_code' => Icons.qr_code_2_rounded,
+    _ => Icons.paid_rounded,
   };
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
     return Row(
       children: [
         Icon(_icone(forma.forma), size: 20, color: colors.onSurfaceVariant),
-        const SizedBox(width: 10),
+        const SizedBox(width: BrandSpacing.space2),
         SizedBox(
           width: 64,
           child: Text(
@@ -546,34 +531,34 @@ class _LinhaDaForma extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: BrandSpacing.space2),
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BrandRadius.smAll,
             child: LinearProgressIndicator(
               value: forma.percentual / 100,
               minHeight: 8,
-              backgroundColor: colors.surfaceContainerHighest,
-              color: colors.primary,
+              backgroundColor: cores.bg2,
+              color: cores.inkMuted,
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: BrandSpacing.space2),
         SizedBox(
           width: 34,
           child: Text(
             '${forma.percentual}%',
             textAlign: TextAlign.right,
-            style: textos.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+            style: textos.bodySmall,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: BrandSpacing.space2),
         SizedBox(
           width: 84,
           child: Text(
             formatarDinheiro(forma.total),
             textAlign: TextAlign.right,
-            style: textos.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            style: textos.titleSmall,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -598,7 +583,12 @@ class _DiaDoCaixa extends StatelessWidget {
     final textos = Theme.of(context).textTheme;
 
     return Painel(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.fromLTRB(
+        BrandSpacing.space4,
+        BrandSpacing.space3,
+        BrandSpacing.space4,
+        BrandSpacing.space1,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -608,27 +598,18 @@ class _DiaDoCaixa extends StatelessWidget {
                 Expanded(
                   child: Text(
                     formatarDataPorExtenso(dia.data),
-                    style: textos.labelLarge?.copyWith(
+                    style: textos.titleSmall?.copyWith(
                       color: colors.onSurfaceVariant,
                     ),
                   ),
                 ),
-                Text(
-                  formatarDinheiro(dia.total),
-                  style: textos.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Text(formatarDinheiro(dia.total), style: textos.titleSmall),
               ],
             ),
-            const Divider(height: 16),
+            const Divider(height: BrandSpacing.space4),
           ],
           for (final (i, p) in dia.pagamentos.indexed) ...[
-            if (i > 0)
-              Divider(
-                height: 1,
-                color: colors.outlineVariant.withValues(alpha: 0.4),
-              ),
+            if (i > 0) const Divider(height: 1),
             _LinhaDoPagamento(pagamento: p),
           ],
         ],
@@ -644,7 +625,6 @@ class _LinhaDoPagamento extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final textos = Theme.of(context).textTheme;
     final p = pagamento;
     final hora = p.dataHora.toLocal();
@@ -654,14 +634,14 @@ class _LinhaDoPagamento extends StatelessWidget {
     ].join(' · ');
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: BrandSpacing.space2),
       child: Row(
         children: [
           SizedBox(
             width: 44,
             child: Text(
               formatarHora((hora: hora.hour, minuto: hora.minute)),
-              style: textos.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              style: textos.titleSmall,
             ),
           ),
           Expanded(
@@ -670,38 +650,26 @@ class _LinhaDoPagamento extends StatelessWidget {
               children: [
                 Text(
                   p.clienteNome,
-                  style: textos.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: textos.titleMedium,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (detalhe.isNotEmpty)
                   Text(
                     detalhe,
-                    style: textos.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
+                    style: textos.bodySmall,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: BrandSpacing.space2),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                formatarDinheiro(p.valor),
-                style: textos.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                nomeDaForma(p.forma),
-                style: textos.labelSmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
+              Text(formatarDinheiro(p.valor), style: textos.titleSmall),
+              Text(nomeDaForma(p.forma), style: textos.bodySmall),
             ],
           ),
         ],

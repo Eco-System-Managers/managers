@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 
@@ -39,31 +40,29 @@ class _SaldoClienteCardState extends ConsumerState<SaldoClienteCard> {
         final erro = provider.erro;
 
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          margin: const EdgeInsets.symmetric(horizontal: BrandSpacing.space4),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(BrandSpacing.space4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Icon(
-                      Icons.account_balance_wallet_outlined,
-                      color: colors.primary,
+                      Icons.account_balance_wallet_rounded,
+                      color: colors.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: BrandSpacing.space2),
                     Expanded(
                       child: Text(
                         'Crédito na comanda',
-                        style: textos.titleSmall,
+                        style: textos.titleLarge,
                       ),
                     ),
                     if (saldo != null)
                       Text(
                         formatarDinheiro(saldo.saldo),
-                        style: textos.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: textos.titleMedium,
                       )
                     else if (erro == null)
                       const SizedBox(
@@ -74,19 +73,24 @@ class _SaldoClienteCardState extends ConsumerState<SaldoClienteCard> {
                   ],
                 ),
                 if (erro != null) ...[
-                  const SizedBox(height: 8),
-                  Text(erro.message, style: TextStyle(color: colors.error)),
+                  const SizedBox(height: BrandSpacing.space2),
+                  Text(
+                    erro.message,
+                    style: textos.bodyMedium?.copyWith(color: colors.error),
+                  ),
                   TextButton(
                     onPressed: provider.carregar,
                     child: const Text('Tentar de novo'),
                   ),
                 ],
                 if (saldo != null && saldo.transacoes.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: BrandSpacing.space2),
                   // as três últimas: o extrato inteiro não cabe na ficha
                   for (final t in saldo.transacoes.reversed.take(3))
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: BrandSpacing.space1,
+                      ),
                       child: Row(
                         children: [
                           Expanded(
@@ -96,12 +100,12 @@ class _SaldoClienteCardState extends ConsumerState<SaldoClienteCard> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          // entrar e sair crédito é movimento, não status: o
+                          // sinal diz a direção e a cor fica neutra
                           Text(
                             '${t.credito ? '+' : '-'} ${formatarDinheiro(t.valor)}',
                             style: textos.bodySmall?.copyWith(
-                              color: t.credito
-                                  ? Colors.green.shade700
-                                  : colors.error,
+                              color: colors.onSurface,
                             ),
                           ),
                         ],

@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/dinheiro_input_formatter.dart';
 import 'package:managers/core/widgets/folha.dart';
@@ -209,20 +210,26 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final temCredito = widget.creditoDisponivel > _zero;
 
     return ListView(
       shrinkWrap: true,
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      padding: const EdgeInsets.fromLTRB(
+        BrandSpacing.space5,
+        BrandSpacing.space4,
+        BrandSpacing.space5,
+        BrandSpacing.space5,
+      ),
       children: [
         Text('Cobrar atendimento', style: textos.titleLarge),
-        const SizedBox(height: 4),
+        const SizedBox(height: BrandSpacing.space1),
         Text(
           'Serviços: ${formatarDinheiro(widget.valorServicos)}',
-          style: TextStyle(color: colors.onSurfaceVariant),
+          style: textos.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
 
         TextField(
           controller: _descontoController,
@@ -232,12 +239,11 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
           decoration: const InputDecoration(
             labelText: 'Desconto (opcional)',
             prefixText: 'R\$ ',
-            border: OutlineInputBorder(),
           ),
         ),
 
         if (temCredito) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
           TextField(
             controller: _creditoController,
             keyboardType: TextInputType.number,
@@ -247,18 +253,19 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
               labelText: 'Usar crédito do cliente',
               helperText:
                   'Disponível: ${formatarDinheiro(widget.creditoDisponivel)}',
+              // o erro esconde o helper: o limite vai junto na mensagem
               errorText: _creditoValido
                   ? null
-                  : 'Maior que o disponível ou que o total',
+                  : 'Use até ${formatarDinheiro(widget.creditoDisponivel)}, '
+                        'sem passar do total',
               prefixText: 'R\$ ',
-              border: const OutlineInputBorder(),
             ),
           ),
         ],
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
         Text('Pagamento', style: textos.titleSmall),
-        const SizedBox(height: 8),
+        const SizedBox(height: BrandSpacing.space2),
         for (final linha in _linhas) ...[
           Row(
             children: [
@@ -271,13 +278,10 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
                       DropdownMenuItem(value: f, child: Text(f.nome)),
                   ],
                   onChanged: (f) => setState(() => linha.forma = f!),
-                  decoration: const InputDecoration(
-                    labelText: 'Forma',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Forma'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: BrandSpacing.space3),
               Expanded(
                 child: TextField(
                   controller: linha.controller,
@@ -287,31 +291,30 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
                   decoration: const InputDecoration(
                     labelText: 'Valor',
                     prefixText: 'R\$ ',
-                    border: OutlineInputBorder(),
                   ),
                 ),
               ),
               if (_linhas.length > 1)
                 IconButton(
                   tooltip: 'Remover',
-                  icon: const Icon(Icons.remove_circle_outline),
+                  icon: const Icon(Icons.remove_circle_outline_rounded),
                   onPressed: () => _removerLinha(linha),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
         ],
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: _adicionarLinha,
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_rounded),
             label: const Text('Outra forma de pagamento'),
           ),
         ),
 
         if (_temTroco) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: BrandSpacing.space2),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
@@ -326,7 +329,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
           ),
         ],
 
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
         _Resumo(
           total: _total,
           pago: _pago,
@@ -335,21 +338,24 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
         ),
 
         if (_erro != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(BrandSpacing.space3),
             decoration: BoxDecoration(
               color: colors.errorContainer,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BrandRadius.smAll,
+              border: Border.all(color: cores.border),
             ),
             child: Text(
               _erro!,
-              style: TextStyle(color: colors.onErrorContainer),
+              style: textos.bodyMedium?.copyWith(
+                color: colors.onErrorContainer,
+              ),
             ),
           ),
         ],
 
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
         FilledButton(
           onPressed: _podeConfirmar ? _confirmar : null,
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
@@ -361,7 +367,9 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
 }
 
 // total a cobrar, quanto já está lançado e o que falta, o troco ou o que
-// passou sem ter dinheiro para devolver
+// passou sem ter dinheiro para devolver. a cor é o status da soma: success
+// quando fecha (exata ou com troco), danger quando trava o confirmar. a
+// borda separa o quadro da folha no escuro, onde os dois são o fundo 2
 class _Resumo extends StatelessWidget {
   const _Resumo({
     required this.total,
@@ -378,16 +386,18 @@ class _Resumo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final zero = Decimal.fromInt(0);
     final fecha = diferenca == zero;
     final ok = fecha || temTroco;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(BrandSpacing.space3),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        color: cores.bg2,
+        borderRadius: BrandRadius.smAll,
+        border: Border.all(color: cores.border),
       ),
       child: Row(
         children: [
@@ -396,12 +406,7 @@ class _Resumo extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Total a cobrar', style: textos.bodySmall),
-                Text(
-                  formatarDinheiro(total),
-                  style: textos.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Text(formatarDinheiro(total), style: textos.titleMedium),
               ],
             ),
           ),
@@ -420,9 +425,8 @@ class _Resumo extends StatelessWidget {
                     : temTroco
                     ? 'Troco ${formatarDinheiro(-diferenca)}'
                     : 'Passa ${formatarDinheiro(-diferenca)}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: ok ? Colors.green.shade700 : colors.error,
+                style: textos.titleMedium?.copyWith(
+                  color: ok ? cores.success : colors.error,
                 ),
               ),
             ],
