@@ -1,11 +1,11 @@
 {
-    "name": "managers",
-    "short_name": "managers",
+    "name": "Work Manage",
+    "short_name": "Work Manage",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B1C35",
+    "theme_color": "#0B1C35",
+    "description": "Agendamento e gestão sem complicação.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

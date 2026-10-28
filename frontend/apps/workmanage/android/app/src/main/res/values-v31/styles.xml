@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+: a splash do sistema no marinho da marca, com o símbolo
+         branco (splash_icone: 288 dp, o símbolo com 120 dp no centro) -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/marinho</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icone</item>
+    </style>
+</resources>

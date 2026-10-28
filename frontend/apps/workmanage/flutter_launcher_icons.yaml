@@ -1,0 +1,24 @@
+# o ícone do app, do Design System (design/07-assets/icone-app). gerar de novo:
+#   dart run flutter_launcher_icons
+# as imagens de origem ficam em assets/launcher/, fora do pubspec: só entram
+# no build pelos arquivos que o gerador escreve em android/ e ios/
+flutter_launcher_icons:
+  # Android: o ícone marinho de cantos arredondados para os aparelhos antigos
+  # e o adaptativo (o símbolo branco sobre o marinho) do Android 8 em diante;
+  # o monocromático é o ícone temático do Android 13
+  android: true
+  image_path_android: "assets/launcher/w-icone-marinho-1024.png"
+  adaptive_icon_background: "#0B1C35"
+  adaptive_icon_foreground: "assets/launcher/w-icone-frente-1024.png"
+  adaptive_icon_monochrome: "assets/launcher/w-icone-frente-1024.png"
+  min_sdk_android: 21
+
+  # iOS aplica a própria máscara: vai o quadrado, sem transparência
+  ios: true
+  image_path_ios: "assets/launcher/w-icone-marinho-quadrado-1024.png"
+  remove_alpha_ios: true
+  background_color_ios: "#0B1C35"
+
+  # o app não tem a pasta web/: o ícone da web está em frontend/workmanage_web
+  web:
+    generate: false

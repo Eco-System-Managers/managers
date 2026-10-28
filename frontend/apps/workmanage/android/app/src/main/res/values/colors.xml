@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- o fundo do ícone adaptativo (flutter_launcher_icons.yaml) -->
+    <color name="ic_launcher_background">#0B1C35</color>
+    <!-- o marinho da marca (design/tokens/tokens.json → navy): fundo da splash -->
+    <color name="marinho">#0B1C35</color>
+</resources>
