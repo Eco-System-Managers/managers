@@ -124,7 +124,7 @@ void main() {
   });
 
   test(
-    'o proprietário filtra por profissional; a equipe ativa vem uma vez',
+    'o proprietário filtra por profissional; a equipe recarrega junto',
     () async {
       final provider = montar();
       await provider.carregar();
@@ -134,7 +134,8 @@ void main() {
 
       expect(ultimosParams().colaboradorId, 2);
       expect(provider.colaboradorId, 2);
-      verify(() => listarColaboradores(any())).called(1);
+      // a equipe vem de novo a cada carga: quem entrou depois aparece no filtro
+      verify(() => listarColaboradores(any())).called(2);
 
       await provider.filtrarColaborador(null);
       expect(ultimosParams().colaboradorId, isNull);

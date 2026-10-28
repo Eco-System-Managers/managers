@@ -75,7 +75,7 @@ class ResumoProvider extends ChangeNotifier {
       _obterResumo(
         ResumoParams(inicio: _inicio, fim: _fim, colaboradorId: _colaboradorId),
       ),
-      _garantirColaboradores(),
+      _carregarColaboradores(),
       _listarPendencias(NoParams()),
     ).wait;
     if (_disposed) return;
@@ -93,8 +93,8 @@ class ResumoProvider extends ChangeNotifier {
     await carregar();
   }
 
-  Future<void> _garantirColaboradores() async {
-    if (!filtraPorProfissional || _colaboradores.isNotEmpty) return;
+  Future<void> _carregarColaboradores() async {
+    if (!filtraPorProfissional) return;
     final result = await _listarColaboradores(NoParams());
     // sem a equipe o painel continua útil: só fica sem o filtro
     result.fold((_) {}, (lista) {

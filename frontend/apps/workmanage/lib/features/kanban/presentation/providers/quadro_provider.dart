@@ -100,7 +100,7 @@ class QuadroProvider extends ChangeNotifier {
         ListarDoDiaParams(data: _dia, colaboradorId: _colaboradorId),
       ),
       _listarPendencias(NoParams()),
-      _garantirColaboradores(),
+      _carregarColaboradores(),
     ).wait;
     if (_disposed) return;
 
@@ -133,8 +133,7 @@ class QuadroProvider extends ChangeNotifier {
     await carregar();
   }
 
-  Future<void> _garantirColaboradores() async {
-    if (_colaboradores.isNotEmpty) return;
+  Future<void> _carregarColaboradores() async {
     final result = await _listarColaboradores(NoParams());
     // sem a equipe o quadro continua útil: só fica sem o filtro
     result.fold((_) {}, (lista) {

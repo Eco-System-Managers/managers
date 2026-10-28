@@ -60,7 +60,7 @@ class CaixaProvider extends ChangeNotifier {
       _obterCaixa(
         CaixaParams(inicio: _inicio, fim: _fim, colaboradorId: _colaboradorId),
       ),
-      _garantirColaboradores(),
+      _carregarColaboradores(),
     ).wait;
     if (_disposed) return;
 
@@ -76,8 +76,7 @@ class CaixaProvider extends ChangeNotifier {
     await carregar();
   }
 
-  Future<void> _garantirColaboradores() async {
-    if (_colaboradores.isNotEmpty) return;
+  Future<void> _carregarColaboradores() async {
     final result = await _listarColaboradores(NoParams());
     // sem a equipe o caixa continua útil: só fica sem o filtro
     result.fold((_) {}, (lista) {

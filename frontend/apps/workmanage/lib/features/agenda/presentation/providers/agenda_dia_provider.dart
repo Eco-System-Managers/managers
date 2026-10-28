@@ -110,7 +110,7 @@ class AgendaDiaProvider extends ChangeNotifier {
         ),
       ),
       _garantirMes(_dia),
-      _garantirColaboradores(),
+      _carregarColaboradores(),
       _contarPendencias(),
       _garantirHorarios(),
     ).wait;
@@ -177,8 +177,7 @@ class AgendaDiaProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> _garantirColaboradores() async {
-    if (_colaboradores.isNotEmpty) return;
+  Future<void> _carregarColaboradores() async {
     final result = await _listarColaboradores(NoParams());
     result.fold((_) {}, (lista) {
       _colaboradores = lista.where((c) => c.ativo).toList();

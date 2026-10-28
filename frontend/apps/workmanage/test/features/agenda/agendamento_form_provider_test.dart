@@ -146,9 +146,10 @@ void main() {
         verify(() => listarServicos(captureAny())).captured.single
             as ListarServicosParams;
     expect(params.ativo, isTrue);
-    expect(provider.servicos, [_corte, _barba]);
     expect(provider.colaboradores, [_bia, _dani]);
     expect(provider.colaborador, _bia);
+    // barba é só da Dani: com a Bia escolhida, só corte
+    expect(provider.servicos, [_corte]);
     expect(provider.data, _dia);
     expect(provider.prontoParaGrade, isFalse);
     verifyNever(() => listarSlots(any()));
@@ -187,6 +188,32 @@ void main() {
     final deNovo =
         verify(() => listarSlots(captureAny())).captured.single as SlotsParams;
     expect((deNovo.servicoId, deNovo.colaboradorId), (4, 5));
+  });
+
+  test('o profissional escolhido limita os serviços; serviço sem executor '
+      'marcado é de qualquer um', () async {
+    final provider = montar();
+    await provider.carregar();
+
+    // abriu com a Bia (colaboradorInicialId 2): corte é de todos, barba só da Dani
+    expect(provider.servicos, [_corte]);
+
+    provider.selecionarColaborador(_dani);
+    expect(provider.servicos, [_corte, _barba]);
+
+    provider.selecionarServico(_barba);
+    await pumpEventQueue();
+    expect(provider.prontoParaGrade, isTrue);
+
+    // a Bia não faz barba: o serviço sai da escolha e a grade some
+    provider.selecionarColaborador(_bia);
+    await pumpEventQueue();
+    expect(provider.servico, isNull);
+    expect(provider.servicos, [_corte]);
+    expect(provider.prontoParaGrade, isFalse);
+
+    provider.selecionarColaborador(null);
+    expect(provider.servicos, [_corte, _barba]);
   });
 
   test('selecionarData recarrega a grade para o novo dia', () async {

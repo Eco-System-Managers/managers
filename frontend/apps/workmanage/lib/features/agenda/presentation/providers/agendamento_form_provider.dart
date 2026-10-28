@@ -73,7 +73,15 @@ class AgendamentoFormProvider extends ChangeNotifier {
   // a tela pode ser fechada durante uma requisição
   bool _disposed = false;
 
-  List<Servico> get servicos => _servicos;
+  // os serviços que o profissional escolhido faz. serviço sem executor
+  // marcado é de qualquer um, então fica sempre
+  List<Servico> get servicos {
+    final id = _colaborador?.id;
+    if (id == null) return _servicos;
+    return _servicos
+        .where((s) => s.colaboradores.isEmpty || s.colaboradores.contains(id))
+        .toList();
+  }
 
   // a equipe ativa. com serviço escolhido que tem executores marcados, só eles
   List<Colaborador> get colaboradores {
@@ -160,6 +168,10 @@ class AgendamentoFormProvider extends ChangeNotifier {
   void selecionarColaborador(Colaborador? colaborador) {
     if (colaborador == _colaborador) return;
     _colaborador = colaborador;
+    // o serviço atual pode não ser deste profissional
+    if (_servico != null && !servicos.contains(_servico)) {
+      _servico = null;
+    }
     _fieldErrors = {..._fieldErrors}..remove('colaborador');
     _recarregarGrade();
   }

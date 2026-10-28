@@ -168,7 +168,7 @@ void main() {
   });
 
   test(
-    'filtrar por profissional manda o id e a equipe ativa vem uma vez',
+    'filtrar por profissional manda o id e a equipe recarrega junto',
     () async {
       final provider = montar();
       await provider.carregar();
@@ -181,7 +181,8 @@ void main() {
               as ListarDoDiaParams;
       expect(params.colaboradorId, 2);
       expect(provider.colaboradorId, 2);
-      verify(() => listarColaboradores(any())).called(1);
+      // a equipe vem de novo a cada carga: quem entrou depois aparece no filtro
+      verify(() => listarColaboradores(any())).called(2);
     },
   );
 }
