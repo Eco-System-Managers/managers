@@ -1,0 +1,42 @@
+<!-- @dsCard height=336 -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=MuseoModerno:wght@700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  .cover { position: relative; width: 960px; height: 336px; overflow: hidden; background: var(--bg); }
+  .cover svg { position: absolute; left: 0; top: 0; }
+  .ink { fill: var(--ink); }
+  .blue { fill: var(--blue); }
+  .soft { fill: var(--blue-soft); }
+  .r { rx: var(--radius-md); }
+  .name { position: absolute; left: 40px; top: 150px; width: 880px; margin: 0; font-family: var(--font-brand, MuseoModerno, sans-serif); font-size: 64px; line-height: 0.95; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
+  .tag { position: absolute; left: 40px; top: 286px; width: 440px; margin: 0; font-family: var(--font-sans, Inter, sans-serif); font-size: 13px; line-height: 16px; font-weight: 500; color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+  <!--
+    blocks: ink ×3 (120 × 112 band), blue-soft ×2 (120 × 112), blue ×1 (the W's own drop, 86 × 96) — widths = 5 × space-5 (120), gaps = space-5 (24), band = 112 ≈ a third of the height — corners radius-md
+    arrangement: the top-band skeleton (the name is too wide for the 440 px zone): a full-width strip of slanted slabs bleeding off the top, the name in MuseoModerno beneath on two lines
+    pattern: the literal motif — the marks' own inclined slab (skewX 29°) and the W's blue drop, because the README says both symbols are inclined strokes plus one blue piece
+    scales: space-5 24 (×5 width, ×1 gap), radius-md 12; slabs in ink so the band reads on both themes (the dark ground IS navy)
+  -->
+  <svg width="960" height="112" viewBox="0 0 960 112" aria-hidden="true">
+    <g transform="skewX(29)">
+      <rect class="ink r" x="-40" y="-40" width="120" height="192"></rect>
+      <rect class="soft r" x="104" y="-40" width="120" height="192"></rect>
+      <rect class="ink r" x="248" y="-40" width="120" height="192"></rect>
+      <rect class="ink r" x="392" y="-40" width="120" height="192"></rect>
+      <rect class="soft r" x="536" y="-40" width="120" height="192"></rect>
+      <rect class="ink r" x="680" y="-40" width="120" height="192"></rect>
+    </g>
+    <path class="blue" d="M 850.93,8.20 C 843.79,8.43 843.18,8.53 840.06,10.22 C 836.25,12.23 835.88,12.74 822.26,34.41 C 816.64,43.36 815.96,44.91 816.00,48.81 C 816.03,51.84 816.70,53.89 819.13,58.34 C 820.20,60.29 823.30,66.18 826.02,71.46 C 831.20,81.49 839.79,97.27 841.30,99.52 C 844.09,103.73 849.95,105.21 854.66,102.92 C 857.62,101.47 857.76,101.27 867.99,83.44 C 870.95,78.26 876.90,67.59 881.21,59.71 C 889.29,44.91 891.58,40.77 896.86,31.58 C 901.70,23.10 902.38,21.56 902.51,18.80 C 902.75,14.39 900.59,10.79 896.59,8.94 L 894.67,8.03 L 876.16,8.0 C 866.00,8.0 854.63,8.09 850.93,8.20"></path>
+  </svg>
+  <h1 class="name">Work Manage ·<br>Service Manage</h1>
+  <p class="tag">Agendamento e gestão sem complicação.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,19 @@
+TIPOGRAFIA
+
+MuseoModerno (arquivo incluído, variável 100–900, licença OFL)
+  - Wordmark dos logotipos: SemiBold 600, letter-spacing -0.01em
+  - Títulos de capa: Bold 700
+  - Google Fonts: https://fonts.google.com/specimen/MuseoModerno
+
+Inter (não incluída; use o Google Fonts)
+  - Títulos: 700 / 600
+  - Texto: 400 / 500
+  - Google Fonts: https://fonts.google.com/specimen/Inter
+
+Link para o site:
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=MuseoModerno:wght@600;700&display=swap" rel="stylesheet">
+
+Escala
+  Título 1   Inter Bold 64 px          Corpo      Inter Regular 16 px / 150 %
+  Título 2   Inter SemiBold 36 px      Legenda    Inter Medium 13 px
+  Subtítulo  Inter SemiBold 18 px, caixa alta

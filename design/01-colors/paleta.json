@@ -1,0 +1,79 @@
+{
+  "Azul Manage": {
+    "hex": "#1B6AF3",
+    "rgb": "27 106 243",
+    "cmyk": "89 56 0 5",
+    "token": "blue",
+    "uso": "Cor da ação: peça azul do símbolo, botões primários, links"
+  },
+  "Marinho": {
+    "hex": "#0B1C35",
+    "rgb": "11 28 53",
+    "cmyk": "79 47 0 79",
+    "token": "navy",
+    "uso": "Símbolo, wordmark, fundo do ícone do app"
+  },
+  "Azul Claro": {
+    "hex": "#E8F0FE",
+    "rgb": "232 240 254",
+    "cmyk": "9 6 0 0",
+    "token": "blue-soft",
+    "uso": "Fundo de destaque ligado ao azul"
+  },
+  "Branco Gelo": {
+    "hex": "#F3F6FD",
+    "rgb": "243 246 253",
+    "cmyk": "4 3 0 1",
+    "token": "bg-2",
+    "uso": "Fundo secundário"
+  },
+  "Branco": {
+    "hex": "#FFFFFF",
+    "rgb": "255 255 255",
+    "cmyk": "0 0 0 0",
+    "token": "bg",
+    "uso": "Fundo principal"
+  },
+  "Borda": {
+    "hex": "#DFE6F1",
+    "rgb": "223 230 241",
+    "cmyk": "7 5 0 5",
+    "token": "border",
+    "uso": "Contornos e divisórias"
+  },
+  "Cinza Ardósia": {
+    "hex": "#5A6A84",
+    "rgb": "90 106 132",
+    "cmyk": "32 20 0 48",
+    "token": "ink-muted",
+    "uso": "Texto secundário"
+  },
+  "Grafite": {
+    "hex": "#14161B",
+    "rgb": "20 22 27",
+    "cmyk": "26 19 0 89",
+    "token": "graphite",
+    "uso": "Texto sobre fundos claros fora da marca; blocos de código"
+  },
+  "Sucesso": {
+    "hex": "#1A7F4B",
+    "rgb": "26 127 75",
+    "cmyk": "80 0 41 50",
+    "token": "success",
+    "uso": "Status concluído"
+  },
+  "Atenção": {
+    "hex": "#9A5A00",
+    "rgb": "154 90 0",
+    "cmyk": "0 42 100 40",
+    "token": "warning",
+    "uso": "Status pendente"
+  },
+  "Erro": {
+    "hex": "#B3261E",
+    "rgb": "179 38 30",
+    "cmyk": "0 79 83 30",
+    "token": "danger",
+    "uso": "Erro e ação destrutiva"
+  }
+}

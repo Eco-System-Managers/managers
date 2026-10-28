@@ -1,0 +1,13 @@
+:root {
+  --font-brand: MuseoModerno, 'Inter', system-ui, sans-serif;
+  --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.wordmark { font-family: var(--font-brand); font-size: 40px; line-height: 44px; font-weight: 600; letter-spacing: -0.01em; }
+.display { font-family: var(--font-brand); font-size: 56px; line-height: 60px; font-weight: 700; letter-spacing: -0.02em; }
+.h1 { font-family: var(--font-sans); font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em; }
+.h2 { font-family: var(--font-sans); font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; }
+.h3 { font-family: var(--font-sans); font-size: 18px; line-height: 26px; font-weight: 600; }
+.body { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 400; }
+.body-strong { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 600; }
+.label { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 500; letter-spacing: 0.01em; }
+.caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; }

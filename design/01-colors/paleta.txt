@@ -1,0 +1,24 @@
+PALETA — Work Manage · Service Manage
+
+Azul Manage     HEX #1B6AF3   RGB 27 106 243    CMYK 89 56 0 5       token: blue
+    Cor da ação: peça azul do símbolo, botões primários, links
+Marinho         HEX #0B1C35   RGB 11 28 53      CMYK 79 47 0 79      token: navy
+    Símbolo, wordmark, fundo do ícone do app
+Azul Claro      HEX #E8F0FE   RGB 232 240 254   CMYK 9 6 0 0         token: blue-soft
+    Fundo de destaque ligado ao azul
+Branco Gelo     HEX #F3F6FD   RGB 243 246 253   CMYK 4 3 0 1         token: bg-2
+    Fundo secundário
+Branco          HEX #FFFFFF   RGB 255 255 255   CMYK 0 0 0 0         token: bg
+    Fundo principal
+Borda           HEX #DFE6F1   RGB 223 230 241   CMYK 7 5 0 5         token: border
+    Contornos e divisórias
+Cinza Ardósia   HEX #5A6A84   RGB 90 106 132    CMYK 32 20 0 48      token: ink-muted
+    Texto secundário
+Grafite         HEX #14161B   RGB 20 22 27      CMYK 26 19 0 89      token: graphite
+    Texto sobre fundos claros fora da marca; blocos de código
+Sucesso         HEX #1A7F4B   RGB 26 127 75     CMYK 80 0 41 50      token: success
+    Status concluído
+Atenção         HEX #9A5A00   RGB 154 90 0      CMYK 0 42 100 40     token: warning
+    Status pendente
+Erro            HEX #B3261E   RGB 179 38 30     CMYK 0 79 83 30      token: danger
+    Erro e ação destrutiva
