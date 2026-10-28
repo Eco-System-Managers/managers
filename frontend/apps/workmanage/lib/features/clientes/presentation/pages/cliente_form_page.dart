@@ -328,14 +328,15 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
 
           const SizedBox(height: BrandSpacing.space4),
 
-          // a data fica no CampoData mesmo travada: ele não aceita o estilo
-          // nem o cadeado, mas é ele que valida a data no salvar
+          // a data fica no CampoData mesmo travada (é ele que valida a data
+          // no salvar), no modo travado: inkMuted e cadeado, como os outros
           CampoData(
             valor: _dataNascimento,
             // nascimento é longe de hoje: digitar é mais rápido que rolar o
             // calendário décadas para trás
             modo: ModoCampoData.digitacao,
-            enabled: habilitado && !espelhado,
+            enabled: habilitado,
+            travado: espelhado,
             label: 'Nascimento (opcional)',
             ultimaData: somenteData(DateTime.now()),
             forceErrorText: provider.erroDoCampo('data_nascimento'),
