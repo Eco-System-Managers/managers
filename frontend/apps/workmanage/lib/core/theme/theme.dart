@@ -1,389 +1,540 @@
-import "package:flutter/material.dart";
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-class MaterialTheme {
-  final TextTheme textTheme;
+import 'brand.dart';
 
-  const MaterialTheme(this.textTheme);
+// o tema do app, claro e escuro, montado só com os tokens do Design System
+// (brand.dart; a fonte é design/tokens/tokens.json). o ColorScheme parte do
+// azul da marca e cada papel do Material 3 é ajustado para um token, então
+// nenhum tom é inventado. as escolhas que o Design System não cobre estão em
+// design/DECISOES.md
+abstract final class AppTheme {
+  static ThemeData light() => _tema(BrandColors.light, Brightness.light);
 
-  static ColorScheme lightScheme() {
-    return const ColorScheme(
-      brightness: Brightness.light,
-      primary: Color(0xff002b80),
-      surfaceTint: Color(0xff2a56c7),
-      onPrimary: Color(0xffffffff),
-      primaryContainer: Color(0xff003fb1),
-      onPrimaryContainer: Color(0xffa1b6ff),
-      secondary: Color(0xff000000),
-      onSecondary: Color(0xffffffff),
-      secondaryContainer: Color(0xff1a1b21),
-      onSecondaryContainer: Color(0xff82838a),
-      tertiary: Color(0xff434c5b),
-      onTertiary: Color(0xffffffff),
-      tertiaryContainer: Color(0xff5b6474),
-      onTertiaryContainer: Color(0xffd8e1f4),
-      error: Color(0xffba1a1a),
-      onError: Color(0xffffffff),
-      errorContainer: Color(0xffffdad6),
-      onErrorContainer: Color(0xff93000a),
-      surface: Color(0xfffaf8ff),
-      onSurface: Color(0xff1a1b22),
-      onSurfaceVariant: Color(0xff434653),
-      outline: Color(0xff747685),
-      outlineVariant: Color(0xffc4c6d6),
-      shadow: Color(0xff000000),
-      scrim: Color(0xff000000),
-      inverseSurface: Color(0xff2f3038),
-      inversePrimary: Color(0xffb5c4ff),
-      primaryFixed: Color(0xffdbe1ff),
-      onPrimaryFixed: Color(0xff00174c),
-      primaryFixedDim: Color(0xffb5c4ff),
-      onPrimaryFixedVariant: Color(0xff003dab),
-      secondaryFixed: Color(0xffe2e2e9),
-      onSecondaryFixed: Color(0xff1a1b21),
-      secondaryFixedDim: Color(0xffc6c6cd),
-      onSecondaryFixedVariant: Color(0xff45474c),
-      tertiaryFixed: Color(0xffdae3f6),
-      onTertiaryFixed: Color(0xff131c29),
-      tertiaryFixedDim: Color(0xffbec7d9),
-      onTertiaryFixedVariant: Color(0xff3e4756),
-      surfaceDim: Color(0xffd9d9e3),
-      surfaceBright: Color(0xfffaf8ff),
-      surfaceContainerLowest: Color(0xffffffff),
-      surfaceContainerLow: Color(0xfff3f3fd),
-      surfaceContainer: Color(0xffededf7),
-      surfaceContainerHigh: Color(0xffe8e7f1),
-      surfaceContainerHighest: Color(0xffe2e1eb),
+  static ThemeData dark() => _tema(BrandColors.dark, Brightness.dark);
+
+  // a sombra do Material mais próxima da shadow-card, para os componentes do
+  // Material que flutuam (botão flutuante, menu, aviso) e não aceitam
+  // BoxShadow; o resto fica sem elevação e se separa por borda
+  static const _elevacaoFlutuante = 2.0;
+
+  static ColorScheme colorScheme(BrandColors c, Brightness brilho) {
+    final claro = brilho == Brightness.light;
+    return ColorScheme.fromSeed(
+      seedColor: BrandColors.brandBlue,
+      brightness: brilho,
+    ).copyWith(
+      // azul = ação. no escuro o texto sobre o azul clareado é o marinho
+      // (5.7:1): o branco daria 3:1
+      primary: c.blue,
+      onPrimary: claro ? c.onBrand : c.navy,
+      primaryContainer: c.blueSoft,
+      onPrimaryContainer: c.ink,
+      primaryFixed: BrandColors.light.blueSoft,
+      primaryFixedDim: BrandColors.light.blueSoft,
+      onPrimaryFixed: c.navy,
+      onPrimaryFixedVariant: c.navy,
+      // a secundária é o marinho do texto; o par container é o azul suave,
+      // que pinta tudo que está "selecionado" (chip, botão segmentado)
+      secondary: c.ink,
+      onSecondary: c.bg,
+      secondaryContainer: c.blueSoft,
+      onSecondaryContainer: c.ink,
+      secondaryFixed: BrandColors.light.bg2,
+      secondaryFixedDim: BrandColors.light.bg2,
+      onSecondaryFixed: c.navy,
+      onSecondaryFixedVariant: c.navy,
+      // a marca tem duas cores; a terciária fica nos neutros
+      tertiary: c.inkMuted,
+      onTertiary: c.bg,
+      tertiaryContainer: c.bg2,
+      onTertiaryContainer: c.ink,
+      tertiaryFixed: BrandColors.light.bg2,
+      tertiaryFixedDim: BrandColors.light.bg2,
+      onTertiaryFixed: c.navy,
+      onTertiaryFixedVariant: c.navy,
+      // a caixa de erro é o fundo 2 com o texto em danger: o Design System não
+      // tem um vermelho suave
+      error: c.danger,
+      onError: claro ? c.onBrand : c.navy,
+      errorContainer: c.bg2,
+      onErrorContainer: c.danger,
+      surface: c.bg,
+      onSurface: c.ink,
+      onSurfaceVariant: c.inkMuted,
+      surfaceDim: claro ? c.bg2 : c.bg,
+      surfaceBright: claro ? c.bg : c.bg2,
+      surfaceContainerLowest: c.bg,
+      surfaceContainerLow: c.bg,
+      surfaceContainer: c.bg2,
+      surfaceContainerHigh: c.bg2,
+      surfaceContainerHighest: c.bg2,
+      // borda é só contorno: nunca para texto ou ícone
+      outline: c.border,
+      outlineVariant: c.border,
+      shadow: claro ? c.navy : Colors.black,
+      scrim: claro ? c.navy : Colors.black,
+      inverseSurface: claro ? c.navy : c.ink,
+      onInverseSurface: claro ? c.onBrand : c.navy,
+      inversePrimary: claro ? BrandColors.dark.blue : BrandColors.light.blue,
+      // tudo flat: sem o tom azulado que o Material põe na elevação
+      surfaceTint: Colors.transparent,
     );
   }
 
-  ThemeData light() {
-    return theme(lightScheme());
-  }
+  static ThemeData _tema(BrandColors c, Brightness brilho) {
+    final claro = brilho == Brightness.light;
+    final cores = colorScheme(c, brilho);
+    final textos = BrandText.textTheme(c);
+    final bordaFina = BorderSide(color: c.border);
 
-  static ColorScheme lightMediumContrastScheme() {
-    return const ColorScheme(
-      brightness: Brightness.light,
-      primary: Color(0xff002b80),
-      surfaceTint: Color(0xff2a56c7),
-      onPrimary: Color(0xffffffff),
-      primaryContainer: Color(0xff003fb1),
-      onPrimaryContainer: Color(0xffdee3ff),
-      secondary: Color(0xff000000),
-      onSecondary: Color(0xffffffff),
-      secondaryContainer: Color(0xff1a1b21),
-      onSecondaryContainer: Color(0xffa6a6ad),
-      tertiary: Color(0xff2e3745),
-      onTertiary: Color(0xffffffff),
-      tertiaryContainer: Color(0xff5b6474),
-      onTertiaryContainer: Color(0xffffffff),
-      error: Color(0xff740006),
-      onError: Color(0xffffffff),
-      errorContainer: Color(0xffcf2c27),
-      onErrorContainer: Color(0xffffffff),
-      surface: Color(0xfffaf8ff),
-      onSurface: Color(0xff0f1118),
-      onSurfaceVariant: Color(0xff333642),
-      outline: Color(0xff4f525f),
-      outlineVariant: Color(0xff6a6c7a),
-      shadow: Color(0xff000000),
-      scrim: Color(0xff000000),
-      inverseSurface: Color(0xff2f3038),
-      inversePrimary: Color(0xffb5c4ff),
-      primaryFixed: Color(0xff3c66d7),
-      onPrimaryFixed: Color(0xffffffff),
-      primaryFixedDim: Color(0xff1b4cbd),
-      onPrimaryFixedVariant: Color(0xffffffff),
-      secondaryFixed: Color(0xff6b6d73),
-      onSecondaryFixed: Color(0xffffffff),
-      secondaryFixedDim: Color(0xff53555b),
-      onSecondaryFixedVariant: Color(0xffffffff),
-      tertiaryFixed: Color(0xff646d7e),
-      onTertiaryFixed: Color(0xffffffff),
-      tertiaryFixedDim: Color(0xff4c5565),
-      onTertiaryFixedVariant: Color(0xffffffff),
-      surfaceDim: Color(0xffc6c6cf),
-      surfaceBright: Color(0xfffaf8ff),
-      surfaceContainerLowest: Color(0xffffffff),
-      surfaceContainerLow: Color(0xfff3f3fd),
-      surfaceContainer: Color(0xffe8e7f1),
-      surfaceContainerHigh: Color(0xffdcdce6),
-      surfaceContainerHighest: Color(0xffd1d1db),
+    // o que flutua sobre a página (diálogo, folha, menu): no claro é o branco
+    // sobre o véu; no escuro, o fundo 2, que se destaca do marinho
+    final superficieFlutuante = claro ? c.bg : c.bg2;
+
+    // padding interno dos botões: space-3 na vertical, space-5 dos lados
+    const paddingDeBotao = EdgeInsets.symmetric(
+      horizontal: BrandSpacing.space5,
+      vertical: BrandSpacing.space3,
+    );
+    const formaDeBotao = RoundedRectangleBorder(
+      borderRadius: BrandRadius.mdAll,
+    );
+
+    OutlineInputBorder bordaDeCampo(Color cor, {double largura = 1}) {
+      return OutlineInputBorder(
+        borderRadius: BrandRadius.smAll,
+        borderSide: BorderSide(color: cor, width: largura),
+      );
+    }
+
+    // ícone do campo: azul no foco, danger no erro, cinza no resto
+    final corDoIconeDoCampo = WidgetStateColor.resolveWith((estados) {
+      if (estados.contains(WidgetState.error)) return c.danger;
+      if (estados.contains(WidgetState.focused)) return c.blue;
+      return c.inkMuted;
+    });
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: brilho,
+      colorScheme: cores,
+      extensions: [c],
+      fontFamily: BrandText.sans,
+      textTheme: textos,
+      primaryTextTheme: textos.apply(
+        bodyColor: c.onBrand,
+        displayColor: c.onBrand,
+      ),
+      scaffoldBackgroundColor: c.bg,
+      canvasColor: c.bg,
+      dividerColor: c.border,
+      hintColor: c.inkMuted,
+      iconTheme: IconThemeData(color: c.ink),
+      primaryIconTheme: IconThemeData(color: c.onBrand),
+      appBarTheme: AppBarThemeData(
+        // a barra é o fundo da página; quando o conteúdo passa por baixo, ela
+        // vira o fundo 2, sem sombra
+        backgroundColor: WidgetStateColor.resolveWith(
+          (estados) =>
+              estados.contains(WidgetState.scrolledUnder) ? c.bg2 : c.bg,
+        ),
+        foregroundColor: c.ink,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: false,
+        titleTextStyle: BrandText.h3.copyWith(color: c.ink),
+        toolbarTextStyle: BrandText.body.copyWith(color: c.ink),
+        iconTheme: IconThemeData(color: c.ink),
+        actionsIconTheme: IconThemeData(color: c.ink),
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: claro ? Brightness.dark : Brightness.light,
+          statusBarBrightness: claro ? Brightness.light : Brightness.dark,
+        ),
+      ),
+      // botão primário: o azul da marca com texto branco nos dois temas
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: BrandColors.brandBlue,
+          foregroundColor: c.onBrand,
+          textStyle: BrandText.bodyStrong,
+          padding: paddingDeBotao,
+          shape: formaDeBotao,
+          elevation: 0,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: BrandColors.brandBlue,
+          foregroundColor: c.onBrand,
+          textStyle: BrandText.bodyStrong,
+          padding: paddingDeBotao,
+          shape: formaDeBotao,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+        ),
+      ),
+      // secundário: contornado, texto em ink
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: c.ink,
+          side: bordaFina,
+          textStyle: BrandText.bodyStrong,
+          padding: paddingDeBotao,
+          shape: formaDeBotao,
+        ),
+      ),
+      // o link: texto azul
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: c.blue,
+          textStyle: BrandText.bodyStrong,
+          padding: const EdgeInsets.symmetric(
+            horizontal: BrandSpacing.space3,
+            vertical: BrandSpacing.space2,
+          ),
+          shape: formaDeBotao,
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: BrandColors.brandBlue,
+        foregroundColor: c.onBrand,
+        elevation: _elevacaoFlutuante,
+        focusElevation: _elevacaoFlutuante,
+        hoverElevation: _elevacaoFlutuante,
+        highlightElevation: _elevacaoFlutuante,
+        shape: formaDeBotao,
+        extendedTextStyle: BrandText.bodyStrong,
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          foregroundColor: c.ink,
+          selectedForegroundColor: c.ink,
+          selectedBackgroundColor: c.blueSoft,
+          side: bordaFina,
+          textStyle: BrandText.label,
+          shape: formaDeBotao,
+        ),
+      ),
+      // campos: fundo 2, borda fina, raio sm e foco no azul
+      inputDecorationTheme: InputDecorationThemeData(
+        filled: true,
+        fillColor: c.bg2,
+        contentPadding: const EdgeInsets.all(BrandSpacing.space3),
+        border: bordaDeCampo(c.border),
+        enabledBorder: bordaDeCampo(c.border),
+        disabledBorder: bordaDeCampo(c.border),
+        focusedBorder: bordaDeCampo(c.blue, largura: 2),
+        errorBorder: bordaDeCampo(c.danger),
+        focusedErrorBorder: bordaDeCampo(c.danger, largura: 2),
+        labelStyle: BrandText.body.copyWith(color: c.inkMuted),
+        floatingLabelStyle: WidgetStateTextStyle.resolveWith((estados) {
+          if (estados.contains(WidgetState.error)) {
+            return BrandText.label.copyWith(color: c.danger);
+          }
+          if (estados.contains(WidgetState.focused)) {
+            return BrandText.label.copyWith(color: c.blue);
+          }
+          return BrandText.label.copyWith(color: c.inkMuted);
+        }),
+        hintStyle: BrandText.body.copyWith(color: c.inkMuted),
+        helperStyle: BrandText.caption.copyWith(color: c.inkMuted),
+        errorStyle: BrandText.caption.copyWith(color: c.danger),
+        counterStyle: BrandText.caption.copyWith(color: c.inkMuted),
+        prefixStyle: BrandText.body.copyWith(color: c.ink),
+        suffixStyle: BrandText.body.copyWith(color: c.ink),
+        iconColor: c.inkMuted,
+        prefixIconColor: corDoIconeDoCampo,
+        suffixIconColor: corDoIconeDoCampo,
+      ),
+      // cartão: fundo da página com borda, sem sombra
+      cardTheme: CardThemeData(
+        color: c.bg,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BrandRadius.mdAll,
+          side: bordaFina,
+        ),
+        clipBehavior: Clip.antiAlias,
+      ),
+      // chip: raio sm; o selecionado é o azul suave
+      chipTheme: ChipThemeData(
+        backgroundColor: c.bg,
+        selectedColor: c.blueSoft,
+        disabledColor: c.bg2,
+        side: WidgetStateBorderSide.resolveWith(
+          (estados) => estados.contains(WidgetState.selected)
+              ? BorderSide(color: c.blueSoft)
+              : bordaFina,
+        ),
+        shape: const RoundedRectangleBorder(borderRadius: BrandRadius.smAll),
+        labelStyle: BrandText.label.copyWith(color: c.ink),
+        secondaryLabelStyle: BrandText.label.copyWith(color: c.ink),
+        checkmarkColor: c.blue,
+        deleteIconColor: c.inkMuted,
+        iconTheme: IconThemeData(color: c.inkMuted),
+        elevation: 0,
+        pressElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: superficieFlutuante,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: BrandRadius.lgAll),
+        titleTextStyle: BrandText.h3.copyWith(color: c.ink),
+        contentTextStyle: BrandText.body.copyWith(color: c.inkMuted),
+        iconColor: c.inkMuted,
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: superficieFlutuante,
+        modalBackgroundColor: superficieFlutuante,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        modalElevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: BrandRadius.lgTop),
+        clipBehavior: Clip.antiAlias,
+        dragHandleColor: c.border,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: superficieFlutuante,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        elevation: 0,
+        indicatorColor: c.blueSoft,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (estados) => IconThemeData(
+            color: estados.contains(WidgetState.selected) ? c.blue : c.inkMuted,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (estados) => BrandText.label.copyWith(
+            color: estados.contains(WidgetState.selected) ? c.blue : c.inkMuted,
+          ),
+        ),
+      ),
+      // o aviso de baixo: marinho no claro; no escuro, o fundo 2 com borda.
+      // a ação é o azul do tema escuro, que dá 5:1 sobre os dois fundos
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: claro ? c.navy : c.bg2,
+        contentTextStyle: BrandText.body.copyWith(
+          color: claro ? c.onBrand : c.ink,
+        ),
+        actionTextColor: BrandColors.dark.blue,
+        closeIconColor: claro ? c.onBrand : c.inkMuted,
+        elevation: _elevacaoFlutuante,
+        shape: RoundedRectangleBorder(
+          borderRadius: BrandRadius.mdAll,
+          side: claro ? BorderSide.none : bordaFina,
+        ),
+        insetPadding: const EdgeInsets.fromLTRB(
+          BrandSpacing.space4,
+          BrandSpacing.space1,
+          BrandSpacing.space4,
+          BrandSpacing.space3,
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: c.border,
+        thickness: 1,
+        space: BrandSpacing.space4,
+      ),
+      // linha de lista: o nome em body-strong, o detalhe em inkMuted; a linha
+      // selecionada é o azul suave
+      listTileTheme: ListTileThemeData(
+        iconColor: c.inkMuted,
+        textColor: c.ink,
+        titleTextStyle: BrandText.bodyStrong.copyWith(color: c.ink),
+        subtitleTextStyle: BrandText.body.copyWith(color: c.inkMuted),
+        leadingAndTrailingTextStyle: BrandText.label.copyWith(
+          color: c.inkMuted,
+        ),
+        selectedColor: c.blue,
+        selectedTileColor: c.blueSoft,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((estados) {
+          if (estados.contains(WidgetState.disabled)) return null;
+          if (estados.contains(WidgetState.selected)) return cores.onPrimary;
+          return c.inkMuted;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((estados) {
+          if (estados.contains(WidgetState.disabled)) return null;
+          if (estados.contains(WidgetState.selected)) return c.blue;
+          return c.bg2;
+        }),
+        trackOutlineColor: WidgetStateProperty.resolveWith((estados) {
+          if (estados.contains(WidgetState.disabled)) return null;
+          if (estados.contains(WidgetState.selected)) {
+            return Colors.transparent;
+          }
+          return c.inkMuted;
+        }),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((estados) {
+          if (estados.contains(WidgetState.disabled)) return null;
+          if (estados.contains(WidgetState.selected)) return c.blue;
+          return Colors.transparent;
+        }),
+        checkColor: WidgetStatePropertyAll(cores.onPrimary),
+        side: WidgetStateBorderSide.resolveWith((estados) {
+          if (estados.contains(WidgetState.disabled) ||
+              estados.contains(WidgetState.selected)) {
+            return null;
+          }
+          return BorderSide(color: c.inkMuted, width: 2);
+        }),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith((estados) {
+          if (estados.contains(WidgetState.disabled)) return null;
+          if (estados.contains(WidgetState.selected)) return c.blue;
+          return c.inkMuted;
+        }),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: c.blue,
+        linearTrackColor: c.bg2,
+        circularTrackColor: Colors.transparent,
+        refreshBackgroundColor: superficieFlutuante,
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: c.blue,
+        selectionColor: c.blueSoft,
+        selectionHandleColor: c.blue,
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: c.blue,
+        unselectedLabelColor: c.inkMuted,
+        indicatorColor: c.blue,
+        dividerColor: c.border,
+        labelStyle: BrandText.label,
+        unselectedLabelStyle: BrandText.label,
+      ),
+      badgeTheme: BadgeThemeData(
+        backgroundColor: c.danger,
+        textColor: cores.onError,
+        textStyle: BrandText.caption,
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: claro ? c.navy : c.bg2,
+          borderRadius: BrandRadius.smAll,
+        ),
+        textStyle: BrandText.caption.copyWith(color: claro ? c.onBrand : c.ink),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: superficieFlutuante,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: cores.shadow,
+        elevation: _elevacaoFlutuante,
+        shape: RoundedRectangleBorder(
+          borderRadius: BrandRadius.mdAll,
+          side: bordaFina,
+        ),
+        textStyle: BrandText.body.copyWith(color: c.ink),
+        labelTextStyle: WidgetStatePropertyAll(
+          BrandText.body.copyWith(color: c.ink),
+        ),
+        iconColor: c.inkMuted,
+      ),
+      menuTheme: MenuThemeData(style: _estiloDeMenu(c, superficieFlutuante)),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: BrandText.body.copyWith(color: c.ink),
+        menuStyle: _estiloDeMenu(c, superficieFlutuante),
+      ),
+      // calendário: o dia escolhido é o azul da marca com número branco;
+      // hoje tem contorno azul; o intervalo entre as pontas é o azul suave
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: superficieFlutuante,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: BrandRadius.lgAll),
+        headerBackgroundColor: superficieFlutuante,
+        headerForegroundColor: c.ink,
+        dividerColor: c.border,
+        weekdayStyle: BrandText.label.copyWith(color: c.inkMuted),
+        dayStyle: BrandText.body,
+        dayForegroundColor: _corDoDia(selecionado: c.onBrand, normal: c.ink),
+        dayBackgroundColor: _fundoDoDia(),
+        todayForegroundColor: _corDoDia(selecionado: c.onBrand, normal: c.blue),
+        todayBackgroundColor: _fundoDoDia(),
+        todayBorder: BorderSide(color: c.blue),
+        yearForegroundColor: _corDoDia(selecionado: c.onBrand, normal: c.ink),
+        yearBackgroundColor: _fundoDoDia(),
+        rangePickerBackgroundColor: superficieFlutuante,
+        rangePickerSurfaceTintColor: Colors.transparent,
+        rangePickerHeaderBackgroundColor: superficieFlutuante,
+        rangePickerHeaderForegroundColor: c.ink,
+        rangeSelectionBackgroundColor: c.blueSoft,
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: superficieFlutuante,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: BrandRadius.lgAll),
+        dialBackgroundColor: claro ? c.bg2 : c.bg,
+        dialHandColor: BrandColors.brandBlue,
+        dialTextColor: WidgetStateColor.resolveWith(
+          (estados) =>
+              estados.contains(WidgetState.selected) ? c.onBrand : c.ink,
+        ),
+        hourMinuteColor: WidgetStateColor.resolveWith(
+          (estados) => estados.contains(WidgetState.selected)
+              ? c.blueSoft
+              : (claro ? c.bg2 : c.bg),
+        ),
+        hourMinuteTextColor: c.ink,
+        dayPeriodColor: WidgetStateColor.resolveWith(
+          (estados) => estados.contains(WidgetState.selected)
+              ? c.blueSoft
+              : Colors.transparent,
+        ),
+        dayPeriodTextColor: c.ink,
+        dayPeriodBorderSide: bordaFina,
+        entryModeIconColor: c.inkMuted,
+        helpTextStyle: BrandText.label.copyWith(color: c.inkMuted),
+      ),
     );
   }
 
-  ThemeData lightMediumContrast() {
-    return theme(lightMediumContrastScheme());
-  }
-
-  static ColorScheme lightHighContrastScheme() {
-    return const ColorScheme(
-      brightness: Brightness.light,
-      primary: Color(0xff002571),
-      surfaceTint: Color(0xff2a56c7),
-      onPrimary: Color(0xffffffff),
-      primaryContainer: Color(0xff003fb1),
-      onPrimaryContainer: Color(0xffffffff),
-      secondary: Color(0xff000000),
-      onSecondary: Color(0xffffffff),
-      secondaryContainer: Color(0xff1a1b21),
-      onSecondaryContainer: Color(0xffcfd0d7),
-      tertiary: Color(0xff242d3b),
-      onTertiary: Color(0xffffffff),
-      tertiaryContainer: Color(0xff414a59),
-      onTertiaryContainer: Color(0xffffffff),
-      error: Color(0xff600004),
-      onError: Color(0xffffffff),
-      errorContainer: Color(0xff98000a),
-      onErrorContainer: Color(0xffffffff),
-      surface: Color(0xfffaf8ff),
-      onSurface: Color(0xff000000),
-      onSurfaceVariant: Color(0xff000000),
-      outline: Color(0xff292c38),
-      outlineVariant: Color(0xff464956),
-      shadow: Color(0xff000000),
-      scrim: Color(0xff000000),
-      inverseSurface: Color(0xff2f3038),
-      inversePrimary: Color(0xffb5c4ff),
-      primaryFixed: Color(0xff003fb0),
-      onPrimaryFixed: Color(0xffffffff),
-      primaryFixedDim: Color(0xff002b7f),
-      onPrimaryFixedVariant: Color(0xffffffff),
-      secondaryFixed: Color(0xff47494f),
-      onSecondaryFixed: Color(0xffffffff),
-      secondaryFixedDim: Color(0xff313338),
-      onSecondaryFixedVariant: Color(0xffffffff),
-      tertiaryFixed: Color(0xff414a59),
-      onTertiaryFixed: Color(0xffffffff),
-      tertiaryFixedDim: Color(0xff2a3341),
-      onTertiaryFixedVariant: Color(0xffffffff),
-      surfaceDim: Color(0xffb8b8c1),
-      surfaceBright: Color(0xfffaf8ff),
-      surfaceContainerLowest: Color(0xffffffff),
-      surfaceContainerLow: Color(0xfff0f0fa),
-      surfaceContainer: Color(0xffe2e1eb),
-      surfaceContainerHigh: Color(0xffd4d3dd),
-      surfaceContainerHighest: Color(0xffc6c6cf),
+  static MenuStyle _estiloDeMenu(BrandColors c, Color fundo) {
+    return MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(fundo),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      elevation: const WidgetStatePropertyAll(_elevacaoFlutuante),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BrandRadius.mdAll,
+          side: BorderSide(color: c.border),
+        ),
+      ),
     );
   }
 
-  ThemeData lightHighContrast() {
-    return theme(lightHighContrastScheme());
+  // o dia desabilitado devolve null e fica com o cinza padrão do calendário
+  static WidgetStateProperty<Color?> _corDoDia({
+    required Color selecionado,
+    required Color normal,
+  }) {
+    return WidgetStateProperty.resolveWith((estados) {
+      if (estados.contains(WidgetState.disabled)) return null;
+      if (estados.contains(WidgetState.selected)) return selecionado;
+      return normal;
+    });
   }
 
-  static ColorScheme darkScheme() {
-    return const ColorScheme(
-      brightness: Brightness.dark,
-      primary: Color(0xffb5c4ff),
-      surfaceTint: Color(0xffb5c4ff),
-      onPrimary: Color(0xff00297a),
-      primaryContainer: Color(0xff003fb1),
-      onPrimaryContainer: Color(0xffa1b6ff),
-      secondary: Color(0xffc6c6cd),
-      onSecondary: Color(0xff2e3036),
-      secondaryContainer: Color(0xff14161b),
-      onSecondaryContainer: Color(0xff7e7f86),
-      tertiary: Color(0xffbec7d9),
-      onTertiary: Color(0xff28313f),
-      tertiaryContainer: Color(0xff5b6474),
-      onTertiaryContainer: Color(0xffd8e1f4),
-      error: Color(0xffffb4ab),
-      onError: Color(0xff690005),
-      errorContainer: Color(0xff93000a),
-      onErrorContainer: Color(0xffffdad6),
-      surface: Color(0xff11131a),
-      onSurface: Color(0xffe2e1eb),
-      onSurfaceVariant: Color(0xffc4c6d6),
-      outline: Color(0xff8e909f),
-      outlineVariant: Color(0xff434653),
-      shadow: Color(0xff000000),
-      scrim: Color(0xff000000),
-      inverseSurface: Color(0xffe2e1eb),
-      inversePrimary: Color(0xff2a56c7),
-      primaryFixed: Color(0xffdbe1ff),
-      onPrimaryFixed: Color(0xff00174c),
-      primaryFixedDim: Color(0xffb5c4ff),
-      onPrimaryFixedVariant: Color(0xff003dab),
-      secondaryFixed: Color(0xffe2e2e9),
-      onSecondaryFixed: Color(0xff1a1b21),
-      secondaryFixedDim: Color(0xffc6c6cd),
-      onSecondaryFixedVariant: Color(0xff45474c),
-      tertiaryFixed: Color(0xffdae3f6),
-      onTertiaryFixed: Color(0xff131c29),
-      tertiaryFixedDim: Color(0xffbec7d9),
-      onTertiaryFixedVariant: Color(0xff3e4756),
-      surfaceDim: Color(0xff11131a),
-      surfaceBright: Color(0xff373940),
-      surfaceContainerLowest: Color(0xff0c0e15),
-      surfaceContainerLow: Color(0xff1a1b22),
-      surfaceContainer: Color(0xff1e1f26),
-      surfaceContainerHigh: Color(0xff282a31),
-      surfaceContainerHighest: Color(0xff33343c),
+  static WidgetStateProperty<Color?> _fundoDoDia() {
+    return WidgetStateProperty.resolveWith(
+      (estados) =>
+          estados.contains(WidgetState.selected) ? BrandColors.brandBlue : null,
     );
   }
-
-  ThemeData dark() {
-    return theme(darkScheme());
-  }
-
-  static ColorScheme darkMediumContrastScheme() {
-    return const ColorScheme(
-      brightness: Brightness.dark,
-      primary: Color(0xffd3dbff),
-      surfaceTint: Color(0xffb5c4ff),
-      onPrimary: Color(0xff001f63),
-      primaryContainer: Color(0xff648afd),
-      onPrimaryContainer: Color(0xff000000),
-      secondary: Color(0xffdcdce3),
-      onSecondary: Color(0xff24262b),
-      secondaryContainer: Color(0xff8f9097),
-      onSecondaryContainer: Color(0xff000000),
-      tertiary: Color(0xffd4ddef),
-      onTertiary: Color(0xff1d2634),
-      tertiaryContainer: Color(0xff8891a2),
-      onTertiaryContainer: Color(0xff000000),
-      error: Color(0xffffd2cc),
-      onError: Color(0xff540003),
-      errorContainer: Color(0xffff5449),
-      onErrorContainer: Color(0xff000000),
-      surface: Color(0xff11131a),
-      onSurface: Color(0xffffffff),
-      onSurfaceVariant: Color(0xffdadbec),
-      outline: Color(0xffafb1c1),
-      outlineVariant: Color(0xff8d909e),
-      shadow: Color(0xff000000),
-      scrim: Color(0xff000000),
-      inverseSurface: Color(0xffe2e1eb),
-      inversePrimary: Color(0xff003eae),
-      primaryFixed: Color(0xffdbe1ff),
-      onPrimaryFixed: Color(0xff000d36),
-      primaryFixedDim: Color(0xffb5c4ff),
-      onPrimaryFixedVariant: Color(0xff002e87),
-      secondaryFixed: Color(0xffe2e2e9),
-      onSecondaryFixed: Color(0xff0f1116),
-      secondaryFixedDim: Color(0xffc6c6cd),
-      onSecondaryFixedVariant: Color(0xff34363c),
-      tertiaryFixed: Color(0xffdae3f6),
-      onTertiaryFixed: Color(0xff08111e),
-      tertiaryFixedDim: Color(0xffbec7d9),
-      onTertiaryFixedVariant: Color(0xff2e3745),
-      surfaceDim: Color(0xff11131a),
-      surfaceBright: Color(0xff43444c),
-      surfaceContainerLowest: Color(0xff06070d),
-      surfaceContainerLow: Color(0xff1c1d24),
-      surfaceContainer: Color(0xff26282f),
-      surfaceContainerHigh: Color(0xff31323a),
-      surfaceContainerHighest: Color(0xff3c3d45),
-    );
-  }
-
-  ThemeData darkMediumContrast() {
-    return theme(darkMediumContrastScheme());
-  }
-
-  static ColorScheme darkHighContrastScheme() {
-    return const ColorScheme(
-      brightness: Brightness.dark,
-      primary: Color(0xffeeefff),
-      surfaceTint: Color(0xffb5c4ff),
-      onPrimary: Color(0xff000000),
-      primaryContainer: Color(0xffafc0ff),
-      onPrimaryContainer: Color(0xff000829),
-      secondary: Color(0xffefeff7),
-      onSecondary: Color(0xff000000),
-      secondaryContainer: Color(0xffc2c2c9),
-      onSecondaryContainer: Color(0xff090b10),
-      tertiary: Color(0xffeaf0ff),
-      onTertiary: Color(0xff000000),
-      tertiaryContainer: Color(0xffbac3d5),
-      onTertiaryContainer: Color(0xff030b18),
-      error: Color(0xffffece9),
-      onError: Color(0xff000000),
-      errorContainer: Color(0xffffaea4),
-      onErrorContainer: Color(0xff220001),
-      surface: Color(0xff11131a),
-      onSurface: Color(0xffffffff),
-      onSurfaceVariant: Color(0xffffffff),
-      outline: Color(0xffeeefff),
-      outlineVariant: Color(0xffc0c2d2),
-      shadow: Color(0xff000000),
-      scrim: Color(0xff000000),
-      inverseSurface: Color(0xffe2e1eb),
-      inversePrimary: Color(0xff003eae),
-      primaryFixed: Color(0xffdbe1ff),
-      onPrimaryFixed: Color(0xff000000),
-      primaryFixedDim: Color(0xffb5c4ff),
-      onPrimaryFixedVariant: Color(0xff000d36),
-      secondaryFixed: Color(0xffe2e2e9),
-      onSecondaryFixed: Color(0xff000000),
-      secondaryFixedDim: Color(0xffc6c6cd),
-      onSecondaryFixedVariant: Color(0xff0f1116),
-      tertiaryFixed: Color(0xffdae3f6),
-      onTertiaryFixed: Color(0xff000000),
-      tertiaryFixedDim: Color(0xffbec7d9),
-      onTertiaryFixedVariant: Color(0xff08111e),
-      surfaceDim: Color(0xff11131a),
-      surfaceBright: Color(0xff4e5058),
-      surfaceContainerLowest: Color(0xff000000),
-      surfaceContainerLow: Color(0xff1e1f26),
-      surfaceContainer: Color(0xff2f3038),
-      surfaceContainerHigh: Color(0xff3a3b43),
-      surfaceContainerHighest: Color(0xff45464e),
-    );
-  }
-
-  ThemeData darkHighContrast() {
-    return theme(darkHighContrastScheme());
-  }
-
-
-  ThemeData theme(ColorScheme colorScheme) => ThemeData(
-     useMaterial3: true,
-     brightness: colorScheme.brightness,
-     colorScheme: colorScheme,
-     textTheme: textTheme.apply(
-       bodyColor: colorScheme.onSurface,
-       displayColor: colorScheme.onSurface,
-     ),
-     scaffoldBackgroundColor: colorScheme.surface,
-     canvasColor: colorScheme.surface,
-  );
-
-
-  List<ExtendedColor> get extendedColors => [
-  ];
-}
-
-class ExtendedColor {
-  final Color seed, value;
-  final ColorFamily light;
-  final ColorFamily lightHighContrast;
-  final ColorFamily lightMediumContrast;
-  final ColorFamily dark;
-  final ColorFamily darkHighContrast;
-  final ColorFamily darkMediumContrast;
-
-  const ExtendedColor({
-    required this.seed,
-    required this.value,
-    required this.light,
-    required this.lightHighContrast,
-    required this.lightMediumContrast,
-    required this.dark,
-    required this.darkHighContrast,
-    required this.darkMediumContrast,
-  });
-}
-
-class ColorFamily {
-  const ColorFamily({
-    required this.color,
-    required this.onColor,
-    required this.colorContainer,
-    required this.onColorContainer,
-  });
-
-  final Color color;
-  final Color onColor;
-  final Color colorContainer;
-  final Color onColorContainer;
 }
