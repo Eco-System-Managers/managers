@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 
 import '../../domain/entities/slot.dart';
@@ -27,10 +28,11 @@ class SlotsGrade extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     if (carregando) {
       return const Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(BrandSpacing.space4),
         child: Center(child: CircularProgressIndicator()),
       );
     }
@@ -38,7 +40,7 @@ class SlotsGrade extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(erro!, style: TextStyle(color: colors.error)),
+          Text(erro!, style: textos.bodyMedium?.copyWith(color: colors.error)),
           if (onTentarDeNovo != null)
             TextButton(
               onPressed: onTentarDeNovo,
@@ -49,23 +51,59 @@ class SlotsGrade extends StatelessWidget {
     }
     if (slots.isEmpty) {
       return Text(
-        'Sem horários neste dia: o negócio não abre ou o serviço não cabe '
-        'no expediente.',
-        style: TextStyle(color: colors.onSurfaceVariant),
+        'Sem horários livres neste dia. Escolha outro dia.',
+        style: textos.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
       );
     }
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: BrandSpacing.space2,
+      runSpacing: BrandSpacing.space2,
       children: [
         for (final slot in slots)
-          ChoiceChip(
-            label: Text(formatarHora(slot.hora)),
-            selected: slot.hora == selecionada,
-            onSelected: slot.disponivel ? (_) => onSelecionar(slot.hora) : null,
+          _ChipDoSlot(
+            slot: slot,
+            selecionado: slot.hora == selecionada,
+            onSelecionar: onSelecionar,
           ),
       ],
+    );
+  }
+}
+
+// um slot: o escolhido é o azul da marca com texto branco, o livre é neutro
+// com borda e o ocupado fica apagado no fundo 2
+class _ChipDoSlot extends StatelessWidget {
+  const _ChipDoSlot({
+    required this.slot,
+    required this.selecionado,
+    required this.onSelecionar,
+  });
+
+  final Slot slot;
+  final bool selecionado;
+  final ValueChanged<Hora> onSelecionar;
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = BrandColors.of(context);
+    final corDoTexto = selecionado
+        ? cores.onBrand
+        : slot.disponivel
+        ? cores.ink
+        : cores.inkMuted;
+
+    return ChoiceChip(
+      label: Text(formatarHora(slot.hora)),
+      selected: selecionado,
+      onSelected: slot.disponivel ? (_) => onSelecionar(slot.hora) : null,
+      showCheckmark: false,
+      selectedColor: BrandColors.brandBlue,
+      side: BorderSide(
+        color: selecionado ? BrandColors.brandBlue : cores.border,
+      ),
+      labelStyle: Theme.of(context).textTheme.labelLarge
+          ?.copyWith(color: corDoTexto),
     );
   }
 }

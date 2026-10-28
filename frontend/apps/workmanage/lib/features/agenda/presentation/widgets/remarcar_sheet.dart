@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/folha.dart';
@@ -89,20 +90,26 @@ class _RemarcarSheetState extends State<RemarcarSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
     final hoje = somenteData(DateTime.now());
     final hora = _hora;
 
     return ListView(
       shrinkWrap: true,
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      padding: const EdgeInsets.fromLTRB(
+        BrandSpacing.space5,
+        BrandSpacing.space4,
+        BrandSpacing.space5,
+        BrandSpacing.space5,
+      ),
       children: [
-        Text('Remarcar', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 4),
+        Text('Remarcar', style: textos.titleLarge),
+        const SizedBox(height: BrandSpacing.space1),
         Text(
-          'Hoje marcado para ${formatarDataHora(widget.dataHoraAtual)}',
-          style: TextStyle(color: colors.onSurfaceVariant),
+          'Marcado para ${formatarDataHora(widget.dataHoraAtual)}',
+          style: textos.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
         CampoData(
           valor: _data,
           onChanged: _mudarData,
@@ -111,7 +118,7 @@ class _RemarcarSheetState extends State<RemarcarSheet> {
           primeiraData: hoje,
           ultimaData: DateTime(hoje.year + 1, hoje.month, hoje.day),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
         if (widget.temGrade)
           SlotsGrade(
             slots: _slots,
@@ -122,10 +129,10 @@ class _RemarcarSheetState extends State<RemarcarSheet> {
         else
           OutlinedButton.icon(
             onPressed: _escolherHora,
-            icon: const Icon(Icons.access_time),
+            icon: const Icon(Icons.access_time_rounded),
             label: Text(hora == null ? 'Escolher hora' : formatarHora(hora)),
           ),
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
         FilledButton(
           onPressed: hora == null
               ? null

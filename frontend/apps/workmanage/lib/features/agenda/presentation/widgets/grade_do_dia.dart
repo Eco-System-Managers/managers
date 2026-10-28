@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 
 import '../../domain/entities/agendamento.dart';
@@ -7,7 +8,8 @@ import 'status_agendamento_chip.dart';
 
 // a grade de horários de um dia: a coluna das horas à esquerda, uma linha a
 // cada passo, os agendamentos desenhados na hora e com a altura da duração,
-// a linha do "agora" quando é hoje. tocar num espaço vazio devolve a hora
+// a linha do "agora" (azul, o estado atual) quando é hoje. tocar num espaço
+// vazio devolve a hora
 class GradeDoDia extends StatefulWidget {
   const GradeDoDia({
     super.key,
@@ -81,6 +83,7 @@ class _GradeDoDiaState extends State<GradeDoDia> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final altura = _y(widget.fim);
     final agora = widget.agora;
     final minutoAgora = agora == null ? null : minutosDoDia(agora);
@@ -92,7 +95,7 @@ class _GradeDoDiaState extends State<GradeDoDia> {
     return SingleChildScrollView(
       controller: _scroll,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 96),
+      padding: const EdgeInsets.only(bottom: BrandSpacing.space7),
       child: SizedBox(
         height: altura + 16,
         child: Row(
@@ -105,11 +108,10 @@ class _GradeDoDiaState extends State<GradeDoDia> {
                   for (var m = widget.inicio; m <= widget.fim; m += 60)
                     Positioned(
                       top: _y(m) - 8,
-                      right: 8,
+                      right: BrandSpacing.space2,
                       child: Text(
                         formatarHora((hora: m ~/ 60, minuto: 0)),
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(color: colors.onSurfaceVariant),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
                 ],
@@ -147,10 +149,9 @@ class _GradeDoDiaState extends State<GradeDoDia> {
                               fim: widget.fim,
                               passo: widget.passo,
                               pixelsPorMinuto: GradeDoDia.pixelsPorMinuto,
-                              corHora: colors.outlineVariant,
-                              corPasso: colors.outlineVariant.withValues(
-                                alpha: 0.4,
-                              ),
+                              corHora: cores.border,
+                              // a linha do passo é mais clara que a da hora
+                              corPasso: cores.bg2,
                             ),
                           ),
                         ),
@@ -162,8 +163,11 @@ class _GradeDoDiaState extends State<GradeDoDia> {
                             duracaoMinimaDoBloco * GradeDoDia.pixelsPorMinuto,
                             double.infinity,
                           ),
-                          left: largura * bloco.coluna / bloco.colunas + 2,
-                          width: largura / bloco.colunas - 6,
+                          // um respiro de space1 de cada lado do bloco
+                          left:
+                              largura * bloco.coluna / bloco.colunas +
+                              BrandSpacing.space1,
+                          width: largura / bloco.colunas - BrandSpacing.space2,
                           child: _Bloco(
                             bloco: bloco,
                             onTap: () =>
@@ -183,13 +187,13 @@ class _GradeDoDiaState extends State<GradeDoDia> {
                                   height: 10,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: colors.error,
+                                    color: colors.primary,
                                   ),
                                 ),
                                 Expanded(
                                   child: Container(
                                     height: 2,
-                                    color: colors.error,
+                                    color: colors.primary,
                                   ),
                                 ),
                               ],
@@ -208,7 +212,8 @@ class _GradeDoDiaState extends State<GradeDoDia> {
   }
 }
 
-// um agendamento na grade: barra da cor do status, hora, cliente e serviços
+// um agendamento na grade: o fundo de destaque, a barra da cor do status,
+// hora, cliente e serviços. o texto fica todo em ink sobre o blueSoft
 class _Bloco extends StatelessWidget {
   const _Bloco({required this.bloco, required this.onTap});
 
@@ -217,49 +222,52 @@ class _Bloco extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final a = bloco.agendamento;
-    final cor = a.status.cor(colors);
     final altura = (bloco.fim - bloco.inicio) * GradeDoDia.pixelsPorMinuto;
     final servicos = a.servicos.map((s) => s.nome).join(', ');
+    final detalhe = textos.bodySmall?.copyWith(color: cores.ink);
 
     return Material(
-      color: cor.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(8),
+      color: cores.blueSoft,
+      borderRadius: BrandRadius.smAll,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BrandRadius.smAll,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border(left: BorderSide(color: cor, width: 3)),
+            borderRadius: BrandRadius.smAll,
+            border: Border(
+              left: BorderSide(color: a.status.cor(cores), width: 3),
+            ),
           ),
-          padding: const EdgeInsets.fromLTRB(8, 4, 6, 4),
+          padding: const EdgeInsets.fromLTRB(
+            BrandSpacing.space2,
+            BrandSpacing.space1,
+            BrandSpacing.space1,
+            BrandSpacing.space1,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 '${formatarHora(horaDe(a.dataHora))} · ${a.clienteNome}',
-                style: textos.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                style: textos.labelMedium,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               if (altura >= 44 && servicos.isNotEmpty)
                 Text(
                   servicos,
-                  style: textos.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+                  style: detalhe,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               if (altura >= 64 && (a.colaboradorNome?.isNotEmpty ?? false))
                 Text(
                   a.colaboradorNome!,
-                  style: textos.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+                  style: detalhe,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

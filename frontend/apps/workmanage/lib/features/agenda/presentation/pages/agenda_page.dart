@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
@@ -102,6 +103,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) provider.garantirMesesVisiveis(visiveis);
         });
+        final cores = BrandColors.of(context);
 
         return Scaffold(
           appBar: AppBar(
@@ -120,10 +122,14 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
               IconButton(
                 tooltip: 'Cobranças pendentes',
                 onPressed: () => _abrir('/agenda/pendencias'),
+                // pendente é atenção: o contador em warning, como a lista de
+                // pendências e o Início (o badge do tema é danger)
                 icon: Badge(
                   isLabelVisible: provider.pendencias > 0,
+                  backgroundColor: cores.warning,
+                  textColor: cores.bg,
                   label: Text('${provider.pendencias}'),
-                  child: const Icon(Icons.pending_actions_outlined),
+                  child: const Icon(Icons.pending_actions_rounded),
                 ),
               ),
             ],
@@ -131,7 +137,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
           floatingActionButton: FloatingActionButton(
             onPressed: _novo,
             tooltip: 'Novo agendamento',
-            child: const Icon(Icons.add),
+            child: const Icon(Icons.add_rounded),
           ),
           body: comSombraEmBaixo(
             Column(
@@ -256,9 +262,9 @@ class _TituloDoDia extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BrandRadius.smAll,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: BrandSpacing.space1),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -266,7 +272,7 @@ class _TituloDoDia extends StatelessWidget {
             AnimatedRotation(
               turns: mesAberto ? 0.5 : 0,
               duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.arrow_drop_down),
+              child: const Icon(Icons.arrow_drop_down_rounded),
             ),
           ],
         ),
@@ -283,15 +289,24 @@ class _DiaLivre extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+      padding: const EdgeInsets.fromLTRB(
+        BrandSpacing.space4,
+        BrandSpacing.space2,
+        BrandSpacing.space4,
+        BrandSpacing.space1,
+      ),
       child: Row(
         children: [
-          Icon(Icons.event_available_outlined, size: 18, color: colors.outline),
-          const SizedBox(width: 8),
+          Icon(
+            Icons.event_available_rounded,
+            size: 18,
+            color: colors.onSurfaceVariant,
+          ),
+          const SizedBox(width: BrandSpacing.space2),
           Expanded(
             child: Text(
               'Dia livre. Toque num horário para marcar.',
-              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
         ],
@@ -306,23 +321,28 @@ class _AvisoFechado extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(
+        BrandSpacing.space4,
+        BrandSpacing.space3,
+        BrandSpacing.space4,
+        BrandSpacing.space1,
+      ),
+      padding: const EdgeInsets.all(BrandSpacing.space3),
       decoration: BoxDecoration(
-        color: colors.tertiaryContainer,
-        borderRadius: BorderRadius.circular(8),
+        color: cores.bg2,
+        borderRadius: BrandRadius.mdAll,
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: colors.onTertiaryContainer),
-          const SizedBox(width: 12),
+          Icon(Icons.info_outline_rounded, color: cores.inkMuted),
+          const SizedBox(width: BrandSpacing.space3),
           Expanded(
             child: Text(
               'Pelos horários de funcionamento, o negócio não abre neste dia. '
               'Ainda dá para marcar pelo botão +.',
-              style: TextStyle(color: colors.onTertiaryContainer),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
         ],

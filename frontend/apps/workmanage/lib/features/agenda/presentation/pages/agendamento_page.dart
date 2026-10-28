@@ -2,6 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
@@ -147,25 +148,25 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
           const SizedBox(height: 2),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.only(bottom: BrandSpacing.space5),
             children: [
               Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(BrandSpacing.space5),
                 child: Column(
                   children: [
                     Text(
                       '${formatarHora(horaDe(a.dataHora))} – '
                       '${formatarHora(horaDe(a.fim))}',
-                      style: textos.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: textos.headlineMedium,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: BrandSpacing.space1),
                     Text(
                       formatarDataPorExtenso(a.dataHora),
-                      style: TextStyle(color: colors.onSurfaceVariant),
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: BrandSpacing.space3),
                     StatusAgendamentoChip(status: a.status),
                   ],
                 ),
@@ -173,30 +174,37 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
 
               if (provider.errorMessage != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                    BrandSpacing.space4,
+                    0,
+                    BrandSpacing.space4,
+                    BrandSpacing.space2,
+                  ),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(BrandSpacing.space3),
                     decoration: BoxDecoration(
                       color: colors.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BrandRadius.mdAll,
                     ),
                     child: Text(
                       provider.errorMessage!,
-                      style: TextStyle(color: colors.onErrorContainer),
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onErrorContainer,
+                      ),
                     ),
                   ),
                 ),
 
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.person_outline),
+                leading: const Icon(Icons.person_outline_rounded),
                 title: Text(a.clienteNome),
                 subtitle: telefone.isEmpty ? null : Text(telefone),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => context.push('/clientes/${a.clienteId}'),
               ),
               ListTile(
-                leading: const Icon(Icons.badge_outlined),
+                leading: const Icon(Icons.badge_rounded),
                 title: Text(
                   (a.colaboradorNome?.isNotEmpty ?? false)
                       ? a.colaboradorNome!
@@ -208,29 +216,22 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
 
               for (final s in a.servicos)
                 ListTile(
-                  leading: const Icon(Icons.design_services_outlined),
+                  leading: const Icon(Icons.design_services_rounded),
                   title: Text(s.nome),
                   subtitle: Text('${s.duracao} min'),
                   trailing: Text(formatarDinheiro(s.precoCobrado - s.desconto)),
                 ),
               if (a.desconto > Decimal.fromInt(0))
                 ListTile(
-                  leading: const Icon(Icons.discount_outlined),
+                  leading: const Icon(Icons.discount_rounded),
                   title: const Text('Desconto'),
                   trailing: Text('- ${formatarDinheiro(a.desconto)}'),
                 ),
               ListTile(
-                title: Text(
-                  'Total',
-                  style: textos.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                title: Text('Total', style: textos.titleMedium),
                 trailing: Text(
                   formatarDinheiro(a.valorTotal),
-                  style: textos.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: textos.titleMedium,
                 ),
               ),
 
@@ -238,7 +239,7 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
                 const Divider(),
                 for (final p in a.pagamentos)
                   ListTile(
-                    leading: const Icon(Icons.payments_outlined),
+                    leading: const Icon(Icons.payments_rounded),
                     title: Text(p.forma.nome),
                     subtitle: const Text('Pago'),
                     trailing: Text(formatarDinheiro(p.valor)),
@@ -248,15 +249,17 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
               if (a.observacoes.isNotEmpty) ...[
                 const Divider(),
                 ListTile(
-                  leading: const Icon(Icons.notes_outlined),
+                  leading: const Icon(Icons.notes_rounded),
                   title: const Text('Observações'),
                   subtitle: Text(a.observacoes),
                 ),
               ],
 
-              const SizedBox(height: 16),
+              const SizedBox(height: BrandSpacing.space4),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BrandSpacing.space5,
+                ),
                 child: _acoes(a, provider),
               ),
             ],
@@ -269,6 +272,7 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
   // o que dá para fazer em cada status
   Widget _acoes(Agendamento a, AgendamentoProvider provider) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final ocupado = provider.isLoading;
 
     if (a.status == StatusAgendamento.concluido ||
@@ -282,7 +286,7 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
             ? null
             : () => provider.alterarStatus(StatusAgendamento.agendado),
         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-        icon: const Icon(Icons.undo),
+        icon: const Icon(Icons.undo_rounded),
         label: const Text('Desfazer falta'),
       );
     }
@@ -298,39 +302,43 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
-            icon: const Icon(Icons.point_of_sale_outlined),
+            icon: const Icon(Icons.point_of_sale_rounded),
             label: const Text('Cobrar'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
         ],
         if (a.status == StatusAgendamento.agendado) ...[
+          // o tema do FilledButton vale também para o tonal: sem as cores
+          // daqui, ele seria um segundo botão azul igual ao de cobrar
           FilledButton.tonalIcon(
             onPressed: ocupado
                 ? null
                 : () => provider.alterarStatus(StatusAgendamento.confirmado),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
+              backgroundColor: cores.blueSoft,
+              foregroundColor: cores.ink,
             ),
-            icon: const Icon(Icons.thumb_up_alt_outlined),
+            icon: const Icon(Icons.thumb_up_alt_rounded),
             label: const Text('Confirmar'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BrandSpacing.space3),
         ],
         OutlinedButton.icon(
           onPressed: ocupado ? null : () => _remarcar(a),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
           ),
-          icon: const Icon(Icons.event_repeat_outlined),
+          icon: const Icon(Icons.event_repeat_rounded),
           label: const Text('Remarcar'),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: BrandSpacing.space3),
         Row(
           children: [
             Expanded(
               child: TextButton.icon(
                 onPressed: ocupado ? null : () => _marcarFalta(a),
-                icon: const Icon(Icons.person_off_outlined),
+                icon: const Icon(Icons.person_off_rounded),
                 label: const Text('Faltou'),
               ),
             ),
@@ -338,7 +346,7 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
               child: TextButton.icon(
                 onPressed: ocupado ? null : () => _cancelar(a),
                 style: TextButton.styleFrom(foregroundColor: colors.error),
-                icon: const Icon(Icons.cancel_outlined),
+                icon: const Icon(Icons.cancel_rounded),
                 label: const Text('Cancelar'),
               ),
             ),

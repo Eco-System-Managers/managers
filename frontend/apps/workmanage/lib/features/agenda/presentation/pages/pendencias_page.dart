@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
@@ -61,13 +62,14 @@ class _PendenciasPageState extends ConsumerState<PendenciasPage> {
 
     if (provider.pendencias.isEmpty) {
       return const EstadoVazio(
-        icone: Icons.task_alt,
+        icone: Icons.task_alt_rounded,
         titulo: 'Nada pendente',
         mensagem: 'Todo atendimento que já passou foi cobrado.',
       );
     }
 
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return RefreshIndicator(
       onRefresh: provider.carregar,
@@ -77,18 +79,16 @@ class _PendenciasPageState extends ConsumerState<PendenciasPage> {
         itemBuilder: (context, index) {
           final p = provider.pendencias[index];
           return ListTile(
-            leading: Icon(Icons.schedule, color: colors.error),
+            // cobrança pendente é status de atenção, não erro
+            leading: Icon(Icons.schedule_rounded, color: cores.warning),
             title: Text(p.clienteNome),
             subtitle: Text('${formatarData(p.data)} · ${p.servicoNome}'),
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  formatarDinheiro(p.valor),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const Icon(Icons.chevron_right, size: 18),
+                Text(formatarDinheiro(p.valor), style: textos.titleMedium),
+                const Icon(Icons.chevron_right_rounded, size: 18),
               ],
             ),
             // cada origem tem a própria ficha

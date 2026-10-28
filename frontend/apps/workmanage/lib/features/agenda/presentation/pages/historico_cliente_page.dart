@@ -59,7 +59,7 @@ class _HistoricoClientePageState extends ConsumerState<HistoricoClientePage> {
           }
           if (provider.agendamentos.isEmpty) {
             return const EstadoVazio(
-              icone: Icons.event_note_outlined,
+              icone: Icons.event_note_rounded,
               titulo: 'Nenhum atendimento ainda',
             );
           }

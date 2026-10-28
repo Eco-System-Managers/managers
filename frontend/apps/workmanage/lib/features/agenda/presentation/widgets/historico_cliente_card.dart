@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 
@@ -59,18 +60,26 @@ class _HistoricoClienteCardState extends ConsumerState<HistoricoClienteCard> {
             .toList();
 
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          margin: const EdgeInsets.symmetric(horizontal: BrandSpacing.space4),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space2,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.event_note_outlined, color: colors.primary),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.event_note_rounded,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: BrandSpacing.space2),
                     Expanded(
-                      child: Text('Atendimentos', style: textos.titleSmall),
+                      child: Text('Atendimentos', style: textos.titleLarge),
                     ),
                     if (provider.carregado)
                       Text(
@@ -78,9 +87,7 @@ class _HistoricoClienteCardState extends ConsumerState<HistoricoClienteCard> {
                             ? 'nenhum'
                             : '${provider.total} · '
                                   '${formatarDinheiro(provider.totalPago)}',
-                        style: textos.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
+                        style: textos.bodySmall,
                       )
                     else if (erro == null)
                       const SizedBox(
@@ -91,8 +98,11 @@ class _HistoricoClienteCardState extends ConsumerState<HistoricoClienteCard> {
                   ],
                 ),
                 if (erro != null) ...[
-                  const SizedBox(height: 8),
-                  Text(erro.message, style: TextStyle(color: colors.error)),
+                  const SizedBox(height: BrandSpacing.space2),
+                  Text(
+                    erro.message,
+                    style: textos.bodyMedium?.copyWith(color: colors.error),
+                  ),
                   TextButton(
                     onPressed: provider.carregar,
                     child: const Text('Tentar de novo'),
@@ -100,10 +110,15 @@ class _HistoricoClienteCardState extends ConsumerState<HistoricoClienteCard> {
                 ],
                 if (provider.carregado && provider.total == 0)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    padding: const EdgeInsets.only(
+                      top: BrandSpacing.space2,
+                      bottom: BrandSpacing.space2,
+                    ),
                     child: Text(
                       'Nenhum atendimento ainda.',
-                      style: TextStyle(color: colors.onSurfaceVariant),
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 for (final a in recentes)
@@ -147,7 +162,6 @@ class HistoricoItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final textos = Theme.of(context).textTheme;
     final a = agendamento;
     final detalhe = [
@@ -170,13 +184,12 @@ class HistoricoItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(
-            formatarDinheiro(a.valorTotal),
-            style: textos.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
+          Text(formatarDinheiro(a.valorTotal), style: textos.titleMedium),
           Text(
             a.status.nome,
-            style: textos.bodySmall?.copyWith(color: a.status.cor(colors)),
+            style: textos.bodySmall?.copyWith(
+              color: a.status.cor(BrandColors.of(context)),
+            ),
           ),
         ],
       ),

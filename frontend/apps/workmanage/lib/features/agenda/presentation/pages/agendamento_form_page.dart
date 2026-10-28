@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/campo_data.dart';
@@ -123,6 +124,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
 
   Widget _formulario(BuildContext context, AgendamentoFormProvider provider) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
     final hoje = somenteData(DateTime.now());
     final colaboradores = provider.colaboradores;
     final erroHora = provider.erroDoCampo('data_hora') ?? _erroHora;
@@ -134,17 +136,19 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
         children: [
           if (provider.errorMessage != null) ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(BrandSpacing.space3),
               decoration: BoxDecoration(
                 color: colors.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BrandRadius.mdAll,
               ),
               child: Text(
                 provider.errorMessage!,
-                style: TextStyle(color: colors.onErrorContainer),
+                style: textos.bodyMedium?.copyWith(
+                  color: colors.onErrorContainer,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
           ],
 
           if (provider.servicos.isEmpty) ...[
@@ -153,7 +157,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                   'Cadastre um serviço ativo em Mais › Serviços para marcar '
                   'horários.',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
           ],
 
           // o cliente é escolhido numa folha; o campo só mostra o nome
@@ -166,13 +170,12 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
             forceErrorText: provider.erroDoCampo('cliente'),
             decoration: const InputDecoration(
               labelText: 'Cliente',
-              prefixIcon: Icon(Icons.person_outline),
-              suffixIcon: Icon(Icons.chevron_right),
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person_outline_rounded),
+              suffixIcon: Icon(Icons.chevron_right_rounded),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           DropdownButtonFormField<Servico>(
             // a key nova recria o campo quando o provider troca o valor
@@ -193,13 +196,12 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
             validator: (s) => s == null ? 'Escolha o serviço' : null,
             decoration: InputDecoration(
               labelText: 'Serviço',
-              prefixIcon: const Icon(Icons.design_services_outlined),
+              prefixIcon: const Icon(Icons.design_services_rounded),
               errorText: provider.erroDoCampo('servico_id'),
-              border: const OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           DropdownButtonFormField<Colaborador>(
             key: ValueKey(
@@ -221,16 +223,17 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
             validator: (c) => c == null ? 'Escolha o profissional' : null,
             decoration: InputDecoration(
               labelText: 'Profissional',
-              prefixIcon: const Icon(Icons.badge_outlined),
+              prefixIcon: const Icon(Icons.badge_rounded),
               helperText: colaboradores.isEmpty
-                  ? 'Ninguém ativo executa este serviço.'
+                  ? 'Ninguém ativo executa este serviço. Escolha quem executa '
+                        'em Mais › Serviços.'
                   : null,
+              helperMaxLines: 2,
               errorText: provider.erroDoCampo('colaborador'),
-              border: const OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
 
           CampoData(
             valor: provider.data,
@@ -243,14 +246,16 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
             ultimaData: DateTime(hoje.year + 1, hoje.month, hoje.day),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
-          Text('Horário', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
+          Text('Horário', style: textos.titleSmall),
+          const SizedBox(height: BrandSpacing.space2),
           if (!provider.prontoParaGrade)
             Text(
               'Escolha o serviço e o profissional para ver os horários livres.',
-              style: TextStyle(color: colors.onSurfaceVariant),
+              style: textos.bodyMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
             )
           else
             SlotsGrade(
@@ -265,11 +270,14 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
               },
             ),
           if (erroHora != null) ...[
-            const SizedBox(height: 8),
-            Text(erroHora, style: TextStyle(color: colors.error, fontSize: 12)),
+            const SizedBox(height: BrandSpacing.space2),
+            Text(
+              erroHora,
+              style: textos.bodySmall?.copyWith(color: colors.error),
+            ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
           TextFormField(
             controller: _observacoesController,
@@ -278,11 +286,10 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
             forceErrorText: provider.erroDoCampo('observacoes'),
             decoration: const InputDecoration(
               labelText: 'Observações (opcional)',
-              border: OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
 
           FilledButton(
             onPressed: provider.isLoading ? null : _salvar,
@@ -306,19 +313,20 @@ class _Aviso extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(BrandSpacing.space3),
       decoration: BoxDecoration(
         color: colors.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BrandRadius.mdAll,
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: colors.onSecondaryContainer),
-          const SizedBox(width: 12),
+          Icon(Icons.info_outline_rounded, color: colors.onSecondaryContainer),
+          const SizedBox(width: BrandSpacing.space3),
           Expanded(
             child: Text(
               texto,
-              style: TextStyle(color: colors.onSecondaryContainer),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: colors.onSecondaryContainer),
             ),
           ),
         ],
