@@ -196,6 +196,15 @@ class LoginService:
         if membro is None:
             raise ErroDeNegocio('Usuário não vinculado a nenhuma empresa.', 'sem_empresa')
 
+        # Entrar de novo dentro do prazo desiste da exclusão. A equipe de um
+        # negócio que o dono mandou excluir não entra mais.
+        exclusao = ExclusaoContaService()
+        exclusao.desistir_ao_entrar(user)
+        if exclusao.negocio_em_exclusao(membro.tenant.schema_name):
+            raise ErroDeNegocio(
+                'Este negócio está sendo encerrado pelo proprietário.', 'negocio_em_exclusao', 403,
+            )
+
         UltimaAtividade.objects.update_or_create(user=user, defaults={'ultimo_acesso': timezone.now()})
         return user, membro.tenant
 
@@ -249,6 +258,8 @@ class SessaoService:
         schema_name = antigo.get('schema_name')
         if not schema_name or Membro.papel_no_schema(user, schema_name) is None:
             raise SessaoInvalida()
+        if ExclusaoContaService().conta_travada(user, schema_name):
+            raise SessaoInvalida()
 
         antigo.blacklist()
         return self.emitir(user, Tenant.objects.get(schema_name=schema_name))
@@ -268,3 +279,179 @@ class SessaoService:
             [BlacklistedToken(token=token) for token in pendentes],
             ignore_conflicts=True,
         )
+
+
+class ExclusaoContaService:
+    """Excluir a conta pelo app: o pedido, a desistência e a exclusão de vez.
+
+    O pedido trava a conta na hora e marca a exclusão para daqui a
+    `PRAZO_DIAS`. Do dono, é o negócio inteiro: a vitrine sai do ar, a equipe
+    perde o acesso e, no fim do prazo, o schema é apagado. Da equipe, é só o
+    login: o nome continua nos atendimentos e no caixa, que são do negócio.
+    Entrar de novo dentro do prazo desiste do pedido.
+    """
+
+    PRAZO_DIAS = 30
+
+    @transaction.atomic
+    def solicitar(self, user, schema_name: str, senha: str):
+        from apps_serv.vitrine.models import NegocioPublico
+        from tenants.models import Membro, Papel, Tenant
+
+        from .models import ExclusaoConta
+
+        if not user.check_password(senha):
+            raise ErroDeNegocio('Senha incorreta.', 'senha_incorreta')
+
+        apaga_negocio = Membro.papel_no_schema(user, schema_name) == Papel.PROPRIETARIO
+        if apaga_negocio:
+            self._cancelar_cobranca(Tenant.objects.get(schema_name=schema_name))
+            NegocioPublico.objects.filter(schema_name=schema_name).update(ativo=False)
+
+        exclusao, _ = ExclusaoConta.objects.update_or_create(
+            user=user,
+            defaults={
+                'schema_name': schema_name,
+                'apaga_negocio': apaga_negocio,
+                'excluir_em': timezone.now() + timedelta(days=self.PRAZO_DIAS),
+            },
+        )
+
+        sessoes = SessaoService()
+        if apaga_negocio:
+            for membro in Membro.objects.filter(tenant__schema_name=schema_name).select_related('user'):
+                sessoes.encerrar_todas(membro.user)
+        else:
+            sessoes.encerrar_todas(user)
+        return exclusao
+
+    def desistir_ao_entrar(self, user) -> bool:
+        """Chamado no login: quem pediu e entrou de novo desistiu. O negócio
+        do dono volta para a vitrine (se estava publicado antes)."""
+        from apps_serv.vitrine.services import SincronizarVitrineService
+
+        from .models import ExclusaoConta
+
+        exclusao = ExclusaoConta.objects.filter(user=user).first()
+        if exclusao is None:
+            return False
+        exclusao.delete()
+        if exclusao.apaga_negocio:
+            with schema_context(exclusao.schema_name):
+                from apps_work.empresa.models import EmpresaConfig
+                config = EmpresaConfig.objects.filter(pk=1).first()
+            if config is not None:
+                SincronizarVitrineService().sincronizar(exclusao.schema_name, config)
+        return True
+
+    def negocio_em_exclusao(self, schema_name: str) -> bool:
+        from .models import ExclusaoConta
+
+        return ExclusaoConta.objects.filter(schema_name=schema_name, apaga_negocio=True).exists()
+
+    def conta_travada(self, user, schema_name: str) -> bool:
+        """A conta não entra mais: pediu a exclusão, ou o dono pediu a do negócio."""
+        from .models import ExclusaoConta
+
+        return ExclusaoConta.objects.filter(user=user).exists() or self.negocio_em_exclusao(schema_name)
+
+    def excluir_vencidas(self, agora=None) -> int:
+        """Apaga de vez os pedidos com o prazo vencido. Um que falha não segura
+        os outros: fica para a próxima rodada."""
+        import logging
+
+        from .models import ExclusaoConta
+
+        logger = logging.getLogger(__name__)
+        vencidas = ExclusaoConta.objects.filter(excluir_em__lte=agora or timezone.now()).select_related('user')
+        feitas = 0
+        for exclusao in vencidas:
+            try:
+                if exclusao.apaga_negocio:
+                    self._apagar_negocio(exclusao.schema_name)
+                else:
+                    self._apagar_login(exclusao.user)
+                feitas += 1
+            except Exception:
+                logger.exception('Falha ao excluir a conta', extra={'schema_name': exclusao.schema_name})
+        return feitas
+
+    def _cancelar_cobranca(self, tenant) -> None:
+        """Quem paga recorrência precisa parar de ser cobrado antes de o negócio
+        sumir. Se o gateway falhar, o pedido não segue."""
+        from apps_work.billing.models import Assinatura, StatusAssinatura
+        from apps_work.billing.services import AssinaturaGatewayError, gateway_de_pagamento
+
+        assinatura = Assinatura.objects.filter(tenant=tenant).first()
+        if assinatura is None or assinatura.status != StatusAssinatura.ATIVA or not assinatura.id_externo:
+            return
+        try:
+            gateway_de_pagamento().cancelar_assinatura(tenant)
+        except AssinaturaGatewayError as e:
+            raise ErroDeNegocio(str(e), 'assinatura_nao_cancelada')
+
+    def _desligar_da_equipe(self, user, schema_name: str) -> None:
+        """O colaborador fica sem login, com o nome guardado e inativo: o
+        histórico do negócio continua mostrando quem atendeu."""
+        from apps_work.usuarios.models import Colaborador
+
+        for colaborador in Colaborador.objects.filter(user=user):
+            colaborador.nome = colaborador.nome_exibido
+            colaborador.user = None
+            colaborador.ativo = False
+            colaborador.save(update_fields=['nome', 'user', 'ativo'])
+
+    @transaction.atomic
+    def _apagar_login(self, user) -> None:
+        from tenants.models import Membro
+
+        membros = list(Membro.objects.filter(user=user).select_related('tenant'))
+        for membro in membros:
+            with schema_context(membro.tenant.schema_name):
+                self._desligar_da_equipe(user, membro.tenant.schema_name)
+        Membro.objects.filter(user=user).delete()
+        # O User tem relação com tabelas dos tenants (Colaborador): apagar
+        # dentro de um schema de negócio deixa o Django enxergar essa tabela.
+        if membros:
+            with schema_context(membros[0].tenant.schema_name):
+                user.delete()
+        else:
+            user.delete()
+
+    @transaction.atomic
+    def _apagar_negocio(self, schema_name: str) -> None:
+        from apps_serv.consumidores.models import AgendamentoConsumidor, VinculoConsumidor
+        from apps_serv.vitrine.models import NegocioPublico
+        from apps_work.agenda.models import StatusAgendamento
+        from tenants.models import ConviteIndex, Membro, Tenant
+
+        from .models import ExclusaoConta
+
+        tenant = Tenant.objects.get(schema_name=schema_name)
+        usuarios = [m.user for m in Membro.objects.filter(tenant=tenant).select_related('user')]
+
+        with schema_context(schema_name):
+            from apps_work.usuarios.models import Colaborador
+            Colaborador.objects.update(user=None)
+            Membro.objects.filter(tenant=tenant).delete()
+            # Quem só estava neste negócio perde o login junto; quem está em
+            # outro continua lá.
+            for user in usuarios:
+                if not Membro.objects.filter(user=user).exists():
+                    user.delete()
+
+        # O app do cliente: os horários que ainda iam acontecer viram cancelados
+        # e o negócio sai da lista dele. O histórico de cada cliente fica.
+        AgendamentoConsumidor.objects.filter(
+            schema_name=schema_name,
+            status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO],
+        ).update(status=StatusAgendamento.CANCELADO)
+        VinculoConsumidor.objects.filter(schema_name=schema_name).delete()
+        NegocioPublico.objects.filter(schema_name=schema_name).delete()
+        ConviteIndex.objects.filter(schema_name=schema_name).delete()
+        # O dono que está em outro negócio continua com o login: o pedido sai
+        # daqui, senão voltaria na próxima rodada.
+        ExclusaoConta.objects.filter(schema_name=schema_name).delete()
+
+        with schema_context(get_public_schema_name()):
+            tenant.delete(force_drop=True)

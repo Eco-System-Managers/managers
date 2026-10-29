@@ -9,9 +9,9 @@ dentro de um tenant; lá é um `Consumidor` no schema público.
 
 | Arquivo | O que faz |
 |---|---|
-| `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário, assinatura de trial e o relógio de inatividade numa tacada. `ConfirmacaoCadastroService` (cadastro pendente até o código do e-mail). `LoginService` (credenciais, limite de falhas, usuário ativo, empresa). `RecuperacaoSenhaService` (o fluxo é o de `core/recuperacao.py`). E `SessaoService`, que emite, renova e revoga sessões |
+| `services.py` | `OnboardingService` — cria tenant, schema, domínio, usuário, assinatura de trial e o relógio de inatividade numa tacada. `ConfirmacaoCadastroService` (cadastro pendente até o código do e-mail). `LoginService` (credenciais, limite de falhas, usuário ativo, empresa). `RecuperacaoSenhaService` (o fluxo é o de `core/recuperacao.py`). `SessaoService`, que emite, renova e revoga sessões. E `ExclusaoContaService`, o pedido de exclusão da conta e a exclusão de vez |
 | `views.py` | Cadastro, login, refresh por cookie, logout e as três etapas de recuperação de senha. Views finas: a regra está nos services |
-| `models.py` | `UltimaAtividade` (relógio de inatividade), `CodigoRecuperacao`, `CadastroPendente` e `CodigoCadastro` |
+| `models.py` | `UltimaAtividade` (relógio de inatividade), `CodigoRecuperacao`, `CadastroPendente`, `CodigoCadastro` e `ExclusaoConta` |
 | `serializers.py` | Validação do cadastro, incluindo o slug do schema a partir do nome da empresa |
 | `urls.py` | Rotas sob `/api/v1/auth/` — isentas do bloqueio de assinatura |
 
@@ -55,6 +55,42 @@ códigos anteriores e devolve o código em claro para o e-mail; confira com
 Herda o `CodigoRecuperacaoBase`: hash, 15 minutos, 5 tentativas, `emitir`
 invalida os anteriores. O dono é o `cadastro` (`FK → CadastroPendente`
 `CASCADE`), então confirmar e apagar o pendente leva os códigos junto.
+
+### `ExclusaoConta` — pedido de exclusão da conta
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| `user` | `OneToOne → auth.User` `CASCADE` | Quem pediu. Um pedido por pessoa |
+| `schema_name` | `CharField(63)` | O negócio de onde saiu o pedido. String, porque o tenant some na exclusão |
+| `apaga_negocio` | `Boolean` | `True` quando o dono pediu: o negócio inteiro vai embora |
+| `pedida_em` | `DateTime` `auto_now_add` | |
+| `excluir_em` | `DateTimeField` | Pedido + 30 dias (`ExclusaoContaService.PRAZO_DIAS`) |
+
+## Excluir a conta (`POST colaboradores/me/excluir/`)
+
+Exigência da Apple e do Google, e direito da LGPD. Pede a senha.
+`ExclusaoContaService`:
+
+- **O pedido trava na hora.** Encerra as sessões; a renovação recusa quem
+  pediu e quem é de um negócio em exclusão. O access ainda vale até expirar
+  (no máximo uma hora).
+- **Do dono, é o negócio inteiro:** a vitrine sai do ar na hora, uma
+  assinatura recorrente é cancelada no gateway antes (se o gateway recusar,
+  o pedido não segue: `assinatura_nao_cancelada`) e a equipe não entra mais
+  (`negocio_em_exclusao`, 403).
+- **Da equipe, é só o login:** no fim do prazo o `User` some, e o
+  `Colaborador` fica sem login, inativo e com o nome guardado, para o
+  histórico do negócio continuar dizendo quem atendeu.
+- **Entrar de novo dentro do prazo desiste** (`desistir_ao_entrar`, no
+  login). O dono que desiste volta para a vitrine e devolve o acesso à equipe.
+- **No fim do prazo**, o comando `excluir_contas_vencidas` (cron diário)
+  apaga de vez. O do negócio derruba o schema inteiro, cancela os horários
+  futuros no app do cliente (o histórico dele fica), tira o negócio da lista
+  dos clientes e apaga os logins de quem só estava ali. Um pedido que falha
+  não segura os outros: fica para a rodada seguinte.
+- **Apagar `User` tem que rodar dentro de um schema de negócio:** ele tem
+  relação com tabelas dos tenants (`Colaborador`), e no schema público o
+  Django não enxerga essas tabelas.
 
 ## O cadastro cria um tenant inteiro
 

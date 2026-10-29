@@ -1,5 +1,6 @@
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from django.db import connection
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -9,8 +10,8 @@ from core.openapi import PLATAFORMA, MensagemSerializer
 from core.sessao import COOKIE_WORK
 from core.throttling import CadastroPorEmailThrottle, RecuperacaoPorEmailThrottle
 from .serializers import (
-    CadastroSerializer, ConfirmarCadastroSerializer, EmailSerializer, LoginSerializer, NovaSenhaSerializer, RefreshSerializer,
-    SessaoSerializer, VerificarCodigoSerializer,
+    CadastroSerializer, ConfirmarCadastroSerializer, EmailSerializer, ExcluirContaSerializer, ExclusaoContaSerializer,
+    LoginSerializer, NovaSenhaSerializer, RefreshSerializer, SessaoSerializer, VerificarCodigoSerializer,
 )
 from core.excecoes import erro
 
@@ -236,5 +237,38 @@ class LogoutView(APIView):
         if token_str:
             SessaoService().encerrar(token_str)
         response = Response({'detail': 'Logout realizado com sucesso.'})
+        COOKIE_WORK.apagar(response)
+        return response
+
+
+class ExcluirContaView(APIView):
+    """Excluir a própria conta pelo app. A rota é `colaboradores/me/excluir/`
+    (urls de `usuarios`): fora de /auth/ porque o app só manda o token para as
+    outras rotas, e sob /me/ porque /me/ escapa do bloqueio de assinatura."""
+
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_login'
+
+    @extend_schema(
+        request=ExcluirContaSerializer, responses={202: ExclusaoContaSerializer},
+        summary='Pedir a exclusão da própria conta',
+        description=(
+            'Do dono, apaga o negócio inteiro; da equipe, só o login (o nome fica no histórico). '
+            'A conta trava na hora e é apagada em 30 dias; entrar de novo antes disso desiste. '
+            '400 senha_incorreta; 400 assinatura_nao_cancelada quando o gateway recusa parar a cobrança.'
+        ),
+    )
+    def post(self, request):
+        from .services import ExclusaoContaService
+
+        entrada = ExcluirContaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        exclusao = ExclusaoContaService().solicitar(
+            request.user, connection.schema_name, entrada.validated_data['senha'],
+        )
+        response = Response(
+            ExclusaoContaSerializer(exclusao).data, status=status.HTTP_202_ACCEPTED,
+        )
         COOKIE_WORK.apagar(response)
         return response

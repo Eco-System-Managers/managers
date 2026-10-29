@@ -115,4 +115,8 @@ Estado em 2026-10-27:
 - [ ] App Flutter apontando para `https://api.workmanage.com.br`
 - [ ] Teste de ponta a ponta: cadastro (o e-mail chega?), convite com criação
   de senha pelo link, assinatura real e liberação do acesso
+- [ ] **Cron diário da exclusão de contas:** um serviço de cron no Railway
+      (mesma imagem da API) com `python manage.py excluir_contas_vencidas`,
+      uma vez por dia. Sem ele, quem pediu para excluir a conta fica travado
+      e nunca é apagado de verdade
 - [ ] Backup do Postgres: ativar na aba Backups do serviço, se o plano oferecer
