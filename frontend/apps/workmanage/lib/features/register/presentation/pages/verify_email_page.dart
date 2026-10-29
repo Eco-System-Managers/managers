@@ -64,16 +64,19 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
     final provider = ref.watch(verifyEmailProvider);
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
-    // aparência de cada caixinha do código
+    // cada caixinha do código é um campo: fundo 2, borda, raio sm e o
+    // dígito em headline-small
     final pinTheme = PinTheme(
       width: 40,
       height: 52,
-      textStyle: Theme.of(context).textTheme.titleLarge
-          ?.copyWith(fontWeight: FontWeight.w600),
+      textStyle: textos.headlineSmall,
       decoration: BoxDecoration(
-        border: Border.all(color: colors.outline),
-        borderRadius: BorderRadius.circular(8),
+        color: cores.bg2,
+        border: Border.all(color: cores.border),
+        borderRadius: BrandRadius.smAll,
       ),
     );
 
@@ -98,19 +101,22 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // o título do painel é h2; o apoio, body em
+                          // inkMuted
                           Text(
                             'Verifique seu e-mail',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                            style: BrandText.h2.copyWith(color: cores.ink),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: BrandSpacing.space2),
                           Text(
                             'Digite o código de $_codeLength dígitos enviado '
                             'para ${widget.email}.',
-                            style: TextStyle(color: colors.onSurfaceVariant),
+                            style: textos.bodyMedium?.copyWith(
+                              color: cores.inkMuted,
+                            ),
                           ),
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: BrandSpacing.space5),
 
                           // 8 caixinhas não cabem em celular estreito:
                           // o FittedBox encolhe em vez de estourar a tela
@@ -122,14 +128,19 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                               autofocus: true,
                               enabled: !loading,
                               defaultPinTheme: pinTheme,
-                              // caixinha em foco ganha a cor da marca
+                              // em foco, o azul da ação em 2 px; com erro,
+                              // danger
                               focusedPinTheme: pinTheme.copyBorderWith(
                                 border: Border.all(
                                   color: colors.primary,
                                   width: 2,
                                 ),
                               ),
-                              separatorBuilder: (_) => const SizedBox(width: 6),
+                              errorPinTheme: pinTheme.copyBorderWith(
+                                border: Border.all(color: cores.danger),
+                              ),
+                              separatorBuilder: (_) =>
+                                  const SizedBox(width: BrandSpacing.space1),
                               validator: Validatorless.multiple([
                                 Validatorless.required('Informe o código'),
                                 Validatorless.number('O código tem só números'),
@@ -145,23 +156,33 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
 
                           if (provider.errorMessage != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 12),
+                              padding: const EdgeInsets.only(
+                                top: BrandSpacing.space3,
+                              ),
                               child: Text(
                                 provider.errorMessage!,
-                                style: TextStyle(color: colors.error),
+                                style: textos.bodyMedium?.copyWith(
+                                  color: colors.error,
+                                ),
                               ),
                             ),
 
+                          // o código reenviado é algo que deu certo: success,
+                          // porque o azul é só da ação
                           if (provider.infoMessage != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 12),
+                              padding: const EdgeInsets.only(
+                                top: BrandSpacing.space3,
+                              ),
                               child: Text(
                                 provider.infoMessage!,
-                                style: TextStyle(color: colors.primary),
+                                style: textos.bodyMedium?.copyWith(
+                                  color: cores.success,
+                                ),
                               ),
                             ),
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: BrandSpacing.space5),
 
                           FilledButton(
                             onPressed: loading ? null : _confirm,
@@ -179,7 +200,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                                 : const Text('Confirmar'),
                           ),
 
-                          const SizedBox(height: 8),
+                          const SizedBox(height: BrandSpacing.space2),
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,

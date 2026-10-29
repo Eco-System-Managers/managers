@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../theme/brand.dart';
 import 'sombra_de_borda.dart';
 
 // o botão principal de uma tela fixo no rodapé, no desenho da barra
-// inferior das abas: uma pílula solta, com margem, que não rola junto com o
-// conteúdo. vai no bottomNavigationBar do Scaffold; o corpo da tela recebe
-// a sombra branca encostada nele por comSombraEmBaixo
+// inferior das abas: solto, com margem, sem rolar junto com o conteúdo. a
+// forma e o texto vêm do tema (radius-md, body-strong). vai no
+// bottomNavigationBar do Scaffold; o corpo da tela recebe a sombra branca
+// encostada nele por comBotaoDeRodape
 class BotaoDeRodape extends StatelessWidget {
   const BotaoDeRodape({
     super.key,
@@ -22,13 +24,17 @@ class BotaoDeRodape extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // a altura é medida do componente, não espaçamento
     final estilo = FilledButton.styleFrom(
       minimumSize: const Size.fromHeight(56),
-      shape: const StadiumBorder(),
-      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(
+        BrandSpacing.space4,
+        0,
+        BrandSpacing.space4,
+        BrandSpacing.space3,
+      ),
       child: icone == null
           ? FilledButton(
               onPressed: onPressed,

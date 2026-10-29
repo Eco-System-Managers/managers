@@ -815,7 +815,7 @@ class _DiaLivreCard extends StatelessWidget {
               ],
             ),
           ),
-          FilledButton.tonal(
+          FilledButton(
             onPressed: onMarcar,
             child: Text(isKanban ? 'Receber' : 'Marcar'),
           ),

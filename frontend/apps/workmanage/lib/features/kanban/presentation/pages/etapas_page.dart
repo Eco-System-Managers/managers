@@ -154,7 +154,9 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
                               children: [
                                 IconButton(
                                   tooltip: 'Editar',
-                                  icon: const Icon(Icons.edit_rounded),
+                                  icon: const Icon(
+                                    Icons.mode_edit_outline_rounded,
+                                  ),
                                   onPressed: () => _editar(etapa),
                                 ),
                                 IconButton(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 
 import '../../contratos_provider.dart';
@@ -68,28 +69,36 @@ class _ContratosClienteCardState extends ConsumerState<ContratosClienteCard> {
             .take(ContratosClienteCard.recentes)
             .toList();
 
+        // o mesmo cartão dos outros blocos da ficha: título h3 e ícone
+        // neutro, porque o azul é só da ação
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          margin: const EdgeInsets.symmetric(horizontal: BrandSpacing.space4),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space2,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.description_outlined, color: colors.primary),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.description_rounded,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: BrandSpacing.space2),
                     Expanded(
-                      child: Text('Contratos', style: textos.titleSmall),
+                      child: Text('Contratos', style: textos.titleLarge),
                     ),
                     if (provider.carregado)
                       Text(
                         provider.contratos.isEmpty
                             ? 'nenhum'
                             : '${provider.contratos.length}',
-                        style: textos.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
+                        style: textos.bodySmall,
                       )
                     else if (erro == null)
                       const SizedBox(
@@ -100,8 +109,11 @@ class _ContratosClienteCardState extends ConsumerState<ContratosClienteCard> {
                   ],
                 ),
                 if (erro != null) ...[
-                  const SizedBox(height: 8),
-                  Text(erro.message, style: TextStyle(color: colors.error)),
+                  const SizedBox(height: BrandSpacing.space2),
+                  Text(
+                    erro.message,
+                    style: textos.bodyMedium?.copyWith(color: colors.error),
+                  ),
                   TextButton(
                     onPressed: provider.carregar,
                     child: const Text('Tentar de novo'),
@@ -120,7 +132,7 @@ class _ContratosClienteCardState extends ConsumerState<ContratosClienteCard> {
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
                     onPressed: _gerar,
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(Icons.add_rounded),
                     label: const Text('Gerar contrato'),
                   ),
                 ),

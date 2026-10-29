@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
@@ -141,6 +142,7 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
     ModeloContrato? modelo,
   ) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
     return Form(
@@ -150,17 +152,19 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
         children: [
           if (provider.errorMessage != null) ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(BrandSpacing.space3),
               decoration: BoxDecoration(
                 color: colors.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BrandRadius.mdAll,
               ),
               child: Text(
                 provider.errorMessage!,
-                style: TextStyle(color: colors.onErrorContainer),
+                style: textos.bodyMedium?.copyWith(
+                  color: colors.onErrorContainer,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BrandSpacing.space4),
           ],
 
           TextFormField(
@@ -173,32 +177,31 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
             decoration: const InputDecoration(
               labelText: 'Título',
               hintText: 'Ex.: Contrato de prestação de serviço',
-              border: OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
           Text('Variáveis', style: textos.titleSmall),
-          const SizedBox(height: 4),
+          const SizedBox(height: BrandSpacing.space1),
           Text(
             'Toque para inserir no texto. Ao gerar, viram os dados do cliente.',
-            style: textos.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            style: textos.bodySmall,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: BrandSpacing.space2),
           Wrap(
-            spacing: 8,
-            runSpacing: 4,
+            spacing: BrandSpacing.space2,
+            runSpacing: BrandSpacing.space1,
             children: [
               for (final (variavel, rotulo) in ModeloContrato.variaveis)
                 ActionChip(
                   label: Text(rotulo),
-                  avatar: const Icon(Icons.data_object, size: 16),
+                  avatar: const Icon(Icons.data_object_rounded, size: 16),
                   onPressed: () => _inserir(variavel),
                 ),
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
           TextFormField(
             controller: _corpoController,
             focusNode: _corpoFocus,
@@ -212,11 +215,10 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
             decoration: const InputDecoration(
               labelText: 'Texto do contrato',
               alignLabelWithHint: true,
-              border: OutlineInputBorder(),
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: BrandSpacing.space5),
           FilledButton(
             onPressed: provider.isLoading ? null : _salvar,
             style: FilledButton.styleFrom(
@@ -226,14 +228,15 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
           ),
 
           if (modelo != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: BrandSpacing.space3),
+            // inativar tira o modelo da geração: danger
             OutlinedButton(
               onPressed: provider.isLoading
                   ? null
                   : () => _alterarAtivo(!modelo.ativo),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
-                foregroundColor: modelo.ativo ? colors.error : null,
+                foregroundColor: modelo.ativo ? cores.danger : null,
               ),
               child: Text(modelo.ativo ? 'Inativar' : 'Reativar'),
             ),

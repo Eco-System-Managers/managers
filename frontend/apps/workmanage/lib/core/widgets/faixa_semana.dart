@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 
 // o calendário de cima da agenda e do quadro. fechado, é a semana do dia
@@ -177,7 +178,8 @@ class _FaixaSemanaState extends State<FaixaSemana> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -187,7 +189,12 @@ class _FaixaSemanaState extends State<FaixaSemana> {
           // os nomes dos dias só no mês: na semana cada dia já tem o seu
           if (widget.expandido)
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              padding: const EdgeInsets.fromLTRB(
+                BrandSpacing.space3,
+                BrandSpacing.space2,
+                BrandSpacing.space3,
+                0,
+              ),
               child: Row(
                 children: [
                   for (final nome in nomesCurtosDosDias)
@@ -195,9 +202,8 @@ class _FaixaSemanaState extends State<FaixaSemana> {
                       child: Text(
                         nome,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: colors.onSurfaceVariant,
+                        style: textos.labelMedium?.copyWith(
+                          color: cores.inkMuted,
                         ),
                       ),
                     ),
@@ -237,8 +243,8 @@ class _FaixaSemanaState extends State<FaixaSemana> {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: colors.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
+                      color: cores.border,
+                      borderRadius: BrandRadius.smAll,
                     ),
                   ),
                 ),
@@ -252,7 +258,7 @@ class _FaixaSemanaState extends State<FaixaSemana> {
   Widget _semana(DateTime segunda) {
     final dias = FaixaSemana.diasDaSemana(segunda);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: BrandSpacing.space3),
       child: Row(
         children: [
           for (final d in dias)
@@ -265,7 +271,7 @@ class _FaixaSemanaState extends State<FaixaSemana> {
   Widget _mes(DateTime primeiro) {
     final dias = FaixaSemana.diasDoMes(primeiro);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: BrandSpacing.space3),
       child: Column(
         children: [
           for (var linha = 0; linha < 6; linha++)
@@ -327,25 +333,31 @@ class _Dia extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
+    // o dia escolhido é o azul da marca com o número branco; hoje é azul
+    // com contorno; os dias de outro mês vão em inkMuted
     final corTexto = selecionado
-        ? colors.onPrimary
+        ? cores.onBrand
         : apagado
-        ? colors.outline
+        ? cores.inkMuted
         : ehHoje
         ? colors.primary
-        : colors.onSurface;
+        : cores.ink;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BrandRadius.mdAll,
       child: Container(
+        // as folgas de dentro da célula são medida do calendário: a altura
+        // das linhas (44 no mês, 72 na semana) é fixa e não cabe mais
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
         padding: EdgeInsets.symmetric(vertical: comNome ? 6 : 2),
         decoration: BoxDecoration(
-          color: selecionado ? colors.primary : null,
-          borderRadius: BorderRadius.circular(12),
+          color: selecionado ? BrandColors.brandBlue : null,
+          borderRadius: BrandRadius.mdAll,
           border: ehHoje && !selecionado
-              ? Border.all(color: colors.primary.withValues(alpha: 0.5))
+              ? Border.all(color: colors.primary)
               : null,
         ),
         child: Column(
@@ -355,28 +367,28 @@ class _Dia extends StatelessWidget {
             if (comNome) ...[
               Text(
                 nomeCurtoDoDia(data),
-                style: TextStyle(fontSize: 11, color: corTexto),
+                style: textos.labelMedium?.copyWith(color: corTexto),
               ),
               const SizedBox(height: 2),
             ],
+            // o escolhido e o hoje em body-strong; os outros em body
             Text(
               '${data.day}',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: selecionado || ehHoje
-                    ? FontWeight.w700
-                    : FontWeight.w500,
-                color: corTexto,
-              ),
+              style:
+                  (selecionado || ehHoje
+                          ? textos.titleMedium
+                          : textos.bodyMedium)
+                      ?.copyWith(color: corTexto),
             ),
             const SizedBox(height: 3),
+            // a bolinha do dia com registro: neutra, e branca no escolhido
             Container(
               width: 5,
               height: 5,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: marcado
-                    ? (selecionado ? colors.onPrimary : colors.primary)
+                    ? (selecionado ? cores.onBrand : cores.inkMuted)
                     : Colors.transparent,
               ),
             ),

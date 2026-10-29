@@ -1,6 +1,7 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../domain/entities/colaborador.dart';
@@ -65,7 +66,6 @@ class CamposColaborador extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final textos = Theme.of(context).textTheme;
 
     return Column(
@@ -81,11 +81,10 @@ class CamposColaborador extends StatelessWidget {
           onChanged: (_) => limparErroDoCampo('nome'),
           decoration: const InputDecoration(
             labelText: 'Nome',
-            prefixIcon: Icon(Icons.person_outline),
-            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.person_outline_rounded),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
         TextFormField(
           controller: funcaoController,
           enabled: habilitado,
@@ -96,23 +95,22 @@ class CamposColaborador extends StatelessWidget {
           decoration: const InputDecoration(
             labelText: 'Função (opcional)',
             hintText: 'Ex.: Barbeiro',
-            prefixIcon: Icon(Icons.work_outline),
-            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.work_outline_rounded),
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
         Text('Vínculo', style: textos.titleSmall),
-        const SizedBox(height: 4),
+        const SizedBox(height: BrandSpacing.space1),
         Text(
           tipo == VinculoColaborador.parceiro
               ? 'Agenda e faturamento próprios. Vê os próprios números e '
                     'recebe a comissão combinada.'
               : 'Executa os atendimentos. Não vê valores; o dinheiro é do '
                     'negócio.',
-          style: textos.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          style: textos.bodySmall,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: BrandSpacing.space2),
         SegmentedButton<VinculoColaborador>(
           segments: [
             for (final v in VinculoColaborador.values)
@@ -123,7 +121,7 @@ class CamposColaborador extends StatelessWidget {
         ),
 
         if (tipo == VinculoColaborador.parceiro) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: BrandSpacing.space4),
           TextFormField(
             controller: comissaoController,
             enabled: habilitado,
@@ -150,8 +148,7 @@ class CamposColaborador extends StatelessWidget {
                   'frente: o que já foi cobrado não muda.',
               helperMaxLines: 2,
               suffixText: '%',
-              prefixIcon: Icon(Icons.percent),
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.percent_rounded),
             ),
           ),
         ] else if (temAcesso)

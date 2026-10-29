@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/estado_vazio.dart';
+import 'package:managers/core/widgets/selo_de_status.dart';
 
 import '../../domain/entities/servico.dart';
 import '../../servicos_provider.dart';
@@ -57,25 +59,29 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
               ? FloatingActionButton(
                   onPressed: () => _abrir('/mais/servicos/novo'),
                   tooltip: 'Novo serviço',
-                  child: const Icon(Icons.add),
+                  child: const Icon(Icons.add_rounded),
                 )
               : null,
           body: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  BrandSpacing.space4,
+                  BrandSpacing.space2,
+                  BrandSpacing.space4,
+                  0,
+                ),
                 child: TextField(
                   controller: _buscaController,
                   textInputAction: TextInputAction.search,
                   onSubmitted: provider.buscar,
                   decoration: InputDecoration(
                     hintText: 'Buscar serviço',
-                    prefixIcon: const Icon(Icons.search),
-                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _buscaController.text.isEmpty
                         ? null
                         : IconButton(
-                            icon: const Icon(Icons.clear),
+                            icon: const Icon(Icons.clear_rounded),
                             onPressed: () {
                               _buscaController.clear();
                               provider.buscar('');
@@ -93,12 +99,13 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
               ),
               if (provider.errorMessage != null)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: BrandSpacing.space4,
+                  ),
                   child: Text(
                     provider.errorMessage!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: Theme.of(context).colorScheme.error),
                   ),
                 ),
               Expanded(child: _corpo(provider)),
@@ -124,7 +131,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
     if (provider.servicos.isEmpty) {
       final buscando = provider.busca.isNotEmpty;
       return EstadoVazio(
-        icone: Icons.design_services_outlined,
+        icone: Icons.design_services_rounded,
         titulo: buscando ? 'Nada encontrado' : 'Nenhum serviço ainda',
         mensagem: buscando
             ? 'Tente outro nome.'
@@ -132,7 +139,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
         acao: provider.ehProprietario && !buscando
             ? FilledButton.icon(
                 onPressed: () => _abrir('/mais/servicos/novo'),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add_rounded),
                 label: const Text('Cadastrar serviço'),
               )
             : null,
@@ -142,7 +149,8 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: 88),
+        // folga para o botão flutuante não cobrir o fim da lista
+        padding: const EdgeInsets.only(bottom: BrandSpacing.space7),
         itemCount: provider.servicos.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, index) {
@@ -167,29 +175,33 @@ class _ServicoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return ListTile(
       onTap: onTap,
-      title: Text(
-        servico.nome,
-        style: servico.ativo
-            ? null
-            : TextStyle(
-                color: colors.outline,
-                decoration: TextDecoration.lineThrough,
+      // o inativo vai em inkMuted, com o selo neutro no fim
+      titleTextStyle: servico.ativo
+          ? null
+          : textos.titleMedium?.copyWith(color: cores.inkMuted),
+      title: Text(servico.nome),
+      // a duração é detalhe (inkMuted); o preço vai em ink
+      subtitle: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: '${servico.duracao} min · '),
+            TextSpan(
+              text: formatarDinheiro(servico.preco),
+              style: TextStyle(
+                color: servico.ativo ? cores.ink : cores.inkMuted,
               ),
-      ),
-      subtitle: Text(
-        '${servico.duracao} min · ${formatarDinheiro(servico.preco)}',
+            ),
+          ],
+        ),
       ),
       trailing: servico.ativo
-          ? (onTap == null ? null : const Icon(Icons.chevron_right))
-          : Chip(
-              label: const Text('Inativo'),
-              visualDensity: VisualDensity.compact,
-              backgroundColor: colors.surfaceContainerHighest,
-            ),
+          ? (onTap == null ? null : const Icon(Icons.chevron_right_rounded))
+          : SeloDeStatus(texto: 'Inativo', cor: cores.inkMuted),
     );
   }
 }

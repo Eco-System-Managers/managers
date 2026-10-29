@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 
 import '../../domain/entities/horario_funcionamento.dart';
 
@@ -24,11 +25,18 @@ class HorarioDiaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
+        padding: const EdgeInsets.fromLTRB(
+          BrandSpacing.space4,
+          BrandSpacing.space2,
+          BrandSpacing.space2,
+          BrandSpacing.space3,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -36,14 +44,11 @@ class HorarioDiaCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    nomeDoDia(horario.dia),
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+                  child: Text(nomeDoDia(horario.dia), style: textos.titleSmall),
                 ),
                 Text(
                   horario.ativo ? 'Aberto' : 'Fechado',
-                  style: TextStyle(color: colors.onSurfaceVariant),
+                  style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
                 ),
                 Switch(
                   value: horario.ativo,
@@ -66,7 +71,7 @@ class HorarioDiaCard extends StatelessWidget {
                           onChanged(horario.copyWith(abertura: hora)),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: BrandSpacing.space2),
                   Expanded(
                     child: _HoraButton(
                       rotulo: 'Fecha',
@@ -76,13 +81,13 @@ class HorarioDiaCard extends StatelessWidget {
                           onChanged(horario.copyWith(fechamento: hora)),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: BrandSpacing.space2),
                 ],
               ),
 
               if (isKanban)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: BrandSpacing.space2),
                   child: _Capacidade(
                     valor: horario.capacidade,
                     enabled: enabled,
@@ -94,8 +99,11 @@ class HorarioDiaCard extends StatelessWidget {
 
             if (erro != null)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(erro!, style: TextStyle(color: colors.error)),
+                padding: const EdgeInsets.only(top: BrandSpacing.space2),
+                child: Text(
+                  erro!,
+                  style: textos.bodySmall?.copyWith(color: colors.error),
+                ),
               ),
           ],
         ),
@@ -156,7 +164,7 @@ class _HoraButton extends StatelessWidget {
 
     return OutlinedButton.icon(
       onPressed: enabled ? () => _escolher(context) : null,
-      icon: const Icon(Icons.schedule, size: 18),
+      icon: const Icon(Icons.schedule_rounded, size: 18),
       label: Text('$rotulo $texto'),
     );
   }
@@ -183,7 +191,7 @@ class _Capacidade extends StatelessWidget {
         const Expanded(child: Text('Atendimentos no dia')),
         IconButton(
           onPressed: enabled && atual > 1 ? () => onChanged(atual - 1) : null,
-          icon: const Icon(Icons.remove_circle_outline),
+          icon: const Icon(Icons.remove_circle_outline_rounded),
         ),
         SizedBox(
           width: 32,
@@ -195,7 +203,7 @@ class _Capacidade extends StatelessWidget {
         ),
         IconButton(
           onPressed: enabled ? () => onChanged(atual + 1) : null,
-          icon: const Icon(Icons.add_circle_outline),
+          icon: const Icon(Icons.add_circle_outline_rounded),
         ),
       ],
     );

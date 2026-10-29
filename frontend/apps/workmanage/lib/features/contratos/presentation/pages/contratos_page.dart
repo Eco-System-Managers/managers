@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/estado_vazio.dart';
+import 'package:managers/core/widgets/selo_de_status.dart';
 
 import '../../contratos_provider.dart';
 import '../../domain/entities/contrato.dart';
@@ -72,30 +74,33 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
           floatingActionButton: noContratos
               ? FloatingActionButton.extended(
                   onPressed: _gerar,
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add_rounded),
                   label: const Text('Gerar contrato'),
                 )
               : modelos.ehProprietario
               ? FloatingActionButton.extended(
                   onPressed: () => _abrirModelo('/mais/contratos/modelos/novo'),
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add_rounded),
                   label: const Text('Novo modelo'),
                 )
               : null,
           body: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BrandSpacing.space4,
+                  vertical: BrandSpacing.space2,
+                ),
                 child: SegmentedButton<int>(
                   segments: const [
                     ButtonSegment(
                       value: 0,
-                      icon: Icon(Icons.description_outlined),
+                      icon: Icon(Icons.description_rounded),
                       label: Text('Contratos'),
                     ),
                     ButtonSegment(
                       value: 1,
-                      icon: Icon(Icons.article_outlined),
+                      icon: Icon(Icons.article_rounded),
                       label: Text('Modelos'),
                     ),
                   ],
@@ -140,14 +145,16 @@ class _ContratosView extends StatelessWidget {
           height: 48,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: BrandSpacing.space3,
+            ),
             children: [
               for (final (status, rotulo) in [
                 (null, 'Todos'),
                 for (final s in StatusContrato.values) (s, s.nome),
               ])
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.only(right: BrandSpacing.space2),
                   child: ChoiceChip(
                     label: Text(rotulo),
                     selected: provider.status == status,
@@ -181,7 +188,7 @@ class _ContratosView extends StatelessWidget {
     if (provider.contratos.isEmpty) {
       final filtrando = provider.status != null;
       return EstadoVazio(
-        icone: Icons.description_outlined,
+        icone: Icons.description_rounded,
         titulo: filtrando ? 'Nenhum contrato aqui' : 'Nenhum contrato ainda',
         mensagem: filtrando
             ? 'Nenhum contrato com este status.'
@@ -191,7 +198,7 @@ class _ContratosView extends StatelessWidget {
             ? null
             : FilledButton.icon(
                 onPressed: onGerar,
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add_rounded),
                 label: const Text('Gerar contrato'),
               ),
       );
@@ -200,7 +207,8 @@ class _ContratosView extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: 88),
+        // folga para o botão flutuante não cobrir o fim da lista
+        padding: const EdgeInsets.only(bottom: BrandSpacing.space7),
         itemCount: provider.contratos.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, index) {
@@ -226,6 +234,7 @@ class _ModelosView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
 
     return Column(
       children: [
@@ -236,10 +245,12 @@ class _ModelosView extends StatelessWidget {
         ),
         if (provider.errorMessage != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: BrandSpacing.space4,
+            ),
             child: Text(
               provider.errorMessage!,
-              style: TextStyle(color: colors.error),
+              style: textos.bodyMedium?.copyWith(color: colors.error),
             ),
           ),
         Expanded(child: _corpo(context)),
@@ -248,7 +259,8 @@ class _ModelosView extends StatelessWidget {
   }
 
   Widget _corpo(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     if (!provider.carregado) {
       final erro = provider.erroAoCarregar;
@@ -263,7 +275,7 @@ class _ModelosView extends StatelessWidget {
 
     if (provider.modelos.isEmpty) {
       return EstadoVazio(
-        icone: Icons.article_outlined,
+        icone: Icons.article_rounded,
         titulo: 'Nenhum modelo ainda',
         mensagem: provider.ehProprietario
             ? 'O modelo é o texto do contrato, com as variáveis que viram '
@@ -272,7 +284,7 @@ class _ModelosView extends StatelessWidget {
         acao: provider.ehProprietario
             ? FilledButton.icon(
                 onPressed: () => onAbrir('/mais/contratos/modelos/novo'),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add_rounded),
                 label: const Text('Criar modelo'),
               )
             : null,
@@ -282,7 +294,8 @@ class _ModelosView extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: 88),
+        // folga para o botão flutuante não cobrir o fim da lista
+        padding: const EdgeInsets.only(bottom: BrandSpacing.space7),
         itemCount: provider.modelos.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, index) {
@@ -292,27 +305,19 @@ class _ModelosView extends StatelessWidget {
             onTap: podeEditar
                 ? () => onAbrir('/mais/contratos/modelos/${m.id}')
                 : null,
-            title: Text(
-              m.titulo,
-              style: m.ativo
-                  ? null
-                  : TextStyle(
-                      color: colors.outline,
-                      decoration: TextDecoration.lineThrough,
-                    ),
-            ),
+            // o modelo inativo vai em inkMuted, com o selo neutro no fim
+            titleTextStyle: m.ativo
+                ? null
+                : textos.titleMedium?.copyWith(color: cores.inkMuted),
+            title: Text(m.titulo),
             subtitle: Text(
               m.corpo.replaceAll('\n', ' '),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             trailing: m.ativo
-                ? (podeEditar ? const Icon(Icons.chevron_right) : null)
-                : Chip(
-                    label: const Text('Inativo'),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: colors.surfaceContainerHighest,
-                  ),
+                ? (podeEditar ? const Icon(Icons.chevron_right_rounded) : null)
+                : SeloDeStatus(texto: 'Inativo', cor: cores.inkMuted),
           );
         },
       ),

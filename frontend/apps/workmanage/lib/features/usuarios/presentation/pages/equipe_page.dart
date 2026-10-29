@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
+import 'package:managers/core/widgets/selo_de_status.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 
 import '../../domain/entities/colaborador.dart';
@@ -43,6 +45,7 @@ class _EquipePageState extends ConsumerState<EquipePage> {
       titulo: 'Cancelar convite',
       mensagem: 'O link enviado para ${convite.email} deixa de funcionar.',
       textoConfirmar: 'Cancelar convite',
+      textoCancelar: 'Voltar',
       destrutivo: true,
     );
     if (!ok || !mounted) return;
@@ -63,7 +66,7 @@ class _EquipePageState extends ConsumerState<EquipePage> {
           floatingActionButton: negocio.ehProprietario
               ? FloatingActionButton.extended(
                   onPressed: () => _abrir('/mais/equipe/novo'),
-                  icon: const Icon(Icons.person_add_alt_1),
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
                   label: const Text('Adicionar'),
                 )
               : null,
@@ -91,7 +94,8 @@ class _EquipePageState extends ConsumerState<EquipePage> {
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 88),
+        // folga para o botão flutuante não cobrir o fim da lista
+        padding: const EdgeInsets.only(bottom: BrandSpacing.space7),
         children: [
           if (provider.isLoading)
             const LinearProgressIndicator(minHeight: 2)
@@ -99,14 +103,24 @@ class _EquipePageState extends ConsumerState<EquipePage> {
             const SizedBox(height: 2),
           if (provider.errorMessage != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.fromLTRB(
+                BrandSpacing.space4,
+                BrandSpacing.space2,
+                BrandSpacing.space4,
+                0,
+              ),
               child: Text(
                 provider.errorMessage!,
-                style: TextStyle(color: colors.error),
+                style: textos.bodyMedium?.copyWith(color: colors.error),
               ),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            padding: const EdgeInsets.fromLTRB(
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space4,
+              BrandSpacing.space1,
+            ),
             child: Text(
               'Equipe (${provider.colaboradores.length})',
               style: textos.titleSmall,
@@ -122,7 +136,12 @@ class _EquipePageState extends ConsumerState<EquipePage> {
 
           if (provider.convitesSoltos.isNotEmpty) ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
+              padding: const EdgeInsets.fromLTRB(
+                BrandSpacing.space4,
+                BrandSpacing.space5,
+                BrandSpacing.space4,
+                BrandSpacing.space1,
+              ),
               child: Text(
                 'Convites pendentes (${provider.convitesSoltos.length})',
                 style: textos.titleSmall,
@@ -130,7 +149,7 @@ class _EquipePageState extends ConsumerState<EquipePage> {
             ),
             for (final convite in provider.convitesSoltos)
               ListTile(
-                leading: const Icon(Icons.mail_outline),
+                leading: const Icon(Icons.mail_outline_rounded),
                 title: Text(convite.email),
                 subtitle: Text(
                   [
@@ -140,7 +159,7 @@ class _EquipePageState extends ConsumerState<EquipePage> {
                 ),
                 trailing: IconButton(
                   tooltip: 'Cancelar convite',
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close_rounded),
                   onPressed: provider.isLoading
                       ? null
                       : () => _cancelarConvite(convite),
@@ -170,12 +189,17 @@ class _ColaboradorTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
     final c = colaborador;
 
     return ListTile(
-      enabled: c.ativo,
       leading: AvatarIniciais(nome: c.nome),
+      // quem está inativo vai em inkMuted, e a linha continua tocável: é na
+      // ficha que se reativa
+      titleTextStyle: c.ativo
+          ? null
+          : textos.titleMedium?.copyWith(color: cores.inkMuted),
       title: Text(souEu ? '${c.nome} (você)' : c.nome),
       subtitle: Text(
         [
@@ -183,37 +207,26 @@ class _ColaboradorTile extends StatelessWidget {
           c.ehProprietario ? 'Proprietário' : c.tipo.nome,
         ].join(' · '),
       ),
+      // o convite a caminho é pendente (warning); inativo e sem acesso são
+      // neutros; o dono leva o selo em azul suave
       trailing: !c.ativo
-          ? Chip(
-              label: const Text('Inativo'),
-              visualDensity: VisualDensity.compact,
-              side: BorderSide(color: colors.outline),
-            )
+          ? SeloDeStatus(texto: 'Inativo', cor: cores.inkMuted)
           : c.ehProprietario
           ? Chip(
               label: const Text('Dono'),
               visualDensity: VisualDensity.compact,
-              backgroundColor: colors.secondaryContainer,
+              backgroundColor: cores.blueSoft,
+              side: BorderSide.none,
             )
           : !c.temAcesso && conviteEnviado
-          ? Chip(
-              avatar: Icon(
-                Icons.mail_outline,
-                size: 16,
-                color: colors.onSecondaryContainer,
-              ),
-              label: const Text('Convite enviado'),
-              visualDensity: VisualDensity.compact,
-              backgroundColor: colors.secondaryContainer,
+          ? SeloDeStatus(
+              texto: 'Convite enviado',
+              icone: Icons.mail_outline_rounded,
+              cor: cores.warning,
             )
           : !c.temAcesso
-          ? Chip(
-              label: const Text('Sem acesso'),
-              visualDensity: VisualDensity.compact,
-              side: BorderSide(color: colors.outline),
-            )
-          : const Icon(Icons.chevron_right),
-      // inativo continua abrindo: é lá que se reativa
+          ? SeloDeStatus(texto: 'Sem acesso', cor: cores.inkMuted)
+          : const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
     );
   }

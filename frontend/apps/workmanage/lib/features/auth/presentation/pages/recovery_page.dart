@@ -99,9 +99,9 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
               // botão de voltar: o login abriu esta tela com push, então ele volta
               Align(
                 alignment: Alignment.centerLeft,
-                child: BackButton(
-                  color: Theme.of(context).colorScheme.onPrimary,
-                ),
+                // sobre o marinho da abertura a seta é branca nos dois temas
+                // (o onPrimary do escuro é o próprio marinho)
+                child: BackButton(color: BrandColors.of(context).onBrand),
               ),
               // área superior: logo completo (símbolo + texto)
               const Expanded(child: AuthLogo()),
@@ -142,7 +142,7 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
           'Informe o e-mail da sua conta e enviaremos um código de verificação.',
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
 
         TextFormField(
           controller: _emailController,
@@ -156,14 +156,13 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
           ]),
           decoration: const InputDecoration(
             labelText: 'E-mail',
-            prefixIcon: Icon(Icons.email_outlined),
-            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.mail_outline_rounded),
           ),
         ),
 
         _errorMessage(provider),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
 
         _submitButton(provider, 'Enviar código', _sendCode),
       ],
@@ -173,17 +172,19 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
   // ETAPA 2: código de verificação
   Widget _codeStep(RecoveryProvider provider) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final loading = provider.isLoading;
 
-    // aparência de cada caixinha do código
+    // cada caixinha do código é um campo: fundo 2, borda, raio sm e o
+    // dígito em headline-small
     final pinTheme = PinTheme(
       width: 40,
       height: 52,
-      textStyle: Theme.of(context).textTheme.titleLarge
-          ?.copyWith(fontWeight: FontWeight.w600),
+      textStyle: Theme.of(context).textTheme.headlineSmall,
       decoration: BoxDecoration(
-        border: Border.all(color: colors.outline),
-        borderRadius: BorderRadius.circular(8),
+        color: cores.bg2,
+        border: Border.all(color: cores.border),
+        borderRadius: BrandRadius.smAll,
       ),
     );
 
@@ -196,7 +197,7 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
               'enviado para ${provider.email}.',
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
 
         // 8 caixinhas não cabem em celular estreito:
         // o FittedBox encolhe em vez de estourar a tela
@@ -208,11 +209,14 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
             autofocus: true,
             enabled: !loading,
             defaultPinTheme: pinTheme,
-            // caixinha em foco ganha a cor da marca
+            // em foco, o azul da ação em 2 px; com erro, danger
             focusedPinTheme: pinTheme.copyBorderWith(
               border: Border.all(color: colors.primary, width: 2),
             ),
-            separatorBuilder: (_) => const SizedBox(width: 6),
+            errorPinTheme: pinTheme.copyBorderWith(
+              border: Border.all(color: cores.danger),
+            ),
+            separatorBuilder: (_) => const SizedBox(width: BrandSpacing.space1),
             validator: Validatorless.multiple([
               Validatorless.required('Informe o código'),
               Validatorless.number('O código tem só números'),
@@ -228,11 +232,11 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
 
         _errorMessage(provider),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
 
         _submitButton(provider, 'Verificar', _verifyCode),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: BrandSpacing.space2),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -258,7 +262,7 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
       children: [
         _header('Nova senha', 'Crie uma nova senha para acessar sua conta.'),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
 
         TextFormField(
           controller: _passwordController,
@@ -275,13 +279,12 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
           ]),
           decoration: InputDecoration(
             labelText: 'Nova senha',
-            prefixIcon: const Icon(Icons.lock_outline),
-            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.lock_outline_rounded),
             suffixIcon: IconButton(
               icon: Icon(
                 _obscurePassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
               ),
               onPressed: () {
                 setState(() => _obscurePassword = !_obscurePassword);
@@ -290,7 +293,7 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: BrandSpacing.space4),
 
         TextFormField(
           controller: _confirmPasswordController,
@@ -307,13 +310,12 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
           ]),
           decoration: InputDecoration(
             labelText: 'Confirmar nova senha',
-            prefixIcon: const Icon(Icons.lock_outline),
-            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.lock_outline_rounded),
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureConfirmPassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
               ),
               onPressed: () {
                 setState(
@@ -326,7 +328,7 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
 
         _errorMessage(provider),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: BrandSpacing.space5),
 
         _submitButton(provider, 'Alterar senha', _resetPassword),
       ],
@@ -336,8 +338,8 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
   // ETAPA 4: sucesso, redireciona sozinho para o login
   Widget _successStep() {
     return SuccessView(
-      title: 'Senha alterada!',
-      message: 'Você será redirecionado para o login.',
+      title: 'Senha alterada',
+      message: 'Em instantes você volta para o login.',
       // go (e não pop): o fluxo acabou, o voltar não deve retornar para cá
       onDone: () => context.go('/login'),
     );
@@ -348,17 +350,16 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // o título do painel é h2; o apoio, body em inkMuted
         Text(
           title,
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.w600),
+          style: BrandText.h2.copyWith(color: BrandColors.of(context).ink),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: BrandSpacing.space2),
         Text(
           subtitle,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: BrandColors.of(context).inkMuted),
         ),
       ],
     );
@@ -373,10 +374,11 @@ class _RecoveryPageState extends ConsumerState<RecoveryPage> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: BrandSpacing.space3),
       child: Text(
         error,
-        style: TextStyle(color: Theme.of(context).colorScheme.error),
+        style: Theme.of(context).textTheme.bodyMedium
+            ?.copyWith(color: Theme.of(context).colorScheme.error),
       ),
     );
   }

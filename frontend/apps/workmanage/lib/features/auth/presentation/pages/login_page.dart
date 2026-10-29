@@ -83,13 +83,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // o título do painel é h2; a saudação é neutra
                       Text(
-                        'Bem-vindo de volta',
-                        style: Theme.of(context).textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                        'Bom ver você de novo',
+                        style: BrandText.h2.copyWith(
+                          color: BrandColors.of(context).ink,
+                        ),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: BrandSpacing.space5),
 
                       // e-mail
                       TextFormField(
@@ -102,12 +104,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ]),
                         decoration: const InputDecoration(
                           labelText: 'E-mail',
-                          prefixIcon: Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.mail_outline_rounded),
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: BrandSpacing.space4),
 
                       // senha: só exigimos que não esteja vazia, quem confere
                       // é o backend
@@ -122,15 +123,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         validator: Validatorless.required('Informe sua senha'),
                         decoration: InputDecoration(
                           labelText: 'Senha',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.lock_outline_rounded),
 
                           // botão de "olhinho" no final do campo
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
+                                  ? Icons.visibility_rounded
+                                  : Icons.visibility_off_rounded,
                             ),
                             onPressed: () {
                               // setState avisa o flutter para redesenhar
@@ -163,18 +163,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           }
 
                           return Padding(
-                            padding: const EdgeInsets.only(top: 12),
+                            padding: const EdgeInsets.only(
+                              top: BrandSpacing.space3,
+                            ),
                             child: Text(
                               error,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
                             ),
                           );
                         },
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: BrandSpacing.space5),
 
                       // botão de entrar: reage ao estado de loading
                       ListenableBuilder(
@@ -201,7 +204,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         },
                       ),
 
-                      const SizedBox(height: 8),
+                      const SizedBox(height: BrandSpacing.space2),
 
                       // navega para a tela de cadastro; push mantém o login
                       // embaixo, para o painel animar na ida e na volta

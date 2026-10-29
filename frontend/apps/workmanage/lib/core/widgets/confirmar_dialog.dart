@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 // pergunta antes de uma ação que a pessoa pode não querer (inativar, sair).
-// devolve true se confirmou; false se cancelou ou fechou o diálogo
+// devolve true se confirmou; false se cancelou ou fechou o diálogo.
+// textoCancelar troca o "Cancelar" do botão de fechar quando a própria ação
+// se chama cancelar ("Cancelar agendamento": fechar vira "Voltar")
 Future<bool> confirmar(
   BuildContext context, {
   required String titulo,
   required String mensagem,
   String textoConfirmar = 'Confirmar',
+  String textoCancelar = 'Cancelar',
   bool destrutivo = false,
 }) async {
   final colors = Theme.of(context).colorScheme;
@@ -18,7 +21,7 @@ Future<bool> confirmar(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
+          child: Text(textoCancelar),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),

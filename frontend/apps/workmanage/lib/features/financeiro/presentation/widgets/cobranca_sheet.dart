@@ -343,7 +343,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
             padding: const EdgeInsets.all(BrandSpacing.space3),
             decoration: BoxDecoration(
               color: colors.errorContainer,
-              borderRadius: BrandRadius.smAll,
+              borderRadius: BrandRadius.mdAll,
               border: Border.all(color: cores.border),
             ),
             child: Text(
@@ -396,7 +396,7 @@ class _Resumo extends StatelessWidget {
       padding: const EdgeInsets.all(BrandSpacing.space3),
       decoration: BoxDecoration(
         color: cores.bg2,
-        borderRadius: BrandRadius.smAll,
+        borderRadius: BrandRadius.mdAll,
         border: Border.all(color: cores.border),
       ),
       child: Row(

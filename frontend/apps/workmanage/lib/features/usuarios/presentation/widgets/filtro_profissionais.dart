@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 
 import '../../domain/entities/colaborador.dart';
@@ -20,24 +21,21 @@ class FiltroProfissionais extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
 
     return SizedBox(
       height: 76,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: BrandSpacing.space2),
         children: [
           _Item(
             nome: 'Todos',
             selecionado: selecionadoId == null,
             avatar: CircleAvatar(
               radius: 20,
-              backgroundColor: colors.surfaceContainerHighest,
-              child: Icon(
-                Icons.groups_outlined,
-                color: colors.onSurfaceVariant,
-              ),
+              backgroundColor: cores.bg2,
+              child: Icon(Icons.groups_rounded, color: cores.inkMuted),
             ),
             onTap: () => onSelecionar(null),
           ),
@@ -74,12 +72,14 @@ class _Item extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BrandRadius.mdAll,
       child: SizedBox(
         width: 68,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // o anel do escolhido: 2 px de azul com 2 px de folga até o
+            // avatar (medida do anel, não espaçamento)
             Container(
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
@@ -91,15 +91,15 @@ class _Item extends StatelessWidget {
               ),
               child: avatar,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: BrandSpacing.space1),
             Text(
               // só o primeiro nome cabe embaixo do avatar
               nome.trim().split(RegExp(r'\s+')).first,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              // o escolhido se marca pelo anel e pela cor; o peso é o do papel
               style: textos.labelSmall?.copyWith(
                 color: selecionado ? colors.primary : colors.onSurfaceVariant,
-                fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],

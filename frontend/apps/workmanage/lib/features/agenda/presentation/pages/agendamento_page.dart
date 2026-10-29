@@ -93,6 +93,8 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
           'O horário de ${agendamento.clienteNome} é liberado. Se o '
           'cliente marcou pelo app, ele é avisado.',
       textoConfirmar: 'Cancelar agendamento',
+      // os dois botões se chamariam "cancelar": fechar vira "voltar"
+      textoCancelar: 'Voltar',
       destrutivo: true,
     );
     if (!ok || !mounted) return;
@@ -272,7 +274,6 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
   // o que dá para fazer em cada status
   Widget _acoes(Agendamento a, AgendamentoProvider provider) {
     final colors = Theme.of(context).colorScheme;
-    final cores = BrandColors.of(context);
     final ocupado = provider.isLoading;
 
     if (a.status == StatusAgendamento.concluido ||
@@ -308,16 +309,13 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
           const SizedBox(height: BrandSpacing.space3),
         ],
         if (a.status == StatusAgendamento.agendado) ...[
-          // o tema do FilledButton vale também para o tonal: sem as cores
-          // daqui, ele seria um segundo botão azul igual ao de cobrar
-          FilledButton.tonalIcon(
+          // confirmar é a ação secundária (contornada); cobrar é o primário
+          OutlinedButton.icon(
             onPressed: ocupado
                 ? null
                 : () => provider.alterarStatus(StatusAgendamento.confirmado),
-            style: FilledButton.styleFrom(
+            style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
-              backgroundColor: cores.blueSoft,
-              foregroundColor: cores.ink,
             ),
             icon: const Icon(Icons.thumb_up_alt_rounded),
             label: const Text('Confirmar'),

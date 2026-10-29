@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/brand.dart';
 import 'folha.dart';
 
 // os filtros das telas de números (Início, Caixa): chips iguais que abrem
@@ -20,27 +21,34 @@ class ChipDeFiltro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
+    // um chip: raio sm com a borda fina, texto em title-small
     return Material(
-      color: colors.surfaceContainerLow,
-      shape: StadiumBorder(side: BorderSide(color: colors.outlineVariant)),
+      color: cores.bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BrandRadius.smAll,
+        side: BorderSide(color: cores.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          padding: const EdgeInsets.fromLTRB(
+            BrandSpacing.space3,
+            BrandSpacing.space2,
+            BrandSpacing.space2,
+            BrandSpacing.space2,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icone, size: 16, color: colors.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(
-                texto,
-                style: textos.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-              ),
+              const SizedBox(width: BrandSpacing.space1),
+              Text(texto, style: textos.titleSmall),
               Icon(
-                Icons.arrow_drop_down,
+                Icons.arrow_drop_down_rounded,
                 size: 20,
                 color: colors.onSurfaceVariant,
               ),
@@ -65,15 +73,21 @@ Future<T?> escolherNaFolha<T>(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-          child: Text(titulo, style: Theme.of(context).textTheme.titleMedium),
+          padding: const EdgeInsets.fromLTRB(
+            BrandSpacing.space5,
+            BrandSpacing.space4,
+            BrandSpacing.space5,
+            BrandSpacing.space2,
+          ),
+          // o título da folha é um título de seção: h3
+          child: Text(titulo, style: Theme.of(context).textTheme.titleLarge),
         ),
         for (final o in opcoes)
           _LinhaDaOpcao(
             opcao: o,
             onTap: () => Navigator.of(context).pop(o.valor),
           ),
-        const SizedBox(height: 8),
+        const SizedBox(height: BrandSpacing.space2),
       ],
     ),
   );
@@ -104,21 +118,21 @@ class _LinhaDaOpcao extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
     return ListTile(
       leading:
           opcao.avatar ??
           (opcao.icone == null
+              // o lugar do ícone, para os textos alinharem
               ? const SizedBox(width: 32)
               : Icon(opcao.icone, color: colors.onSurfaceVariant)),
-      title: Text(
-        opcao.texto,
-        style: TextStyle(
-          fontWeight: opcao.selecionada ? FontWeight.w700 : null,
-          color: opcao.selecionada ? colors.primary : null,
-        ),
-      ),
+      // a escolhida é o estado ativo: azul em body-strong; as outras, body
+      titleTextStyle: opcao.selecionada
+          ? textos.titleMedium?.copyWith(color: colors.primary)
+          : textos.bodyMedium,
+      title: Text(opcao.texto),
       trailing: opcao.selecionada
-          ? Icon(Icons.check, color: colors.primary)
+          ? Icon(Icons.check_rounded, color: colors.primary)
           : null,
       onTap: onTap,
     );

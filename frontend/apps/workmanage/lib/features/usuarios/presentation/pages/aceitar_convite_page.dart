@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/folha.dart';
@@ -55,6 +56,8 @@ class _AceitarConvitePageState extends ConsumerState<AceitarConvitePage> {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
     final provider = ref.watch(aceitarConviteProvider(widget.token));
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Convite para a equipe')),
@@ -81,37 +84,41 @@ class _AceitarConvitePageState extends ConsumerState<AceitarConvitePage> {
             child: ListView(
               padding: paddingDaPagina(context),
               children: [
-                Icon(Icons.badge_outlined, size: 56, color: colors.primary),
-                const SizedBox(height: 16),
+                // ícone decorativo: neutro, porque o azul é só da ação
+                Icon(Icons.badge_rounded, size: 56, color: cores.inkMuted),
+                const SizedBox(height: BrandSpacing.space4),
                 Text(
                   info.nome.isEmpty
-                      ? 'Você foi convidado para a equipe'
-                      : 'Olá, ${info.nome}! Você foi convidado para a equipe',
+                      ? 'Você recebeu um convite para a equipe'
+                      : 'Olá, ${info.nome}. Você recebeu um convite para a '
+                            'equipe',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: textos.titleLarge,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: BrandSpacing.space2),
                 Text(
                   'Crie a senha da sua conta (${info.email}). O convite vale '
                   'até ${formatarDataHora(info.expiraEm)}.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: colors.onSurfaceVariant),
+                  style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: BrandSpacing.space5),
 
                 if (provider.errorMessage != null) ...[
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(BrandSpacing.space3),
                     decoration: BoxDecoration(
                       color: colors.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BrandRadius.mdAll,
                     ),
                     child: Text(
                       provider.errorMessage!,
-                      style: TextStyle(color: colors.onErrorContainer),
+                      style: textos.bodyMedium?.copyWith(
+                        color: colors.onErrorContainer,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: BrandSpacing.space4),
                 ],
 
                 TextFormField(
@@ -126,20 +133,19 @@ class _AceitarConvitePageState extends ConsumerState<AceitarConvitePage> {
                   onChanged: (_) => provider.limparErroDoCampo('senha'),
                   decoration: InputDecoration(
                     labelText: 'Senha',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _mostrarSenha
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
                       ),
                       onPressed: () =>
                           setState(() => _mostrarSenha = !_mostrarSenha),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: BrandSpacing.space4),
                 TextFormField(
                   controller: _confirmacaoController,
                   obscureText: !_mostrarSenha,
@@ -150,11 +156,10 @@ class _AceitarConvitePageState extends ConsumerState<AceitarConvitePage> {
                       : null,
                   decoration: const InputDecoration(
                     labelText: 'Confirmar senha',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_outline_rounded),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: BrandSpacing.space5),
                 FilledButton(
                   onPressed: provider.isLoading ? null : _entrar,
                   style: FilledButton.styleFrom(
@@ -179,24 +184,29 @@ class _ConviteInvalido extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(BrandSpacing.space5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.link_off, size: 56, color: colors.error),
-            const SizedBox(height: 16),
-            Text(mensagem, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
+            Icon(Icons.link_off_rounded, size: 56, color: cores.danger),
+            const SizedBox(height: BrandSpacing.space4),
+            Text(
+              mensagem,
+              textAlign: TextAlign.center,
+              style: textos.titleMedium,
+            ),
+            const SizedBox(height: BrandSpacing.space2),
             Text(
               'Peça um novo convite para o proprietário do negócio.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: colors.onSurfaceVariant),
+              style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             ),
-            const SizedBox(height: 24),
-            FilledButton.tonal(
+            const SizedBox(height: BrandSpacing.space5),
+            FilledButton(
               onPressed: () => context.go('/login'),
               child: const Text('Ir para o login'),
             ),

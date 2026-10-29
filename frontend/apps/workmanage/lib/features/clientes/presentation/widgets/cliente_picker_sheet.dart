@@ -152,7 +152,7 @@ class _ClientePickerSheetState extends State<ClientePickerSheet> {
                             ),
                           ),
                           const SizedBox(height: BrandSpacing.space4),
-                          FilledButton.tonalIcon(
+                          FilledButton.icon(
                             onPressed: _cadastrar,
                             icon: const Icon(Icons.person_add_alt_1_rounded),
                             label: Text(

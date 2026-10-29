@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:managers/core/utils/datas.dart';
 
+import '../theme/brand.dart';
 import 'mascara_formatter.dart';
 
 // como a data entra no campo
@@ -25,6 +26,7 @@ class CampoData extends StatefulWidget {
     this.modo = ModoCampoData.calendario,
     this.enabled = true,
     this.limpavel = true,
+    this.travado = false,
     this.forceErrorText,
     this.primeiraData,
     this.ultimaData,
@@ -38,6 +40,11 @@ class CampoData extends StatefulWidget {
 
   // false: o campo sempre tem data (a agenda), sem o X de limpar
   final bool limpavel;
+
+  // a data que só muda em outro lugar (o nascimento de quem veio do app):
+  // o texto em inkMuted e o cadeado no fim, como os outros campos travados,
+  // sem o apagado do campo desabilitado. o validator continua valendo
+  final bool travado;
   final String? forceErrorText;
   final DateTime? primeiraData;
   final DateTime? ultimaData;
@@ -133,9 +140,11 @@ class _CampoDataState extends State<CampoData> {
 
   @override
   Widget build(BuildContext context) {
-    final digitacao = widget.modo == ModoCampoData.digitacao;
-    final mostraLimpar =
-        widget.valor != null && widget.enabled && widget.limpavel;
+    final digitacao = widget.modo == ModoCampoData.digitacao && !widget.travado;
+    final mexe = widget.enabled && !widget.travado;
+    final mostraLimpar = widget.valor != null && mexe && widget.limpavel;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
 
     return TextFormField(
       key: _campo,
@@ -143,28 +152,32 @@ class _CampoDataState extends State<CampoData> {
       focusNode: _foco,
       readOnly: !digitacao,
       enabled: widget.enabled,
-      onTap: widget.enabled && !digitacao ? _escolher : null,
+      onTap: mexe && !digitacao ? _escolher : null,
       keyboardType: digitacao ? TextInputType.number : null,
       inputFormatters: digitacao
           ? [FilteringTextInputFormatter.digitsOnly, _mascara]
           : null,
       onChanged: digitacao ? _aoDigitar : null,
-      validator: digitacao ? _validar : null,
+      validator: widget.modo == ModoCampoData.digitacao ? _validar : null,
       forceErrorText: widget.forceErrorText,
+      style: widget.travado
+          ? textos.bodyLarge?.copyWith(color: cores.inkMuted)
+          : null,
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: digitacao ? 'dd/mm/aaaa' : null,
         prefixIcon: digitacao
             ? IconButton(
                 tooltip: 'Abrir calendário',
-                icon: const Icon(Icons.calendar_today_outlined),
-                onPressed: widget.enabled ? _escolher : null,
+                icon: const Icon(Icons.calendar_today_rounded),
+                onPressed: mexe ? _escolher : null,
               )
-            : const Icon(Icons.calendar_today_outlined),
-        border: const OutlineInputBorder(),
-        suffixIcon: mostraLimpar
+            : const Icon(Icons.calendar_today_rounded),
+        suffixIcon: widget.travado
+            ? const Icon(Icons.lock_outline_rounded)
+            : mostraLimpar
             ? IconButton(
-                icon: const Icon(Icons.clear),
+                icon: const Icon(Icons.clear_rounded),
                 onPressed: () {
                   _controller.clear();
                   widget.onChanged(null);
