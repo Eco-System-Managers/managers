@@ -51,10 +51,12 @@ class AuthFailure extends Failure {
   });
 }
 
-// 402: assinatura bloqueada (assinatura_bloqueada)
+// 402: assinatura bloqueada (assinatura_bloqueada). a mensagem é sempre a
+// neutra, e não o detail da API ("assine um plano"): ela aparece em
+// qualquer tela, e o app não fala de assinatura onde não dá para assinar
 class SubscriptionFailure extends Failure {
   const SubscriptionFailure({
-    super.message = 'Assinatura inativa. Assine um plano para continuar.',
+    super.message = 'O acesso deste negócio está suspenso no momento.',
     super.code,
   });
 }

@@ -11,23 +11,37 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../home_provider.dart';
 
 // a aba "Mais": configurações, serviços, financeiro, contratos, equipe,
-// assinatura, a política de privacidade, sair e excluir a conta
-class MaisPage extends ConsumerWidget {
+// assinatura (só quando dá para assinar), a política de privacidade, sair e
+// excluir a conta
+class MaisPage extends ConsumerStatefulWidget {
   const MaisPage({super.key});
 
-  Future<void> _sair(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<MaisPage> createState() => _MaisPageState();
+}
+
+class _MaisPageState extends ConsumerState<MaisPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(maisProvider).carregar();
+    });
+  }
+
+  Future<void> _sair() async {
     final ok = await confirmar(
       context,
       titulo: 'Sair',
       mensagem: 'Você vai precisar entrar de novo com e-mail e senha.',
       textoConfirmar: 'Sair',
     );
-    if (!ok || !context.mounted) return;
+    if (!ok || !mounted) return;
     await ref.read(maisProvider).sair();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     // watch: mantém o provider vivo enquanto a aba estiver aberta
     final mais = ref.watch(maisProvider);
     final negocio = ref.watch(negocioAtualProvider);
@@ -98,12 +112,13 @@ class MaisPage extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/mais/equipe'),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.workspace_premium_rounded),
-                  title: const Text('Assinatura'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/mais/assinatura'),
-                ),
+                if (mais.mostraAssinatura)
+                  ListTile(
+                    leading: const Icon(Icons.workspace_premium_rounded),
+                    title: const Text('Assinatura'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/mais/assinatura'),
+                  ),
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
                   title: const Text('Política de privacidade'),
@@ -122,7 +137,7 @@ class MaisPage extends ConsumerWidget {
                     style: textos.titleMedium?.copyWith(color: cores.danger),
                   ),
                   enabled: !mais.saindo,
-                  onTap: () => _sair(context, ref),
+                  onTap: _sair,
                 ),
                 // as lojas exigem que dê para excluir a conta pelo próprio app
                 ListTile(

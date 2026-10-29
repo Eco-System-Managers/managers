@@ -73,15 +73,17 @@ class AssinaturaProvider extends ChangeNotifier {
   bool get bloqueada => _bloqueio.bloqueada;
   bool get saindo => _saindo;
 
+  // onde não dá para assinar (o iPhone sempre, a fase de testes em qualquer
+  // celular) o app não fala de assinatura: a tela mostra só o acesso, sem
+  // plano, cobranças nem "Em breve". é igual no Android e no iPhone, para
+  // cumprir o que a Apple pede
+  bool get semVenda => !compraNoApp || !checkoutAberto;
+
   // o aviso do 402 que trouxe a pessoa até aqui, se houve. o texto da API
-  // ("assine um plano") só aparece onde dá para assinar de verdade: no
-  // iPhone nunca (a Apple não aceita apontar para uma compra de fora) e, na
-  // fase de testes (checkout fechado), em nenhum celular
+  // ("assine um plano") só aparece onde dá para assinar de verdade
   String? get mensagemDeBloqueio {
     if (!_bloqueio.bloqueada) return null;
-    if (!compraNoApp || !checkoutAberto) {
-      return 'O acesso deste negócio está suspenso no momento.';
-    }
+    if (semVenda) return 'O acesso deste negócio está suspenso no momento.';
     return _bloqueio.mensagem;
   }
 
@@ -102,8 +104,8 @@ class AssinaturaProvider extends ChangeNotifier {
 
   bool get podeAssinar => _semAssinatura || (_assinatura?.podeAssinar ?? false);
 
-  // a tela mostra a parte de comprar (os botões ou o "Em breve")
-  bool get mostraCompra => compraNoApp && podeAssinar;
+  // a tela mostra os botões de assinar
+  bool get mostraCompra => !semVenda && podeAssinar;
 
   // assinar pelo app ainda não está liberado: sem assinatura, também não
   bool get checkoutAberto => _assinatura?.checkoutAberto ?? false;

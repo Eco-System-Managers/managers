@@ -26,7 +26,7 @@ Failure failureFrom(DioException e) {
       fields: fields,
     ),
     401 => AuthFailure(message: message, code: code),
-    402 => SubscriptionFailure(message: message, code: code),
+    402 => SubscriptionFailure(code: code),
     403 => PermissionFailure(message: message, code: code),
     404 => NotFoundFailure(message: message, code: code),
     _ => ServerFailure(message: message, code: code),

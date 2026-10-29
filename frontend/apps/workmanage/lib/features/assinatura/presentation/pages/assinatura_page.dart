@@ -17,7 +17,9 @@ import '../providers/assinatura_provider.dart';
 
 // a assinatura do negócio na plataforma: status, checkout no navegador,
 // confirmação do pagamento feito lá fora, cancelamento e o histórico de
-// cobranças. é para cá que o 402 traz quem está bloqueado
+// cobranças. é para cá que o 402 traz quem está bloqueado. onde não dá para
+// assinar (semVenda: o iPhone e a fase de testes) a tela vira "Acesso" e
+// mostra só o aviso, com sair e excluir a conta
 class AssinaturaPage extends ConsumerStatefulWidget {
   const AssinaturaPage({super.key});
 
@@ -114,11 +116,13 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
     final provider = ref.watch(assinaturaProvider);
     final negocio = ref.watch(negocioAtualProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Assinatura')),
-      body: ListenableBuilder(
-        listenable: provider,
-        builder: (context, _) => _corpo(provider, negocio.ehProprietario),
+    return ListenableBuilder(
+      listenable: provider,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(
+          title: Text(provider.semVenda ? 'Acesso' : 'Assinatura'),
+        ),
+        body: _corpo(provider, negocio.ehProprietario),
       ),
     );
   }
@@ -134,6 +138,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
       }
       return const Carregando();
     }
+    if (provider.semVenda) return _corpoSemVenda(provider);
 
     final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
@@ -185,25 +190,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
               style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             )
           else ...[
-            if (provider.mostraCompra && !provider.checkoutAberto) ...[
-              // a fase de testes: o checkout fica fechado, na API também
-              const _Aviso(
-                texto:
-                    'A assinatura pelo app chega em breve. Por enquanto, '
-                    'use o app normalmente.',
-                icone: Icons.schedule_rounded,
-                erro: false,
-              ),
-              const SizedBox(height: BrandSpacing.space3),
-              FilledButton.icon(
-                onPressed: null,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-                icon: const Icon(Icons.lock_clock_rounded),
-                label: const Text('Em breve'),
-              ),
-            ] else if (provider.mostraCompra) ...[
+            if (provider.mostraCompra) ...[
               FilledButton.icon(
                 onPressed: provider.isLoading ? null : _assinar,
                 style: FilledButton.styleFrom(
@@ -233,24 +220,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
             ],
           ],
 
-          // bloqueado, o router prende a pessoa nesta tela: daqui ela ainda
-          // sai do app ou exclui a conta (as lojas exigem que dê para excluir)
-          if (provider.bloqueada) ...[
-            const SizedBox(height: BrandSpacing.space5),
-            OutlinedButton.icon(
-              onPressed: provider.saindo ? null : provider.sair,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-              ),
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Sair'),
-            ),
-            TextButton(
-              onPressed: () => context.push('/mais/excluir-conta'),
-              style: TextButton.styleFrom(foregroundColor: cores.inkMuted),
-              child: const Text('Excluir conta'),
-            ),
-          ],
+          if (provider.bloqueada) ..._saidas(provider),
 
           const SizedBox(height: BrandSpacing.space5),
           Text('Cobranças', style: textos.titleLarge),
@@ -285,6 +255,51 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
         ],
       ),
     );
+  }
+
+  // sem venda não se fala de assinatura: nem plano, nem cobranças, nem
+  // "Em breve". bloqueado, o aviso neutro e as saídas; em dia, só que o
+  // acesso está liberado
+  Widget _corpoSemVenda(AssinaturaProvider provider) {
+    final bloqueio = provider.mensagemDeBloqueio;
+    return ListView(
+      padding: const EdgeInsets.all(BrandSpacing.space4),
+      children: [
+        if (bloqueio != null) ...[
+          _Aviso(
+            texto: bloqueio,
+            icone: Icons.lock_outline_rounded,
+            erro: true,
+          ),
+          ..._saidas(provider),
+        ] else
+          const _Aviso(
+            texto: 'O acesso deste negócio está liberado.',
+            icone: Icons.check_circle_outline_rounded,
+            erro: false,
+          ),
+      ],
+    );
+  }
+
+  // bloqueado, o router prende a pessoa nesta tela: daqui ela ainda sai do
+  // app ou exclui a conta (as lojas exigem que dê para excluir)
+  List<Widget> _saidas(AssinaturaProvider provider) {
+    final cores = BrandColors.of(context);
+    return [
+      const SizedBox(height: BrandSpacing.space5),
+      OutlinedButton.icon(
+        onPressed: provider.saindo ? null : provider.sair,
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+        icon: const Icon(Icons.logout_rounded),
+        label: const Text('Sair'),
+      ),
+      TextButton(
+        onPressed: () => context.push('/mais/excluir-conta'),
+        style: TextButton.styleFrom(foregroundColor: cores.inkMuted),
+        child: const Text('Excluir conta'),
+      ),
+    ];
   }
 
   static Color _corDoPagamento(

@@ -178,6 +178,30 @@ void main() {
     expect(sessao.atual, isNull);
   });
 
+  test(
+    'sem venda é a fase de testes em qualquer celular e o iPhone sempre',
+    () async {
+      when(() => obter(any()))
+          .thenAnswer((_) async => Right(_assinatura(checkoutAberto: false)));
+      final fechado = montar();
+      await fechado.carregar();
+      expect(fechado.semVenda, isTrue);
+      expect(fechado.mostraCompra, isFalse);
+
+      when(() => obter(any()))
+          .thenAnswer((_) async => Right(_assinatura(checkoutAberto: true)));
+      final aberto = montar();
+      await aberto.carregar();
+      expect(aberto.semVenda, isFalse);
+      expect(aberto.mostraCompra, isTrue);
+
+      final iphone = montar(compraNoApp: false);
+      await iphone.carregar();
+      expect(iphone.semVenda, isTrue);
+      expect(iphone.mostraCompra, isFalse);
+    },
+  );
+
   test('no iPhone a tela não oferece compra nenhuma', () async {
     final provider = montar(compraNoApp: false);
 
