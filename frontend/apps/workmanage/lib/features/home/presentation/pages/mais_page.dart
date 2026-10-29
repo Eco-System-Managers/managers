@@ -9,7 +9,7 @@ import 'package:managers/features/empresa/empresa_provider.dart';
 import '../../home_provider.dart';
 
 // a aba "Mais": configurações, serviços, financeiro, contratos, equipe,
-// assinatura e sair
+// assinatura, sair e excluir a conta
 class MaisPage extends ConsumerWidget {
   const MaisPage({super.key});
 
@@ -112,6 +112,18 @@ class MaisPage extends ConsumerWidget {
                   ),
                   enabled: !mais.saindo,
                   onTap: () => _sair(context, ref),
+                ),
+                // as lojas exigem que dê para excluir a conta pelo próprio app
+                ListTile(
+                  leading: Icon(
+                    Icons.person_remove_outlined,
+                    color: cores.inkMuted,
+                  ),
+                  title: Text(
+                    'Excluir conta',
+                    style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
+                  ),
+                  onTap: () => context.push('/mais/excluir-conta'),
                 ),
               ],
             );

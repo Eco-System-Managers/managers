@@ -21,4 +21,8 @@ abstract class AuthRepository {
   // revoga o refresh na API. a sessão local é limpa por quem chama, dê
   // certo ou não
   Future<Either<Failure, void>> logout(String refresh);
+
+  // do dono, o negócio inteiro; da equipe, só o login. a conta trava na hora
+  // e é apagada em 30 dias; entrar de novo antes disso desiste
+  Future<Either<Failure, void>> excluirConta(String senha);
 }

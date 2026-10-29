@@ -57,6 +57,11 @@ class AuthRepositoryImpl implements AuthRepository {
     return _executarSemRetorno(() => _remoteDataSource.logout(refresh));
   }
 
+  @override
+  Future<Either<Failure, void>> excluirConta(String senha) {
+    return _executarSemRetorno(() => _remoteDataSource.excluirConta(senha));
+  }
+
   // o try/catch é igual em todos os métodos: fica num lugar só
   Future<Either<Failure, T>> _executar<T>(Future<T> Function() acao) async {
     try {

@@ -94,4 +94,13 @@ void main() {
     expect(requisicao.path, 'auth/logout/');
     expect(requisicao.data, {'refresh': 'refresh-1'});
   });
+
+  test('excluirConta manda a senha para colaboradores/me/excluir/', () async {
+    await datasource.excluirConta('SenhaForte123!');
+
+    final requisicao = adapter.requisicoes.single;
+    expect(requisicao.method, 'POST');
+    expect(requisicao.path, 'colaboradores/me/excluir/');
+    expect(requisicao.data, {'senha': 'SenhaForte123!'});
+  });
 }
