@@ -2,7 +2,9 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/session/bloqueio_assinatura.dart';
+import 'package:managers/core/session/sessao_controller.dart';
 import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/features/auth/domain/usecases/logout_use_case.dart';
 
 import '../../domain/entities/assinatura.dart';
 import '../../domain/usecases/assinatura_use_cases.dart';
@@ -19,6 +21,8 @@ class AssinaturaProvider extends ChangeNotifier {
     required this._cancelar,
     required this._listarPagamentos,
     required this._bloqueio,
+    required this._logout,
+    required this._sessao,
     this.compraNoApp = true,
   });
 
@@ -28,6 +32,8 @@ class AssinaturaProvider extends ChangeNotifier {
   final CancelarAssinaturaUseCase _cancelar;
   final ListarPagamentosAssinaturaUseCase _listarPagamentos;
   final BloqueioAssinatura _bloqueio;
+  final LogoutUseCase _logout;
+  final SessaoController _sessao;
 
   // false no iPhone: a Apple não deixa vender assinatura com pagamento de fora
   // nem apontar para ele, então lá a tela não oferece compra nenhuma (nem o
@@ -41,6 +47,8 @@ class AssinaturaProvider extends ChangeNotifier {
   bool _isLoading = false;
   Failure? _erroAoCarregar;
   String? _errorMessage;
+
+  bool _saindo = false;
 
   // a tela pode ser fechada durante uma requisição
   bool _disposed = false;
@@ -60,8 +68,37 @@ class AssinaturaProvider extends ChangeNotifier {
   // erro de uma ação; a tela continua
   String? get errorMessage => _errorMessage;
 
-  // o aviso do 402 que trouxe a pessoa até aqui, se houve
-  String? get mensagemDeBloqueio => _bloqueio.mensagem;
+  // o negócio está bloqueado (402): o router prende a pessoa aqui, então a
+  // tela oferece sair e excluir a conta, para ninguém ficar sem saída
+  bool get bloqueada => _bloqueio.bloqueada;
+  bool get saindo => _saindo;
+
+  // o aviso do 402 que trouxe a pessoa até aqui, se houve. o texto da API
+  // ("assine um plano") só aparece onde dá para assinar de verdade: no
+  // iPhone nunca (a Apple não aceita apontar para uma compra de fora) e, na
+  // fase de testes (checkout fechado), em nenhum celular
+  String? get mensagemDeBloqueio {
+    if (!_bloqueio.bloqueada) return null;
+    if (!compraNoApp || !checkoutAberto) {
+      return 'O acesso deste negócio está suspenso no momento.';
+    }
+    return _bloqueio.mensagem;
+  }
+
+  // revoga o refresh na API e limpa a sessão local, como em Mais; se a API
+  // falhar, a sessão local é limpa do mesmo jeito e o router leva ao login
+  Future<void> sair() async {
+    final sessao = _sessao.atual;
+    if (sessao == null || _saindo) return;
+
+    _saindo = true;
+    notifyListeners();
+
+    await _logout(sessao.refresh);
+    if (_disposed) return;
+
+    await _sessao.sair();
+  }
 
   bool get podeAssinar => _semAssinatura || (_assinatura?.podeAssinar ?? false);
 

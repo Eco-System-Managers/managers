@@ -64,11 +64,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!sessao.carregada) return null;
       final destino = state.matchedLocation;
       if (!sessao.autenticado && !_publica(destino)) return '/login';
-      // 402 em qualquer requisição: só a tela de assinatura resolve
+      // 402 em qualquer requisição: só a tela de assinatura resolve. excluir
+      // a conta continua aberto (as lojas exigem; a API deixa, sob /me/)
       if (sessao.autenticado &&
           bloqueio.bloqueada &&
           !_publica(destino) &&
-          destino != '/mais/assinatura') {
+          destino != '/mais/assinatura' &&
+          destino != '/mais/excluir-conta') {
         return '/mais/assinatura';
       }
       return null;

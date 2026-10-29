@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
@@ -230,6 +231,25 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
                 child: const Text('Cancelar assinatura'),
               ),
             ],
+          ],
+
+          // bloqueado, o router prende a pessoa nesta tela: daqui ela ainda
+          // sai do app ou exclui a conta (as lojas exigem que dê para excluir)
+          if (provider.bloqueada) ...[
+            const SizedBox(height: BrandSpacing.space5),
+            OutlinedButton.icon(
+              onPressed: provider.saindo ? null : provider.sair,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+              ),
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Sair'),
+            ),
+            TextButton(
+              onPressed: () => context.push('/mais/excluir-conta'),
+              style: TextButton.styleFrom(foregroundColor: cores.inkMuted),
+              child: const Text('Excluir conta'),
+            ),
           ],
 
           const SizedBox(height: BrandSpacing.space5),

@@ -3,13 +3,19 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/session/bloqueio_assinatura.dart';
+import 'package:managers/core/session/sessao_controller.dart';
 import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/features/assinatura/domain/entities/assinatura.dart';
 import 'package:managers/features/assinatura/domain/usecases/assinatura_use_cases.dart';
 import 'package:managers/features/assinatura/presentation/providers/assinatura_provider.dart';
+import 'package:managers/features/auth/domain/usecases/logout_use_case.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../helpers/fake_sessao_repository.dart';
+
 class _MockObter extends Mock implements ObterAssinaturaUseCase {}
+
+class _MockLogout extends Mock implements LogoutUseCase {}
 
 class _MockIniciar extends Mock implements IniciarAssinaturaUseCase {}
 
@@ -41,6 +47,8 @@ final _pagamento = PagamentoAssinatura(
 );
 
 void main() {
+  late _MockLogout logout;
+  late SessaoController sessao;
   late _MockObter obter;
   late _MockIniciar iniciar;
   late _MockConfirmar confirmar;
@@ -57,6 +65,8 @@ void main() {
     cancelar: cancelar,
     listarPagamentos: listarPagamentos,
     bloqueio: bloqueio,
+    logout: logout,
+    sessao: sessao,
     compraNoApp: compraNoApp,
   );
 
@@ -67,6 +77,9 @@ void main() {
     cancelar = _MockCancelar();
     listarPagamentos = _MockListarPagamentos();
     bloqueio = BloqueioAssinatura();
+    logout = _MockLogout();
+    sessao = SessaoController(FakeSessaoRepository());
+    when(() => logout(any())).thenAnswer((_) async => const Right(null));
     when(() => obter(any())).thenAnswer((_) async => Right(_assinatura()));
     when(() => listarPagamentos(any()))
         .thenAnswer((_) async => Right([_pagamento]));
@@ -87,8 +100,9 @@ void main() {
   });
 
   test('assinatura bloqueada mantém o aviso', () async {
-    when(() => obter(any()))
-        .thenAnswer((_) async => Right(_assinatura(bloqueada: true)));
+    when(() => obter(any())).thenAnswer(
+      (_) async => Right(_assinatura(bloqueada: true, checkoutAberto: true)),
+    );
     bloqueio.marcar('Assinatura inativa.');
     final provider = montar();
 
@@ -112,6 +126,56 @@ void main() {
         .thenAnswer((_) async => const Left(NotFoundFailure()));
     await provider.carregar();
     expect(provider.checkoutAberto, isFalse);
+  });
+
+  test(
+    'com o checkout aberto, o aviso só fala em assinar no Android',
+    () async {
+      when(() => obter(any())).thenAnswer(
+        (_) async => Right(_assinatura(bloqueada: true, checkoutAberto: true)),
+      );
+      bloqueio.marcar('Assinatura inativa. Assine um plano para continuar.');
+
+      final iphone = montar(compraNoApp: false);
+      await iphone.carregar();
+      expect(iphone.bloqueada, isTrue);
+      expect(
+        iphone.mensagemDeBloqueio,
+        'O acesso deste negócio está suspenso no momento.',
+      );
+
+      final android = montar();
+      await android.carregar();
+      expect(
+        android.mensagemDeBloqueio,
+        'Assinatura inativa. Assine um plano para continuar.',
+      );
+    },
+  );
+
+  test('na fase de testes o aviso é neutro também no Android', () async {
+    when(() => obter(any()))
+        .thenAnswer((_) async => Right(_assinatura(bloqueada: true)));
+    bloqueio.marcar('Assinatura inativa. Assine um plano para continuar.');
+    final provider = montar();
+
+    await provider.carregar();
+
+    expect(provider.checkoutAberto, isFalse);
+    expect(
+      provider.mensagemDeBloqueio,
+      'O acesso deste negócio está suspenso no momento.',
+    );
+  });
+
+  test('sair revoga o refresh e limpa a sessão', () async {
+    await sessao.entrar(sessaoDeTeste);
+    final provider = montar();
+
+    await provider.sair();
+
+    verify(() => logout(sessaoDeTeste.refresh)).called(1);
+    expect(sessao.atual, isNull);
   });
 
   test('no iPhone a tela não oferece compra nenhuma', () async {
