@@ -11,20 +11,21 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `Agendamento`, `AgendamentoServico` (o N:N com preço congelado) e `PagamentoAgendamento` |
-| `services.py` | Quatro serviços: dias com registro, pendências de cobrança, grade de horários livres e a regra de conflito |
-| `views.py` | `AgendamentoViewSet` mais três views de leitura (slots, dias do mês, pendências) |
+| `models.py` | `Agendamento`, `AgendamentoServico` (o N:N com preço congelado), `PagamentoAgendamento` e `Bloqueio` |
+| `services.py` | Cinco serviços: dias com registro, pendências de cobrança, grade de horários livres, bloqueios e a regra de conflito |
+| `views.py` | `AgendamentoViewSet`, `BloqueioViewSet` e três views de leitura (slots, dias do mês, pendências) |
 | `serializers.py` | Representação; o `create` monta agendamento e serviços juntos |
 | `signals.py` | Declara `agendamento_status_alterado`, que a vitrine escuta |
 | `urls.py` | Rotas sob `/api/v1/agendamentos/` e afins |
 
-## Os três modelos
+## Os quatro modelos
 
 | Modelo | Papel |
 |---|---|
 | `Agendamento` | O compromisso: cliente, colaborador, data/hora, status |
 | `AgendamentoServico` | Quais serviços, com `preco_cobrado` **congelado** no momento do agendamento — mudar a tabela de preços depois não reescreve o passado |
 | `PagamentoAgendamento` | Como foi pago (dinheiro, PIX, crédito, débito, QR Code). Um agendamento pode ter mais de um |
+| `Bloqueio` | Um período em que o profissional não atende (imprevisto, folga, férias, almoço). Tira o trecho da grade |
 
 ## Tabelas
 
@@ -112,3 +113,28 @@ interfere na do outro.
 O cálculo mora em `livres()`, que recebe a duração e um `nao_antes_de`. É o
 mesmo que o app do cliente usa (`apps_serv/vitrine`), com a soma dos serviços
 e a antecedência de 30 min; a empresa não passa `nao_antes_de`.
+
+## Bloqueios (`agenda/bloqueios/`)
+
+Um `Bloqueio` tira um trecho da agenda de um profissional. É o que substitui
+pausa fixa e buffer: a agenda não reserva intervalo nenhum sozinha.
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| `colaborador` | `FK → usuarios.Colaborador` `CASCADE` | De quem é a agenda bloqueada |
+| `data_inicio` | `DateField` | Hoje ou depois |
+| `data_fim` | `DateField` nulo | Nulo é o **fixo**: vale todos os dias a partir do início (o almoço). "Uma semana" e "um mês" são a tela preenchendo a data |
+| `hora_inicio` / `hora_fim` | `TimeField` nulos | Os dois nulos: o dia inteiro |
+| `motivo` | `CharField(60)` vazio | Texto livre ("Almoço", "Férias") |
+| `criado_em` | `DateTime` `auto_now_add` | |
+
+- **Só listar, criar e excluir.** Sem editar: para mudar, exclui e cria de novo.
+- **Quem pode** (`exigir_poder_bloquear`): o dono bloqueia a agenda de todos; o
+  parceiro, só a própria; o colaborador comum só vê (403 `sem_permissao_bloquear`).
+- **Não bloqueia em cima de cliente.** Criar procura atendimento ainda por
+  acontecer (`agendado`/`confirmado`) dentro do período e da faixa; no fixo,
+  em todas as datas a partir do início. Achou: 400 `bloqueio_com_cliente`.
+- **Vale para todo mundo.** Sai da grade do Work Manage e do app do cliente
+  (`_intervalos_ocupados`), e a regra de conflito recusa marcar ou remarcar em
+  cima dele (400 `horario_bloqueado`), inclusive para o dono.
+- **Só no modo horário.** A esteira não tem agenda individual.

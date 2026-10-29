@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from .models import Agendamento, AgendamentoServico, OrigemAtendimento, PagamentoAgendamento
+from django.utils import timezone
+from .models import Agendamento, AgendamentoServico, Bloqueio, OrigemAtendimento, PagamentoAgendamento
 
 
 class AgendamentoServicoSerializer(serializers.ModelSerializer):
@@ -50,6 +51,37 @@ class AgendamentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Agendamento
         fields = '__all__'
+
+
+class BloqueioSerializer(serializers.ModelSerializer):
+    colaborador_nome = serializers.ReadOnlyField(source='colaborador.nome_exibido')
+
+    class Meta:
+        model = Bloqueio
+        fields = [
+            'id', 'colaborador', 'colaborador_nome', 'data_inicio', 'data_fim',
+            'hora_inicio', 'hora_fim', 'motivo', 'criado_em',
+        ]
+        extra_kwargs = {
+            'data_fim': {'help_text': 'Nulo é o bloqueio fixo: vale todos os dias a partir do início.'},
+            'hora_inicio': {'help_text': 'Nulo junto com hora_fim: o dia inteiro.'},
+        }
+
+    def validate(self, attrs):
+        if attrs['data_inicio'] < timezone.localdate():
+            raise serializers.ValidationError({'data_inicio': 'O bloqueio começa hoje ou depois.'})
+        data_fim = attrs.get('data_fim')
+        if data_fim and data_fim < attrs['data_inicio']:
+            raise serializers.ValidationError({'data_fim': 'O fim vem depois do início.'})
+
+        hora_inicio, hora_fim = attrs.get('hora_inicio'), attrs.get('hora_fim')
+        if (hora_inicio is None) != (hora_fim is None):
+            raise serializers.ValidationError(
+                {'hora_fim': 'Informe o início e o fim, ou nenhum dos dois para o dia inteiro.'},
+            )
+        if hora_inicio is not None and hora_fim <= hora_inicio:
+            raise serializers.ValidationError({'hora_fim': 'O fim vem depois do início.'})
+        return attrs
 
 
 # ---------------------------------------------------------------------------

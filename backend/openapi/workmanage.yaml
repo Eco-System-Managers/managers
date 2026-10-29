@@ -4,6 +4,185 @@ info:
   version: 1.0.0
   description: API do painel do negócio (B2B).
 paths:
+  /api/v1/agenda/bloqueios/:
+    get:
+      operationId: agenda_bloqueios_list
+      description: 'Sem editar: para mudar um bloqueio, a pessoa exclui e cria de
+        novo.'
+      summary: Bloqueios da agenda
+      parameters:
+      - in: query
+        name: colaborador
+        schema:
+          type: integer
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        description: Só os que valem neste dia (o fixo vale do início em diante).
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      tags:
+      - agenda
+      security:
+      - workmanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBloqueioList'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    post:
+      operationId: agenda_bloqueios_create
+      description: O dono bloqueia a agenda de qualquer um; o parceiro, só a própria
+        (403 sem_permissao_bloquear). Recusado com 400 bloqueio_com_cliente quando
+        há atendimento marcado dentro do período.
+      summary: Bloquear um período da agenda
+      tags:
+      - agenda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BloqueioRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BloqueioRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BloqueioRequest'
+        required: true
+      security:
+      - workmanageJWT: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bloqueio'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/v1/agenda/bloqueios/{id}/:
+    delete:
+      operationId: agenda_bloqueios_destroy
+      description: 'Sem editar: para mudar um bloqueio, a pessoa exclui e cria de
+        novo.'
+      summary: Excluir um bloqueio
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Um valor inteiro único que identifica este bloqueio.
+        required: true
+      tags:
+      - agenda
+      security:
+      - workmanageJWT: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
   /api/v1/agenda/dias-com-registro/:
     get:
       operationId: agenda_dias_com_registro_retrieve
@@ -7840,6 +8019,75 @@ components:
     BlankEnum:
       enum:
       - ''
+    Bloqueio:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        colaborador:
+          type: integer
+        colaborador_nome:
+          type: string
+          readOnly: true
+        data_inicio:
+          type: string
+          format: date
+        data_fim:
+          type: string
+          format: date
+          nullable: true
+          description: 'Nulo é o bloqueio fixo: vale todos os dias a partir do início.'
+        hora_inicio:
+          type: string
+          format: time
+          nullable: true
+          description: 'Nulo junto com hora_fim: o dia inteiro.'
+        hora_fim:
+          type: string
+          format: time
+          nullable: true
+        motivo:
+          type: string
+          maxLength: 60
+        criado_em:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - colaborador
+      - colaborador_nome
+      - criado_em
+      - data_inicio
+      - id
+    BloqueioRequest:
+      type: object
+      properties:
+        colaborador:
+          type: integer
+        data_inicio:
+          type: string
+          format: date
+        data_fim:
+          type: string
+          format: date
+          nullable: true
+          description: 'Nulo é o bloqueio fixo: vale todos os dias a partir do início.'
+        hora_inicio:
+          type: string
+          format: time
+          nullable: true
+          description: 'Nulo junto com hora_fim: o dia inteiro.'
+        hora_fim:
+          type: string
+          format: time
+          nullable: true
+        motivo:
+          type: string
+          maxLength: 60
+      required:
+      - colaborador
+      - data_inicio
     CadastroRequest:
       type: object
       properties:
@@ -9303,6 +9551,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AtendimentoKanban'
+    PaginatedBloqueioList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bloqueio'
     PaginatedClienteList:
       type: object
       required:

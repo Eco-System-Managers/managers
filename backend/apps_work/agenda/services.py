@@ -1,9 +1,11 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import Agendamento, OrigemAtendimento, PagamentoAgendamento, StatusAgendamento
+from core.excecoes import ErroDeNegocio
+from .models import Agendamento, Bloqueio, OrigemAtendimento, PagamentoAgendamento, StatusAgendamento
 
 DURACAO_PADRAO_MINUTOS = 30
 
@@ -14,6 +16,11 @@ STATUS_QUE_OCUPAM = (StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO)
 ERRO_HORARIO_CONFLITO = {
     'detail': 'Esse colaborador já tem um agendamento nesse horário.',
     'code': 'horario_conflito',
+}
+
+ERRO_HORARIO_BLOQUEADO = {
+    'detail': 'Esse horário está bloqueado na agenda do profissional.',
+    'code': 'horario_bloqueado',
 }
 
 
@@ -187,7 +194,83 @@ class SlotsAgendaService:
             # operacional, que pode não ser o do Django.
             inicio = timezone.localtime(ag.data_hora).replace(tzinfo=None)
             intervalos.append((inicio, inicio + timedelta(minutes=duracao)))
-        return intervalos
+        return intervalos + BloqueioService().intervalos_do_dia(data, colaborador_id)
+
+
+class BloqueioService:
+    """Os bloqueios da agenda: o que eles tiram da grade e a regra para criar.
+
+    Não existe editar: para mudar, a pessoa exclui e cria de novo, e a regra
+    de não bloquear em cima de cliente só precisa valer na criação.
+    """
+
+    def do_dia(self, data: date):
+        """Os bloqueios que valem num dia (o fixo vale de `data_inicio` em diante)."""
+        return (
+            Bloqueio.objects
+            .filter(data_inicio__lte=data)
+            .filter(Q(data_fim__isnull=True) | Q(data_fim__gte=data))
+        )
+
+    def intervalos_do_dia(self, data: date, colaborador_id: int) -> list[tuple]:
+        """Os trechos bloqueados do dia, no horário local e sem fuso, no mesmo
+        formato dos agendamentos da grade. O dia inteiro vai da meia-noite à
+        meia-noite seguinte."""
+        return [
+            self._intervalo(b, data)
+            for b in self.do_dia(data).filter(colaborador_id=colaborador_id)
+        ]
+
+    @transaction.atomic
+    def criar(
+        self, colaborador, data_inicio: date, data_fim: date | None = None,
+        hora_inicio: time | None = None, hora_fim: time | None = None, motivo: str = '',
+    ) -> Bloqueio:
+        # os opcionais podem nem vir no pedido: o fixo não manda data_fim, o
+        # dia inteiro não manda as horas
+        bloqueio = Bloqueio(
+            colaborador=colaborador, data_inicio=data_inicio, data_fim=data_fim,
+            hora_inicio=hora_inicio, hora_fim=hora_fim, motivo=motivo,
+        )
+        if self._tem_cliente(bloqueio):
+            raise ErroDeNegocio(
+                'Você tem cliente agendado nesse horário. Para bloquear, reagende ou cancele o atendimento primeiro.',
+                'bloqueio_com_cliente',
+            )
+        bloqueio.save()
+        return bloqueio
+
+    def _tem_cliente(self, bloqueio: Bloqueio) -> bool:
+        """Algum atendimento ainda por acontecer cai dentro do bloqueio. No
+        fixo, olha todas as datas a partir do início, não só a primeira."""
+        agora = timezone.localtime().replace(tzinfo=None)
+        agendamentos = (
+            Agendamento.objects
+            .filter(
+                colaborador=bloqueio.colaborador,
+                status__in=STATUS_QUE_OCUPAM,
+                data_hora__date__gte=bloqueio.data_inicio,
+            )
+            .prefetch_related('servicos__servico')
+        )
+        if bloqueio.data_fim:
+            agendamentos = agendamentos.filter(data_hora__date__lte=bloqueio.data_fim)
+
+        for ag in agendamentos:
+            duracao = sum(s.servico.duracao for s in ag.servicos.all()) or DURACAO_PADRAO_MINUTOS
+            inicio = timezone.localtime(ag.data_hora).replace(tzinfo=None)
+            fim = inicio + timedelta(minutes=duracao)
+            if fim <= agora:
+                continue
+            inicio_bl, fim_bl = self._intervalo(bloqueio, inicio.date())
+            if inicio < fim_bl and inicio_bl < fim:
+                return True
+        return False
+
+    def _intervalo(self, bloqueio: Bloqueio, data: date) -> tuple[datetime, datetime]:
+        if bloqueio.hora_inicio is None:
+            return datetime.combine(data, time.min), datetime.combine(data + timedelta(days=1), time.min)
+        return datetime.combine(data, bloqueio.hora_inicio), datetime.combine(data, bloqueio.hora_fim)
 
 
 class AgendamentoService:
@@ -226,6 +309,14 @@ class AgendamentoService:
         duracao = duracao_minutos or DURACAO_PADRAO_MINUTOS
         inicio = data_hora
         fim = data_hora + timedelta(minutes=duracao)
+
+        # O bloqueio vale também para a empresa: para marcar em cima dele, o
+        # bloqueio sai antes.
+        inicio_local = timezone.localtime(inicio).replace(tzinfo=None)
+        fim_local = inicio_local + timedelta(minutes=duracao)
+        for inicio_bl, fim_bl in BloqueioService().intervalos_do_dia(inicio_local.date(), colaborador.pk):
+            if inicio_local < fim_bl and inicio_bl < fim_local:
+                raise ValidationError(ERRO_HORARIO_BLOQUEADO)
 
         candidatos = (
             Agendamento.objects

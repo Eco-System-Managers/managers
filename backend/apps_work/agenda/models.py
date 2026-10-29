@@ -63,3 +63,28 @@ class PagamentoAgendamento(models.Model):
 
     def __str__(self):
         return f'{self.agendamento} — {self.forma}: R${self.valor}'
+
+
+class Bloqueio(models.Model):
+    """Um período em que o profissional não atende: um imprevisto, uma folga,
+    as férias ou a pausa de todo dia (o almoço). É o que substitui pausa fixa
+    no expediente: a agenda não reserva intervalo nenhum sozinha.
+
+    "Uma semana" e "um mês" não ficam guardados: são a tela preenchendo a
+    `data_fim`.
+    """
+    colaborador = models.ForeignKey(Colaborador, on_delete=models.CASCADE, related_name='bloqueios')
+    data_inicio = models.DateField()
+    # Nulo é o bloqueio fixo: vale todos os dias a partir do início.
+    data_fim = models.DateField(null=True, blank=True)
+    # Os dois nulos bloqueiam o dia inteiro.
+    hora_inicio = models.TimeField(null=True, blank=True)
+    hora_fim = models.TimeField(null=True, blank=True)
+    motivo = models.CharField(max_length=60, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['data_inicio', 'hora_inicio']
+
+    def __str__(self):
+        return f'{self.colaborador} — {self.data_inicio:%d/%m/%Y}'

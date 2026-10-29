@@ -1,22 +1,66 @@
 from datetime import date as date_type
-from rest_framework import viewsets, status as drf_status
+from rest_framework import mixins, viewsets, status as drf_status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.plumbing import build_array_type, build_basic_type
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
-from .models import Agendamento, StatusAgendamento
-from .serializers import AgendamentoSerializer, PendenciaCobrancaSerializer, SlotSerializer
+from .models import Agendamento, Bloqueio, StatusAgendamento
+from .serializers import AgendamentoSerializer, BloqueioSerializer, PendenciaCobrancaSerializer, SlotSerializer
 from .services import (
     AgendamentoService,
+    BloqueioService,
     DiasComRegistroService,
     PendenciasCobrancaService,
     SlotsAgendaService,
 )
 from apps_work.financeiro.serializers import CobrancaSerializer
-from core.excecoes import erro
-from core.permissions import exigir_poder_cobrar
+from core.excecoes import ErroDeNegocio, erro
+from core.permissions import exigir_poder_bloquear, exigir_poder_cobrar
+
+
+@extend_schema_view(
+    list=extend_schema(
+        summary='Bloqueios da agenda',
+        parameters=[
+            OpenApiParameter('data', OpenApiTypes.DATE, description='Só os que valem neste dia (o fixo vale do início em diante).'),
+            OpenApiParameter('colaborador', OpenApiTypes.INT),
+        ],
+    ),
+    create=extend_schema(
+        summary='Bloquear um período da agenda',
+        description=(
+            'O dono bloqueia a agenda de qualquer um; o parceiro, só a própria (403 sem_permissao_bloquear). '
+            'Recusado com 400 bloqueio_com_cliente quando há atendimento marcado dentro do período.'
+        ),
+    ),
+    destroy=extend_schema(summary='Excluir um bloqueio'),
+)
+class BloqueioViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
+    """Sem editar: para mudar um bloqueio, a pessoa exclui e cria de novo."""
+
+    serializer_class = BloqueioSerializer
+
+    def get_queryset(self):
+        data = self.request.query_params.get('data')
+        colaborador = self.request.query_params.get('colaborador')
+
+        try:
+            qs = BloqueioService().do_dia(date_type.fromisoformat(data)) if data else Bloqueio.objects.all()
+            if colaborador:
+                qs = qs.filter(colaborador_id=int(colaborador))
+        except ValueError:
+            raise ErroDeNegocio('Parâmetros inválidos: data (YYYY-MM-DD) e colaborador (número).', 'parametros_invalidos')
+        return qs.select_related('colaborador__user')
+
+    def perform_create(self, serializer):
+        exigir_poder_bloquear(self.request, serializer.validated_data['colaborador'].pk)
+        serializer.instance = BloqueioService().criar(**serializer.validated_data)
+
+    def perform_destroy(self, instance):
+        exigir_poder_bloquear(self.request, instance.colaborador_id)
+        instance.delete()
 
 
 class PendenciasCobrancaView(APIView):

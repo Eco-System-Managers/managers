@@ -80,6 +80,19 @@ def exigir_poder_cobrar(request) -> None:
         raise ErroDeNegocio('Você não pode registrar cobranças.', 'sem_permissao_cobrar', 403)
 
 
+def exigir_poder_bloquear(request, colaborador_id: int) -> None:
+    """Criar ou excluir bloqueio na agenda de `colaborador_id`. O dono mexe na
+    agenda de todos; o parceiro, só na própria; o colaborador comum, em nenhuma
+    (a agenda dele é decidida pelo dono)."""
+    if eh_proprietario(request):
+        return
+    colaborador = colaborador_do(request)
+    if colaborador is None or not colaborador.eh_parceiro:
+        raise ErroDeNegocio('Você não pode bloquear a agenda.', 'sem_permissao_bloquear', 403)
+    if colaborador.pk != colaborador_id:
+        raise ErroDeNegocio('Você só pode bloquear a sua própria agenda.', 'sem_permissao_bloquear', 403)
+
+
 class IsProprietario(BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
