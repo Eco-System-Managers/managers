@@ -2,6 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:dio/dio.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
 
 import '../../domain/entities/dashboard_resumo.dart';
 
@@ -69,6 +70,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
                 .cast<Map<String, dynamic>>())
           RankingServico(
             nome: r['nome'] as String? ?? '',
+            nicho: Nicho.doSlug(r['nicho'] as String? ?? ''),
             total: r['total'] as int? ?? 0,
           ),
       ],

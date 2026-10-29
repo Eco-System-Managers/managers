@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
 import 'package:managers/features/dashboard/data/datasources/dashboard_remote_datasource.dart';
 
 import '../../helpers/fake_adapter.dart';
@@ -28,8 +29,8 @@ const _resumoJson = {
     {'data': '2026-10-20', 'faturamento': '300.00', 'atendimentos': 4},
   ],
   'ranking_servicos': [
-    {'nome': 'Corte', 'total': 12},
-    {'nome': 'Barba', 'total': 8},
+    {'nome': 'Corte', 'nicho': 'cabeleireiro', 'total': 12},
+    {'nome': 'Barba', 'nicho': 'barbearia', 'total': 8},
   ],
   'agendamentos_hoje': [
     {
@@ -74,6 +75,10 @@ void main() {
     // filtrado por profissional, cliente novo não se atribui
     expect(resumo.clientesNovos, isNull);
     expect(resumo.rankingServicos.map((r) => r.nome), ['Corte', 'Barba']);
+    expect(resumo.rankingServicos.map((r) => r.nicho), [
+      Nicho.cabeleireiro,
+      Nicho.barbearia,
+    ]);
     expect(resumo.agendamentosHoje.single.hora, '10:30');
     expect(resumo.agendamentosHoje.single.minutos, 10 * 60 + 30);
     expect(resumo.agendamentosHoje.single.id, 3);
