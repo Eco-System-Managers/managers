@@ -391,6 +391,11 @@ MERCADOPAGO_BACK_URL = os.getenv('MERCADOPAGO_BACK_URL', 'https://workmanage.com
 # atualizar o app (ele lê checkout_aberto da assinatura).
 ASSINATURA_ABERTA = os.getenv('ASSINATURA_ABERTA', 'False') == 'True'
 
+# Quem responde pelos dados na política de privacidade (/privacidade) e o
+# e-mail para pedidos da LGPD. As lojas exigem a página publicada.
+PRIVACIDADE_RESPONSAVEL = os.getenv('PRIVACIDADE_RESPONSAVEL', 'Work Manage')
+PRIVACIDADE_EMAIL = os.getenv('PRIVACIDADE_EMAIL', '')
+
 # OpenAPI (drf-spectacular). Título e filtro de rotas vêm de cada produto
 # (core/openapi.py); aqui fica o que vale para os dois.
 SPECTACULAR_SETTINGS = {
