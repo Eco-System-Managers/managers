@@ -66,7 +66,8 @@ App: **Work Manage** (`frontend/apps/workmanage`).
   - O painel do formulário é `bg` no claro e `bg-2` no escuro, com `radius-lg`.
 - **O loader e a splash desenhavam o logo antigo (os dois anéis).** Agora é o símbolo W animado, com os mesmos três caminhos do SVG, sem alterar nenhum ponto:
   - as hastes entram, a gota azul chega por cima ("o cliente que chega para o próximo horário"), o símbolo respira e sai;
-  - os tempos são os de antes, porque a splash espera o fim do ciclo para navegar;
+  - os tempos são os de antes, com uma exceção: a cena da gota começa quando a segunda haste termina de entrar (1,1 s do tempo autoral, e não 1,2 s). A gota começava na cena lenta das hastes e acelerava no meio da queda, um engasgo visível; agora cai inteira numa velocidade só, e o ciclo ficou 0,1 s mais curto;
+  - a splash troca de tela só no fim do ciclo que está rodando quando a rota é decidida, e a animação para de repetir nessa hora. Trocar no meio do ciclo cortava o W antes da última parte, e o ciclo recomeçava por baixo da transição;
   - é colorido no claro e branco no escuro e na splash.
 
 ## Fora do app (plataformas)

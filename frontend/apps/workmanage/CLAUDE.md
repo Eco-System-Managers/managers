@@ -75,7 +75,7 @@ O que o `lib/core/` oferece a toda feature (fase 0 do MVP):
 
 | Feature | O que é | Rotas |
 |---|---|---|
-| `splash` | Decide a rota inicial pela sessão e pela config | `/splash` |
+| `splash` | Decide a rota inicial pela sessão e pela config. A troca de tela espera o fim do ciclo da animação que está rodando quando a rota é decidida (`rotaDecidida` desliga o `loop` do `WorkManageLoader`), para o símbolo nunca ser cortado | `/splash` |
 | `auth` | Login, recuperação de senha e logout na API | `/login`, `/recovery` |
 | `register` | Cadastro com confirmação por e-mail; a sessão vem na confirmação | `/register`, `/register/verificar` |
 | `onboarding` | Só o wizard (negócio, nicho, horários); os dados são da `empresa` | `/onboarding` |
