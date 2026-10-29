@@ -1,4 +1,4 @@
-package com.example.managers
+package br.com.workmanage.app
 
 import io.flutter.embedding.android.FlutterActivity
 
