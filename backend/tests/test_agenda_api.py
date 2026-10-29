@@ -241,6 +241,20 @@ class TestAgendamentoConflitoHorario:
         response = client_autenticado.post('/api/v1/agendamentos/', payload)
         assert response.status_code == 201
 
+    @pytest.mark.parametrize('desfecho', ['faltou', 'concluido'])
+    def test_criar_em_cima_de_quem_ja_teve_desfecho_nao_conflita(self, client_autenticado, cliente, colaborador, desfecho):
+        # a grade mostra o horário livre; antes o salvar recusava
+        Agendamento.objects.create(
+            cliente=cliente, colaborador=colaborador, status=desfecho,
+            data_hora=datetime(2024, 6, 15, 10, 0, tzinfo=timezone.utc),
+        )
+        payload = {
+            'cliente': cliente.id, 'colaborador': colaborador.id,
+            'data_hora': '2024-06-15T10:00:00Z',
+        }
+        response = client_autenticado.post('/api/v1/agendamentos/', payload)
+        assert response.status_code == 201
+
     def test_criar_sem_colaborador_nao_verifica_conflito(self, client_autenticado, cliente, colaborador):
         Agendamento.objects.create(
             cliente=cliente, colaborador=colaborador,

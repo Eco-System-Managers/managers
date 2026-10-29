@@ -229,8 +229,7 @@ class AgendamentoService:
 
         candidatos = (
             Agendamento.objects
-            .filter(colaborador=colaborador, data_hora__date=data_hora.date())
-            .exclude(status=StatusAgendamento.CANCELADO)
+            .filter(colaborador=colaborador, data_hora__date=data_hora.date(), status__in=STATUS_QUE_OCUPAM)
             .prefetch_related('servicos__servico')
         )
         if excluir_id:

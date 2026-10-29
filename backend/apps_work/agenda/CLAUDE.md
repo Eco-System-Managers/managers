@@ -67,6 +67,11 @@ apenas o horário de início.
 Quem não tem colaborador definido não entra na checagem: sem profissional, não
 há recurso disputado.
 
+Só `agendado` e `confirmado` ocupam o horário (`STATUS_QUE_OCUPAM`), aqui e na
+grade: concluído e faltou já tiveram desfecho, e o horário fica livre para
+quem chegar. Antes a regra só ignorava o cancelado, e a grade mostrava livre
+um horário que o salvar recusava.
+
 ## Filtros da listagem
 
 `?data=` (um dia), `?colaborador=` e `?cliente=`, documentados no OpenAPI. A
