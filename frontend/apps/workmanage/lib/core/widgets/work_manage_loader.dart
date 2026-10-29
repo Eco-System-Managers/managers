@@ -12,18 +12,23 @@ class _Seg {
   final double play;
 }
 
-// Entrada, Gota, Pausa, Saída.
-// Só a reprodução da pausa varia (vem de [WorkManageLoader.pauseDuration]);
-// o tempo autoral fica igual, então a coreografia não muda, só desacelera.
+// Entrada, Gota, Pausa, Saída: uma cena por trecho entre os marcos abaixo.
+// A entrada das hastes toca na metade da velocidade; o resto, no tempo
+// autoral. Só a reprodução da pausa varia (vem de
+// [WorkManageLoader.pauseDuration]); o tempo autoral fica igual, então a
+// coreografia não muda, só desacelera. Cada parte do símbolo anima inteira
+// dentro de uma cena: uma animação que atravessa a fronteira entre duas
+// velocidades muda de ritmo no meio e engasga.
 List<_Seg> _scenesWith(double pausePlay) => [
-  const _Seg(1.2, 2.4),
-  const _Seg(0.5, 0.5),
-  _Seg(0.9, pausePlay),
-  const _Seg(0.8, 0.8),
+  const _Seg(_cGota, _cGota * 2),
+  const _Seg(_cPausa - _cGota, _cPausa - _cGota),
+  _Seg(_cSaida - _cPausa, pausePlay),
+  const _Seg(_cEnd - _cSaida, _cEnd - _cSaida),
 ];
 
-// Marcos autorais (segundos).
-const _cGota = 1.2, _cPausa = 1.7, _cSaida = 2.6, _cEnd = 3.4;
+// Marcos autorais (segundos). A gota começa a cair quando a segunda haste
+// termina de entrar.
+const _cGota = 1.1, _cPausa = 1.7, _cSaida = 2.6, _cEnd = 3.4;
 
 /// O símbolo do Work Manage animado, para o carregamento.
 ///
@@ -199,8 +204,8 @@ class _SimboloPainter extends CustomPainter {
       // a gota chega de cima, com um leve assentamento; e é a primeira a sair
       before
           ? _Parte(
-              _tw(t, 0, 1, _cGota - 0.1, _cGota + 0.25, entra),
-              _tw(t, -0.35, 0, _cGota - 0.1, _cGota + 0.45, Curves.easeOutBack),
+              _tw(t, 0, 1, _cGota, _cGota + 0.35, entra),
+              _tw(t, -0.35, 0, _cGota, _cGota + 0.55, Curves.easeOutBack),
             )
           : _Parte(_tw(t, 1, 0, _cSaida, _cSaida + 0.4, sai), 0),
       before
