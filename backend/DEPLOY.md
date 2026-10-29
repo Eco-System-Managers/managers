@@ -116,11 +116,11 @@ Estado em 2026-10-27:
 - [x] App Flutter apontando para `https://api.workmanage.com.br` (o padrão do `env.dart`)
 - [ ] Teste de ponta a ponta: cadastro (o e-mail chega?), convite com criação
   de senha pelo link, assinatura real e liberação do acesso
-- [ ] **Variáveis da política de privacidade:** `PRIVACIDADE_RESPONSAVEL`
+- [x] **Variáveis da política de privacidade:** `PRIVACIDADE_RESPONSAVEL`
   e `PRIVACIDADE_EMAIL` (`contato@workmanage.com.br`, que já recebe). Depois
   do deploy, abrir `https://api.workmanage.com.br/privacidade` e conferir
-- [ ] **Cron diário da exclusão de contas** (só depois do deploy que traz o
-  comando). Sem ele, quem pede para excluir a conta fica travado e nunca é
+- [x] **Cron diário da exclusão de contas** (serviço `cron-exclusao`, criado
+  em 2026-10-29). Sem ele, quem pede para excluir a conta fica travado e nunca é
   apagado de verdade. Ver "O cron da exclusão de contas" abaixo
 - [ ] Backup do Postgres: ativar na aba Backups do serviço, se o plano oferecer
 

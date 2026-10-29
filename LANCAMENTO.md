@@ -28,17 +28,18 @@ da agenda), e o APK aponta para a produção.
 O checklist completo está em `backend/DEPLOY.md` ("Para lançar"). Para os
 testes, o mínimo é:
 
-- [ ] **Push da `main` e deploy.** O pre-deploy roda as migrations novas
+- [x] **Push da `main` e deploy** (2026-10-29). O pre-deploy roda as migrations novas
   (`agenda.0003_bloqueio` e `autenticacao_work.0003_exclusao_conta`).
-- [ ] **Variáveis:** `PRIVACIDADE_RESPONSAVEL` (Wilson Geraldo Donizeti
+- [x] **Variáveis:** `PRIVACIDADE_RESPONSAVEL` (Wilson Geraldo Donizeti
   Pereira Júnior) e `PRIVACIDADE_EMAIL` (`contato@workmanage.com.br`).
   `ASSINATURA_ABERTA` fica sem definir (é `False`).
-- [ ] **Conferir** `https://api.workmanage.com.br/privacidade`: o nome e o
+- [x] **Conferir** `https://api.workmanage.com.br/privacidade`: o nome e o
   e-mail aparecem.
-- [ ] **E-mail do cadastro (Resend):** um cadastro de teste recebe o código.
+- [x] **E-mail do cadastro (Resend):** um cadastro de teste recebe o código.
   Sem isso, ninguém consegue se cadastrar.
-- [ ] **Cron diário da exclusão de contas** — passo a passo em
-  `backend/DEPLOY.md`, "O cron da exclusão de contas". Só depois do deploy.
+- [x] **Cron diário da exclusão de contas** (serviço `cron-exclusao`, todo
+  dia às 6h de Brasília; testado com `0 conta(s) excluída(s)`). Passo a passo
+  em `backend/DEPLOY.md`, "O cron da exclusão de contas".
 - Não precisa para os testes: Mercado Pago (a assinatura está fechada) e S3
   (sem ele, só o envio da logo falha; peça aos testadores para não enviar).
 - Os negócios novos nascem em período de teste. Se ele acabar antes do fim
