@@ -10,6 +10,7 @@ import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/features/clientes/presentation/widgets/cliente_picker_sheet.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
+import 'package:managers/features/servicos/presentation/widgets/itens_de_servico.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 
 import '../../agenda_provider.dart';
@@ -182,16 +183,13 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
             key: ValueKey('servico-${provider.servico?.id}'),
             initialValue: provider.servico,
             isExpanded: true,
-            items: [
-              for (final s in provider.servicos)
-                DropdownMenuItem(
-                  value: s,
-                  child: Text(
-                    '${s.nome} · ${s.duracao} min · ${formatarDinheiro(s.preco)}',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
+            // com mais de um nicho, os serviços vêm agrupados por nicho
+            items: itensDeServico(
+              context,
+              servicos: provider.servicos,
+              rotulo: (s) =>
+                  '${s.nome} · ${s.duracao} min · ${formatarDinheiro(s.preco)}',
+            ),
             onChanged: provider.selecionarServico,
             validator: (s) => s == null ? 'Escolha o serviço' : null,
             decoration: InputDecoration(

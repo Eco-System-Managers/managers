@@ -3,15 +3,15 @@ import 'package:managers/core/theme/brand.dart';
 import 'package:validatorless/validatorless.dart';
 
 import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
-import 'package:managers/features/empresa/domain/entities/nicho.dart';
 
 import '../providers/wizard_provider.dart';
 
-import 'package:managers/features/empresa/presentation/widgets/nicho_visual.dart';
+import 'package:managers/features/empresa/presentation/widgets/nichos_grade.dart';
 
-// step 2: escolher o ramo do negócio. tocar num card só marca; quem salva
-// é o "Próximo" (o nicho decide o tipo de agenda no backend). no outro, o
-// dono descreve o ramo e diz como atende, e é isso que decide o modo
+// step 2: escolher de 1 a 4 nichos da mesma área. tocar num card só marca
+// ou desmarca; quem salva é o "Próximo" (os nichos decidem o tipo de agenda
+// no backend). no outro, o dono descreve o ramo e diz como atende, e é isso
+// que decide o modo
 class NichoStep extends StatefulWidget {
   const NichoStep({super.key, required this.provider});
 
@@ -51,7 +51,7 @@ class _NichoStepState extends State<NichoStep> {
 
   @override
   Widget build(BuildContext context) {
-    final selecionado = _provider.config.nicho;
+    final escolhidos = _provider.config.nichos;
     final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
@@ -61,44 +61,19 @@ class _NichoStepState extends State<NichoStep> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Escolha o que melhor descreve o seu negócio.',
+            'Escolha de 1 a 4 nichos da mesma área.',
             style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
           ),
 
           const SizedBox(height: BrandSpacing.space4),
 
-          // 3 colunas no celular, 4 no tablet
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final colunas = constraints.maxWidth >= 560 ? 4 : 3;
-
-              return GridView.count(
-                crossAxisCount: colunas,
-                mainAxisSpacing: BrandSpacing.space3,
-                crossAxisSpacing: BrandSpacing.space3,
-                childAspectRatio: 0.9,
-                // a rolagem é da página: a grade só ocupa a altura dela
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  // o outro fica fora do MVP: o backend já aceita, o app só
-                  // não oferece. tirar este filtro é o bastante para voltar
-                  for (final nicho in Nicho.values)
-                    if (nicho != Nicho.outro)
-                      _NichoCard(
-                        nicho: nicho,
-                        selecionado: nicho == selecionado,
-                        onTap: _provider.isLoading
-                            ? null
-                            : () => _provider.escolherNicho(nicho),
-                      ),
-                ],
-              );
-            },
+          NichosGrade(
+            escolhidos: escolhidos,
+            onAlternar: _provider.isLoading ? null : _provider.alternarNicho,
           ),
 
-          if (selecionado == Nicho.outro) ...[
-            const SizedBox(height: BrandSpacing.space5),
+          if (_provider.config.ehOutro) ...[
+            const SizedBox(height: BrandSpacing.space1),
             TextFormField(
               controller: _descricaoController,
               maxLength: 60,
@@ -132,11 +107,11 @@ class _NichoStepState extends State<NichoStep> {
               ),
           ],
 
-          const SizedBox(height: BrandSpacing.space5),
+          const SizedBox(height: BrandSpacing.space4),
 
           FilledButton(
             // sem nicho escolhido não há o que salvar
-            onPressed: _provider.isLoading || selecionado == null
+            onPressed: _provider.isLoading || escolhidos.isEmpty
                 ? null
                 : _proximo,
             style: FilledButton.styleFrom(
@@ -238,58 +213,6 @@ class _ModoOpcao extends StatelessWidget {
             ? Icon(Icons.check_circle_rounded, color: colors.primary)
             : null,
         iconColor: selecionado ? cores.ink : null,
-      ),
-    );
-  }
-}
-
-class _NichoCard extends StatelessWidget {
-  const _NichoCard({
-    required this.nicho,
-    required this.selecionado,
-    required this.onTap,
-  });
-
-  final Nicho nicho;
-  final bool selecionado;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final cores = BrandColors.of(context);
-
-    // o nicho escolhido é o azul suave com contorno azul; o conteúdo fica
-    // em ink nos dois estados, e o escolhido se marca pelo fundo e pela borda
-    return Material(
-      color: selecionado ? cores.blueSoft : cores.bg,
-      shape: RoundedRectangleBorder(
-        borderRadius: BrandRadius.mdAll,
-        side: BorderSide(
-          color: selecionado ? colors.primary : cores.border,
-          width: selecionado ? 2 : 1,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(BrandSpacing.space2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(nicho.icone, size: 32, color: cores.ink),
-              const SizedBox(height: BrandSpacing.space2),
-              Text(
-                nicho.nome,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

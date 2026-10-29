@@ -4,7 +4,14 @@ Uma marca, dois produtos. **Work Manage** (símbolo W) e **Service Manage** (sí
 
 ## Essência
 
-**Agenda cheia, negócio leve.** A Work Manage é o app de gestão e agendamento para negócios de serviço: barbearias, salões, clínicas, lava-rápidos e pet shops. A Service Manage leva a mesma lógica para [o que o Service Manage faz]. Nos símbolos, os traços inclinados são a rotina que segue; a peça azul (a gota do W, o triângulo do S) é o cliente que chega para o próximo horário.
+**Agenda cheia, negócio leve.** A Work Manage é o app de gestão e agendamento para negócios de serviço: barbearias, salões, clínicas, lava-rápidos e pet shops. A Service Manage leva a mesma lógica para o lado de quem agenda: o cliente encontra esses negócios perto dele e marca um horário livre pelo app. Nos símbolos, os traços inclinados são a rotina que segue; a peça azul (a gota do W, o triângulo do S) é o cliente que chega para o próximo horário.
+
+## Dois produtos
+
+| Produto | Verbo | Para quem |
+|---|---|---|
+| **Work Manage** (o W) | Organizar | Agenda, equipe, clientes e faturamento em um só lugar. O dono sabe o que acontece no negócio a qualquer hora. |
+| **Service Manage** (o S) | Agendar | Encontre barbearias, salões, lava-rápidos e pet shops perto de você e marque um horário em poucos toques. Uma conta só para todos os negócios, com a sua agenda, os seus pets e os seus veículos. |
 
 ## Tom de voz
 

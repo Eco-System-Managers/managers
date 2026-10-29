@@ -1,3 +1,4 @@
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from apps_work.clientes.models import TipoObjeto
@@ -19,7 +20,10 @@ class Nicho(models.TextChoices):
     objeto que o cliente leva (mapas do ModoAgendaService, em
     services.py). Em OUTRO, quem escolhe os dois é o dono, e o ramo vai por
     extenso em `nicho_descricao`. Os rótulos exibidos ao usuário vivem nos
-    apps."""
+    apps.
+
+    A ordem aqui é a ordem de exibição: os nichos de um negócio são guardados
+    e mostrados nela, sem um principal."""
     CABELEIREIRO = 'cabeleireiro', 'Cabeleireiro(a)'
     BARBEARIA = 'barbearia', 'Barbearia'
     MANICURE = 'manicure', 'Manicure'
@@ -53,8 +57,10 @@ class EmpresaConfig(models.Model):
     # o documento é o serializer, ao concluir o onboarding.
     documento = models.CharField(max_length=14, blank=True)
     tipo_documento = models.CharField(max_length=4, choices=TipoDocumento.choices, blank=True)
-    nicho = models.CharField(max_length=50, choices=Nicho.choices, blank=True)
-    # O ramo por extenso, quando nenhum nicho da lista serve (nicho = OUTRO).
+    # De 1 a 4 nichos da mesma área, na ordem do enum. Vazio só antes de o
+    # onboarding escolher. As regras estão no ModoAgendaService.
+    nichos = ArrayField(models.CharField(max_length=50, choices=Nicho.choices), default=list, blank=True)
+    # O ramo por extenso, quando nenhum nicho da lista serve (nichos = [OUTRO]).
     # Vazio nos demais.
     nicho_descricao = models.CharField(max_length=60, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)

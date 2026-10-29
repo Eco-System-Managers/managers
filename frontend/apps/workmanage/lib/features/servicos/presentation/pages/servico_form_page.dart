@@ -10,6 +10,8 @@ import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/dinheiro_input_formatter.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/folha.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
+import 'package:managers/features/empresa/presentation/widgets/nicho_visual.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../domain/entities/servico.dart';
@@ -19,10 +21,13 @@ import '../providers/servico_form_provider.dart';
 // cria ou edita um serviço. fecha com true quando salvou ou inativou, para
 // a lista recarregar. os nomes dos campos de erro são os do contrato
 class ServicoFormPage extends ConsumerStatefulWidget {
-  const ServicoFormPage({super.key, this.id});
+  const ServicoFormPage({super.key, this.id, this.nichoInicial});
 
   // null = novo
   final int? id;
+
+  // a pasta de onde o serviço novo foi criado; já vem escolhida
+  final Nicho? nichoInicial;
 
   @override
   ConsumerState<ServicoFormPage> createState() => _ServicoFormPageState();
@@ -41,6 +46,7 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
 
   TipoTaxaCancelamento? _taxaTipo;
   final Set<int> _colaboradores = {};
+  late Nicho? _nicho = widget.nichoInicial;
 
   // os campos são preenchidos uma vez, quando o serviço chega
   bool _preenchido = false;
@@ -82,6 +88,16 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
     _colaboradores
       ..clear()
       ..addAll(servico.colaboradores);
+    // serviço de um nicho que o negócio deixou volta sem pasta: a pessoa
+    // escolhe uma das atuais
+    _nicho = _provider.nichos.contains(servico.nicho) ? servico.nicho : null;
+  }
+
+  // com um nicho só, o serviço fica nele (inclusive o que veio de um nicho
+  // que saiu)
+  Nicho? _nichoParaSalvar() {
+    final nichos = _provider.nichos;
+    return nichos.length == 1 ? nichos.first : _nicho;
   }
 
   Decimal? _taxaValor() {
@@ -100,6 +116,7 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
     await _provider.salvar(
       Servico(
         nome: _nomeController.text.trim(),
+        nicho: _nichoParaSalvar(),
         descricao: _descricaoController.text.trim(),
         duracao: int.parse(_duracaoController.text),
         preco: dinheiroDoTexto(_precoController.text)!,
@@ -206,6 +223,30 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
             onChanged: (_) => provider.limparErroDoCampo('nome'),
             decoration: const InputDecoration(labelText: 'Nome'),
           ),
+
+          if (provider.escolheNicho) ...[
+            const SizedBox(height: BrandSpacing.space4),
+            DropdownButtonFormField<Nicho>(
+              // a pasta da URL pode não ser mais do negócio
+              initialValue: provider.nichos.contains(_nicho) ? _nicho : null,
+              isExpanded: true,
+              items: [
+                for (final nicho in provider.nichos)
+                  DropdownMenuItem(value: nicho, child: Text(nicho.nome)),
+              ],
+              onChanged: (nicho) => setState(() {
+                _nicho = nicho;
+                provider.limparErroDoCampo('nicho');
+              }),
+              validator: (nicho) => nicho == null ? 'Escolha o nicho' : null,
+              forceErrorText: provider.erroDoCampo('nicho'),
+              decoration: const InputDecoration(
+                labelText: 'Nicho',
+                helperText: 'A pasta em que o serviço aparece',
+                prefixIcon: Icon(Icons.folder_rounded),
+              ),
+            ),
+          ],
 
           const SizedBox(height: BrandSpacing.space4),
 

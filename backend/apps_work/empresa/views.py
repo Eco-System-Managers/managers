@@ -1,6 +1,7 @@
 from decimal import Decimal
 import logging
 
+from django.db import transaction
 from rest_framework import generics, viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -106,8 +107,14 @@ class EmpresaConfigView(generics.RetrieveUpdateAPIView):
     def perform_update(self, serializer):
         config = serializer.instance
         endereco_anterior = (config.endereco, config.numero, config.cidade, config.uf)
-        super().perform_update(serializer)
-        ConfiguracaoEmpresaService().apos_salvar(serializer.instance, self.request.user, endereco_anterior)
+        nichos_anteriores = list(config.nichos)
+        servico = ConfiguracaoEmpresaService()
+
+        with transaction.atomic():
+            super().perform_update(serializer)
+            servico.inativar_servicos_de_nichos_removidos(nichos_anteriores, serializer.instance.nichos)
+
+        servico.apos_salvar(serializer.instance, self.request.user, endereco_anterior)
 
 
 class UploadLogoView(APIView):

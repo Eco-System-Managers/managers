@@ -1,12 +1,13 @@
 import pytest
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
+from apps_work.empresa.models import EmpresaConfig
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
 
 
 @pytest.fixture
-def client_autenticado(patch_tenant_middleware, proprietario):
+def client_autenticado(patch_tenant_middleware, proprietario, config):
     client = APIClient()
     client.defaults['HTTP_HOST'] = 'test-empresa.localhost'
     client.force_authenticate(user=proprietario)
@@ -14,8 +15,14 @@ def client_autenticado(patch_tenant_middleware, proprietario):
 
 
 @pytest.fixture
+def config(patch_tenant_middleware):
+    """Todo serviço fica num dos nichos do negócio; com um nicho só, é ele."""
+    return EmpresaConfig.objects.create(pk=1, nichos=['cabeleireiro'])
+
+
+@pytest.fixture
 def servico(patch_tenant_middleware):
-    return Servico.objects.create(nome='Corte', duracao=30, preco='50.00')
+    return Servico.objects.create(nome='Corte', nicho='cabeleireiro', duracao=30, preco='50.00')
 
 
 @pytest.fixture
@@ -138,3 +145,54 @@ class TestServicoColaboradores:
         payload = {'nome': 'Corte', 'duracao': 30, 'preco': '50.00', 'colaboradores': [colaborador_user.id]}
         response = client_autenticado.post('/api/v1/servicos/', payload)
         assert response.status_code == 400
+
+
+@pytest.mark.django_db
+class TestServicoNicho:
+    """O serviço fica numa pasta: um dos nichos do negócio."""
+
+    URL = '/api/v1/servicos/'
+    PAYLOAD = {'nome': 'Escova', 'duracao': 45, 'preco': '35.00'}
+
+    def test_com_um_nicho_so_o_servico_fica_nele(self, client_autenticado):
+        response = client_autenticado.post(self.URL, self.PAYLOAD)
+        assert response.status_code == 201
+        assert response.data['nicho'] == 'cabeleireiro'
+
+    def test_com_varios_nichos_o_nicho_e_obrigatorio(self, client_autenticado, config):
+        config.nichos = ['cabeleireiro', 'manicure']
+        config.save()
+        response = client_autenticado.post(self.URL, self.PAYLOAD)
+        assert response.status_code == 400
+        assert response.data['code'] == 'nicho_obrigatorio'
+
+    def test_com_varios_nichos_aceita_um_deles(self, client_autenticado, config):
+        config.nichos = ['cabeleireiro', 'manicure']
+        config.save()
+        response = client_autenticado.post(self.URL, {**self.PAYLOAD, 'nicho': 'manicure'})
+        assert response.status_code == 201
+        assert response.data['nicho'] == 'manicure'
+
+    def test_nicho_que_o_negocio_nao_atende_e_recusado(self, client_autenticado):
+        response = client_autenticado.post(self.URL, {**self.PAYLOAD, 'nicho': 'massagem'})
+        assert response.status_code == 400
+        assert response.data['code'] == 'nicho_fora_do_negocio'
+
+    def test_inativo_de_nicho_removido_continua_editavel(self, client_autenticado):
+        servico = Servico.objects.create(nome='Pé e mão', nicho='manicure', duracao=60, preco='40.00', ativo=False)
+        response = client_autenticado.patch(f'{self.URL}{servico.id}/', {'nome': 'Pé e mão completo'}, format='json')
+        assert response.status_code == 200
+
+    def test_reativar_em_nicho_removido_e_recusado(self, client_autenticado):
+        servico = Servico.objects.create(nome='Pé e mão', nicho='manicure', duracao=60, preco='40.00', ativo=False)
+        response = client_autenticado.patch(f'{self.URL}{servico.id}/', {'ativo': True}, format='json')
+        assert response.status_code == 400
+        assert response.data['code'] == 'nicho_fora_do_negocio'
+
+    def test_reativar_trocando_para_um_nicho_atual(self, client_autenticado):
+        servico = Servico.objects.create(nome='Pé e mão', nicho='manicure', duracao=60, preco='40.00', ativo=False)
+        response = client_autenticado.patch(
+            f'{self.URL}{servico.id}/', {'ativo': True, 'nicho': 'cabeleireiro'}, format='json',
+        )
+        assert response.status_code == 200
+        assert response.data['ativo'] is True

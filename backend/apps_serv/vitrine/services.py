@@ -34,6 +34,8 @@ class CrossTenantQueryService:
                 {
                     'id': s.id,
                     'nome': s.nome,
+                    # A pasta do serviço: o app do cliente agrupa por ela.
+                    'nicho': s.nicho,
                     'descricao': s.descricao,
                     'duracao': s.duracao,
                     # Dinheiro sai como string, como nos serializers ("12.50"):
@@ -289,7 +291,7 @@ class AgendamentoTenantService:
 
                 servicos_snapshot = [
                     {
-                        'nome': s.nome, 'duracao': s.duracao, 'preco': _dinheiro(s.preco),
+                        'nome': s.nome, 'nicho': s.nicho, 'duracao': s.duracao, 'preco': _dinheiro(s.preco),
                         'taxa_cancelamento': _dinheiro(s.calcular_taxa_cancelamento()),
                     }
                     for s in servicos
@@ -305,7 +307,6 @@ class AgendamentoTenantService:
                 agendamento_id=agendamento_id,
                 origem=origem,
                 negocio_nome=negocio.nome,
-                nicho=negocio.nicho,
                 servicos=servicos_snapshot,
                 profissional_nome=profissional_nome,
                 objeto_dados=objeto_dados,
@@ -565,7 +566,7 @@ class SincronizarVitrineService:
             schema_name=schema_name,
             defaults={
                 'nome': empresa_config.nome,
-                'nicho': empresa_config.nicho,
+                'nichos': empresa_config.nichos,
                 'tipo_agenda': empresa_config.tipo_agenda,
                 # A config guarda vazio no modo horário; a vitrine usa nulo.
                 'tipo_objeto': empresa_config.tipo_objeto or None,
@@ -581,7 +582,7 @@ class SincronizarVitrineService:
         return (
             empresa_config.onboarding_concluido
             and empresa_config.nome
-            and empresa_config.nicho
+            and empresa_config.nichos
             and empresa_config.latitude is not None
             and empresa_config.longitude is not None
         )

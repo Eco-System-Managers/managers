@@ -1,14 +1,16 @@
 import 'package:decimal/decimal.dart';
 import 'package:managers/core/utils/dinheiro.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
 
 import '../../domain/entities/servico.dart';
 
 // o schema Servico do contrato. preço e taxa vêm como string decimal
-// ("45.50"); a taxa sem tipo vem como ''
+// ("45.50"); a taxa sem tipo vem como ''. o nicho é slug
 class ServicoModel {
   const ServicoModel({
     required this.id,
     required this.nome,
+    required this.nicho,
     required this.descricao,
     required this.duracao,
     required this.preco,
@@ -20,6 +22,7 @@ class ServicoModel {
 
   final int id;
   final String nome;
+  final String nicho;
   final String descricao;
   final int duracao;
   final String preco;
@@ -32,6 +35,7 @@ class ServicoModel {
     return ServicoModel(
       id: json['id'] as int,
       nome: json['nome'] as String? ?? '',
+      nicho: json['nicho'] as String? ?? '',
       descricao: json['descricao'] as String? ?? '',
       duracao: json['duracao'] as int,
       preco: json['preco'] as String,
@@ -42,10 +46,12 @@ class ServicoModel {
     );
   }
 
-  // o id não vai: ele está na URL. o ativo vai, para inativar pelo PATCH
+  // o id não vai: ele está na URL. o ativo vai, para inativar pelo PATCH.
+  // sem nicho, a API usa o único do negócio
   Map<String, dynamic> toJson() {
     return {
       'nome': nome,
+      if (nicho.isNotEmpty) 'nicho': nicho,
       'descricao': descricao,
       'duracao': duracao,
       'preco': preco,
@@ -60,6 +66,7 @@ class ServicoModel {
     return ServicoModel(
       id: servico.id,
       nome: servico.nome,
+      nicho: servico.nicho?.slug ?? '',
       descricao: servico.descricao,
       duracao: servico.duracao,
       preco: dinheiroParaApi(servico.preco),
@@ -74,6 +81,7 @@ class ServicoModel {
     return Servico(
       id: id,
       nome: nome,
+      nicho: Nicho.doSlug(nicho),
       descricao: descricao,
       duracao: duracao,
       preco: dinheiroDaApi(preco),

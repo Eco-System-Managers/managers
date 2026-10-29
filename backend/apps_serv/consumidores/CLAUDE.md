@@ -101,8 +101,7 @@ de duplicar.
 | `agendamento_id` | `PositiveInteger` | Referência solta ao `Agendamento` ou `AtendimentoKanban` no tenant |
 | `origem` | `CharField(10)` = `agenda` | `agenda` ou `kanban`. Decide qual tabela do tenant o id aponta |
 | `negocio_nome` | `CharField(255)` | Snapshot |
-| `nicho` | `CharField(50)` vazio | Snapshot |
-| `servicos` | `JSONField` = `[]` | Snapshot: nome, duração, preço e taxa de cada serviço |
+| `servicos` | `JSONField` = `[]` | Snapshot: nome, nicho, duração, preço e taxa de cada serviço. O nicho vem por serviço porque o negócio pode ter vários |
 | `profissional_nome` | `CharField(255)` vazio | Snapshot. Vazio na esteira |
 | `data_hora` | `DateTimeField` | Ordenação por `-data_hora` |
 | `duracao_total` | `PositiveInteger` | Em minutos. Define o prazo de cancelamento gratuito |

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from rest_framework import serializers
+from apps_work.empresa.models import EmpresaConfig
 from apps_work.usuarios.models import Colaborador
 from .models import Servico, TipoTaxaCancelamento
 
@@ -15,10 +16,17 @@ class ServicoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Servico
         fields = [
-            'id', 'nome', 'descricao', 'duracao', 'preco',
+            'id', 'nome', 'nicho', 'descricao', 'duracao', 'preco',
             'taxa_cancelamento_tipo', 'taxa_cancelamento_valor',
             'ativo', 'colaboradores',
         ]
+        extra_kwargs = {
+            'nicho': {
+                'required': False,
+                'help_text': 'A pasta do serviço: um dos nichos do negócio. Opcional quando o negócio tem um '
+                             'nicho só, que é o usado.',
+            },
+        }
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -54,4 +62,28 @@ class ServicoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'taxa_cancelamento_valor': f'A taxa fixa não pode ultrapassar 30% do preço (R$ {limite}).'}
                 )
+
+        self._resolver_nicho(attrs)
         return attrs
+
+    def _resolver_nicho(self, attrs):
+        """O serviço fica num dos nichos do negócio. Com um nicho só, é ele.
+
+        Serviço inativo de um nicho que o negócio deixou pode continuar
+        guardado lá; o que não pode é ser reativado ou movido para fora dos
+        nichos atuais.
+        """
+        nichos_do_negocio = EmpresaConfig.objects.filter(pk=1).values_list('nichos', flat=True).first() or []
+        nicho = attrs.get('nicho', getattr(self.instance, 'nicho', ''))
+
+        if not nicho:
+            if len(nichos_do_negocio) != 1:
+                raise serializers.ValidationError({'detail': 'Escolha o nicho do serviço.', 'code': 'nicho_obrigatorio'})
+            nicho = attrs['nicho'] = nichos_do_negocio[0]
+
+        ativo = attrs.get('ativo', getattr(self.instance, 'ativo', True))
+        if ('nicho' in attrs or ativo) and nicho not in nichos_do_negocio:
+            raise serializers.ValidationError({
+                'detail': 'Este nicho não está entre os do negócio. Escolha um deles para o serviço.',
+                'code': 'nicho_fora_do_negocio',
+            })

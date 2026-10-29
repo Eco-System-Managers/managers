@@ -209,7 +209,7 @@ class TestMeusAgendamentos:
     def test_logo_url_vem_do_negocio_publico(self, api_autenticado, agendamento_ativo):
         client, _ = api_autenticado
         NegocioPublico.objects.create(
-            schema_name=agendamento_ativo.schema_name, nome='Barbearia Teste', nicho='Barbearia',
+            schema_name=agendamento_ativo.schema_name, nome='Barbearia Teste', nichos=['barbearia'],
             latitude='-23.5', longitude='-46.6', logo_url='https://cdn/logo.png', ativo=True,
         )
         response = client.get('/api/sm/v1/agendamentos/')
@@ -218,7 +218,7 @@ class TestMeusAgendamentos:
     def test_logo_url_nulo_quando_negocio_nao_tem_logo(self, api_autenticado, agendamento_ativo):
         client, _ = api_autenticado
         NegocioPublico.objects.create(
-            schema_name=agendamento_ativo.schema_name, nome='Barbearia Teste', nicho='Barbearia',
+            schema_name=agendamento_ativo.schema_name, nome='Barbearia Teste', nichos=['barbearia'],
             latitude='-23.5', longitude='-46.6', logo_url='', ativo=True,
         )
         response = client.get('/api/sm/v1/agendamentos/')
@@ -237,7 +237,7 @@ class TestMeusAgendamentos:
         client, _ = api_autenticado
         for i in range(3):
             NegocioPublico.objects.create(
-                schema_name=f'negocio_{i}', nome=f'N{i}', nicho='Barbearia',
+                schema_name=f'negocio_{i}', nome=f'N{i}', nichos=['barbearia'],
                 latitude='-23.5', longitude='-46.6', logo_url=f'https://cdn/{i}.png', ativo=True,
             )
             AgendamentoConsumidor.objects.create(
@@ -422,7 +422,7 @@ class TestFotoPerfilAPI:
 
 def _negocio(schema_name: str, nome: str, **extra) -> NegocioPublico:
     return NegocioPublico.objects.create(
-        schema_name=schema_name, nome=nome, nicho='Barbearia',
+        schema_name=schema_name, nome=nome, nichos=['barbearia'],
         latitude='-23.5', longitude='-46.6', ativo=True, **extra,
     )
 
@@ -512,7 +512,7 @@ class TestVincularNegocioAPI:
     def test_responde_com_o_negocio_no_formato_de_meus_negocios(self, tenant, api_autenticado):
         connection.set_schema_to_public()
         NegocioPublico.objects.create(
-            schema_name=tenant.schema_name, nome='Empresa Teste', nicho='Barbearia',
+            schema_name=tenant.schema_name, nome='Empresa Teste', nichos=['barbearia'],
             latitude='-23.550000', longitude='-46.633000', ativo=True,
         )
         client, _ = api_autenticado

@@ -11,7 +11,7 @@ Map<String, dynamic> _configJson({bool concluido = false}) => {
   'telefone': '19999990000',
   'documento': '11222333000181',
   'tipo_documento': 'cnpj',
-  'nicho': 'barbearia',
+  'nichos': ['barbearia', 'manicure'],
   'nicho_descricao': '',
   'cidade': 'Araras',
   'endereco': 'Rua Um',
@@ -45,6 +45,19 @@ void main() {
     expect(config.nome, 'Barbearia Central');
     expect(config.numero, '10');
     expect(config.tipoAgenda, 'horario');
+    expect(config.nichos, ['barbearia', 'manicure']);
+  });
+
+  test('salvarConfig sem nicho escolhido não manda nichos', () async {
+    final adapter = FakeAdapter(
+      (_) async => respostaJson(200, {..._configJson(), 'nichos': []}),
+    );
+    final datasource = EmpresaRemoteDataSourceImpl(dioDeTeste(adapter));
+    final config = await datasource.buscarConfig();
+
+    await datasource.salvarConfig(config);
+
+    expect(adapter.requisicoes.last.data as Map, isNot(contains('nichos')));
   });
 
   test('salvarConfig faz PATCH com o JSON do model', () async {

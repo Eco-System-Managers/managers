@@ -9,8 +9,9 @@ import '../../empresa_provider.dart';
 import '../widgets/nicho_visual.dart';
 
 // o menu das configurações: a logo no topo, as seções editáveis e o que é
-// só leitura (nicho e modo de agenda, que a API não deixa trocar depois do
-// onboarding). só o proprietário troca a logo e entra nas seções
+// só leitura (o modo de agenda, que a API não deixa trocar depois do
+// onboarding; os nichos mudam só dentro da área dele). só o proprietário
+// troca a logo e entra nas seções
 class ConfiguracoesPage extends ConsumerWidget {
   const ConfiguracoesPage({super.key});
 
@@ -79,14 +80,21 @@ class ConfiguracoesPage extends ConsumerWidget {
                   enabled: proprietario,
                   onTap: () => context.push('/mais/etapas'),
                 ),
+              // os nichos mudam dentro da área; o outro não tem área para
+              // trocar, então fica só leitura
+              ListTile(
+                leading: const Icon(Icons.storefront_rounded),
+                title: const Text('Nichos'),
+                subtitle: Text(_nomeDosNichos(config)),
+                trailing: config.ehOutro
+                    ? null
+                    : const Icon(Icons.chevron_right_rounded),
+                enabled: proprietario && !config.ehOutro,
+                onTap: () => context.push('/mais/configuracoes/nichos'),
+              ),
               const Divider(),
               // o que foi definido no onboarding e a API não deixa trocar:
               // mostrar como editável só geraria o erro modo_agenda_bloqueado
-              ListTile(
-                leading: const Icon(Icons.storefront_rounded),
-                title: const Text('Ramo do negócio'),
-                subtitle: Text(_nomeDoNicho(config)),
-              ),
               ListTile(
                 leading: const Icon(Icons.view_agenda_rounded),
                 title: const Text('Modo de agenda'),
@@ -113,11 +121,9 @@ class ConfiguracoesPage extends ConsumerWidget {
     );
   }
 
-  String _nomeDoNicho(EmpresaConfig config) {
-    final nicho = config.nicho;
-    if (nicho == null) return 'Não informado';
-    if (config.nichoDescricao.isNotEmpty) return config.nichoDescricao;
-    return nicho.nome;
+  String _nomeDosNichos(EmpresaConfig config) {
+    if (config.nichos.isEmpty) return 'Não informado';
+    return nomeDosNichos(config.nichos, descricao: config.nichoDescricao);
   }
 }
 

@@ -30,8 +30,8 @@ def cenario(patch_tenant_middleware, tenant, proprietario):
     Membro.objects.create(user=user_bia, tenant=tenant, papel='colaborador')
     bia = Colaborador.objects.create(user=user_bia)
 
-    corte = Servico.objects.create(nome='Corte', duracao=30, preco='40.00')
-    barba = Servico.objects.create(nome='Barba', duracao=20, preco='20.00')
+    corte = Servico.objects.create(nome='Corte', nicho='cabeleireiro', duracao=30, preco='40.00')
+    barba = Servico.objects.create(nome='Barba', nicho='barbearia', duracao=20, preco='20.00')
     ana = Cliente.objects.create(nome='Ana', telefone='11999990000')
 
     hoje = timezone.localdate()
@@ -76,6 +76,7 @@ class TestResumoPorPeriodo:
         assert corpo['kpis']['atendimentos_variacao'] == 0
         assert corpo['kpis']['clientes_novos'] == 1
         assert [r['nome'] for r in corpo['ranking_servicos']] == ['Corte', 'Barba']
+        assert [r['nicho'] for r in corpo['ranking_servicos']] == ['cabeleireiro', 'barbearia']
         assert [a['hora'] for a in corpo['agendamentos_hoje']] == ['17:00']
         # o próximo traz o que a tela precisa para abrir e chamar no WhatsApp
         proximo = corpo['agendamentos_hoje'][0]

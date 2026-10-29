@@ -39,3 +39,19 @@ extension NichoVisual on Nicho {
     Nicho.outro => Icons.more_horiz_rounded,
   };
 }
+
+// o título de cada área na grade de nichos
+extension AreaNichoVisual on AreaNicho {
+  String get nome => switch (this) {
+    AreaNicho.belezaBemEstar => 'Beleza e bem-estar',
+    AreaNicho.automotivo => 'Automotivo',
+    AreaNicho.pet => 'Pet',
+  };
+}
+
+// os nichos por extenso, na ordem de exibição ("Manicure, Pedicure").
+// no outro, o ramo que o dono descreveu
+String nomeDosNichos(List<Nicho> nichos, {String descricao = ''}) {
+  if (nichos.contains(Nicho.outro) && descricao.isNotEmpty) return descricao;
+  return nichos.map((n) => n.nome).join(', ');
+}

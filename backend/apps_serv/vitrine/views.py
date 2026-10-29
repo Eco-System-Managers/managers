@@ -1,7 +1,7 @@
 import math
 from datetime import datetime
 
-from django.db.models import Q
+from django.db.models import CharField, F, Func, Q, Value
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -81,7 +81,7 @@ class NegociosPublicosView(APIView):
         operation_id='negocios_list',
         responses=NegocioPublicoSerializer(many=True),
         parameters=[
-            OpenApiParameter('nicho', str),
+            OpenApiParameter('nicho', str, description='Negócios que atendem este nicho (slug).'),
             OpenApiParameter('cidade', str),
             OpenApiParameter('search', str, description='Busca em nome, cidade e nicho.'),
             OpenApiParameter('lat', float),
@@ -96,17 +96,20 @@ class NegociosPublicosView(APIView):
         cidade = request.query_params.get('cidade')
         busca = (request.query_params.get('search') or '').strip()
         if nicho:
-            qs = qs.filter(nicho__iexact=nicho)
+            # O negocio aparece no filtro de cada um dos seus nichos.
+            qs = qs.filter(nichos__contains=[nicho.lower()])
         if cidade:
             qs = qs.filter(cidade__iexact=cidade)
         if busca:
-            # `nicho` casa pelo valor guardado, que e slug (`banho_tosa`), nao
-            # pelo rotulo exibido — os rotulos vivem nos apps. Termo de uma
+            # Os nichos casam pelo valor guardado, que e slug (`banho_tosa`),
+            # nao pelo rotulo exibido — os rotulos vivem nos apps. Termo de uma
             # palavra encontra; "Banho & Tosa" escrito por extenso, nao.
-            qs = qs.filter(
+            qs = qs.annotate(
+                nichos_texto=Func(F('nichos'), Value(' '), function='array_to_string', output_field=CharField()),
+            ).filter(
                 Q(nome__icontains=busca)
                 | Q(cidade__icontains=busca)
-                | Q(nicho__icontains=busca)
+                | Q(nichos_texto__icontains=busca)
             )
 
         # Coordenada ou raio inválido levanta ErroDeNegocio → 400 pelo handler.
@@ -172,14 +175,9 @@ class NichosView(APIView):
         cidade = request.query_params.get('cidade')
         if cidade:
             qs = qs.filter(cidade__iexact=cidade)
-        nichos = (
-            qs
-            .exclude(nicho='')
-            .values_list('nicho', flat=True)
-            .distinct()
-            .order_by('nicho')
-        )
-        return Response(list(nichos))
+        # Cada negocio tem de 1 a 4 nichos; a lista junta todos, sem repetir.
+        nichos = {nicho for lista in qs.values_list('nichos', flat=True) for nicho in lista}
+        return Response(sorted(nichos))
 
 
 class ServicosNegocioView(APIView):

@@ -72,9 +72,9 @@ class Command(BaseCommand):
         with schema_context(tenant.schema_name):
             config, _ = EmpresaConfig.objects.get_or_create(pk=1)
             config.nome = empresa
-            config.nicho = nicho
             # O nicho decide o modo de agenda e o objeto, como no onboarding.
-            modo = ModoAgendaService().resolver(nicho, '', '', '')
+            modo = ModoAgendaService().resolver([nicho], '', '', '')
+            config.nichos = modo.nichos
             config.tipo_agenda = modo.tipo_agenda
             config.tipo_objeto = modo.tipo_objeto
             config.documento = '52998224725'  # CPF de teste (dígitos válidos)

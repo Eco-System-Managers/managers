@@ -1,0 +1,63 @@
+<title>Service Manage</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=MuseoModerno:wght@600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+
+<div class="stage">
+  <div class="device" aria-label="Protótipo do app Service Manage">
+    <div class="device-screen">
+      <div class="statusbar" aria-hidden="true">
+        <span>9:41</span>
+        <span class="statusbar-icons">
+          <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+          <svg viewBox="0 0 26 12" width="26" height="12"><rect x="0.5" y="0.5" width="22" height="11" rx="3" fill="none" stroke="currentColor"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5"/><rect x="23.5" y="4" width="2" height="4" rx="1"/></svg>
+        </span>
+      </div>
+      <main id="app" class="app"></main>
+      <nav id="tabbar" class="tabbar" aria-label="Navegação principal"></nav>
+      <div id="sheet-root"></div>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <img class="panel-logo logo-on-light" src="assets/s-logo.svg" alt="Service Manage" width="200" height="24">
+    <img class="panel-logo logo-on-dark" src="assets/s-logo-white.svg" alt="Service Manage" width="200" height="24">
+    <h1 class="panel-title">O app de quem agenda</h1>
+    <p class="panel-text">Protótipo navegável do app do cliente final. O cliente encontra negócios perto dele, escolhe o serviço e marca um horário livre. Nada aqui grava dados: tudo é exemplo.</p>
+
+    <section class="panel-block" aria-labelledby="telas-titulo">
+      <h2 id="telas-titulo" class="panel-label">Telas</h2>
+      <ol id="screen-list" class="screen-list"></ol>
+    </section>
+
+    <section class="panel-block" aria-labelledby="fluxo-titulo">
+      <h2 id="fluxo-titulo" class="panel-label">Dois modos de agenda</h2>
+      <p class="panel-text small">O fluxo de agendar muda conforme o negócio, como no Work Manage.</p>
+      <div class="mode-buttons">
+        <button type="button" class="mode-btn" data-action="demo-negocio" data-id="dom-rafael">
+          <span class="mode-name">Por horário</span>
+          <span class="mode-desc">Barbearia Dom Rafael: serviço, profissional e horário</span>
+        </button>
+        <button type="button" class="mode-btn" data-action="demo-negocio" data-id="brilho">
+          <span class="mode-name">Por esteira</span>
+          <span class="mode-desc">Brilho Lava-rápido: serviço, veículo e horário de chegada</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="panel-block" aria-labelledby="tema-titulo">
+      <h2 id="tema-titulo" class="panel-label">Tema</h2>
+      <div class="segmented" role="radiogroup" aria-labelledby="tema-titulo">
+        <button type="button" role="radio" data-action="tema" data-tema="sistema" aria-checked="true">Sistema</button>
+        <button type="button" role="radio" data-action="tema" data-tema="light" aria-checked="false">Claro</button>
+        <button type="button" role="radio" data-action="tema" data-tema="dark" aria-checked="false">Escuro</button>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="app.js"></script>

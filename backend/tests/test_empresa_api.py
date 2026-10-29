@@ -63,17 +63,17 @@ class TestEmpresaConfigAPI:
         assert response.data['nome'] == 'Minha Empresa'
 
     def test_nicho_lava_rapido_define_tipo_kanban(self, client_autenticado):
-        response = client_autenticado.patch('/api/v1/empresa/config/', {'nicho': 'lava_rapido'}, format='json')
+        response = client_autenticado.patch('/api/v1/empresa/config/', {'nichos': ['lava_rapido']}, format='json')
         assert response.status_code == 200
         assert response.data['tipo_agenda'] == 'kanban'
 
     def test_nicho_banho_tosa_define_tipo_kanban(self, client_autenticado):
-        response = client_autenticado.patch('/api/v1/empresa/config/', {'nicho': 'banho_tosa'}, format='json')
+        response = client_autenticado.patch('/api/v1/empresa/config/', {'nichos': ['banho_tosa']}, format='json')
         assert response.status_code == 200
         assert response.data['tipo_agenda'] == 'kanban'
 
     def test_nicho_desconhecido_define_tipo_horario(self, client_autenticado):
-        response = client_autenticado.patch('/api/v1/empresa/config/', {'nicho': 'barbearia'}, format='json')
+        response = client_autenticado.patch('/api/v1/empresa/config/', {'nichos': ['barbearia']}, format='json')
         assert response.status_code == 200
         assert response.data['tipo_agenda'] == 'horario'
 
@@ -83,7 +83,7 @@ class TestEmpresaConfigAPI:
         assert Colaborador.objects.filter(user=usuario).exists()
 
     def test_onboarding_kanban_cria_etapas_padrao(self, client_autenticado):
-        client_autenticado.patch('/api/v1/empresa/config/', {'nicho': 'lava_rapido'}, format='json')
+        client_autenticado.patch('/api/v1/empresa/config/', {'nichos': ['lava_rapido']}, format='json')
         client_autenticado.patch('/api/v1/empresa/config/', CONCLUIR_ONBOARDING, format='json')
         assert EtapaKanban.objects.count() == 3
 
@@ -94,7 +94,7 @@ class TestEmpresaConfigAPI:
         assert response.status_code == 401
 
     def test_tipo_agenda_ignorado_quando_enviado_diretamente(self, client_autenticado):
-        client_autenticado.patch('/api/v1/empresa/config/', {'nicho': 'lava_rapido'}, format='json')
+        client_autenticado.patch('/api/v1/empresa/config/', {'nichos': ['lava_rapido']}, format='json')
         response = client_autenticado.patch('/api/v1/empresa/config/', {'tipo_agenda': 'horario'}, format='json')
         assert response.status_code == 200
         assert response.data['tipo_agenda'] == 'kanban'
@@ -107,20 +107,20 @@ class TestNichoOutro:
     URL = '/api/v1/empresa/config/'
 
     def test_outro_com_descricao_fica_em_horario_por_padrao(self, client_autenticado):
-        response = client_autenticado.patch(self.URL, {'nicho': 'outro', 'nicho_descricao': ' Psicologia '}, format='json')
+        response = client_autenticado.patch(self.URL, {'nichos': ['outro'], 'nicho_descricao': ' Psicologia '}, format='json')
         assert response.status_code == 200
         assert response.data['nicho_descricao'] == 'Psicologia'
         assert response.data['tipo_agenda'] == 'horario'
         assert response.data['tipo_objeto'] == ''
 
     def test_outro_sem_descricao_e_recusado(self, client_autenticado):
-        response = client_autenticado.patch(self.URL, {'nicho': 'outro', 'nicho_descricao': '   '}, format='json')
+        response = client_autenticado.patch(self.URL, {'nichos': ['outro'], 'nicho_descricao': '   '}, format='json')
         assert response.status_code == 400
         assert response.data['code'] == 'nicho_descricao_obrigatoria'
 
     def test_outro_em_kanban_guarda_o_objeto_escolhido(self, client_autenticado):
         response = client_autenticado.patch(self.URL, {
-            'nicho': 'outro', 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban', 'tipo_objeto': 'veiculo',
+            'nichos': ['outro'], 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban', 'tipo_objeto': 'veiculo',
         }, format='json')
         assert response.status_code == 200
         assert response.data['tipo_agenda'] == 'kanban'
@@ -128,41 +128,41 @@ class TestNichoOutro:
 
     def test_outro_em_kanban_sem_objeto_e_recusado(self, client_autenticado):
         response = client_autenticado.patch(self.URL, {
-            'nicho': 'outro', 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban',
+            'nichos': ['outro'], 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban',
         }, format='json')
         assert response.status_code == 400
         assert response.data['code'] == 'tipo_objeto_obrigatorio'
 
     def test_outro_em_horario_descarta_o_objeto(self, client_autenticado):
         response = client_autenticado.patch(self.URL, {
-            'nicho': 'outro', 'nicho_descricao': 'Psicologia', 'tipo_agenda': 'horario', 'tipo_objeto': 'pet',
+            'nichos': ['outro'], 'nicho_descricao': 'Psicologia', 'tipo_agenda': 'horario', 'tipo_objeto': 'pet',
         }, format='json')
         assert response.status_code == 200
         assert response.data['tipo_objeto'] == ''
 
     def test_nicho_conhecido_ignora_descricao_e_objeto_enviados(self, client_autenticado):
         response = client_autenticado.patch(self.URL, {
-            'nicho': 'lava_rapido', 'nicho_descricao': 'Qualquer coisa', 'tipo_objeto': 'pet',
+            'nichos': ['lava_rapido'], 'nicho_descricao': 'Qualquer coisa', 'tipo_objeto': 'pet',
         }, format='json')
         assert response.status_code == 200
         assert response.data['nicho_descricao'] == ''
         assert response.data['tipo_objeto'] == 'veiculo'
 
     def test_trocar_de_outro_para_nicho_conhecido_limpa_a_descricao(self, client_autenticado):
-        client_autenticado.patch(self.URL, {'nicho': 'outro', 'nicho_descricao': 'Psicologia'}, format='json')
-        response = client_autenticado.patch(self.URL, {'nicho': 'barbearia'}, format='json')
+        client_autenticado.patch(self.URL, {'nichos': ['outro'], 'nicho_descricao': 'Psicologia'}, format='json')
+        response = client_autenticado.patch(self.URL, {'nichos': ['barbearia']}, format='json')
         assert response.data['nicho_descricao'] == ''
 
     def test_outro_em_kanban_cria_etapas_ao_concluir(self, client_autenticado):
         client_autenticado.patch(self.URL, {
-            'nicho': 'outro', 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban', 'tipo_objeto': 'veiculo',
+            'nichos': ['outro'], 'nicho_descricao': 'Oficina mecânica', 'tipo_agenda': 'kanban', 'tipo_objeto': 'veiculo',
         }, format='json')
         client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
         assert EtapaKanban.objects.count() == 3
 
     def test_vitrine_publica_o_objeto_escolhido_no_outro(self, client_autenticado, tenant):
         client_autenticado.patch(self.URL, {
-            'nome': 'Oficina do Zé', 'nicho': 'outro', 'nicho_descricao': 'Oficina mecânica',
+            'nome': 'Oficina do Zé', 'nichos': ['outro'], 'nicho_descricao': 'Oficina mecânica',
             'tipo_agenda': 'kanban', 'tipo_objeto': 'veiculo',
             'latitude': '-22.357000', 'longitude': '-47.384000',
         }, format='json')
@@ -179,38 +179,156 @@ class TestModoAgendaAposOnboarding:
     URL = '/api/v1/empresa/config/'
 
     def test_trocar_para_nicho_de_outro_modo_e_recusado(self, client_autenticado):
-        client_autenticado.patch(self.URL, {'nicho': 'lava_rapido'}, format='json')
+        client_autenticado.patch(self.URL, {'nichos': ['lava_rapido']}, format='json')
         client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
 
-        response = client_autenticado.patch(self.URL, {'nicho': 'barbearia'}, format='json')
+        response = client_autenticado.patch(self.URL, {'nichos': ['barbearia']}, format='json')
 
         assert response.status_code == 400
         assert response.data['code'] == 'modo_agenda_bloqueado'
-        assert EmpresaConfig.objects.get().nicho == 'lava_rapido'
+        assert EmpresaConfig.objects.get().nichos == ['lava_rapido']
 
     def test_trocar_o_objeto_do_kanban_e_recusado(self, client_autenticado):
-        client_autenticado.patch(self.URL, {'nicho': 'lava_rapido'}, format='json')
+        client_autenticado.patch(self.URL, {'nichos': ['lava_rapido']}, format='json')
         client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
 
-        response = client_autenticado.patch(self.URL, {'nicho': 'banho_tosa'}, format='json')
+        response = client_autenticado.patch(self.URL, {'nichos': ['banho_tosa']}, format='json')
 
         assert response.status_code == 400
         assert response.data['code'] == 'modo_agenda_bloqueado'
 
     def test_trocar_para_nicho_do_mesmo_modo_e_permitido(self, client_autenticado):
-        client_autenticado.patch(self.URL, {'nicho': 'barbearia'}, format='json')
+        client_autenticado.patch(self.URL, {'nichos': ['barbearia']}, format='json')
         client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
 
-        response = client_autenticado.patch(self.URL, {'nicho': 'outro', 'nicho_descricao': 'Estética'}, format='json')
+        response = client_autenticado.patch(self.URL, {'nichos': ['outro'], 'nicho_descricao': 'Estética'}, format='json')
 
         assert response.status_code == 200
-        assert response.data['nicho'] == 'outro'
+        assert response.data['nichos'] == ['outro']
 
     def test_antes_de_concluir_o_modo_troca_livremente(self, client_autenticado):
-        client_autenticado.patch(self.URL, {'nicho': 'lava_rapido'}, format='json')
-        response = client_autenticado.patch(self.URL, {'nicho': 'barbearia'}, format='json')
+        client_autenticado.patch(self.URL, {'nichos': ['lava_rapido']}, format='json')
+        response = client_autenticado.patch(self.URL, {'nichos': ['barbearia']}, format='json')
         assert response.status_code == 200
         assert response.data['tipo_agenda'] == 'horario'
+
+
+@pytest.mark.django_db
+class TestVariosNichos:
+    """De 1 a 4 nichos da mesma área — área é o modo completo que o nicho decide."""
+
+    URL = '/api/v1/empresa/config/'
+
+    def test_aceita_ate_quatro_e_devolve_na_ordem_de_exibicao_sem_repetidos(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {
+            'nichos': ['massagem', 'barbearia', 'manicure', 'barbearia', 'cabeleireiro'],
+        }, format='json')
+        assert response.status_code == 200
+        assert response.data['nichos'] == ['cabeleireiro', 'barbearia', 'manicure', 'massagem']
+        assert response.data['tipo_agenda'] == 'horario'
+
+    def test_mais_de_quatro_e_recusado(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {
+            'nichos': ['cabeleireiro', 'barbearia', 'manicure', 'pedicure', 'massagem'],
+        }, format='json')
+        assert response.status_code == 400
+        assert response.data['code'] == 'nichos_limite'
+
+    def test_lista_vazia_antes_de_escolher_e_aceita(self, client_autenticado):
+        """O passo 1 do onboarding salva a config antes de haver nicho."""
+        response = client_autenticado.patch(self.URL, {'nome': 'Studio', 'nichos': []}, format='json')
+        assert response.status_code == 200
+        assert response.data['nichos'] == []
+
+    def test_lista_vazia_depois_de_escolher_e_recusada(self, client_autenticado):
+        client_autenticado.patch(self.URL, {'nichos': ['barbearia']}, format='json')
+        response = client_autenticado.patch(self.URL, {'nichos': []}, format='json')
+        assert response.status_code == 400
+        assert response.data['code'] == 'nichos_obrigatorios'
+
+    def test_nicho_desconhecido_e_recusado(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {'nichos': ['padaria']}, format='json')
+        assert response.status_code == 400
+        assert 'nichos' in response.data['fields']
+
+    def test_areas_diferentes_sao_recusadas(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {'nichos': ['barbearia', 'lava_rapido']}, format='json')
+        assert response.status_code == 400
+        assert response.data['code'] == 'nichos_areas_diferentes'
+
+    def test_veiculo_e_pet_sao_areas_diferentes(self, client_autenticado):
+        """Os dois são kanban, mas o card do quadro é um veículo ou um pet."""
+        response = client_autenticado.patch(self.URL, {'nichos': ['lava_rapido', 'banho_tosa']}, format='json')
+        assert response.status_code == 400
+        assert response.data['code'] == 'nichos_areas_diferentes'
+
+    def test_outro_nao_se_combina(self, client_autenticado):
+        response = client_autenticado.patch(self.URL, {
+            'nichos': ['outro', 'barbearia'], 'nicho_descricao': 'Estética',
+        }, format='json')
+        assert response.status_code == 400
+        assert response.data['code'] == 'nicho_outro_exclusivo'
+
+    def test_acrescentar_nicho_da_mesma_area_depois_do_onboarding(self, client_autenticado):
+        client_autenticado.patch(self.URL, {'nichos': ['barbearia']}, format='json')
+        client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
+
+        response = client_autenticado.patch(self.URL, {'nichos': ['barbearia', 'massagem']}, format='json')
+
+        assert response.status_code == 200
+        assert response.data['nichos'] == ['barbearia', 'massagem']
+
+    def test_vitrine_publica_todos_os_nichos(self, client_autenticado, tenant):
+        client_autenticado.patch(self.URL, {
+            'nome': 'Studio', 'nichos': ['manicure', 'cilios'],
+            'latitude': '-22.357000', 'longitude': '-47.384000',
+        }, format='json')
+        client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
+
+        negocio = NegocioPublico.objects.get(schema_name=tenant.schema_name)
+        assert negocio.nichos == ['manicure', 'cilios']
+
+
+@pytest.mark.django_db
+class TestRemoverNicho:
+    """Os serviços do nicho removido saem de circulação: inativos, não apagados."""
+
+    URL = '/api/v1/empresa/config/'
+
+    @pytest.fixture
+    def servicos(self, client_autenticado):
+        from apps_work.servicos.models import Servico
+
+        client_autenticado.patch(self.URL, {'nichos': ['cabeleireiro', 'manicure']}, format='json')
+        return {
+            'corte': Servico.objects.create(nome='Corte', nicho='cabeleireiro', duracao=30, preco='50.00'),
+            'unha': Servico.objects.create(nome='Pé e mão', nicho='manicure', duracao=60, preco='40.00'),
+        }
+
+    def test_inativa_so_os_servicos_do_nicho_removido(self, client_autenticado, servicos):
+        response = client_autenticado.patch(self.URL, {'nichos': ['cabeleireiro']}, format='json')
+
+        assert response.status_code == 200
+        servicos['corte'].refresh_from_db()
+        servicos['unha'].refresh_from_db()
+        assert servicos['corte'].ativo is True
+        assert servicos['unha'].ativo is False
+
+    def test_recolocar_o_nicho_nao_reativa(self, client_autenticado, servicos):
+        client_autenticado.patch(self.URL, {'nichos': ['cabeleireiro']}, format='json')
+        client_autenticado.patch(self.URL, {'nichos': ['cabeleireiro', 'manicure']}, format='json')
+
+        servicos['unha'].refresh_from_db()
+        assert servicos['unha'].ativo is False
+
+    def test_salvamento_recusado_nao_inativa(self, client_autenticado, servicos):
+        client_autenticado.patch(self.URL, CONCLUIR_ONBOARDING, format='json')
+
+        response = client_autenticado.patch(self.URL, {'nichos': ['lava_rapido']}, format='json')
+
+        assert response.status_code == 400
+        servicos['unha'].refresh_from_db()
+        assert servicos['unha'].ativo is True
 
 
 # --- HorarioFuncionamentoViewSet ---
@@ -299,7 +417,7 @@ class TestEmpresaConfigExcecoesSilenciadas:
         assert response.status_code == 200
 
     def test_excecao_em_etapas_kanban_nao_interrompe_onboarding(self, client_autenticado):
-        client_autenticado.patch('/api/v1/empresa/config/', {'nicho': 'lava_rapido'}, format='json')
+        client_autenticado.patch('/api/v1/empresa/config/', {'nichos': ['lava_rapido']}, format='json')
         with patch('apps_work.kanban.services.EtapaService.criar_etapas_padrao', side_effect=RuntimeError('service error')):
             response = client_autenticado.patch(
                 '/api/v1/empresa/config/', CONCLUIR_ONBOARDING, format='json'

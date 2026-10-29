@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
 import 'package:managers/features/empresa/domain/usecases/buscar_config_use_case.dart';
 import 'package:managers/features/empresa/presentation/providers/negocio_atual_provider.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
@@ -133,5 +134,85 @@ void main() {
 
     expect(provider.carregado, isFalse);
     expect(provider.erroAoCarregar, isA<NetworkFailure>());
+  });
+
+  group('pastas', () {
+    final unha = Servico(
+      id: 2,
+      nome: 'Pé e mão',
+      nicho: Nicho.manicure,
+      duracao: 60,
+      preco: Decimal.parse('40'),
+    );
+    final escova = Servico(
+      id: 3,
+      nome: 'Escova',
+      nicho: Nicho.cabeleireiro,
+      duracao: 45,
+      preco: Decimal.parse('35'),
+    );
+    final massagem = Servico(
+      id: 4,
+      nome: 'Relaxante',
+      nicho: Nicho.massagem,
+      duracao: 60,
+      preco: Decimal.parse('90'),
+      ativo: false,
+    );
+
+    setUp(() {
+      negocio.atualizarConfig(
+        const EmpresaConfig(nichos: [Nicho.cabeleireiro, Nicho.manicure]),
+      );
+      when(() => listar(any()))
+          .thenAnswer((_) async => Right([unha, escova, massagem]));
+    });
+
+    test('com um nicho só a lista fica corrida', () {
+      negocio.atualizarConfig(
+        const EmpresaConfig(nichos: [Nicho.cabeleireiro]),
+      );
+
+      expect(provider.emPastas, isFalse);
+    });
+
+    test(
+      'uma pasta por nicho, na ordem de exibição, e os removidos no fim',
+      () async {
+        await provider.carregar();
+
+        expect(provider.emPastas, isTrue);
+        expect(provider.pastas.map((p) => p.nicho), [
+          Nicho.cabeleireiro,
+          Nicho.manicure,
+          null,
+        ]);
+        expect(provider.pastas[0].servicos, [escova]);
+        expect(provider.pastas[1].servicos, [unha]);
+        expect(provider.pastas[2].servicos, [massagem]);
+      },
+    );
+
+    test('pasta vazia aparece, menos na busca', () async {
+      when(() => listar(any())).thenAnswer((_) async => Right([escova]));
+
+      await provider.carregar();
+      expect(provider.pastas.map((p) => p.nicho), [
+        Nicho.cabeleireiro,
+        Nicho.manicure,
+      ]);
+
+      await provider.buscar('escova');
+      expect(provider.pastas.map((p) => p.nicho), [Nicho.cabeleireiro]);
+    });
+
+    test('recolher e abrir uma pasta', () {
+      provider.alternarPasta(Nicho.manicure);
+      expect(provider.recolhida(Nicho.manicure), isTrue);
+      expect(provider.recolhida(Nicho.cabeleireiro), isFalse);
+
+      provider.alternarPasta(Nicho.manicure);
+      expect(provider.recolhida(Nicho.manicure), isFalse);
+    });
   });
 }

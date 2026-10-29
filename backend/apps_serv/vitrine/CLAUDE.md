@@ -36,7 +36,7 @@ passa por aqui.
 |---|---|---|
 | `schema_name` | `CharField(63)` único, indexado | O tenant que este perfil representa. É a chave que o app B2C usa em toda rota |
 | `nome` | `CharField(255)` | Nome exibido no mapa |
-| `nicho` | `CharField(50)` | Slug (`barbearia`, `banho_tosa`…). Os rótulos legíveis vivem nos apps |
+| `nichos` | `ArrayField(CharField(50))` | Slugs (`barbearia`, `banho_tosa`…), de 1 a 4, copiados de `EmpresaConfig.nichos`. O filtro `?nicho=` acha o negócio por qualquer um deles. Os rótulos legíveis vivem nos apps |
 | `tipo_agenda` | `CharField(20)` | `horario` ou `kanban`. Define o fluxo de agendamento no app |
 | `tipo_objeto` | `CharField(20)` nulo | `veiculo` ou `pet`, copiado de `EmpresaConfig.tipo_objeto`. Nulo no modo horário |
 | `latitude` | `Decimal(9,6)` | Obrigatória — sem ela o negócio não entra na vitrine |

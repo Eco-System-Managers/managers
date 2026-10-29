@@ -37,6 +37,7 @@ class DashboardKpisSerializer(serializers.Serializer):
 
 class RankingServicoSerializer(serializers.Serializer):
     nome = serializers.CharField()
+    nicho = serializers.CharField(help_text='O nicho do serviço (slug); a tela o indica quando o negócio tem mais de um.')
     total = serializers.IntegerField()
 
 

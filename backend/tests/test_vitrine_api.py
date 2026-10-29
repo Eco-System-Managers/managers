@@ -33,7 +33,7 @@ def negocio(db):
     return NegocioPublico.objects.create(
         schema_name='barbearia_x',
         nome='Barbearia X',
-        nicho='Barbearia',
+        nichos=['barbearia'],
         latitude='-23.550000',
         longitude='-46.633000',
         ativo=True,
@@ -45,7 +45,7 @@ def negocio_inativo(db):
     return NegocioPublico.objects.create(
         schema_name='barbearia_fechada',
         nome='Fechada',
-        nicho='Barbearia',
+        nichos=['barbearia'],
         latitude='-23.550000',
         longitude='-46.633000',
         ativo=False,
@@ -89,18 +89,28 @@ class TestNegociosPublicos:
 
     def test_filtra_por_nicho(self, api, db):
         NegocioPublico.objects.create(
-            schema_name='lavacao_y', nome='Lava-Rápido Y', nicho='Lava-Rápido',
+            schema_name='lavacao_y', nome='Lava-Rápido Y', nichos=['lava_rapido'],
             latitude='-23.5', longitude='-46.6', ativo=True,
         )
         NegocioPublico.objects.create(
-            schema_name='barbearia_z', nome='Barbearia Z', nicho='Barbearia',
+            schema_name='barbearia_z', nome='Barbearia Z', nichos=['barbearia'],
             latitude='-23.5', longitude='-46.6', ativo=True,
         )
-        response = api.get('/api/sm/v1/negocios/?nicho=Barbearia')
+        response = api.get('/api/sm/v1/negocios/?nicho=barbearia')
         assert response.status_code == 200
         schemas = [n['schema_name'] for n in response.data['results']]
         assert 'barbearia_z' in schemas
         assert 'lavacao_y' not in schemas
+
+    def test_negocio_aparece_no_filtro_de_cada_nicho(self, api, db):
+        NegocioPublico.objects.create(
+            schema_name='studio_w', nome='Studio W', nichos=['cabeleireiro', 'manicure'],
+            latitude='-23.5', longitude='-46.6', ativo=True,
+        )
+        for nicho in ('cabeleireiro', 'manicure'):
+            response = api.get(f'/api/sm/v1/negocios/?nicho={nicho}')
+            assert [n['schema_name'] for n in response.data['results']] == ['studio_w']
+        assert api.get('/api/sm/v1/negocios/?nicho=massagem').data['results'] == []
 
     def test_lista_vazia_sem_negocios_ativos(self, api, negocio_inativo):
         response = api.get('/api/sm/v1/negocios/')
@@ -120,15 +130,15 @@ class TestNegociosPublicos:
 @pytest.fixture
 def vitrine_variada(db):
     NegocioPublico.objects.create(
-        schema_name='barbearia_do_ze', nome='Barbearia do Zé', nicho='barbearia',
+        schema_name='barbearia_do_ze', nome='Barbearia do Zé', nichos=['barbearia'],
         cidade='Campinas', latitude='-23.5', longitude='-46.6', ativo=True,
     )
     NegocioPublico.objects.create(
-        schema_name='banho_feliz', nome='Pet Feliz', nicho='banho_tosa',
+        schema_name='banho_feliz', nome='Pet Feliz', nichos=['banho_tosa'],
         cidade='Santos', latitude='-23.5', longitude='-46.6', ativo=True,
     )
     NegocioPublico.objects.create(
-        schema_name='lava_jato_sp', nome='Lava Jato SP', nicho='lava_rapido',
+        schema_name='lava_jato_sp', nome='Lava Jato SP', nichos=['lava_rapido'],
         cidade='Campinas', latitude='-23.5', longitude='-46.6', ativo=True,
     )
 
@@ -149,6 +159,14 @@ class TestBuscaDeNegocios:
     def test_busca_por_nicho(self, api, vitrine_variada):
         response = api.get('/api/sm/v1/negocios/?search=banho')
         assert self._schemas(response) == {'banho_feliz'}
+
+    def test_busca_encontra_qualquer_um_dos_nichos(self, api, vitrine_variada):
+        NegocioPublico.objects.create(
+            schema_name='studio_w', nome='Studio W', nichos=['cabeleireiro', 'massagem'],
+            cidade='Recife', latitude='-23.5', longitude='-46.6', ativo=True,
+        )
+        response = api.get('/api/sm/v1/negocios/?search=massa')
+        assert self._schemas(response) == {'studio_w'}
 
     def test_busca_ignora_maiusculas(self, api, vitrine_variada):
         response = api.get('/api/sm/v1/negocios/?search=LAVA')
@@ -179,15 +197,15 @@ class TestFiltroPorArea:
     @pytest.fixture(autouse=True)
     def _vitrine_geografica(self, db):
         NegocioPublico.objects.create(
-            schema_name='sp_centro', nome='SP Centro', nicho='barbearia',
+            schema_name='sp_centro', nome='SP Centro', nichos=['barbearia'],
             cidade='São Paulo', latitude='-23.550000', longitude='-46.633000', ativo=True,
         )
         NegocioPublico.objects.create(
-            schema_name='campinas', nome='Campinas', nicho='barbearia',
+            schema_name='campinas', nome='Campinas', nichos=['barbearia'],
             cidade='Campinas', latitude='-22.906800', longitude='-47.062600', ativo=True,
         )
         NegocioPublico.objects.create(
-            schema_name='recife', nome='Recife', nicho='barbearia',
+            schema_name='recife', nome='Recife', nichos=['barbearia'],
             cidade='Recife', latitude='-8.047600', longitude='-34.877000', ativo=True,
         )
 
@@ -220,7 +238,7 @@ class TestFiltroPorArea:
 
     def test_area_combina_com_nicho(self, api):
         NegocioPublico.objects.create(
-            schema_name='sp_pet', nome='SP Pet', nicho='banho_tosa',
+            schema_name='sp_pet', nome='SP Pet', nichos=['banho_tosa'],
             cidade='São Paulo', latitude='-23.551000', longitude='-46.634000', ativo=True,
         )
         response = api.get('/api/sm/v1/negocios/?lat=-23.55&lng=-46.633&raio_km=20&nicho=banho_tosa')
@@ -247,11 +265,19 @@ class TestNichosDaVitrine:
 
     def test_nao_repete_nicho(self, api, vitrine_variada):
         NegocioPublico.objects.create(
-            schema_name='outra_barbearia', nome='Outra', nicho='barbearia',
+            schema_name='outra_barbearia', nome='Outra', nichos=['barbearia'],
             cidade='Recife', latitude='-23.5', longitude='-46.6', ativo=True,
         )
         response = api.get(self.URL)
         assert response.data.count('barbearia') == 1
+
+    def test_junta_os_nichos_de_cada_negocio(self, api, vitrine_variada):
+        NegocioPublico.objects.create(
+            schema_name='studio_w', nome='Studio W', nichos=['barbearia', 'massagem'],
+            cidade='Recife', latitude='-23.5', longitude='-46.6', ativo=True,
+        )
+        response = api.get(self.URL)
+        assert response.data == ['banho_tosa', 'barbearia', 'lava_rapido', 'massagem']
 
     def test_ignora_negocio_inativo(self, api, negocio_inativo):
         response = api.get(self.URL)
@@ -418,7 +444,6 @@ class TestCriarAgendamento:
         mock_agendamento.checkin_realizado = False
         mock_agendamento.criado_em = timezone.now()
         mock_agendamento.agendamento_id = 10
-        mock_agendamento.nicho = 'Barbearia'
         mock_agendamento.profissional_nome = ''
 
         with patch('apps_serv.vitrine.views.AgendamentoTenantService') as MockSvc:

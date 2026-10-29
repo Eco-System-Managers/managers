@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
 import 'package:managers/features/empresa/presentation/providers/negocio_atual_provider.dart';
 
 import '../../domain/entities/servico.dart';
@@ -8,9 +9,19 @@ import '../../domain/params/listar_servicos_params.dart';
 import '../../domain/usecases/alterar_ativo_servico_use_case.dart';
 import '../../domain/usecases/listar_servicos_use_case.dart';
 
+// uma pasta da lista: os serviços de um nicho. nicho null é a pasta dos
+// nichos que o negócio deixou, onde só sobra serviço inativo
+class PastaDeServicos {
+  const PastaDeServicos({required this.nicho, required this.servicos});
+
+  final Nicho? nicho;
+  final List<Servico> servicos;
+}
+
 // estado da lista de serviços (montado em servicos_provider.dart, na raiz
-// da feature): busca, filtro de inativos e inativar/reativar. depois de
-// qualquer escrita a lista é recarregada da API, nunca ajustada na mão
+// da feature): busca, filtro de inativos, as pastas por nicho e
+// inativar/reativar. depois de qualquer escrita a lista é recarregada da
+// API, nunca ajustada na mão
 class ServicosProvider extends ChangeNotifier {
   ServicosProvider({
     required this._listar,
@@ -29,6 +40,7 @@ class ServicosProvider extends ChangeNotifier {
   String? _errorMessage;
   String _busca = '';
   bool _mostrarInativos = false;
+  final Set<Nicho?> _recolhidas = {};
 
   // a tela pode ser fechada durante uma requisição
   bool _disposed = false;
@@ -45,6 +57,34 @@ class ServicosProvider extends ChangeNotifier {
 
   // só o proprietário cria, edita e inativa
   bool get ehProprietario => _negocio.ehProprietario;
+
+  List<Nicho> get nichos => _negocio.config?.nichos ?? const [];
+
+  // com um nicho só a pasta seria redundante: a lista fica corrida
+  bool get emPastas => nichos.length > 1;
+
+  // uma pasta por nicho do negócio, na ordem de exibição, mesmo vazia (é
+  // onde se cria o primeiro serviço dela). na busca, só as que acharam
+  // algo. o que é de um nicho que saiu vai para a pasta do fim
+  List<PastaDeServicos> get pastas {
+    final buscando = _busca.isNotEmpty;
+    return [
+      for (final nicho in nichos)
+        if (_servicos.where((s) => s.nicho == nicho).toList()
+            case final servicos when servicos.isNotEmpty || !buscando)
+          PastaDeServicos(nicho: nicho, servicos: servicos),
+      if (_servicos.where((s) => !nichos.contains(s.nicho)).toList()
+          case final orfaos when orfaos.isNotEmpty)
+        PastaDeServicos(nicho: null, servicos: orfaos),
+    ];
+  }
+
+  bool recolhida(Nicho? nicho) => _recolhidas.contains(nicho);
+
+  void alternarPasta(Nicho? nicho) {
+    if (!_recolhidas.remove(nicho)) _recolhidas.add(nicho);
+    notifyListeners();
+  }
 
   Future<void> carregar() async {
     _isLoading = true;

@@ -15,6 +15,7 @@ import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/filtros.dart';
 import 'package:managers/core/widgets/painel.dart';
 import 'package:managers/core/widgets/sombra_de_borda.dart';
+import 'package:managers/features/empresa/presentation/widgets/nicho_visual.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/empresa/presentation/providers/negocio_atual_provider.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
@@ -423,6 +424,10 @@ class _InicioPageState extends ConsumerState<InicioPage> {
                     if (i > 0) const SizedBox(height: BrandSpacing.space2),
                     _BarraDoRanking(
                       nome: r.nome,
+                      // com mais de um nicho, o nicho vai discreto embaixo
+                      nicho: (negocio.config?.nichos.length ?? 0) > 1
+                          ? r.nicho?.nome
+                          : null,
                       total: r.total,
                       maior: resumo.rankingServicos.first.total,
                     ),
@@ -1017,15 +1022,18 @@ class _Tile extends StatelessWidget {
 }
 
 // uma linha do ranking: nome, a barra proporcional ao mais feito, o total.
-// a barra é neutra: gráfico não é ação, então não leva o azul
+// a barra é neutra: gráfico não é ação, então não leva o azul. o nicho,
+// quando vem, fica embaixo do nome em letra pequena e inkMuted
 class _BarraDoRanking extends StatelessWidget {
   const _BarraDoRanking({
     required this.nome,
+    this.nicho,
     required this.total,
     required this.maior,
   });
 
   final String nome;
+  final String? nicho;
   final int total;
   final int maior;
 
@@ -1039,11 +1047,26 @@ class _BarraDoRanking extends StatelessWidget {
       children: [
         SizedBox(
           width: 96,
-          child: Text(
-            nome,
-            style: textos.bodyMedium,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                nome,
+                style: textos.bodyMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (nicho != null)
+                Text(
+                  nicho!,
+                  style: textos.labelSmall?.copyWith(
+                    color: BrandColors.of(context).inkMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+            ],
           ),
         ),
         const SizedBox(width: BrandSpacing.space3),

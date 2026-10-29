@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 import 'package:equatable/equatable.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
 
 // os números de um período, comparados com o anterior de mesmo tamanho, como
 // a API agrega (dashboard/resumo/)
@@ -112,13 +113,17 @@ class IntervaloResumo extends Equatable {
 }
 
 class RankingServico extends Equatable {
-  const RankingServico({required this.nome, required this.total});
+  const RankingServico({required this.nome, this.nicho, required this.total});
 
   final String nome;
+
+  // a tela indica o nicho quando o negócio tem mais de um
+  final Nicho? nicho;
+
   final int total;
 
   @override
-  List<Object?> get props => [nome, total];
+  List<Object?> get props => [nome, nicho, total];
 }
 
 class AgendamentoHoje extends Equatable {
