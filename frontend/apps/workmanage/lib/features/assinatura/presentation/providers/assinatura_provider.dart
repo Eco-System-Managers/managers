@@ -19,6 +19,7 @@ class AssinaturaProvider extends ChangeNotifier {
     required this._cancelar,
     required this._listarPagamentos,
     required this._bloqueio,
+    this.compraNoApp = true,
   });
 
   final ObterAssinaturaUseCase _obter;
@@ -27,6 +28,11 @@ class AssinaturaProvider extends ChangeNotifier {
   final CancelarAssinaturaUseCase _cancelar;
   final ListarPagamentosAssinaturaUseCase _listarPagamentos;
   final BloqueioAssinatura _bloqueio;
+
+  // false no iPhone: a Apple não deixa vender assinatura com pagamento de fora
+  // nem apontar para ele, então lá a tela não oferece compra nenhuma (nem o
+  // "Em breve"), só mostra a assinatura
+  final bool compraNoApp;
 
   Assinatura? _assinatura;
   bool _semAssinatura = false;
@@ -58,6 +64,9 @@ class AssinaturaProvider extends ChangeNotifier {
   String? get mensagemDeBloqueio => _bloqueio.mensagem;
 
   bool get podeAssinar => _semAssinatura || (_assinatura?.podeAssinar ?? false);
+
+  // a tela mostra a parte de comprar (os botões ou o "Em breve")
+  bool get mostraCompra => compraNoApp && podeAssinar;
 
   // assinar pelo app ainda não está liberado: sem assinatura, também não
   bool get checkoutAberto => _assinatura?.checkoutAberto ?? false;

@@ -50,13 +50,14 @@ void main() {
 
   setUpAll(() => registerFallbackValue(NoParams()));
 
-  AssinaturaProvider montar() => AssinaturaProvider(
+  AssinaturaProvider montar({bool compraNoApp = true}) => AssinaturaProvider(
     obter: obter,
     iniciar: iniciar,
     confirmar: confirmar,
     cancelar: cancelar,
     listarPagamentos: listarPagamentos,
     bloqueio: bloqueio,
+    compraNoApp: compraNoApp,
   );
 
   setUp(() {
@@ -111,6 +112,16 @@ void main() {
         .thenAnswer((_) async => const Left(NotFoundFailure()));
     await provider.carregar();
     expect(provider.checkoutAberto, isFalse);
+  });
+
+  test('no iPhone a tela não oferece compra nenhuma', () async {
+    final provider = montar(compraNoApp: false);
+
+    await provider.carregar();
+
+    expect(provider.podeAssinar, isTrue);
+    expect(provider.mostraCompra, isFalse);
+    expect(montar().mostraCompra, isFalse); // ainda não carregou
   });
 
   test('404: negócio sem assinatura não é erro, e pode assinar', () async {

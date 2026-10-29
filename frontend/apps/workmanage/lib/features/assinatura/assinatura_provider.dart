@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/network/dio_client.dart';
 import 'package:managers/core/session/sessao_provider.dart';
@@ -50,6 +51,7 @@ final assinaturaProvider = Provider.autoDispose<AssinaturaProvider>((ref) {
     cancelar: ref.watch(cancelarAssinaturaUseCaseProvider),
     listarPagamentos: ref.watch(listarPagamentosAssinaturaUseCaseProvider),
     bloqueio: ref.watch(bloqueioAssinaturaProvider),
+    compraNoApp: defaultTargetPlatform != TargetPlatform.iOS,
   );
   ref.onDispose(provider.dispose);
   return provider;

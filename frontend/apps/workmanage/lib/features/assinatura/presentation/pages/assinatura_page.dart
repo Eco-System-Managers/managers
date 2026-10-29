@@ -184,7 +184,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
               style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             )
           else ...[
-            if (provider.podeAssinar && !provider.checkoutAberto) ...[
+            if (provider.mostraCompra && !provider.checkoutAberto) ...[
               // a fase de testes: o checkout fica fechado, na API também
               const _Aviso(
                 texto:
@@ -202,7 +202,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
                 icon: const Icon(Icons.lock_clock_rounded),
                 label: const Text('Em breve'),
               ),
-            ] else if (provider.podeAssinar) ...[
+            ] else if (provider.mostraCompra) ...[
               FilledButton.icon(
                 onPressed: provider.isLoading ? null : _assinar,
                 style: FilledButton.styleFrom(
