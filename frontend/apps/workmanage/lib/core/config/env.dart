@@ -10,4 +10,8 @@ class Env {
     'API_BASE_URL',
     defaultValue: 'https://api.workmanage.com.br/api/v1/',
   );
+
+  // a política de privacidade é uma página pública do mesmo servidor da API
+  static String get linkPrivacidade =>
+      Uri.parse(apiBaseUrl).replace(path: '/privacidade').toString();
 }
