@@ -13,9 +13,10 @@ da agenda), e o APK aponta para a produção.
 - Agenda: regras do cliente (15 min, 30 min de antecedência, até 30 dias),
   conflito conferido no servidor e bloqueios.
 - Assinatura fechada na fase de testes (`ASSINATURA_ABERTA=False`): o servidor
-  recusa o checkout; o Android mostra "Em breve"; o iPhone não mostra compra
-  nenhuma. Bloqueado, ninguém fica preso: a tela de assinatura tem **Sair** e
-  **Excluir conta**, com aviso neutro.
+  recusa o checkout e o app não fala de assinatura, igual no Android e no
+  iPhone (sem item no Mais, sem plano, cobranças nem "Em breve"). Bloqueado,
+  ninguém fica preso: a tela "Acesso" tem o aviso neutro, **Sair** e
+  **Excluir conta**.
 - O que as lojas exigem: excluir a conta pelo app (Mais › Excluir conta, com
   30 dias para desistir), política de privacidade pública (`/privacidade`,
   link em Mais), identificador `br.com.workmanage.app` nos dois, declaração de
