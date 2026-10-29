@@ -24,6 +24,14 @@ ele: quem assina dali em diante paga o valor novo; as recorrências já feitas
 continuam no valor antigo. Num banco novo, rodar uma vez antes de lançar —
 sem ele o plano fica sem `link_checkout` e ninguém consegue assinar.
 
+## Assinar pelo app fechado (`ASSINATURA_ABERTA`)
+
+Na fase de testes, `iniciar/` e `confirmar/` respondem 403 `assinatura_em_breve`
+e a assinatura sai com `checkout_aberto: false`, que o app lê para mostrar
+"Em breve" no lugar do botão. A trava fica no servidor: esconder o botão não
+basta. Ligar é só a variável `ASSINATURA_ABERTA=True`, sem atualizar o app.
+Cancelar e o resto continuam como sempre.
+
 ## Acesso vitalício
 
 `conceder_acesso_vitalicio()` (`services.py`, ou a ação no admin) deixa a

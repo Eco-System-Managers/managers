@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from .models import Assinatura, PagamentoAssinatura
@@ -6,10 +7,16 @@ from .models import Assinatura, PagamentoAssinatura
 class AssinaturaSerializer(serializers.ModelSerializer):
     plano_nome = serializers.CharField(source='plano.get_nome_display', read_only=True)
     bloqueada = serializers.BooleanField(read_only=True)
+    checkout_aberto = serializers.SerializerMethodField(
+        help_text='False enquanto assinar pelo app não está liberado: o app mostra "Em breve".',
+    )
 
     class Meta:
         model = Assinatura
-        fields = ['status', 'plano_nome', 'inicio', 'proximo_vencimento', 'trial_fim', 'bloqueada']
+        fields = ['status', 'plano_nome', 'inicio', 'proximo_vencimento', 'trial_fim', 'bloqueada', 'checkout_aberto']
+
+    def get_checkout_aberto(self, obj) -> bool:
+        return settings.ASSINATURA_ABERTA
 
 
 class PagamentoAssinaturaSerializer(serializers.ModelSerializer):

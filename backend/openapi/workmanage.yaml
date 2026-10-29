@@ -7891,8 +7891,14 @@ components:
         bloqueada:
           type: boolean
           readOnly: true
+        checkout_aberto:
+          type: boolean
+          readOnly: true
+          description: 'False enquanto assinar pelo app não está liberado: o app mostra
+            "Em breve".'
       required:
       - bloqueada
+      - checkout_aberto
       - inicio
       - plano_nome
       - proximo_vencimento

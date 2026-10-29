@@ -634,6 +634,10 @@ def api_dono(patch_tenant_middleware, proprietario):
 
 @pytest.mark.django_db
 class TestAssinaturaPeloGateway:
+    @pytest.fixture(autouse=True)
+    def checkout_aberto(self, settings):
+        settings.ASSINATURA_ABERTA = True
+
     def test_gateway_vem_da_configuracao(self, settings, mp_settings):
         from apps_work.billing.services import gateway_de_pagamento
         settings.BILLING_GATEWAY = 'mercadopago'
@@ -670,6 +674,30 @@ class TestAssinaturaPeloGateway:
         PagamentoAssinatura.objects.create(assinatura=assinatura, valor='1.00', data=datetime.date.today(), id_externo='X1')
         with pytest.raises(IntegrityError), transaction.atomic():
             PagamentoAssinatura.objects.create(assinatura=assinatura, valor='1.00', data=datetime.date.today(), id_externo='X1')
+
+
+@pytest.mark.django_db
+class TestAssinaturaEmBreve:
+    """Na fase de testes, assinar pelo app fica travado no servidor: o botão
+    escondido na tela não basta."""
+
+    @pytest.fixture(autouse=True)
+    def checkout_fechado(self, settings):
+        settings.ASSINATURA_ABERTA = False
+
+    @pytest.mark.parametrize('acao', ['iniciar', 'confirmar'])
+    def test_checkout_recusa_com_em_breve(self, api_dono, acao):
+        resposta = api_dono.post(f'/api/v1/billing/assinatura/{acao}/', {'id_externo': 'X1'})
+
+        assert resposta.status_code == 403
+        assert resposta.json()['code'] == 'assinatura_em_breve'
+
+    def test_assinatura_avisa_o_app(self, api_dono, settings):
+        # a assinatura ativa vem do patch_tenant_middleware
+        assert api_dono.get('/api/v1/billing/assinatura/').json()['checkout_aberto'] is False
+
+        settings.ASSINATURA_ABERTA = True
+        assert api_dono.get('/api/v1/billing/assinatura/').json()['checkout_aberto'] is True
 
 
 @pytest.mark.django_db

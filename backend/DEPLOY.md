@@ -51,6 +51,7 @@ produção:
 | `TENANT_DOMAIN_SUFFIX` | `tenants.workmanage.com.br` | **Nunca** o domínio da API nem um pai dele: uma empresa chamada "Api" ganharia `api.<sufixo>` |
 | `LINKS_BASE_URL` | `https://api.workmanage.com.br` | Links de convite, contrato e volta do checkout |
 | `MERCADOPAGO_BACK_URL` | `https://api.workmanage.com.br` | Fixada no plano do MP ao rodar `configurar_plano` |
+| `ASSINATURA_ABERTA` | `False` | `True` só com o Mercado Pago pronto. Desligada, o app mostra "Em breve" e a API recusa o checkout (`assinatura_em_breve`) |
 | `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_STORAGE_BUCKET_NAME` · `AWS_S3_REGION_NAME` | | Obrigatórias: os uploads vão sempre para o S3, e o disco do Railway é apagado a cada deploy |
 | `MERCADOPAGO_ACCESS_TOKEN` · `MERCADOPAGO_PUBLIC_KEY` | `APP_USR-...` | Credenciais de **produção**, não `TEST-` |
 | `MERCADOPAGO_WEBHOOK_SECRET` | | A assinatura secreta do webhook |
