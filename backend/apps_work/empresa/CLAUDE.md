@@ -1,6 +1,6 @@
 # apps_work/empresa — CLAUDE.md
 
-A **configuração do negócio**: identidade, nicho, endereço, logo e horários.
+A **configuração do negócio**: identidade, nichos, endereço, logo e horários.
 
 É o app que define como o produto se comporta para aquele tenant — inclusive
 qual dos dois modos de agenda ele usa.
@@ -10,7 +10,7 @@ qual dos dois modos de agenda ele usa.
 | Arquivo | O que faz |
 |---|---|
 | `models.py` | `EmpresaConfig` (linha única por tenant) e `HorarioFuncionamento` (uma por dia da semana) |
-| `services.py` | `ModoAgendaService` (nicho → modo de agenda e objeto), `GeocodificacaoService` (endereço ↔ coordenada, via Nominatim) e `ArmazenamentoImagemService` (upload, conversão e URL das imagens no S3) |
+| `services.py` | `ModoAgendaService` (nichos → modo de agenda e objeto, e as regras de quantos e quais nichos), `GeocodificacaoService` (endereço ↔ coordenada, via Nominatim) e `ArmazenamentoImagemService` (upload, conversão e URL das imagens no S3) |
 | `serializers.py` | Validação; o modo de agenda ele pede ao `ModoAgendaService` |
 | `validators.py` | CPF e CNPJ com dígitos verificadores |
 | `views.py` | Config, upload de logo, horários e as duas views de geocodificação |
@@ -31,7 +31,7 @@ campos é o serializer, ao concluir — não o banco.
 | `telefone` | `CharField(20)` vazio | |
 | `documento` | `CharField(14)` vazio | **Só os dígitos.** A máscara fica na interface |
 | `tipo_documento` | `CharField(4)` vazio | `cpf` ou `cnpj` |
-| `nicho` | `CharField(50)` vazio | Slug. Nos nichos conhecidos, define `tipo_agenda` e `tipo_objeto`; `outro` deixa o dono escolher |
+| `nichos` | `ArrayField(CharField(50))` = `[]` | Slugs, de 1 a 4, da mesma área, na ordem do enum `Nicho` (a de exibição). Sem nicho principal. Vazio só antes de o onboarding escolher. Nos nichos conhecidos, definem `tipo_agenda` e `tipo_objeto`; `["outro"]` (sempre sozinho) deixa o dono escolher |
 | `nicho_descricao` | `CharField(60)` vazio | O ramo por extenso. Obrigatório no `outro`, vazio nos demais |
 | `latitude` | `Decimal(9,6)` nulo | Sem ela o negócio não entra na vitrine |
 | `longitude` | `Decimal(9,6)` nulo | Idem |
@@ -62,20 +62,36 @@ Ordenação por `dia`. O `unique` no dia é o que garante no máximo sete linhas
 
 | Campo | Consequência |
 |---|---|
-| `nicho` | Define o modo (`ModoAgendaService`). Lava-rápido vira `kanban` com veículo; banho & tosa, `kanban` com pet; os demais nichos da lista, `horario`. Em `outro`, o dono descreve o ramo e escolhe o modo — no kanban, também se recebe veículo ou pet |
+| `nichos` | Definem o modo (`ModoAgendaService`). Lava-rápido vira `kanban` com veículo; banho & tosa, `kanban` com pet; os demais nichos da lista, `horario`. Em `outro`, o dono descreve o ramo e escolhe o modo — no kanban, também se recebe veículo ou pet |
 | `latitude` / `longitude` | Sem elas o negócio **não aparece** na vitrine |
 | `onboarding_concluido` | Enquanto `False`, o frontend manda o usuário para o wizard |
 | `logo_url` | Pública no S3; aparece no mapa e no agendamento do cliente |
 
-Publicar na vitrine exige onboarding concluído, nome, nicho e coordenadas — a
+Publicar na vitrine exige onboarding concluído, nome, ao menos um nicho e coordenadas — a
 regra está em `SincronizarVitrineService._pode_publicar`, do lado do `apps_serv`.
 
 ## O modo de agenda trava no onboarding
 
-Antes de concluir o onboarding, trocar de nicho troca o modo à vontade. Depois,
+Antes de concluir o onboarding, trocar de nichos troca o modo à vontade. Depois,
 qualquer troca que mude `tipo_agenda` ou `tipo_objeto` é recusada
 (`modo_agenda_bloqueado`): agenda e quadro guardam dados que não se convertem
 de um para o outro. Trocar para um nicho do mesmo modo continua livre.
+
+## Vários nichos: a área é o modo
+
+O negócio atende **de 1 a 4 nichos da mesma área**. Área não é cadastro nem
+tabela: é o modo completo que o nicho decide — horário (beleza e bem-estar),
+kanban com veículo (automotivo) ou kanban com pet. Lava-rápido e banho e tosa
+são áreas diferentes, porque o card do quadro é um veículo ou um pet. `outro`
+não se combina com nada. As regras e os codes (`nichos_limite`,
+`nichos_areas_diferentes`, `nicho_outro_exclusivo`; lista vazia é
+`nichos_obrigatorios`, no serializer) estão no `ModoAgendaService`.
+
+Cada serviço fica num dos nichos (`Servico.nicho`, a "pasta"). **Tirar um nicho
+inativa os serviços dele** na mesma transação do salvamento
+(`ConfiguracaoEmpresaService.inativar_servicos_de_nichos_removidos`, chamado
+pela view): inativa e não apaga, porque os agendamentos guardam o serviço com
+`PROTECT`. Recolocar o nicho não os reativa.
 
 ## Imagens
 

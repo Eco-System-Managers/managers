@@ -786,6 +786,7 @@ paths:
         name: nicho
         schema:
           type: string
+        description: Negócios que atendem este nicho (slug).
       - name: page
         required: false
         in: query
@@ -1672,9 +1673,6 @@ components:
         negocio_nome:
           type: string
           maxLength: 255
-        nicho:
-          type: string
-          maxLength: 50
         servicos:
           type: array
           items:
@@ -2029,9 +2027,11 @@ components:
         nome:
           type: string
           maxLength: 255
-        nicho:
-          type: string
-          maxLength: 50
+        nichos:
+          type: array
+          items:
+            type: string
+            maxLength: 50
         tipo_agenda:
           $ref: '#/components/schemas/TipoAgendaEnum'
         tipo_objeto:
@@ -2064,7 +2064,6 @@ components:
       - id
       - latitude
       - longitude
-      - nicho
       - nome
       - schema_name
     NovaSenhaConsumidorRequest:
@@ -2398,6 +2397,9 @@ components:
           type: integer
         nome:
           type: string
+        nicho:
+          type: string
+          description: 'A pasta do serviço: um dos `nichos` do negócio.'
         descricao:
           type: string
         duracao:
@@ -2415,6 +2417,7 @@ components:
       - descricao
       - duracao
       - id
+      - nicho
       - nome
       - preco
       - taxa_cancelamento
@@ -2489,9 +2492,11 @@ components:
         nome:
           type: string
           maxLength: 255
-        nicho:
-          type: string
-          maxLength: 50
+        nichos:
+          type: array
+          items:
+            type: string
+            maxLength: 50
         tipo_agenda:
           $ref: '#/components/schemas/TipoAgendaEnum'
         tipo_objeto:
@@ -2527,7 +2532,6 @@ components:
       - id
       - latitude
       - longitude
-      - nicho
       - nome
       - schema_name
       - vinculado_em

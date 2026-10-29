@@ -24,7 +24,7 @@ no nível do banco.
 |---|---|
 | `autenticacao` | Login do negócio, e a criação do tenant no cadastro |
 | `usuarios` | Colaboradores, papéis e convites |
-| `empresa` | Configuração do negócio: nicho, endereço, logo, horários |
+| `empresa` | Configuração do negócio: nichos, endereço, logo, horários |
 | `billing` | A assinatura do negócio na plataforma |
 
 **Apoio**

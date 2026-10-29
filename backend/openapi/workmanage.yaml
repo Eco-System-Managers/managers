@@ -8637,10 +8637,12 @@ components:
           oneOf:
           - $ref: '#/components/schemas/TipoDocumentoEnum'
           - $ref: '#/components/schemas/BlankEnum'
-        nicho:
-          oneOf:
-          - $ref: '#/components/schemas/NichoEnum'
-          - $ref: '#/components/schemas/BlankEnum'
+        nichos:
+          type: array
+          items:
+            $ref: '#/components/schemas/NichoEnum'
+          description: De 1 a 4 nichos da mesma área (o mesmo modo de agenda). `outro`
+            só sozinho. Volta sem repetidos, na ordem de exibição.
         nicho_descricao:
           type: string
           description: O ramo por extenso. Obrigatório no nicho `outro`; vazio nos
@@ -8724,10 +8726,12 @@ components:
           oneOf:
           - $ref: '#/components/schemas/TipoDocumentoEnum'
           - $ref: '#/components/schemas/BlankEnum'
-        nicho:
-          oneOf:
-          - $ref: '#/components/schemas/NichoEnum'
-          - $ref: '#/components/schemas/BlankEnum'
+        nichos:
+          type: array
+          items:
+            $ref: '#/components/schemas/NichoEnum'
+          description: De 1 a 4 nichos da mesma área (o mesmo modo de agenda). `outro`
+            só sozinho. Volta sem repetidos, na ordem de exibição.
         nicho_descricao:
           type: string
           description: O ramo por extenso. Obrigatório no nicho `outro`; vazio nos
@@ -9790,10 +9794,12 @@ components:
           oneOf:
           - $ref: '#/components/schemas/TipoDocumentoEnum'
           - $ref: '#/components/schemas/BlankEnum'
-        nicho:
-          oneOf:
-          - $ref: '#/components/schemas/NichoEnum'
-          - $ref: '#/components/schemas/BlankEnum'
+        nichos:
+          type: array
+          items:
+            $ref: '#/components/schemas/NichoEnum'
+          description: De 1 a 4 nichos da mesma área (o mesmo modo de agenda). `outro`
+            só sozinho. Volta sem repetidos, na ordem de exibição.
         nicho_descricao:
           type: string
           description: O ramo por extenso. Obrigatório no nicho `outro`; vazio nos
@@ -9931,6 +9937,25 @@ components:
           type: string
           minLength: 1
           maxLength: 255
+        nicho:
+          allOf:
+          - $ref: '#/components/schemas/NichoEnum'
+          description: |-
+            A pasta do serviço: um dos nichos do negócio. Opcional quando o negócio tem um nicho só, que é o usado.
+
+            * `cabeleireiro` - Cabeleireiro(a)
+            * `barbearia` - Barbearia
+            * `manicure` - Manicure
+            * `pedicure` - Pedicure
+            * `depilacao` - Depilação
+            * `design_sobrancelhas` - Design de sobrancelhas
+            * `micropigmentacao` - Micropigmentação
+            * `cilios` - Cílios
+            * `maquiagem` - Maquiagem
+            * `massagem` - Massagem
+            * `lava_rapido` - Lava-rápido
+            * `banho_tosa` - Banho e Tosa
+            * `outro` - Outro
         descricao:
           type: string
         duracao:
@@ -10143,9 +10168,14 @@ components:
       properties:
         nome:
           type: string
+        nicho:
+          type: string
+          description: O nicho do serviço (slug); a tela o indica quando o negócio
+            tem mais de um.
         total:
           type: integer
       required:
+      - nicho
       - nome
       - total
     RefreshRequest:
@@ -10229,6 +10259,25 @@ components:
         nome:
           type: string
           maxLength: 255
+        nicho:
+          allOf:
+          - $ref: '#/components/schemas/NichoEnum'
+          description: |-
+            A pasta do serviço: um dos nichos do negócio. Opcional quando o negócio tem um nicho só, que é o usado.
+
+            * `cabeleireiro` - Cabeleireiro(a)
+            * `barbearia` - Barbearia
+            * `manicure` - Manicure
+            * `pedicure` - Pedicure
+            * `depilacao` - Depilação
+            * `design_sobrancelhas` - Design de sobrancelhas
+            * `micropigmentacao` - Micropigmentação
+            * `cilios` - Cílios
+            * `maquiagem` - Maquiagem
+            * `massagem` - Massagem
+            * `lava_rapido` - Lava-rápido
+            * `banho_tosa` - Banho e Tosa
+            * `outro` - Outro
         descricao:
           type: string
         duracao:
@@ -10266,6 +10315,25 @@ components:
           type: string
           minLength: 1
           maxLength: 255
+        nicho:
+          allOf:
+          - $ref: '#/components/schemas/NichoEnum'
+          description: |-
+            A pasta do serviço: um dos nichos do negócio. Opcional quando o negócio tem um nicho só, que é o usado.
+
+            * `cabeleireiro` - Cabeleireiro(a)
+            * `barbearia` - Barbearia
+            * `manicure` - Manicure
+            * `pedicure` - Pedicure
+            * `depilacao` - Depilação
+            * `design_sobrancelhas` - Design de sobrancelhas
+            * `micropigmentacao` - Micropigmentação
+            * `cilios` - Cílios
+            * `maquiagem` - Maquiagem
+            * `massagem` - Massagem
+            * `lava_rapido` - Lava-rápido
+            * `banho_tosa` - Banho e Tosa
+            * `outro` - Outro
         descricao:
           type: string
         duracao:

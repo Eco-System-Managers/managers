@@ -38,7 +38,7 @@ def negocio_publico(db, tenant):
     return NegocioPublico.objects.create(
         schema_name=tenant.schema_name,
         nome=tenant.nome,
-        nicho='Barbearia',
+        nichos=['barbearia'],
         latitude='-23.550000',
         longitude='-46.633000',
         ativo=True,
@@ -73,7 +73,7 @@ def negocio_publico_kanban(db, tenant):
     return NegocioPublico.objects.create(
         schema_name=tenant.schema_name,
         nome=tenant.nome,
-        nicho='Banho e tosa',
+        nichos=['banho_tosa'],
         latitude='-23.550000',
         longitude='-46.633000',
         ativo=True,

@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from django.db import models
 
+from apps_work.empresa.models import Nicho
+
 
 class TipoTaxaCancelamento(models.TextChoices):
     VALOR = 'valor', 'Valor fixo (R$)'
@@ -10,6 +12,9 @@ class TipoTaxaCancelamento(models.TextChoices):
 
 class Servico(models.Model):
     nome = models.CharField(max_length=255)
+    # A pasta do serviço: um dos nichos do negócio. Gravado sempre, mesmo com
+    # um nicho só — a interface é que esconde a pasta nesse caso.
+    nicho = models.CharField(max_length=50, choices=Nicho.choices)
     descricao = models.TextField(blank=True)
     duracao = models.PositiveIntegerField(help_text='Duração em minutos')
     preco = models.DecimalField(max_digits=8, decimal_places=2)

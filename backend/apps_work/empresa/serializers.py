@@ -1,7 +1,7 @@
 import re
 
 from rest_framework import serializers
-from .models import EmpresaConfig, HorarioFuncionamento, TipoAgenda
+from .models import EmpresaConfig, HorarioFuncionamento, Nicho, TipoAgenda
 from .services import ModoAgendaService
 from .validators import validar_documento
 
@@ -14,10 +14,17 @@ class EmpresaConfigSerializer(serializers.ModelSerializer):
     # Mesma história do documento: a interface manda 00000-000 (9 chars), o
     # model guarda só os 8 dígitos.
     cep = serializers.CharField(max_length=9, required=False, allow_blank=True)
+    # Quantidade, área e o "outro" sozinho são regras do ModoAgendaService; aqui
+    # só se garante que cada item é um nicho conhecido.
+    nichos = serializers.ListField(
+        child=serializers.ChoiceField(choices=Nicho.choices), required=False,
+        help_text='De 1 a 4 nichos da mesma área (o mesmo modo de agenda). `outro` só sozinho. '
+                  'Volta sem repetidos, na ordem de exibição.',
+    )
 
     class Meta:
         model = EmpresaConfig
-        fields = ['id', 'nome', 'telefone', 'documento', 'tipo_documento', 'nicho', 'nicho_descricao', 'cidade', 'endereco', 'numero', 'cep', 'uf', 'latitude', 'longitude', 'localizacao_confirmada', 'logo_url', 'tipo_agenda', 'tipo_objeto', 'onboarding_concluido', 'atualizado_em']
+        fields = ['id', 'nome', 'telefone', 'documento', 'tipo_documento', 'nichos', 'nicho_descricao', 'cidade', 'endereco', 'numero', 'cep', 'uf', 'latitude', 'longitude', 'localizacao_confirmada', 'logo_url', 'tipo_agenda', 'tipo_objeto', 'onboarding_concluido', 'atualizado_em']
         # `localizacao_confirmada` não é escrito pela interface: ele é deduzido
         # do envio da coordenada, em update(). Deixá-lo gravável permitiria
         # travar o geocodificador sem nunca ter apontado um ponto no mapa.
@@ -66,6 +73,14 @@ class EmpresaConfigSerializer(serializers.ModelSerializer):
                 'code': 'documento_obrigatorio',
             })
 
+        # Antes de escolher, a config não tem nicho (e o passo 1 do onboarding
+        # pode mandar a lista vazia); depois, não volta a ficar sem nenhum.
+        if 'nichos' in attrs and not attrs['nichos'] and instance and instance.nichos:
+            raise serializers.ValidationError({
+                'detail': 'Escolha pelo menos 1 nicho.',
+                'code': 'nichos_obrigatorios',
+            })
+
         if 'cep' in attrs:
             attrs['cep'] = re.sub(r'\D', '', attrs['cep'])[:8]
         if 'uf' in attrs:
@@ -80,12 +95,13 @@ class EmpresaConfigSerializer(serializers.ModelSerializer):
             return attrs.get(campo, getattr(instance, campo) if instance else padrao)
 
         modo = ModoAgendaService().resolver(
-            nicho=valor('nicho'),
+            nichos=valor('nichos', []),
             nicho_descricao=valor('nicho_descricao'),
             tipo_agenda=valor('tipo_agenda', TipoAgenda.HORARIO),
             tipo_objeto=valor('tipo_objeto'),
             config=instance,
         )
+        attrs['nichos'] = modo.nichos
         attrs['nicho_descricao'] = modo.nicho_descricao
         attrs['tipo_agenda'] = modo.tipo_agenda
         attrs['tipo_objeto'] = modo.tipo_objeto

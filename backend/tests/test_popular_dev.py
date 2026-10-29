@@ -52,7 +52,7 @@ class TestPopularDev:
         from apps_work.kanban.models import EtapaKanban
         with schema_context(membro.tenant.schema_name):
             config = EmpresaConfig.objects.get(pk=1)
-            assert config.nicho == 'lava_rapido'
+            assert config.nichos == ['lava_rapido']
             assert config.tipo_agenda == 'kanban'
             assert config.tipo_objeto == 'veiculo'
             assert EtapaKanban.objects.count() == 3

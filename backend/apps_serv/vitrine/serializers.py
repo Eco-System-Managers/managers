@@ -8,7 +8,7 @@ from .models import NegocioPublico
 class NegocioPublicoSerializer(serializers.ModelSerializer):
     class Meta:
         model = NegocioPublico
-        fields = ['id', 'schema_name', 'nome', 'nicho', 'tipo_agenda', 'tipo_objeto', 'cidade', 'latitude', 'longitude', 'logo_url', 'descricao']
+        fields = ['id', 'schema_name', 'nome', 'nichos', 'tipo_agenda', 'tipo_objeto', 'cidade', 'latitude', 'longitude', 'logo_url', 'descricao']
 
 
 # ---------------------------------------------------------------------------
@@ -18,6 +18,7 @@ class NegocioPublicoSerializer(serializers.ModelSerializer):
 class ServicoVitrineSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     nome = serializers.CharField()
+    nicho = serializers.CharField(help_text='A pasta do serviço: um dos `nichos` do negócio.')
     descricao = serializers.CharField()
     duracao = serializers.IntegerField(help_text='Minutos.')
     preco = serializers.DecimalField(max_digits=10, decimal_places=2)

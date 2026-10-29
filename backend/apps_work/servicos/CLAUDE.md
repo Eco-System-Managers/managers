@@ -10,7 +10,7 @@ cliente final.
 | Arquivo | O que faz |
 |---|---|
 | `models.py` | `Servico` — nome, duração, preço, quais colaboradores executam, e a taxa de cancelamento |
-| `serializers.py` | Validação de preço, duração e o teto da taxa |
+| `serializers.py` | Validação de preço, duração, o teto da taxa e o nicho do serviço |
 | `views.py` | ViewSet. Escrita restrita ao proprietário; leitura liberada para colaborador. A lista filtra por `?search=`, `?ativo=` e `?colaborador=` (documentados no OpenAPI) |
 | `urls.py` | Rotas sob `/api/v1/servicos/` |
 
@@ -21,6 +21,7 @@ cliente final.
 | Coluna | Tipo | O que é |
 |---|---|---|
 | `nome` | `CharField(255)` | |
+| `nicho` | `CharField(50)` | A pasta do serviço: um dos `EmpresaConfig.nichos`. Gravado sempre; a interface só mostra pastas com 2+ nichos |
 | `descricao` | `TextField` vazio | |
 | `duracao` | `PositiveInteger` | **Em minutos.** É o que define conflito de horário na agenda |
 | `preco` | `Decimal(8,2)` | |
@@ -55,5 +56,12 @@ e está em `apps_serv/vitrine/services.py`.
 - **`DELETE` apaga de verdade** e estoura se o serviço já foi agendado
   (`AgendamentoServico` protege). O app inativa por `PATCH ativo=false` e não
   chama o `DELETE`.
+- **O nicho do serviço tem de ser um dos nichos do negócio.** Com um nicho só,
+  pode ser omitido e o serializer usa ele; com mais, é obrigatório
+  (`nicho_obrigatorio`). Serviço inativo de um nicho que o negócio deixou
+  continua editável, mas só volta a ativo trocando para um nicho atual
+  (`nicho_fora_do_negocio`).
+- **Tirar um nicho na config inativa os serviços dele** — ver
+  `apps_work/empresa/CLAUDE.md`.
 - **O app B2C lê este catálogo** via `CrossTenantQueryService.listar_servicos`,
   filtrando por `ativo=True`. Desativar serviço o remove da vitrine na hora.

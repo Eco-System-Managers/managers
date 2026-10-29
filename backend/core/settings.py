@@ -46,6 +46,8 @@ SHARED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # ArrayField (os nichos do negócio e da vitrine) exige o app registrado.
+    'django.contrib.postgres',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -408,6 +410,8 @@ SPECTACULAR_SETTINGS = {
         'TipoTransacaoCreditoEnum': 'apps_work.financeiro.models.TipoTransacao',
         'TipoNotificacaoEnum': 'apps_work.notificacoes.models.TipoNotificacao',
         'TipoAgendaEnum': 'apps_work.empresa.models.TipoAgenda',
+        # Os nichos do negócio (lista) e a pasta do serviço (um só).
+        'NichoEnum': 'apps_work.empresa.models.Nicho',
         'TipoPlanoEnum': 'apps_work.billing.models.TipoPlano',
         # pet | veiculo: usado no B2B (ObjetoCliente) e no B2C.
         'TipoObjetoEnum': 'apps_work.clientes.models.TipoObjeto',

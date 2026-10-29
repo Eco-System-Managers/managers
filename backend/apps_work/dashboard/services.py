@@ -199,18 +199,20 @@ class DashboardService:
 
         def somar(linhas):
             for row in linhas:
-                s = servicos.setdefault(row['servico_id'], {'nome': row['servico__nome'], 'total': 0})
+                s = servicos.setdefault(
+                    row['servico_id'], {'nome': row['servico__nome'], 'nicho': row['servico__nicho'], 'total': 0},
+                )
                 s['total'] += row['total']
 
         agenda = AgendamentoServico.objects.filter(agendamento__data_hora__date__range=intervalo)
         if colaborador_id is not None:
             agenda = agenda.filter(agendamento__colaborador_id=colaborador_id)
-        somar(agenda.values('servico_id', 'servico__nome').annotate(total=Count('id')))
+        somar(agenda.values('servico_id', 'servico__nome', 'servico__nicho').annotate(total=Count('id')))
 
         kanban = AtendimentoKanban.objects.filter(criado_em__date__range=intervalo)
         if colaborador_id is not None:
             kanban = kanban.filter(colaborador_id=colaborador_id)
-        somar(kanban.values('servico_id', 'servico__nome').annotate(total=Count('id')))
+        somar(kanban.values('servico_id', 'servico__nome', 'servico__nicho').annotate(total=Count('id')))
 
         return sorted(servicos.values(), key=lambda x: -x['total'])[:5]
 

@@ -160,7 +160,7 @@ class AgendamentoConsumidorSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgendamentoConsumidor
         fields = [
-            'id', 'schema_name', 'agendamento_id', 'origem', 'negocio_nome', 'nicho',
+            'id', 'schema_name', 'agendamento_id', 'origem', 'negocio_nome',
             'servicos', 'profissional_nome', 'objeto_dados', 'data_hora',
             'duracao_total', 'valor_total', 'valor_taxa_cancelamento',
             'status', 'status_kanban', 'etapa_nome', 'logo_url', 'criado_em',

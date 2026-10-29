@@ -179,22 +179,31 @@ class ArmazenamentoImagemService:
 
 @dataclass(frozen=True)
 class ModoAgenda:
+    nichos: list
     nicho_descricao: str
     tipo_agenda: str
     tipo_objeto: str
 
 
 class ModoAgendaService:
-    """Fecha nicho, descrição, tipo de agenda e tipo de objeto num estado
+    """Fecha nichos, descrição, tipo de agenda e tipo de objeto num estado
     coerente.
 
+    O negócio atende de 1 a 4 nichos da mesma área. Área não é cadastro: é o
+    modo completo que o nicho decide (horário, kanban com veículo, kanban com
+    pet). É a única restrição real para misturar nichos — agenda e quadro não
+    convivem, e o card do quadro é um veículo ou um pet, nunca os dois.
+
     Nicho conhecido decide tudo pelos mapas, e o que o dono mandar é ignorado.
-    Em OUTRO, o dono descreve o ramo e escolhe o modo; no kanban ele também diz
-    o que recebe, porque o card do quadro é sempre um veículo ou um pet.
+    Em OUTRO (sempre sozinho), o dono descreve o ramo e escolhe o modo; no
+    kanban ele também diz o que recebe.
 
     Depois do onboarding, o modo não muda mais: agenda e quadro guardam dados
-    que não se convertem de um para o outro.
+    que não se convertem de um para o outro. Trocar nichos dentro da mesma área
+    continua livre.
     """
+
+    MAXIMO_NICHOS = 4
 
     # O que não está aqui é horário sem objeto. OUTRO fica de fora de
     # propósito: nele, quem escolhe é o dono.
@@ -207,15 +216,13 @@ class ModoAgendaService:
         Nicho.BANHO_TOSA: TipoObjeto.PET,
     }
 
-    def resolver(self, nicho: str, nicho_descricao: str, tipo_agenda: str, tipo_objeto: str, config=None) -> ModoAgenda:
-        if nicho == Nicho.OUTRO:
+    def resolver(self, nichos: list, nicho_descricao: str, tipo_agenda: str, tipo_objeto: str, config=None) -> ModoAgenda:
+        nichos = self._normalizar(nichos)
+
+        if nichos == [Nicho.OUTRO]:
             modo = self._escolhido_pelo_dono(nicho_descricao, tipo_agenda, tipo_objeto)
         else:
-            modo = ModoAgenda(
-                nicho_descricao='',
-                tipo_agenda=self.NICHO_TIPO.get(nicho, TipoAgenda.HORARIO),
-                tipo_objeto=self.NICHO_TIPO_OBJETO.get(nicho, ''),
-            )
+            modo = self._deduzido_dos_nichos(nichos)
 
         if config and config.onboarding_concluido and (
             (modo.tipo_agenda, modo.tipo_objeto) != (config.tipo_agenda, config.tipo_objeto)
@@ -223,6 +230,30 @@ class ModoAgendaService:
             raise ErroDeNegocio('O modo de agenda não pode ser trocado depois do onboarding.', 'modo_agenda_bloqueado')
 
         return modo
+
+    def _normalizar(self, nichos: list) -> list:
+        """Sem repetidos e na ordem do enum, que é a ordem de exibição."""
+        unicos = set(nichos)
+
+        if len(unicos) > self.MAXIMO_NICHOS:
+            raise ErroDeNegocio(f'Escolha no máximo {self.MAXIMO_NICHOS} nichos.', 'nichos_limite')
+        if Nicho.OUTRO in unicos and len(unicos) > 1:
+            raise ErroDeNegocio('"Outro" não pode ser combinado com outros nichos.', 'nicho_outro_exclusivo')
+
+        ordem = list(Nicho.values)
+        return sorted(unicos, key=ordem.index)
+
+    def _deduzido_dos_nichos(self, nichos: list) -> ModoAgenda:
+        areas = {self._area(nicho) for nicho in nichos}
+        if len(areas) > 1:
+            raise ErroDeNegocio('Escolha nichos da mesma área.', 'nichos_areas_diferentes')
+
+        # Sem nicho (antes de o onboarding escolher) o negócio fica no horário.
+        tipo_agenda, tipo_objeto = areas.pop() if areas else (TipoAgenda.HORARIO, '')
+        return ModoAgenda(nichos=nichos, nicho_descricao='', tipo_agenda=tipo_agenda, tipo_objeto=tipo_objeto)
+
+    def _area(self, nicho: str) -> tuple[str, str]:
+        return self.NICHO_TIPO.get(nicho, TipoAgenda.HORARIO), self.NICHO_TIPO_OBJETO.get(nicho, '')
 
     def _escolhido_pelo_dono(self, nicho_descricao: str, tipo_agenda: str, tipo_objeto: str) -> ModoAgenda:
         descricao = nicho_descricao.strip()
@@ -234,7 +265,9 @@ class ModoAgendaService:
         elif not tipo_objeto:
             raise ErroDeNegocio('Informe se o negócio recebe veículos ou pets.', 'tipo_objeto_obrigatorio')
 
-        return ModoAgenda(nicho_descricao=descricao, tipo_agenda=tipo_agenda, tipo_objeto=tipo_objeto)
+        return ModoAgenda(
+            nichos=[Nicho.OUTRO], nicho_descricao=descricao, tipo_agenda=tipo_agenda, tipo_objeto=tipo_objeto,
+        )
 
 
 class ConfiguracaoEmpresaService:
@@ -266,6 +299,24 @@ class ConfiguracaoEmpresaService:
     savepoint próprio e, se falhar, fica registrado no log — antes eram
     `except Exception: pass` dentro da view, e a falha sumia sem rastro.
     """
+
+    def inativar_servicos_de_nichos_removidos(self, nichos_anteriores: list, nichos_atuais: list) -> int:
+        """Tira de circulação os serviços dos nichos que o negócio deixou.
+
+        Inativa, não apaga: os agendamentos guardam o serviço com PROTECT, e o
+        histórico precisa continuar abrindo. Inativo, o serviço some da lista e
+        da vitrine e não aceita agendamento novo. Recolocar o nicho não os
+        reativa — o dono escolhe quais voltam.
+
+        Tem de rodar na mesma transação do salvamento da config: nicho removido
+        com serviço ainda ativo deixaria o serviço numa pasta que não existe.
+        """
+        from apps_work.servicos.models import Servico
+
+        removidos = set(nichos_anteriores) - set(nichos_atuais)
+        if not removidos:
+            return 0
+        return Servico.objects.filter(nicho__in=removidos, ativo=True).update(ativo=False)
 
     def apos_salvar(self, config, user, endereco_anterior: tuple) -> None:
         if self._precisa_geocodificar(config, endereco_anterior):

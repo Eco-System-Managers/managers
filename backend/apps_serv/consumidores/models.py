@@ -111,7 +111,8 @@ class AgendamentoConsumidor(models.Model):
     agendamento_id = models.PositiveIntegerField()
     origem = models.CharField(max_length=10, choices=OrigemAtendimento.choices, default=OrigemAtendimento.AGENDA)
     negocio_nome = models.CharField(max_length=255)
-    nicho = models.CharField(max_length=50, blank=True)
+    # Cada item leva nome, nicho, duração, preço e taxa, congelados no momento
+    # do agendamento.
     servicos = models.JSONField(default=list)
     profissional_nome = models.CharField(max_length=255, blank=True)
     data_hora = models.DateTimeField()
