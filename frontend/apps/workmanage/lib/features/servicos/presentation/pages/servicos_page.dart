@@ -7,13 +7,17 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/estado_vazio.dart';
 import 'package:managers/core/widgets/selo_de_status.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
+import 'package:managers/features/empresa/presentation/widgets/nicho_visual.dart';
 
 import '../../domain/entities/servico.dart';
 import '../../servicos_provider.dart';
 import '../providers/servicos_provider.dart';
 
-// o catálogo: busca, filtro de inativos e a lista. criar e editar abrem o
-// formulário por cima; ao voltar, a lista é recarregada da API
+// o catálogo: busca, filtro de inativos e a lista. com 2 ou mais nichos a
+// lista vira pastas, uma por nicho, e cada pasta cria serviço já nela.
+// criar e editar abrem o formulário por cima; ao voltar, a lista é
+// recarregada da API
 class ServicosPage extends ConsumerStatefulWidget {
   const ServicosPage({super.key});
 
@@ -146,6 +150,8 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
       );
     }
 
+    if (provider.emPastas) return _pastas(provider);
+
     return RefreshIndicator(
       onRefresh: provider.carregar,
       child: ListView.separated(
@@ -162,6 +168,42 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
                 : null,
           );
         },
+      ),
+    );
+  }
+
+  Widget _pastas(ServicosProvider provider) {
+    return RefreshIndicator(
+      onRefresh: provider.carregar,
+      child: ListView(
+        // folga para o botão flutuante não cobrir o fim da lista
+        padding: const EdgeInsets.only(bottom: BrandSpacing.space7),
+        children: [
+          for (final pasta in provider.pastas) ...[
+            _CabecalhoDaPasta(
+              nicho: pasta.nicho,
+              quantidade: pasta.servicos.length,
+              recolhida: provider.recolhida(pasta.nicho),
+              onAlternar: () => provider.alternarPasta(pasta.nicho),
+              // a pasta dos nichos removidos não recebe serviço novo
+              onNovo: provider.ehProprietario && pasta.nicho != null
+                  ? () =>
+                        _abrir('/mais/servicos/novo?nicho=${pasta.nicho!.slug}')
+                  : null,
+            ),
+            if (!provider.recolhida(pasta.nicho)) ...[
+              if (pasta.servicos.isEmpty) const _PastaVazia(),
+              for (final servico in pasta.servicos)
+                _ServicoTile(
+                  servico: servico,
+                  onTap: provider.ehProprietario
+                      ? () => _abrir('/mais/servicos/${servico.id}')
+                      : null,
+                ),
+            ],
+            const Divider(height: 1),
+          ],
+        ],
       ),
     );
   }
@@ -202,6 +244,95 @@ class _ServicoTile extends StatelessWidget {
       trailing: servico.ativo
           ? (onTap == null ? null : const Icon(Icons.chevron_right_rounded))
           : SeloDeStatus(texto: 'Inativo', cor: cores.inkMuted),
+    );
+  }
+}
+
+class _CabecalhoDaPasta extends StatelessWidget {
+  const _CabecalhoDaPasta({
+    required this.nicho,
+    required this.quantidade,
+    required this.recolhida,
+    required this.onAlternar,
+    required this.onNovo,
+  });
+
+  // null é a pasta dos nichos que o negócio deixou
+  final Nicho? nicho;
+  final int quantidade;
+  final bool recolhida;
+  final VoidCallback onAlternar;
+  final VoidCallback? onNovo;
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
+    final nome = nicho?.nome ?? 'Nichos removidos';
+
+    // tocar no cabeçalho abre e fecha a pasta; o + cria serviço nela
+    return InkWell(
+      onTap: onAlternar,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          BrandSpacing.space4,
+          BrandSpacing.space2,
+          BrandSpacing.space2,
+          BrandSpacing.space2,
+        ),
+        child: Row(
+          children: [
+            Icon(nicho?.icone ?? Icons.folder_off_rounded, color: cores.ink),
+            const SizedBox(width: BrandSpacing.space3),
+            Expanded(
+              child: Text(
+                nome,
+                style: textos.titleSmall?.copyWith(color: cores.ink),
+              ),
+            ),
+            Text(
+              '$quantidade',
+              style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
+            ),
+            if (onNovo != null)
+              IconButton(
+                onPressed: onNovo,
+                tooltip: 'Novo serviço em $nome',
+                icon: const Icon(Icons.add_rounded),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(BrandSpacing.space2),
+              child: Icon(
+                recolhida
+                    ? Icons.expand_more_rounded
+                    : Icons.expand_less_rounded,
+                color: cores.inkMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PastaVazia extends StatelessWidget {
+  const _PastaVazia();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        BrandSpacing.space4,
+        0,
+        BrandSpacing.space4,
+        BrandSpacing.space3,
+      ),
+      child: Text(
+        'Nenhum serviço nesta pasta.',
+        style: Theme.of(context).textTheme.bodyMedium
+            ?.copyWith(color: BrandColors.of(context).inkMuted),
+      ),
     );
   }
 }

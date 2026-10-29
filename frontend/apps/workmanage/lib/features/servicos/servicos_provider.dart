@@ -66,6 +66,7 @@ final servicoFormProvider = Provider.autoDispose
         atualizar: ref.watch(atualizarServicoUseCaseProvider),
         alterarAtivo: ref.watch(alterarAtivoServicoUseCaseProvider),
         listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
+        negocio: ref.watch(negocioAtualProvider),
       );
       ref.onDispose(provider.dispose);
       return provider;

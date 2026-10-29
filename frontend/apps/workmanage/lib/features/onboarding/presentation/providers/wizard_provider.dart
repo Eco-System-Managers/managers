@@ -131,9 +131,10 @@ class WizardProvider extends ChangeNotifier {
     });
   }
 
-  // step 2: marcar um card só muda a tela; salvar é no "Próximo"
-  void escolherNicho(Nicho nicho) {
-    _config = _config.copyWith(nicho: nicho);
+  // step 2: marcar ou desmarcar um card só muda a tela; salvar é no
+  // "Próximo". a regra (até 4, da mesma área) é a de EscolhaDeNichos
+  void alternarNicho(Nicho nicho) {
+    _config = _config.copyWith(nichos: _config.nichos.alternar(nicho));
     notifyListeners();
   }
 
@@ -147,21 +148,20 @@ class WizardProvider extends ChangeNotifier {
   // step 2 -> step 3. a resposta traz o tipo de agenda, que decide se o
   // step 3 mostra a capacidade. a descrição só vale no nicho outro
   Future<void> salvarNicho({String descricao = ''}) async {
-    final nicho = _config.nicho;
-    if (nicho == null) {
-      _errorMessage = 'Escolha o ramo do seu negócio';
+    if (_config.nichos.isEmpty) {
+      _errorMessage = 'Escolha pelo menos 1 nicho';
       notifyListeners();
       return;
     }
     // o card do kanban é sempre um veículo ou um pet
-    if (nicho == Nicho.outro && isKanban && _config.tipoObjeto == null) {
+    if (_config.ehOutro && isKanban && _config.tipoObjeto == null) {
       _errorMessage = 'Diga se você recebe veículos ou pets';
       notifyListeners();
       return;
     }
 
     final config = _config.copyWith(
-      nichoDescricao: nicho == Nicho.outro ? descricao.trim() : '',
+      nichoDescricao: _config.ehOutro ? descricao.trim() : '',
     );
     await _run(() => _salvarConfig(config), (salva) {
       _config = salva;
@@ -216,7 +216,7 @@ class WizardProvider extends ChangeNotifier {
     if (_config.documento.isEmpty || _config.cep.isEmpty) {
       return WizardStep.negocio;
     }
-    if (_config.nicho == null) return WizardStep.nicho;
+    if (_config.nichos.isEmpty) return WizardStep.nicho;
     return WizardStep.horarios;
   }
 

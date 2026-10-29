@@ -18,9 +18,11 @@ import 'package:managers/features/contratos/presentation/pages/contratos_page.da
 import 'package:managers/features/contratos/presentation/pages/gerar_contrato_page.dart';
 import 'package:managers/features/contratos/presentation/pages/modelo_form_page.dart';
 import 'package:managers/features/dashboard/presentation/pages/inicio_page.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
 import 'package:managers/features/empresa/presentation/pages/configuracoes_page.dart';
 import 'package:managers/features/empresa/presentation/pages/dados_negocio_page.dart';
 import 'package:managers/features/empresa/presentation/pages/horarios_page.dart';
+import 'package:managers/features/empresa/presentation/pages/nichos_page.dart';
 import 'package:managers/features/financeiro/presentation/pages/caixa_page.dart';
 import 'package:managers/features/home/presentation/pages/home_shell_page.dart';
 import 'package:managers/features/home/presentation/pages/mais_page.dart';
@@ -258,6 +260,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                         parentNavigatorKey: _rootNavigatorKey,
                         builder: (_, _) => const HorariosPage(),
                       ),
+                      GoRoute(
+                        path: 'nichos',
+                        parentNavigatorKey: _rootNavigatorKey,
+                        builder: (_, _) => const NichosPage(),
+                      ),
                     ],
                   ),
                   // o catálogo mora no Mais: a barra fica com o dia a dia
@@ -269,7 +276,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                       GoRoute(
                         path: 'novo',
                         parentNavigatorKey: _rootNavigatorKey,
-                        builder: (_, _) => const ServicoFormPage(),
+                        // ?nicho= vem da pasta onde o + foi tocado
+                        builder: (_, state) => ServicoFormPage(
+                          nichoInicial: Nicho.doSlug(
+                            state.uri.queryParameters['nicho'] ?? '',
+                          ),
+                        ),
                       ),
                       GoRoute(
                         path: ':id',

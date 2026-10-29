@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 import 'package:equatable/equatable.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
 
 // como a taxa de cancelamento é cobrada: valor fixo em reais ou percentual
 // do preço. nos dois o teto é 30% (regra do backend); null é sem taxa
@@ -10,6 +11,7 @@ class Servico extends Equatable {
   Servico({
     this.id = 0,
     required this.nome,
+    this.nicho,
     this.descricao = '',
     required this.duracao,
     required this.preco,
@@ -22,6 +24,11 @@ class Servico extends Equatable {
   // 0 enquanto não existe na API
   final int id;
   final String nome;
+
+  // a pasta do serviço: um dos nichos do negócio. null num serviço novo
+  // de negócio com um nicho só, que a API preenche com ele
+  final Nicho? nicho;
+
   final String descricao;
 
   // em minutos: é o que define conflito de horário na agenda
@@ -44,6 +51,7 @@ class Servico extends Equatable {
   Servico copyWith({
     int? id,
     String? nome,
+    Nicho? nicho,
     String? descricao,
     int? duracao,
     Decimal? preco,
@@ -56,6 +64,7 @@ class Servico extends Equatable {
     return Servico(
       id: id ?? this.id,
       nome: nome ?? this.nome,
+      nicho: nicho ?? this.nicho,
       descricao: descricao ?? this.descricao,
       duracao: duracao ?? this.duracao,
       preco: preco ?? this.preco,
@@ -74,6 +83,7 @@ class Servico extends Equatable {
   List<Object?> get props => [
     id,
     nome,
+    nicho,
     descricao,
     duracao,
     preco,

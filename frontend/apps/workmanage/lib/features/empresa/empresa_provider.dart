@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/cep/cep_provider.dart';
 import 'package:managers/core/network/dio_client.dart';
 import 'package:managers/core/session/sessao_provider.dart';
+import 'package:managers/features/servicos/servicos_provider.dart';
 import 'package:managers/features/usuarios/usuarios_provider.dart';
 
 import 'data/datasources/empresa_remote_datasource.dart';
@@ -17,6 +18,7 @@ import 'domain/usecases/salvar_horarios_use_case.dart';
 import 'presentation/providers/configuracoes_provider.dart';
 import 'presentation/providers/dados_negocio_provider.dart';
 import 'presentation/providers/horarios_provider.dart';
+import 'presentation/providers/nichos_provider.dart';
 import 'presentation/providers/negocio_atual_provider.dart';
 
 // injeção de dependências da empresa: é o único lugar que conhece as
@@ -99,6 +101,17 @@ final dadosNegocioProvider = Provider.autoDispose<DadosNegocioProvider>((ref) {
     negocio: ref.watch(negocioAtualProvider),
     salvarConfig: ref.watch(salvarConfigUseCaseProvider),
     buscarEnderecoPorCep: ref.watch(buscarEnderecoPorCepUseCaseProvider),
+  );
+  ref.onDispose(provider.dispose);
+  return provider;
+});
+
+// conta os serviços dos nichos que saem com o use case do catálogo
+final nichosProvider = Provider.autoDispose<NichosProvider>((ref) {
+  final provider = NichosProvider(
+    negocio: ref.watch(negocioAtualProvider),
+    salvarConfig: ref.watch(salvarConfigUseCaseProvider),
+    listarServicos: ref.watch(listarServicosUseCaseProvider),
   );
   ref.onDispose(provider.dispose);
   return provider;

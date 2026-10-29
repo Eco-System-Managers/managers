@@ -35,7 +35,7 @@ const _configCompleta = EmpresaConfig(
   endereco: 'Rua Um',
   cidade: 'Araras',
   uf: 'SP',
-  nicho: Nicho.barbearia,
+  nichos: [Nicho.barbearia],
 );
 
 final _semana = [
@@ -228,7 +228,7 @@ void main() {
     test('sem nicho escolhido, próximo não salva', () async {
       await wizard.salvarNicho();
 
-      expect(wizard.errorMessage, 'Escolha o ramo do seu negócio');
+      expect(wizard.errorMessage, 'Escolha pelo menos 1 nicho');
       verifyNever(() => salvarConfig(any()));
     });
 
@@ -238,19 +238,54 @@ void main() {
         when(() => salvarConfig(any())).thenAnswer(
           (_) async => Right(
             _configCompleta.copyWith(
-              nicho: Nicho.lavaRapido,
+              nichos: [Nicho.lavaRapido],
               tipoAgenda: TipoAgenda.kanban,
             ),
           ),
         );
 
-        wizard.escolherNicho(Nicho.lavaRapido);
+        wizard.alternarNicho(Nicho.lavaRapido);
         await wizard.salvarNicho();
 
         expect(wizard.step, WizardStep.horarios);
         expect(wizard.isKanban, isTrue);
       },
     );
+
+    test('marca até 4 nichos da mesma área e manda todos', () async {
+      when(() => salvarConfig(any()))
+          .thenAnswer((_) async => const Right(_configCompleta));
+
+      for (final nicho in [
+        Nicho.massagem,
+        Nicho.manicure,
+        Nicho.cilios,
+        Nicho.pedicure,
+        Nicho.maquiagem,
+        Nicho.lavaRapido,
+      ]) {
+        wizard.alternarNicho(nicho);
+      }
+      await wizard.salvarNicho();
+
+      // o 5º e o de outra área não entram; a ordem é a de exibição
+      final enviada =
+          verify(() => salvarConfig(captureAny())).captured.single
+              as EmpresaConfig;
+      expect(enviada.nichos, [
+        Nicho.manicure,
+        Nicho.pedicure,
+        Nicho.cilios,
+        Nicho.massagem,
+      ]);
+    });
+
+    test('tocar de novo desmarca', () {
+      wizard.alternarNicho(Nicho.manicure);
+      wizard.alternarNicho(Nicho.manicure);
+
+      expect(wizard.config.nichos, isEmpty);
+    });
   });
 
   group('concluir', () {

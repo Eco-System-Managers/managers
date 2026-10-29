@@ -21,7 +21,7 @@ class EmpresaConfig {
     this.numero = '',
     this.cidade = '',
     this.uf = '',
-    this.nicho,
+    this.nichos = const [],
     this.nichoDescricao = '',
     this.tipoAgenda = TipoAgenda.horario,
     this.tipoObjeto,
@@ -41,7 +41,10 @@ class EmpresaConfig {
   final String numero;
   final String cidade;
   final String uf;
-  final Nicho? nicho;
+
+  // de 1 a 4, da mesma área, na ordem de exibição. vazio até o onboarding
+  // escolher. as regras da escolha estão em EscolhaDeNichos (nicho.dart)
+  final List<Nicho> nichos;
 
   // o ramo por extenso, só quando o nicho é outro
   final String nichoDescricao;
@@ -55,6 +58,12 @@ class EmpresaConfig {
 
   final bool onboardingConcluido;
 
+  // o outro vai sempre sozinho: o dono descreve o ramo e escolhe o modo
+  bool get ehOutro => nichos.contains(Nicho.outro);
+
+  // a área dos nichos escolhidos; null antes de escolher e no outro
+  AreaNicho? get area => nichos.firstOrNull?.area;
+
   // o wizard vai preenchendo aos poucos: cada etapa troca só os seus campos
   EmpresaConfig copyWith({
     String? nome,
@@ -66,7 +75,7 @@ class EmpresaConfig {
     String? numero,
     String? cidade,
     String? uf,
-    Nicho? nicho,
+    List<Nicho>? nichos,
     String? nichoDescricao,
     TipoAgenda? tipoAgenda,
     TipoObjeto? tipoObjeto,
@@ -83,7 +92,7 @@ class EmpresaConfig {
       numero: numero ?? this.numero,
       cidade: cidade ?? this.cidade,
       uf: uf ?? this.uf,
-      nicho: nicho ?? this.nicho,
+      nichos: nichos ?? this.nichos,
       nichoDescricao: nichoDescricao ?? this.nichoDescricao,
       tipoAgenda: tipoAgenda ?? this.tipoAgenda,
       tipoObjeto: tipoObjeto ?? this.tipoObjeto,

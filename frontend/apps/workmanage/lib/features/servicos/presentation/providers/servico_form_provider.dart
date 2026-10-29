@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
+import 'package:managers/features/empresa/presentation/providers/negocio_atual_provider.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 
@@ -13,7 +15,8 @@ import '../../domain/usecases/obter_servico_use_case.dart';
 
 // estado do formulário de serviço (montado em servicos_provider.dart, na
 // raiz da feature): novo quando o id é null, edição quando não é. carrega
-// a equipe para a escolha de quem executa
+// a equipe para a escolha de quem executa. os nichos do negócio são as
+// pastas em que o serviço pode ficar
 class ServicoFormProvider extends ChangeNotifier {
   ServicoFormProvider({
     required this.id,
@@ -22,6 +25,7 @@ class ServicoFormProvider extends ChangeNotifier {
     required this._atualizar,
     required this._alterarAtivo,
     required this._listarColaboradores,
+    required this._negocio,
   });
 
   // null = serviço novo
@@ -32,6 +36,7 @@ class ServicoFormProvider extends ChangeNotifier {
   final AtualizarServicoUseCase _atualizar;
   final AlterarAtivoServicoUseCase _alterarAtivo;
   final ListarColaboradoresUseCase _listarColaboradores;
+  final NegocioAtualProvider _negocio;
 
   Servico? _servico;
   List<Colaborador> _colaboradores = [];
@@ -46,6 +51,11 @@ class ServicoFormProvider extends ChangeNotifier {
   bool _disposed = false;
 
   bool get ehNovo => id == null;
+
+  List<Nicho> get nichos => _negocio.config?.nichos ?? const [];
+
+  // com um nicho só não há o que escolher: o serviço fica nele
+  bool get escolheNicho => nichos.length > 1;
 
   // null enquanto carrega ou quando é novo
   Servico? get servico => _servico;

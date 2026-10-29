@@ -3,6 +3,10 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
+import 'package:managers/features/empresa/domain/entities/nicho.dart';
+import 'package:managers/features/empresa/domain/usecases/buscar_config_use_case.dart';
+import 'package:managers/features/empresa/presentation/providers/negocio_atual_provider.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
 import 'package:managers/features/servicos/domain/params/alterar_ativo_params.dart';
 import 'package:managers/features/servicos/domain/usecases/alterar_ativo_servico_use_case.dart';
@@ -11,6 +15,7 @@ import 'package:managers/features/servicos/domain/usecases/criar_servico_use_cas
 import 'package:managers/features/servicos/domain/usecases/obter_servico_use_case.dart';
 import 'package:managers/features/servicos/presentation/providers/servico_form_provider.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
+import 'package:managers/features/usuarios/domain/usecases/buscar_meu_perfil_use_case.dart';
 import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -24,6 +29,10 @@ class _MockAlterarAtivo extends Mock implements AlterarAtivoServicoUseCase {}
 
 class _MockListarColaboradores extends Mock
     implements ListarColaboradoresUseCase {}
+
+class _MockBuscarConfig extends Mock implements BuscarConfigUseCase {}
+
+class _MockBuscarMeuPerfil extends Mock implements BuscarMeuPerfilUseCase {}
 
 final _corte = Servico(
   id: 5,
@@ -44,6 +53,7 @@ void main() {
   late _MockAtualizar atualizar;
   late _MockAlterarAtivo alterarAtivo;
   late _MockListarColaboradores listarColaboradores;
+  late NegocioAtualProvider negocio;
 
   setUpAll(() {
     registerFallbackValue(NoParams());
@@ -59,6 +69,7 @@ void main() {
       atualizar: atualizar,
       alterarAtivo: alterarAtivo,
       listarColaboradores: listarColaboradores,
+      negocio: negocio,
     );
   }
 
@@ -68,6 +79,10 @@ void main() {
     atualizar = _MockAtualizar();
     alterarAtivo = _MockAlterarAtivo();
     listarColaboradores = _MockListarColaboradores();
+    negocio = NegocioAtualProvider(
+      buscarConfig: _MockBuscarConfig(),
+      buscarMeuPerfil: _MockBuscarMeuPerfil(),
+    )..atualizarConfig(const EmpresaConfig(nichos: [Nicho.cabeleireiro]));
     when(() => listarColaboradores(any()))
         .thenAnswer((_) async => const Right(_equipe));
     when(() => obter(5)).thenAnswer((_) async => Right(_corte));
@@ -180,4 +195,21 @@ void main() {
       verifyNever(() => obter(any()));
     },
   );
+
+  group('nicho', () {
+    test('com um nicho só não há o que escolher', () {
+      final provider = montar(null);
+
+      expect(provider.nichos, [Nicho.cabeleireiro]);
+      expect(provider.escolheNicho, isFalse);
+    });
+
+    test('com dois ou mais, o serviço escolhe a pasta', () {
+      negocio.atualizarConfig(
+        const EmpresaConfig(nichos: [Nicho.cabeleireiro, Nicho.manicure]),
+      );
+
+      expect(montar(null).escolheNicho, isTrue);
+    });
+  });
 }

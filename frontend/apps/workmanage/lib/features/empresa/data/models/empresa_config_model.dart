@@ -14,7 +14,7 @@ class EmpresaConfigModel {
     required this.numero,
     required this.cidade,
     required this.uf,
-    required this.nicho,
+    required this.nichos,
     required this.nichoDescricao,
     required this.tipoAgenda,
     required this.tipoObjeto,
@@ -31,7 +31,7 @@ class EmpresaConfigModel {
   final String numero;
   final String cidade;
   final String uf;
-  final String nicho;
+  final List<String> nichos;
   final String nichoDescricao;
   final String tipoAgenda;
   final String tipoObjeto;
@@ -50,7 +50,7 @@ class EmpresaConfigModel {
       numero: json['numero'] as String? ?? '',
       cidade: json['cidade'] as String? ?? '',
       uf: json['uf'] as String? ?? '',
-      nicho: json['nicho'] as String? ?? '',
+      nichos: (json['nichos'] as List? ?? const []).cast<String>(),
       nichoDescricao: json['nicho_descricao'] as String? ?? '',
       tipoAgenda: json['tipo_agenda'] as String? ?? 'horario',
       tipoObjeto: json['tipo_objeto'] as String? ?? '',
@@ -61,7 +61,7 @@ class EmpresaConfigModel {
 
   // onboarding_concluido não vai: tem chamada própria (concluir). logo_url
   // não vai: muda pelo upload. tipo_agenda e tipo_objeto vão sempre, mas o
-  // backend só usa no nicho outro; nos demais ele deduz os dois do nicho
+  // backend só usa no nicho outro; nos demais ele deduz os dois dos nichos
   Map<String, dynamic> toJson() {
     return {
       'nome': nome,
@@ -73,7 +73,9 @@ class EmpresaConfigModel {
       'numero': numero,
       'cidade': cidade,
       'uf': uf,
-      'nicho': nicho,
+      // antes do passo dos nichos não há o que mandar; lista vazia a API
+      // recusa depois que o negócio já escolheu
+      if (nichos.isNotEmpty) 'nichos': nichos,
       'nicho_descricao': nichoDescricao,
       'tipo_agenda': tipoAgenda,
       'tipo_objeto': tipoObjeto,
@@ -91,7 +93,7 @@ class EmpresaConfigModel {
       numero: config.numero,
       cidade: config.cidade,
       uf: config.uf,
-      nicho: config.nicho?.slug ?? '',
+      nichos: [for (final n in config.nichos) n.slug],
       nichoDescricao: config.nichoDescricao,
       tipoAgenda: config.tipoAgenda.name,
       tipoObjeto: config.tipoObjeto?.name ?? '',
@@ -111,8 +113,9 @@ class EmpresaConfigModel {
       numero: numero,
       cidade: cidade,
       uf: uf,
-      // slug desconhecido vira null: o wizard pede para escolher de novo
-      nicho: Nicho.values.where((n) => n.slug == nicho).firstOrNull,
+      // slug desconhecido fica de fora; sem nenhum, o wizard pede para
+      // escolher de novo
+      nichos: [for (final slug in nichos) ?Nicho.doSlug(slug)],
       nichoDescricao: nichoDescricao,
       tipoAgenda:
           TipoAgenda.values.asNameMap()[tipoAgenda] ?? TipoAgenda.horario,
