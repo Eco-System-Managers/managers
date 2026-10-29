@@ -6,7 +6,8 @@ import 'package:managers/features/empresa/domain/usecases/buscar_config_use_case
 
 /// Decide para onde ir depois da splash: sem sessão guardada, login; com
 /// sessão e onboarding por concluir, o wizard; senão, a home.
-/// Espera a decisão E pelo menos um ciclo da animação.
+/// A navegação só sai no fim de um ciclo da animação: se a decisão chega no
+/// meio de um ciclo, espera ele terminar, para o símbolo não ser cortado.
 class SplashProvider extends ChangeNotifier {
   SplashProvider({required this._sessao, required this._buscarConfig});
 
@@ -14,14 +15,18 @@ class SplashProvider extends ChangeNotifier {
   final BuscarConfigUseCase _buscarConfig;
 
   String? _nextRoute;
-  bool _cycleDone = false;
+  bool _pronto = false;
 
   // a tela pode ser fechada durante a decisão
   bool _disposed = false;
 
-  /// Rota de destino quando estiver tudo pronto; null enquanto carrega.
-  String? get destination =>
-      (_cycleDone && _nextRoute != null) ? _nextRoute : null;
+  /// A rota já foi decidida. A tela usa isto para a animação parar de
+  /// repetir e terminar o ciclo que está rodando.
+  bool get rotaDecidida => _nextRoute != null;
+
+  /// Rota de destino quando estiver tudo pronto (rota decidida e um ciclo da
+  /// animação terminado depois dela); null enquanto carrega.
+  String? get destination => _pronto ? _nextRoute : null;
 
   Future<void> init() async {
     try {
@@ -47,9 +52,11 @@ class SplashProvider extends ChangeNotifier {
     );
   }
 
+  /// O fim de um ciclo da animação: com a rota decidida, libera a navegação;
+  /// sem ela, a animação repete e o próximo fim de ciclo tenta de novo.
   void onAnimationCycleEnd() {
-    if (_cycleDone) return;
-    _cycleDone = true;
+    if (_pronto || _nextRoute == null) return;
+    _pronto = true;
     notifyListeners();
   }
 

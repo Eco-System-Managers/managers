@@ -51,13 +51,21 @@ class _SplashPageState extends ConsumerState<SplashPage> {
       child: Scaffold(
         backgroundColor: BrandColors.brandNavy,
         body: Center(
-          child: WorkManageLoader(
-            size: 120,
-            startFull: true,
-            // pausa longa para dar destaque à marca: ciclo da splash ≈ 3 s
-            pauseDuration: const Duration(milliseconds: 1200),
-            color: BrandColors.light.onBrand,
-            onCycleEnd: _provider.onAnimationCycleEnd,
+          // redesenha quando a rota é decidida: a animação para de repetir e
+          // termina o ciclo que está rodando; a navegação sai no fim dele
+          child: ListenableBuilder(
+            listenable: _provider,
+            builder: (context, _) => WorkManageLoader(
+              size: 120,
+              startFull: true,
+              loop: !_provider.rotaDecidida,
+              // pausa longa para dar destaque à marca. o primeiro ciclo,
+              // que começa com o símbolo completo, dura 2 s; os seguintes,
+              // com a entrada, 4,8 s
+              pauseDuration: const Duration(milliseconds: 1200),
+              color: BrandColors.light.onBrand,
+              onCycleEnd: _provider.onAnimationCycleEnd,
+            ),
           ),
         ),
       ),

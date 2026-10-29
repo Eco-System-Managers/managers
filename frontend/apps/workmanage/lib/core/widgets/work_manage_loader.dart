@@ -36,7 +36,10 @@ const _cGota = 1.2, _cPausa = 1.7, _cSaida = 2.6, _cEnd = 3.4;
 /// [BrandLogo]; com [color], a versão de uma cor só. [startFull] começa com o
 /// símbolo completo (use na splash para continuar a imagem da splash nativa
 /// sem salto). [pauseDuration] é quanto tempo o símbolo fica completo antes
-/// de sair (aumente para dar mais destaque à marca).
+/// de sair (aumente para dar mais destaque à marca). [loop] repete o ciclo;
+/// passando a false no meio de um ciclo, ele termina (o símbolo sai da tela)
+/// e não recomeça: é assim que a splash espera a animação acabar antes de
+/// navegar. [onCycleEnd] é chamado no fim de cada ciclo.
 class WorkManageLoader extends StatefulWidget {
   const WorkManageLoader({
     super.key,
@@ -76,7 +79,12 @@ class _WorkManageLoaderState extends State<WorkManageLoader>
     _c.addStatusListener((status) {
       if (status != AnimationStatus.completed) return;
       widget.onCycleEnd?.call();
-      if (widget.loop && mounted) _c.forward(from: 0);
+      // recomeça só depois do quadro: quem desligou o loop neste mesmo quadro
+      // (a splash que acabou de decidir a rota) já reconstruiu o widget, e o
+      // símbolo não volta a entrar por cima da troca de tela
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.loop) _c.forward(from: 0);
+      });
     });
     final startPlay = widget.startFull
         ? _scenes[0].play + _scenes[1].play

@@ -86,8 +86,38 @@ void main() {
   test('só decide depois de um ciclo da animação', () async {
     await splash.init();
 
+    expect(splash.rotaDecidida, isTrue);
     expect(splash.destination, isNull);
     splash.onAnimationCycleEnd();
     expect(splash.destination, '/login');
+  });
+
+  test('rota decidida no meio de um ciclo espera o fim desse ciclo', () async {
+    // o primeiro ciclo acaba antes da decisão: nada a fazer ainda
+    splash.onAnimationCycleEnd();
+    expect(splash.rotaDecidida, isFalse);
+    expect(splash.destination, isNull);
+
+    // a decisão chega com a animação no meio do ciclo seguinte
+    await splash.init();
+    expect(splash.rotaDecidida, isTrue);
+    expect(splash.destination, isNull);
+
+    // só o fim desse ciclo libera a navegação
+    splash.onAnimationCycleEnd();
+    expect(splash.destination, '/login');
+  });
+
+  test('avisa a tela quando a rota é decidida e quando libera', () async {
+    var avisos = 0;
+    splash.addListener(() => avisos++);
+
+    await splash.init();
+    expect(avisos, 1);
+    splash.onAnimationCycleEnd();
+    expect(avisos, 2);
+    // fins de ciclo depois disso não avisam de novo
+    splash.onAnimationCycleEnd();
+    expect(avisos, 2);
   });
 }
