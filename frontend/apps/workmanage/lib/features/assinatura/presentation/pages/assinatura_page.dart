@@ -184,7 +184,25 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
               style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             )
           else ...[
-            if (provider.podeAssinar) ...[
+            if (provider.podeAssinar && !provider.checkoutAberto) ...[
+              // a fase de testes: o checkout fica fechado, na API também
+              const _Aviso(
+                texto:
+                    'A assinatura pelo app chega em breve. Por enquanto, '
+                    'use o app normalmente.',
+                icone: Icons.schedule_rounded,
+                erro: false,
+              ),
+              const SizedBox(height: BrandSpacing.space3),
+              FilledButton.icon(
+                onPressed: null,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                ),
+                icon: const Icon(Icons.lock_clock_rounded),
+                label: const Text('Em breve'),
+              ),
+            ] else if (provider.podeAssinar) ...[
               FilledButton.icon(
                 onPressed: provider.isLoading ? null : _assinar,
                 style: FilledButton.styleFrom(

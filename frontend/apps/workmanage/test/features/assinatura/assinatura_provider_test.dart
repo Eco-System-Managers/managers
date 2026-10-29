@@ -23,6 +23,7 @@ class _MockListarPagamentos extends Mock
 Assinatura _assinatura({
   StatusAssinatura status = StatusAssinatura.trial,
   bool bloqueada = false,
+  bool checkoutAberto = false,
 }) => Assinatura(
   status: status,
   planoNome: 'Pro',
@@ -30,6 +31,7 @@ Assinatura _assinatura({
   proximoVencimento: DateTime(2026, 11, 1),
   trialFim: DateTime(2026, 10, 15),
   bloqueada: bloqueada,
+  checkoutAberto: checkoutAberto,
 );
 
 final _pagamento = PagamentoAssinatura(
@@ -93,6 +95,22 @@ void main() {
 
     expect(bloqueio.bloqueada, isTrue);
     expect(provider.mensagemDeBloqueio, 'Assinatura inativa.');
+  });
+
+  test('o checkout segue a API; sem assinatura fica fechado', () async {
+    final provider = montar();
+    await provider.carregar();
+    expect(provider.checkoutAberto, isFalse);
+
+    when(() => obter(any()))
+        .thenAnswer((_) async => Right(_assinatura(checkoutAberto: true)));
+    await provider.carregar();
+    expect(provider.checkoutAberto, isTrue);
+
+    when(() => obter(any()))
+        .thenAnswer((_) async => const Left(NotFoundFailure()));
+    await provider.carregar();
+    expect(provider.checkoutAberto, isFalse);
   });
 
   test('404: negócio sem assinatura não é erro, e pode assinar', () async {

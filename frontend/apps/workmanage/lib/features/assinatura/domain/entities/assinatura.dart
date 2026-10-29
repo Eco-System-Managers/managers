@@ -23,6 +23,7 @@ class Assinatura extends Equatable {
     required this.proximoVencimento,
     this.trialFim,
     required this.bloqueada,
+    this.checkoutAberto = false,
   });
 
   final StatusAssinatura status;
@@ -33,6 +34,10 @@ class Assinatura extends Equatable {
   final DateTime proximoVencimento;
   final DateTime? trialFim;
   final bool bloqueada;
+
+  // false enquanto assinar pelo app não está liberado (a fase de testes): a
+  // tela mostra "Em breve" e a API recusa com assinatura_em_breve
+  final bool checkoutAberto;
 
   // quando faz sentido oferecer o checkout
   bool get podeAssinar => status != StatusAssinatura.ativa;
@@ -45,6 +50,7 @@ class Assinatura extends Equatable {
     proximoVencimento,
     trialFim,
     bloqueada,
+    checkoutAberto,
   ];
 }
 

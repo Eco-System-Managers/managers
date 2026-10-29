@@ -59,6 +59,9 @@ class AssinaturaProvider extends ChangeNotifier {
 
   bool get podeAssinar => _semAssinatura || (_assinatura?.podeAssinar ?? false);
 
+  // assinar pelo app ainda não está liberado: sem assinatura, também não
+  bool get checkoutAberto => _assinatura?.checkoutAberto ?? false;
+
   Future<void> carregar() async {
     _isLoading = true;
     _erroAoCarregar = null;
