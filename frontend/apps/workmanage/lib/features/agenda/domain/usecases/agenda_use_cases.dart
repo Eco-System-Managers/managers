@@ -4,6 +4,7 @@ import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../entities/agendamento.dart';
+import '../entities/bloqueio.dart';
 import '../entities/pendencia_cobranca.dart';
 import '../entities/slot.dart';
 import '../params/agenda_params.dart';
@@ -120,6 +121,44 @@ class ListarDiasComRegistroUseCase
   @override
   Future<Either<Failure, List<DateTime>>> call(MesParams params) =>
       _repository.diasComRegistro(params);
+}
+
+class ListarBloqueiosDoDiaUseCase
+    implements UseCase<List<Bloqueio>, ListarAgendamentosDoDiaParams> {
+  const ListarBloqueiosDoDiaUseCase(this._repository);
+
+  final AgendaRepository _repository;
+
+  @override
+  Future<Either<Failure, List<Bloqueio>>> call(
+    ListarAgendamentosDoDiaParams params,
+  ) {
+    return _repository.listarBloqueiosDoDia(
+      params.data,
+      colaboradorId: params.colaboradorId,
+    );
+  }
+}
+
+class CriarBloqueioUseCase implements UseCase<Bloqueio, NovoBloqueioParams> {
+  const CriarBloqueioUseCase(this._repository);
+
+  final AgendaRepository _repository;
+
+  @override
+  Future<Either<Failure, Bloqueio>> call(NovoBloqueioParams params) =>
+      _repository.criarBloqueio(params);
+}
+
+// o parâmetro é o id do bloqueio
+class ExcluirBloqueioUseCase implements UseCase<void, int> {
+  const ExcluirBloqueioUseCase(this._repository);
+
+  final AgendaRepository _repository;
+
+  @override
+  Future<Either<Failure, void>> call(int params) =>
+      _repository.excluirBloqueio(params);
 }
 
 class ListarPendenciasUseCase

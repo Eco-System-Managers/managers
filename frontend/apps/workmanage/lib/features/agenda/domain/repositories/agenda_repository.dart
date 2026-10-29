@@ -3,6 +3,7 @@ import 'package:managers/core/error/failures.dart';
 import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../entities/agendamento.dart';
+import '../entities/bloqueio.dart';
 import '../entities/pendencia_cobranca.dart';
 import '../entities/slot.dart';
 import '../params/agenda_params.dart';
@@ -37,4 +38,16 @@ abstract class AgendaRepository {
   Future<Either<Failure, List<DateTime>>> diasComRegistro(MesParams params);
 
   Future<Either<Failure, List<PendenciaCobranca>>> pendencias();
+
+  // os bloqueios que valem no dia (o fixo vale do início em diante)
+  Future<Either<Failure, List<Bloqueio>>> listarBloqueiosDoDia(
+    DateTime data, {
+    int? colaboradorId,
+  });
+
+  // recusado com bloqueio_com_cliente quando há atendimento no período
+  Future<Either<Failure, Bloqueio>> criarBloqueio(NovoBloqueioParams params);
+
+  // não existe editar: para mudar, exclui e cria de novo
+  Future<Either<Failure, void>> excluirBloqueio(int id);
 }

@@ -270,9 +270,10 @@ class AgendamentoFormProvider extends ChangeNotifier {
         } else {
           _errorMessage = failure.message;
         }
-        // alguém marcou esse horário enquanto a tela estava aberta: a grade
-        // precisa mostrar isso
-        if (failure.code == 'horario_conflito') {
+        // alguém marcou ou bloqueou esse horário enquanto a tela estava
+        // aberta: a grade precisa mostrar isso
+        if (failure.code == 'horario_conflito' ||
+            failure.code == 'horario_bloqueado') {
           _hora = null;
           recarregarGrade();
         }

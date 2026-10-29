@@ -6,6 +6,7 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../../domain/entities/agendamento.dart';
+import '../../domain/entities/bloqueio.dart';
 import '../../domain/entities/pendencia_cobranca.dart';
 import '../../domain/entities/slot.dart';
 import '../../domain/params/agenda_params.dart';
@@ -98,6 +99,32 @@ class AgendaRepositoryImpl implements AgendaRepository {
   @override
   Future<Either<Failure, List<PendenciaCobranca>>> pendencias() {
     return _executar(_remoteDataSource.pendencias);
+  }
+
+  @override
+  Future<Either<Failure, List<Bloqueio>>> listarBloqueiosDoDia(
+    DateTime data, {
+    int? colaboradorId,
+  }) {
+    return _executar(() async {
+      final models = await _remoteDataSource.listarBloqueiosDoDia(
+        data,
+        colaboradorId: colaboradorId,
+      );
+      return models.map((m) => m.toEntity()).toList();
+    });
+  }
+
+  @override
+  Future<Either<Failure, Bloqueio>> criarBloqueio(NovoBloqueioParams params) {
+    return _executar(
+      () async => (await _remoteDataSource.criarBloqueio(params)).toEntity(),
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> excluirBloqueio(int id) {
+    return _executar(() => _remoteDataSource.excluirBloqueio(id));
   }
 
   // o try/catch é igual em todos os métodos: fica num lugar só

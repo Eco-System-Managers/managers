@@ -13,6 +13,7 @@ import 'domain/usecases/agenda_use_cases.dart';
 import 'presentation/providers/agenda_dia_provider.dart';
 import 'presentation/providers/agendamento_form_provider.dart';
 import 'presentation/providers/agendamento_provider.dart';
+import 'presentation/providers/bloqueio_form_provider.dart';
 import 'presentation/providers/historico_cliente_provider.dart';
 import 'presentation/providers/pendencias_provider.dart';
 
@@ -68,6 +69,18 @@ final listarPendenciasUseCaseProvider = Provider(
   (ref) => ListarPendenciasUseCase(ref.watch(agendaRepositoryProvider)),
 );
 
+final listarBloqueiosDoDiaUseCaseProvider = Provider(
+  (ref) => ListarBloqueiosDoDiaUseCase(ref.watch(agendaRepositoryProvider)),
+);
+
+final criarBloqueioUseCaseProvider = Provider(
+  (ref) => CriarBloqueioUseCase(ref.watch(agendaRepositoryProvider)),
+);
+
+final excluirBloqueioUseCaseProvider = Provider(
+  (ref) => ExcluirBloqueioUseCase(ref.watch(agendaRepositoryProvider)),
+);
+
 // estado das telas. a agenda do dia não é autoDispose: trocar de aba e
 // voltar mantém o dia escolhido; a lista recarrega ao voltar de qualquer tela
 final agendaDiaProvider = Provider<AgendaDiaProvider>((ref) {
@@ -77,10 +90,29 @@ final agendaDiaProvider = Provider<AgendaDiaProvider>((ref) {
     listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
     listarPendencias: ref.watch(listarPendenciasUseCaseProvider),
     buscarHorarios: ref.watch(buscarHorariosUseCaseProvider),
+    listarBloqueios: ref.watch(listarBloqueiosDoDiaUseCaseProvider),
+    excluirBloqueio: ref.watch(excluirBloqueioUseCaseProvider),
   );
   ref.onDispose(provider.dispose);
   return provider;
 });
+
+// family: com o que o formulário abre (o dia e o profissional da agenda). o
+// parceiro só bloqueia a própria agenda: o profissional fica fixo nele
+final bloqueioFormProvider = Provider.autoDispose
+    .family<BloqueioFormProvider, BloqueioFormArgs>((ref, args) {
+      final negocio = ref.watch(negocioAtualProvider);
+      final perfilId = negocio.perfil?.id;
+      final provider = BloqueioFormProvider(
+        listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
+        criar: ref.watch(criarBloqueioUseCaseProvider),
+        somenteColaboradorId: negocio.ehProprietario ? null : perfilId,
+        colaboradorInicialId: args.colaboradorId ?? perfilId,
+        dataInicial: args.data,
+      );
+      ref.onDispose(provider.dispose);
+      return provider;
+    });
 
 // family: com o que o formulário abre (dia, hora e profissional tocados na
 // grade da agenda)

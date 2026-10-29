@@ -275,4 +275,79 @@ void main() {
     expect(pendencias.last.origemAgenda, isFalse);
     expect(pendencias.last.data, DateTime(2026, 10, 21));
   });
+
+  group('bloqueios', () {
+    final almoco = {
+      'id': 5,
+      'colaborador': 2,
+      'colaborador_nome': 'Bia',
+      'data_inicio': '2026-10-25',
+      'data_fim': null,
+      'hora_inicio': '12:00:00',
+      'hora_fim': '13:00:00',
+      'motivo': 'Almoço',
+      'criado_em': '2026-10-20T10:00:00-03:00',
+    };
+
+    test('listarBloqueiosDoDia manda o dia e o profissional', () async {
+      final adapter = FakeAdapter(
+        (_) async => respostaJson(200, _pagina([almoco])),
+      );
+      final datasource = AgendaRemoteDataSourceImpl(dioDeTeste(adapter));
+
+      final lista = await datasource.listarBloqueiosDoDia(
+        DateTime(2026, 11, 3),
+        colaboradorId: 2,
+      );
+
+      final requisicao = adapter.requisicoes.single;
+      expect(requisicao.path, 'agenda/bloqueios/');
+      expect(requisicao.queryParameters['data'], '2026-11-03');
+      expect(requisicao.queryParameters['colaborador'], 2);
+      final b = lista.single.toEntity();
+      expect(b.fixo, isTrue);
+      expect(b.diaInteiro, isFalse);
+      expect(b.horaInicio, (hora: 12, minuto: 0));
+      expect(b.motivo, 'Almoço');
+    });
+
+    test(
+      'criarBloqueio manda o corpo do contrato; dia inteiro vai nulo',
+      () async {
+        final adapter = FakeAdapter((_) async => respostaJson(201, almoco));
+        final datasource = AgendaRemoteDataSourceImpl(dioDeTeste(adapter));
+
+        await datasource.criarBloqueio(
+          NovoBloqueioParams(
+            colaboradorId: 2,
+            dataInicio: DateTime(2026, 11, 3),
+            dataFim: DateTime(2026, 11, 9),
+            motivo: 'Férias',
+          ),
+        );
+
+        final requisicao = adapter.requisicoes.single;
+        expect(requisicao.method, 'POST');
+        expect(requisicao.data, {
+          'colaborador': 2,
+          'data_inicio': '2026-11-03',
+          'data_fim': '2026-11-09',
+          'hora_inicio': null,
+          'hora_fim': null,
+          'motivo': 'Férias',
+        });
+      },
+    );
+
+    test('excluirBloqueio faz DELETE no id', () async {
+      final adapter = FakeAdapter((_) async => respostaJson(204, null));
+      final datasource = AgendaRemoteDataSourceImpl(dioDeTeste(adapter));
+
+      await datasource.excluirBloqueio(5);
+
+      final requisicao = adapter.requisicoes.single;
+      expect(requisicao.method, 'DELETE');
+      expect(requisicao.path, 'agenda/bloqueios/5/');
+    });
+  });
 }

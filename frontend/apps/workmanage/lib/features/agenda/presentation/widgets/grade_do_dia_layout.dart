@@ -1,6 +1,8 @@
+import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/empresa/domain/entities/horario_funcionamento.dart';
 
 import '../../domain/entities/agendamento.dart';
+import '../../domain/entities/bloqueio.dart';
 
 // as contas da grade do dia, sem Flutter: onde cada agendamento entra e o
 // trecho do dia que a grade mostra. tudo em minutos desde a meia-noite
@@ -91,6 +93,32 @@ List<BlocoDaGrade> distribuirColunas(List<Agendamento> agendamentos) {
   }
   if (indicesDoGrupo.isNotEmpty) fecharGrupo();
   return blocos;
+}
+
+// um bloqueio na grade: o trecho dele no dia, em minutos. o dia inteiro vai
+// da meia-noite à meia-noite, e a grade corta no trecho que mostra
+class FaixaBloqueada {
+  const FaixaBloqueada({
+    required this.bloqueio,
+    required this.inicio,
+    required this.fim,
+  });
+
+  final Bloqueio bloqueio;
+  final int inicio;
+  final int fim;
+}
+
+List<FaixaBloqueada> faixasDosBloqueios(List<Bloqueio> bloqueios) {
+  int minutos(Hora h) => h.hora * 60 + h.minuto;
+  return [
+    for (final b in bloqueios)
+      FaixaBloqueada(
+        bloqueio: b,
+        inicio: b.diaInteiro ? 0 : minutos(b.horaInicio!),
+        fim: b.diaInteiro ? 24 * 60 : minutos(b.horaFim!),
+      ),
+  ]..sort((a, b) => a.inicio.compareTo(b.inicio));
 }
 
 // o trecho do dia que a grade mostra: o expediente, esticado para caber

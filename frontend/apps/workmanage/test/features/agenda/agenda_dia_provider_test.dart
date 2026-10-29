@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/features/agenda/domain/entities/agendamento.dart';
+import 'package:managers/features/agenda/domain/entities/bloqueio.dart';
 import 'package:managers/features/agenda/domain/entities/pendencia_cobranca.dart';
 import 'package:managers/features/agenda/domain/params/agenda_params.dart';
 import 'package:managers/features/agenda/domain/usecases/agenda_use_cases.dart';
@@ -25,7 +26,22 @@ class _MockListarPendencias extends Mock implements ListarPendenciasUseCase {}
 
 class _MockBuscarHorarios extends Mock implements BuscarHorariosUseCase {}
 
+class _MockListarBloqueios extends Mock
+    implements ListarBloqueiosDoDiaUseCase {}
+
+class _MockExcluirBloqueio extends Mock implements ExcluirBloqueioUseCase {}
+
 final _hoje = DateTime(2026, 10, 25);
+
+final _almoco = Bloqueio(
+  id: 5,
+  colaboradorId: 2,
+  colaboradorNome: 'Bia',
+  dataInicio: DateTime(2026, 10, 1),
+  horaInicio: (hora: 12, minuto: 0),
+  horaFim: (hora: 13, minuto: 0),
+  motivo: 'Almoço',
+);
 
 Agendamento _agendamento(int id) => Agendamento(
   id: id,
@@ -58,6 +74,8 @@ void main() {
   late _MockListarColaboradores listarColaboradores;
   late _MockListarPendencias listarPendencias;
   late _MockBuscarHorarios buscarHorarios;
+  late _MockListarBloqueios listarBloqueios;
+  late _MockExcluirBloqueio excluirBloqueio;
 
   setUpAll(() {
     registerFallbackValue(ListarAgendamentosDoDiaParams(data: _hoje));
@@ -72,6 +90,8 @@ void main() {
       listarColaboradores: listarColaboradores,
       listarPendencias: listarPendencias,
       buscarHorarios: buscarHorarios,
+      listarBloqueios: listarBloqueios,
+      excluirBloqueio: excluirBloqueio,
       hoje: _hoje,
     );
   }
@@ -82,6 +102,9 @@ void main() {
     listarColaboradores = _MockListarColaboradores();
     listarPendencias = _MockListarPendencias();
     buscarHorarios = _MockBuscarHorarios();
+    listarBloqueios = _MockListarBloqueios();
+    excluirBloqueio = _MockExcluirBloqueio();
+    when(() => listarBloqueios(any())).thenAnswer((_) async => const Right([]));
     // 25/10/2026 é domingo: aberto das 9 às 13; segunda fechada
     when(() => buscarHorarios(any())).thenAnswer(
       (_) async => const Right([
@@ -225,6 +248,51 @@ void main() {
       // ...e de novo no recarregar: podem ter mudado em Mais
       await provider.recarregar();
       verify(() => buscarHorarios(any())).called(1);
+    },
+  );
+
+  test('carregar traz os bloqueios do dia com o mesmo filtro', () async {
+    when(() => listarBloqueios(any()))
+        .thenAnswer((_) async => Right([_almoco]));
+    final provider = montar();
+    await provider.filtrarColaborador(2);
+
+    expect(provider.bloqueios, [_almoco]);
+    final params =
+        verify(() => listarBloqueios(captureAny())).captured.last
+            as ListarAgendamentosDoDiaParams;
+    expect(params.data, _hoje);
+    expect(params.colaboradorId, 2);
+  });
+
+  test(
+    'sem os bloqueios a grade não aparece: a falha é erro da tela',
+    () async {
+      when(() => listarBloqueios(any()))
+          .thenAnswer((_) async => const Left(NetworkFailure()));
+      final provider = montar();
+
+      await provider.carregar();
+
+      expect(provider.carregado, isFalse);
+      expect(provider.erroAoCarregar, isA<NetworkFailure>());
+    },
+  );
+
+  test(
+    'excluirBloqueio recarrega o dia; a falha volta como mensagem',
+    () async {
+      when(() => excluirBloqueio(5)).thenAnswer((_) async => const Right(null));
+      final provider = montar();
+      await provider.carregar();
+
+      expect(await provider.excluirBloqueio(5), isNull);
+      verify(() => listarBloqueios(any())).called(2);
+
+      when(() => excluirBloqueio(6)).thenAnswer(
+        (_) async => const Left(PermissionFailure(message: 'Sem permissão')),
+      );
+      expect(await provider.excluirBloqueio(6), 'Sem permissão');
     },
   );
 }

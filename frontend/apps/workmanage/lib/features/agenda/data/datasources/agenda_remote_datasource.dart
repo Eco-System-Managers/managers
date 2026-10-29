@@ -9,6 +9,7 @@ import '../../domain/entities/pendencia_cobranca.dart';
 import '../../domain/entities/slot.dart';
 import '../../domain/params/agenda_params.dart';
 import '../models/agendamento_model.dart';
+import '../models/bloqueio_model.dart';
 
 // fala com /agendamentos/ e /agenda/ da API. não trata erro: se a
 // requisição falhar, a DioException sobe para o repository
@@ -37,6 +38,16 @@ abstract class AgendaRemoteDataSource {
   Future<List<DateTime>> diasComRegistro(MesParams params);
 
   Future<List<PendenciaCobranca>> pendencias();
+
+  // os que valem no dia, seguindo a paginação
+  Future<List<BloqueioModel>> listarBloqueiosDoDia(
+    DateTime data, {
+    int? colaboradorId,
+  });
+
+  Future<BloqueioModel> criarBloqueio(NovoBloqueioParams params);
+
+  Future<void> excluirBloqueio(int id);
 }
 
 class AgendaRemoteDataSourceImpl implements AgendaRemoteDataSource {
@@ -131,6 +142,35 @@ class AgendaRemoteDataSourceImpl implements AgendaRemoteDataSource {
       queryParameters: {'ano': params.ano, 'mes': params.mes},
     );
     return [for (final d in response.data!) dataDaApi(d as String)];
+  }
+
+  static const _bloqueios = 'agenda/bloqueios/';
+
+  @override
+  Future<List<BloqueioModel>> listarBloqueiosDoDia(
+    DateTime data, {
+    int? colaboradorId,
+  }) {
+    return buscarTudo(
+      dio,
+      _bloqueios,
+      query: {'data': dataParaApi(data), 'colaborador': ?colaboradorId},
+      item: BloqueioModel.fromJson,
+    );
+  }
+
+  @override
+  Future<BloqueioModel> criarBloqueio(NovoBloqueioParams params) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      _bloqueios,
+      data: BloqueioModel.corpoDeCriacao(params),
+    );
+    return BloqueioModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> excluirBloqueio(int id) async {
+    await dio.delete<void>('$_bloqueios$id/');
   }
 
   @override

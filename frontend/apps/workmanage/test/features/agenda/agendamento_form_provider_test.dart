@@ -283,6 +283,28 @@ void main() {
     },
   );
 
+  test(
+    'horário bloqueado enquanto a tela estava aberta: a grade recarrega',
+    () async {
+      when(() => criar(any())).thenAnswer(
+        (_) async => const Left(
+          ServerFailure(
+            message: 'Esse horário está bloqueado na agenda do profissional.',
+            code: 'horario_bloqueado',
+          ),
+        ),
+      );
+      final provider = await pronto();
+
+      await provider.salvar();
+      await pumpEventQueue();
+
+      expect(provider.errorMessage, contains('bloqueado'));
+      expect(provider.hora, isNull);
+      verify(() => listarSlots(any())).called(2);
+    },
+  );
+
   test('erro de validação vai para o campo e some ao mexer nele', () async {
     when(() => criar(any())).thenAnswer(
       (_) async => const Left(

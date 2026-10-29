@@ -8,13 +8,14 @@ import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 
 import '../../domain/entities/agendamento.dart';
+import '../../domain/entities/bloqueio.dart';
 import '../../domain/params/agenda_params.dart';
 import '../../domain/usecases/agenda_use_cases.dart';
 
 // estado da agenda do dia (montado em agenda_provider.dart, na raiz da
 // feature): o dia escolhido, os agendamentos dele, os dias do mês que têm
-// registro (as bolinhas da faixa), o filtro por profissional e quantas
-// cobranças estão pendentes
+// registro (as bolinhas da faixa), os bloqueios do dia, o filtro por
+// profissional e quantas cobranças estão pendentes
 // a grade da agenda: uma linha a cada 15 minutos
 const passoDaGrade = 15;
 
@@ -25,6 +26,8 @@ class AgendaDiaProvider extends ChangeNotifier {
     required this._listarColaboradores,
     required this._listarPendencias,
     required this._buscarHorarios,
+    required this._listarBloqueios,
+    required this._excluirBloqueio,
     DateTime? hoje,
   }) : _hoje = somenteData(hoje ?? DateTime.now()),
        _dia = somenteData(hoje ?? DateTime.now());
@@ -34,10 +37,13 @@ class AgendaDiaProvider extends ChangeNotifier {
   final ListarColaboradoresUseCase _listarColaboradores;
   final ListarPendenciasUseCase _listarPendencias;
   final BuscarHorariosUseCase _buscarHorarios;
+  final ListarBloqueiosDoDiaUseCase _listarBloqueios;
+  final ExcluirBloqueioUseCase _excluirBloqueio;
 
   final DateTime _hoje;
   DateTime _dia;
   List<Agendamento> _agendamentos = const [];
+  List<Bloqueio> _bloqueios = const [];
   bool _carregado = false;
   bool _isLoading = false;
   Failure? _erroAoCarregar;
@@ -60,6 +66,9 @@ class AgendaDiaProvider extends ChangeNotifier {
   DateTime get dia => _dia;
   bool get ehHoje => mesmoDia(_dia, _hoje);
   List<Agendamento> get agendamentos => _agendamentos;
+
+  // os bloqueios que valem no dia aberto, do profissional filtrado (ou de todos)
+  List<Bloqueio> get bloqueios => _bloqueios;
   bool get carregado => _carregado;
   bool get isLoading => _isLoading;
   Failure? get erroAoCarregar => _erroAoCarregar;
@@ -102,13 +111,13 @@ class AgendaDiaProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
-    final (dia, _, _, _, _) = await (
-      _listarDoDia(
-        ListarAgendamentosDoDiaParams(
-          data: _dia,
-          colaboradorId: _colaboradorId,
-        ),
-      ),
+    final params = ListarAgendamentosDoDiaParams(
+      data: _dia,
+      colaboradorId: _colaboradorId,
+    );
+    final (dia, bloqueios, _, _, _, _) = await (
+      _listarDoDia(params),
+      _listarBloqueios(params),
       _garantirMes(_dia),
       _carregarColaboradores(),
       _contarPendencias(),
@@ -116,9 +125,14 @@ class AgendaDiaProvider extends ChangeNotifier {
     ).wait;
     if (_disposed) return;
 
+    // sem os bloqueios a grade mostraria livre o que não está: a falha deles
+    // também é erro da tela
     dia.fold((failure) => _erroAoCarregar = failure, (lista) {
-      _agendamentos = lista;
-      _carregado = true;
+      bloqueios.fold((failure) => _erroAoCarregar = failure, (doDia) {
+        _agendamentos = lista;
+        _bloqueios = doDia;
+        _carregado = true;
+      });
     });
 
     _isLoading = false;
@@ -163,6 +177,15 @@ class AgendaDiaProvider extends ChangeNotifier {
     _meses.clear();
     _horariosCarregados = false;
     await carregar();
+  }
+
+  // devolve a mensagem de erro, ou null quando excluiu (e o dia recarrega)
+  Future<String?> excluirBloqueio(int id) async {
+    final result = await _excluirBloqueio(id);
+    if (_disposed) return null;
+    final erro = result.fold((failure) => failure.message, (_) => null);
+    if (erro == null) await carregar();
+    return erro;
   }
 
   Future<void> _garantirMes(DateTime data) async {

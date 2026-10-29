@@ -9,18 +9,22 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/faixa_semana.dart';
 import 'package:managers/core/widgets/sombra_de_borda.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/usuarios/presentation/widgets/filtro_profissionais.dart';
 
 import '../../agenda_provider.dart';
+import '../../domain/entities/bloqueio.dart';
 import '../providers/agenda_dia_provider.dart';
+import '../widgets/bloqueio_sheet.dart';
 import '../widgets/grade_do_dia.dart';
 import '../widgets/grade_do_dia_layout.dart';
 
 // a agenda por horário: um dia por vez, com o calendário em cima (a semana,
 // ou o mês quando aberto pelo título ou pela alça), o filtro por
 // profissional e a grade de horários do expediente. deslizar a grade para o
-// lado troca o dia. tocar num espaço vazio marca naquela hora; ficha e
-// formulário abrem por cima e, ao voltar, o dia é recarregado da API
+// lado troca o dia. tocar num espaço vazio marca naquela hora; tocar num
+// bloqueio abre a ficha dele. ficha e formulário abrem por cima e, ao
+// voltar, o dia é recarregado da API
 class AgendaPage extends ConsumerStatefulWidget {
   const AgendaPage({super.key});
 
@@ -75,6 +79,30 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     _abrir('/agenda/novo?${partes.join('&')}');
   }
 
+  // o dia e o profissional abertos vêm preenchidos no bloqueio
+  void _bloquear() {
+    final provider = _provider;
+    final partes = [
+      'data=${dataParaApi(provider.dia)}',
+      if (provider.colaboradorId != null)
+        'colaborador=${provider.colaboradorId}',
+    ];
+    _abrir('/agenda/bloquear?${partes.join('&')}');
+  }
+
+  void _abrirBloqueio(Bloqueio bloqueio) {
+    final podeExcluir = ref
+        .read(negocioAtualProvider)
+        .podeBloquearAgendaDe(bloqueio.colaboradorId);
+    BloqueioSheet.abrir(
+      context,
+      bloqueio: bloqueio,
+      excluir: podeExcluir
+          ? () => _provider.excluirBloqueio(bloqueio.id)
+          : null,
+    );
+  }
+
   void _selecionarDia(DateTime dia) {
     _avancou = !dia.isBefore(_provider.dia);
     _provider.selecionarDia(dia);
@@ -114,6 +142,12 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
               onTap: () => setState(() => _mesAberto = !_mesAberto),
             ),
             actions: [
+              if (ref.read(negocioAtualProvider).podeBloquear)
+                IconButton(
+                  tooltip: 'Bloquear horário',
+                  onPressed: _bloquear,
+                  icon: const Icon(Icons.event_busy_rounded),
+                ),
               if (!provider.ehHoje)
                 TextButton(
                   onPressed: () => _selecionarDia(provider.hoje),
@@ -227,6 +261,9 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                           agora: provider.ehHoje ? DateTime.now() : null,
                           onTapVazio: (hora) => _novo(hora: hora),
                           onTapAgendamento: (a) => _abrir('/agenda/${a.id}'),
+                          faixas: faixasDosBloqueios(provider.bloqueios),
+                          onTapBloqueio: _abrirBloqueio,
+                          nomeNoBloqueio: provider.colaboradorId == null,
                         ),
                       ),
               ),

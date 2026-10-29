@@ -49,6 +49,11 @@ class NegocioAtualProvider extends ChangeNotifier {
   bool get veValores => _perfil?.veValores ?? false;
   bool get podeCobrar => _perfil?.cobra ?? false;
 
+  // o botão de bloquear: dono e parceiro (o parceiro, na própria agenda)
+  bool get podeBloquear => ehProprietario || (_perfil?.ehParceiro ?? false);
+  bool podeBloquearAgendaDe(int colaboradorId) =>
+      _perfil?.bloqueiaAgendaDe(colaboradorId) ?? false;
+
   Future<void> carregar({bool forcar = false}) async {
     if (_carregando || (carregado && !forcar)) return;
     _carregando = true;

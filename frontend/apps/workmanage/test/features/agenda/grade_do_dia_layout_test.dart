@@ -1,7 +1,9 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/features/agenda/domain/entities/agendamento.dart';
+import 'package:managers/features/agenda/domain/entities/bloqueio.dart';
 import 'package:managers/features/agenda/presentation/widgets/grade_do_dia_layout.dart';
+import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/empresa/domain/entities/horario_funcionamento.dart';
 
 Agendamento _agendamento(int id, int hora, int minuto, {int duracao = 30}) =>
@@ -119,5 +121,34 @@ void main() {
       minutoTocado(inicioDaGrade: 9 * 60, minutosDesdeOTopo: 50, passo: 20),
       9 * 60 + 40,
     );
+  });
+
+  group('faixasDosBloqueios', () {
+    Bloqueio bloqueio(int id, {Hora? de, Hora? ate}) => Bloqueio(
+      id: id,
+      colaboradorId: 2,
+      colaboradorNome: 'Bia',
+      dataInicio: DateTime(2026, 10, 25),
+      horaInicio: de,
+      horaFim: ate,
+    );
+
+    test('a faixa vai da hora de início à de fim, em ordem', () {
+      final faixas = faixasDosBloqueios([
+        bloqueio(1, de: (hora: 15, minuto: 0), ate: (hora: 16, minuto: 30)),
+        bloqueio(2, de: (hora: 12, minuto: 0), ate: (hora: 13, minuto: 0)),
+      ]);
+
+      expect(
+        [for (final f in faixas) (f.inicio, f.fim)],
+        [(12 * 60, 13 * 60), (15 * 60, 16 * 60 + 30)],
+      );
+    });
+
+    test('o dia inteiro vai de meia-noite a meia-noite', () {
+      final faixa = faixasDosBloqueios([bloqueio(1)]).single;
+
+      expect((faixa.inicio, faixa.fim), (0, 24 * 60));
+    });
   });
 }

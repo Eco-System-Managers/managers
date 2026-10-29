@@ -5,6 +5,7 @@ import 'package:managers/core/session/sessao_provider.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_form_page.dart';
 import 'package:managers/features/agenda/presentation/pages/agendamento_page.dart';
+import 'package:managers/features/agenda/presentation/pages/bloqueio_form_page.dart';
 import 'package:managers/features/agenda/presentation/pages/historico_cliente_page.dart';
 import 'package:managers/features/agenda/presentation/pages/pendencias_page.dart';
 import 'package:managers/features/assinatura/presentation/pages/assinatura_page.dart';
@@ -183,6 +184,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'pendencias',
                     parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, _) => const PendenciasPage(),
+                  ),
+                  // antes do :id, senão "bloquear" vira id
+                  // (?data=2026-10-25&colaborador=2)
+                  GoRoute(
+                    path: 'bloquear',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, state) {
+                      final q = state.uri.queryParameters;
+                      final data = q['data'];
+                      return BloqueioFormPage(
+                        dataInicial: data == null
+                            ? null
+                            : DateTime.tryParse(data),
+                        colaboradorId: int.tryParse(q['colaborador'] ?? ''),
+                      );
+                    },
                   ),
                   GoRoute(
                     path: ':id',

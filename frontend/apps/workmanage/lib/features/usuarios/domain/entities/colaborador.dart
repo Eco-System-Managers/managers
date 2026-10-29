@@ -69,6 +69,11 @@ class Colaborador extends Equatable {
   // dono e parceiro cobram sempre; o colaborador comum só com a flag
   bool get cobra => ehProprietario || ehParceiro || podeCobrar;
 
+  // bloquear a agenda de [colaboradorId]: o dono bloqueia a de todos, o
+  // parceiro só a própria; a agenda do colaborador comum é o dono quem decide
+  bool bloqueiaAgendaDe(int colaboradorId) =>
+      ehProprietario || (ehParceiro && id == colaboradorId);
+
   @override
   List<Object?> get props => [
     id,

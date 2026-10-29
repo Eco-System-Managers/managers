@@ -1,3 +1,5 @@
+import 'package:managers/core/utils/datas.dart';
+
 import '../entities/agendamento.dart';
 
 // o que marca um agendamento: a API aceita um serviço por agendamento
@@ -48,6 +50,26 @@ class SlotsParams {
   final DateTime data;
   final int servicoId;
   final int colaboradorId;
+}
+
+// o que cria um bloqueio. "uma semana" e "um mês" chegam aqui como dataFim;
+// dataFim null é o fixo, horas null são o dia inteiro
+class NovoBloqueioParams {
+  const NovoBloqueioParams({
+    required this.colaboradorId,
+    required this.dataInicio,
+    this.dataFim,
+    this.horaInicio,
+    this.horaFim,
+    this.motivo = '',
+  });
+
+  final int colaboradorId;
+  final DateTime dataInicio;
+  final DateTime? dataFim;
+  final Hora? horaInicio;
+  final Hora? horaFim;
+  final String motivo;
 }
 
 class MesParams {

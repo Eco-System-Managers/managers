@@ -3,13 +3,15 @@ import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 
 import '../../domain/entities/agendamento.dart';
+import '../../domain/entities/bloqueio.dart';
 import 'grade_do_dia_layout.dart';
 import 'status_agendamento_chip.dart';
 
 // a grade de horários de um dia: a coluna das horas à esquerda, uma linha a
 // cada passo, os agendamentos desenhados na hora e com a altura da duração,
-// a linha do "agora" (azul, o estado atual) quando é hoje. tocar num espaço
-// vazio devolve a hora
+// a linha do "agora" (azul, o estado atual) quando é hoje, e os bloqueios
+// como faixas neutras por baixo dos agendamentos. tocar num espaço vazio
+// devolve a hora; tocar num bloqueio, o bloqueio
 class GradeDoDia extends StatefulWidget {
   const GradeDoDia({
     super.key,
@@ -20,6 +22,9 @@ class GradeDoDia extends StatefulWidget {
     required this.agora,
     required this.onTapVazio,
     required this.onTapAgendamento,
+    this.faixas = const [],
+    this.onTapBloqueio,
+    this.nomeNoBloqueio = false,
   });
 
   // o trecho do dia, em minutos desde a meia-noite
@@ -32,6 +37,11 @@ class GradeDoDia extends StatefulWidget {
   final DateTime? agora;
   final ValueChanged<Hora> onTapVazio;
   final ValueChanged<Agendamento> onTapAgendamento;
+  final List<FaixaBloqueada> faixas;
+  final ValueChanged<Bloqueio>? onTapBloqueio;
+
+  // com a agenda de todos aberta, a faixa diz de quem é o bloqueio
+  final bool nomeNoBloqueio;
 
   // 30 minutos = 54 px: cabe o nome do cliente num bloco de meia hora
   static const pixelsPorMinuto = 1.8;
@@ -79,6 +89,13 @@ class _GradeDoDiaState extends State<GradeDoDia> {
 
   double _y(int minuto) =>
       (minuto - widget.inicio) * GradeDoDia.pixelsPorMinuto;
+
+  // o pedaço da faixa que cai no trecho mostrado; null quando fica todo fora
+  (int, int)? _recorte(FaixaBloqueada faixa) {
+    final de = faixa.inicio < widget.inicio ? widget.inicio : faixa.inicio;
+    final ate = faixa.fim > widget.fim ? widget.fim : faixa.fim;
+    return ate > de ? (de, ate) : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +173,20 @@ class _GradeDoDiaState extends State<GradeDoDia> {
                           ),
                         ),
                       ),
+                      for (final faixa in widget.faixas)
+                        if (_recorte(faixa) case (final de, final ate))
+                          Positioned(
+                            top: _y(de),
+                            height: _y(ate) - _y(de),
+                            left: 0,
+                            right: 0,
+                            child: _Faixa(
+                              bloqueio: faixa.bloqueio,
+                              comNome: widget.nomeNoBloqueio,
+                              onTap: () =>
+                                  widget.onTapBloqueio?.call(faixa.bloqueio),
+                            ),
+                          ),
                       for (final bloco in widget.blocos)
                         Positioned(
                           top: _y(bloco.inicio),
@@ -271,6 +302,63 @@ class _Bloco extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// um bloqueio na grade: a faixa neutra de ponta a ponta, com a borda
+// apagada à esquerda e o motivo (ou "Bloqueado") em inkMuted
+class _Faixa extends StatelessWidget {
+  const _Faixa({
+    required this.bloqueio,
+    required this.comNome,
+    required this.onTap,
+  });
+
+  final Bloqueio bloqueio;
+  final bool comNome;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = BrandColors.of(context);
+    final titulo = bloqueio.motivo.isEmpty ? 'Bloqueado' : bloqueio.motivo;
+    final texto = comNome && bloqueio.colaboradorNome.isNotEmpty
+        ? '$titulo · ${bloqueio.colaboradorNome}'
+        : titulo;
+
+    return Material(
+      color: cores.bg2,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          alignment: Alignment.topLeft,
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: cores.inkMuted, width: 3)),
+          ),
+          padding: const EdgeInsets.fromLTRB(
+            BrandSpacing.space2,
+            BrandSpacing.space1,
+            BrandSpacing.space1,
+            0,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.block_rounded, size: 14, color: cores.inkMuted),
+              const SizedBox(width: BrandSpacing.space1),
+              Expanded(
+                child: Text(
+                  texto,
+                  style: Theme.of(context).textTheme.labelMedium
+                      ?.copyWith(color: cores.inkMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),
