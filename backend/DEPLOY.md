@@ -101,8 +101,8 @@ Estado em 2026-10-27:
   superusuário criado
 - [x] Comandos de build, pre-deploy e start no painel
 - [x] DNS de `api.workmanage.com.br` na Hostinger (CNAME `api` e TXT
-  `_railway-verify.api`, os valores que o Railway mostra) — falta o Railway
-  emitir o certificado (fica verde)
+  `_railway-verify.api`, os valores que o Railway mostra) e certificado
+  emitido: a API responde em HTTPS (conferido em 2026-10-29)
 - [ ] Variáveis restantes (tabela acima)
 - [ ] **Resend:** adicionar `workmanage.com.br`, criar os registros DNS na
   Hostinger, gerar a chave → `RESEND_API_KEY` e `DEFAULT_FROM_EMAIL`
@@ -113,11 +113,36 @@ Estado em 2026-10-27:
   certa: `python manage.py configurar_plano --preco 49,90` no SSH. Conferir
   que a URL de retorno impressa começa com `https://api.workmanage.com.br`.
   Mudar o preço depois é rodar de novo (ver `apps_work/billing/CLAUDE.md`)
-- [ ] App Flutter apontando para `https://api.workmanage.com.br`
+- [x] App Flutter apontando para `https://api.workmanage.com.br` (o padrão do `env.dart`)
 - [ ] Teste de ponta a ponta: cadastro (o e-mail chega?), convite com criação
   de senha pelo link, assinatura real e liberação do acesso
-- [ ] **Cron diário da exclusão de contas:** um serviço de cron no Railway
-      (mesma imagem da API) com `python manage.py excluir_contas_vencidas`,
-      uma vez por dia. Sem ele, quem pediu para excluir a conta fica travado
-      e nunca é apagado de verdade
+- [ ] **Variáveis da política de privacidade:** `PRIVACIDADE_RESPONSAVEL`
+  e `PRIVACIDADE_EMAIL` (`contato@workmanage.com.br`, que já recebe). Depois
+  do deploy, abrir `https://api.workmanage.com.br/privacidade` e conferir
+- [ ] **Cron diário da exclusão de contas** (só depois do deploy que traz o
+  comando). Sem ele, quem pede para excluir a conta fica travado e nunca é
+  apagado de verdade. Ver "O cron da exclusão de contas" abaixo
 - [ ] Backup do Postgres: ativar na aba Backups do serviço, se o plano oferecer
+
+## O cron da exclusão de contas
+
+Quem pede para excluir a conta pelo app fica travado na hora e é apagado de
+vez 30 dias depois, pelo comando `excluir_contas_vencidas`. Rodar no console
+uma vez não basta: ele precisa rodar todo dia sozinho. No Railway isso é um
+**segundo serviço**, com o mesmo código da API, que roda o comando e desliga.
+
+1. No projeto: **+ New › GitHub Repo**, o mesmo repositório da API. Nome
+   sugerido: `cron-exclusao`.
+2. **Settings** do serviço novo:
+   - Root Directory: `/backend`, e a mesma branch da API
+   - Custom Build Command: `python manage.py collectstatic --noinput`
+   - Pre-deploy Command: **vazio** (as migrations já rodam na API)
+   - Custom Start Command: `python manage.py excluir_contas_vencidas`
+   - Cron Schedule: `0 9 * * *` (o Railway usa UTC: é 6h em Brasília)
+   - Restart: **Never** (o cron termina sozinho)
+3. **Variables**, por referência às do serviço da API (`${{<nome do
+   serviço>.VAR}}`; nome errado vira variável vazia, sem aviso): as `DB_*`,
+   `SECRET_KEY`, `REDIS_URL` e `MERCADOPAGO_ACCESS_TOKEN` (para cancelar uma
+   assinatura recorrente do dono que pediu a exclusão).
+4. Conferir na aba **Deployments** do cron: cada execução termina com
+   `N conta(s) excluída(s).`
