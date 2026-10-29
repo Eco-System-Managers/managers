@@ -2682,6 +2682,67 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+  /api/v1/colaboradores/me/excluir/:
+    post:
+      operationId: colaboradores_me_excluir_create
+      description: Do dono, apaga o negócio inteiro; da equipe, só o login (o nome
+        fica no histórico). A conta trava na hora e é apagada em 30 dias; entrar de
+        novo antes disso desiste. 400 senha_incorreta; 400 assinatura_nao_cancelada
+        quando o gateway recusa parar a cobrança.
+      summary: Pedir a exclusão da própria conta
+      tags:
+      - colaboradores
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExcluirContaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExcluirContaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExcluirContaRequest'
+        required: true
+      security:
+      - workmanageJWT: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExclusaoConta'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
   /api/v1/contratos/:
     get:
       operationId: contratos_list
@@ -7891,8 +7952,14 @@ components:
         bloqueada:
           type: boolean
           readOnly: true
+        checkout_aberto:
+          type: boolean
+          readOnly: true
+          description: 'False enquanto assinar pelo app não está liberado: o app mostra
+            "Em breve".'
       required:
       - bloqueada
+      - checkout_aberto
       - inicio
       - plano_nome
       - proximo_vencimento
@@ -9071,6 +9138,28 @@ components:
           maxLength: 7
       required:
       - nome
+    ExcluirContaRequest:
+      type: object
+      properties:
+        senha:
+          type: string
+          minLength: 1
+          description: 'A senha de quem pede: confirma que é a própria pessoa.'
+      required:
+      - senha
+    ExclusaoConta:
+      type: object
+      properties:
+        apaga_negocio:
+          type: boolean
+          description: 'True quando o dono pediu: o negócio inteiro sai.'
+        excluir_em:
+          type: string
+          format: date-time
+          description: Até lá, entrar de novo desiste do pedido.
+      required:
+      - apaga_negocio
+      - excluir_em
     FormaEnum:
       enum:
       - dinheiro

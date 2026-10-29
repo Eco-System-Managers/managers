@@ -8,6 +8,7 @@ import '../../helpers/fake_adapter.dart';
 Map<String, dynamic> _assinaturaJson({
   String status = 'trial',
   bool bloqueada = false,
+  bool checkoutAberto = false,
 }) => {
   'status': status,
   'plano_nome': 'Pro',
@@ -15,6 +16,7 @@ Map<String, dynamic> _assinaturaJson({
   'proximo_vencimento': '2026-11-01',
   'trial_fim': status == 'trial' ? '2026-10-15' : null,
   'bloqueada': bloqueada,
+  'checkout_aberto': checkoutAberto,
 };
 
 void main() {
@@ -33,6 +35,16 @@ void main() {
     expect(assinatura.proximoVencimento, DateTime(2026, 11, 1));
     expect(assinatura.bloqueada, isTrue);
     expect(assinatura.podeAssinar, isTrue);
+    expect(assinatura.checkoutAberto, isFalse);
+  });
+
+  test('checkout_aberto vem da API', () async {
+    final adapter = FakeAdapter(
+      (_) async => respostaJson(200, _assinaturaJson(checkoutAberto: true)),
+    );
+    final datasource = AssinaturaRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    expect((await datasource.obter()).checkoutAberto, isTrue);
   });
 
   test('iniciar devolve o link do checkout', () async {

@@ -110,6 +110,15 @@ class NovaSenhaSerializer(serializers.Serializer):
     nova_senha = serializers.CharField()
 
 
+class ExcluirContaSerializer(serializers.Serializer):
+    senha = serializers.CharField(help_text='A senha de quem pede: confirma que é a própria pessoa.')
+
+
+class ExclusaoContaSerializer(serializers.Serializer):
+    apaga_negocio = serializers.BooleanField(help_text='True quando o dono pediu: o negócio inteiro sai.')
+    excluir_em = serializers.DateTimeField(help_text='Até lá, entrar de novo desiste do pedido.')
+
+
 class RefreshSerializer(serializers.Serializer):
     refresh = serializers.CharField(
         required=False,

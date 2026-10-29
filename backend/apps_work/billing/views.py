@@ -25,6 +25,15 @@ from core.excecoes import erro
 from core.links import link_retorno_pagamento
 
 
+def _assinatura_em_breve():
+    """A trava enquanto assinar pelo app não está liberado (ASSINATURA_ABERTA).
+    Fica no servidor, e não só na tela: um app antigo ou um pedido à mão não
+    passa por ela."""
+    if settings.ASSINATURA_ABERTA:
+        return None
+    return erro('A assinatura pelo app chega em breve.', 'assinatura_em_breve', status.HTTP_403_FORBIDDEN)
+
+
 class MinhaAssinaturaView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -46,6 +55,9 @@ class IniciarAssinaturaView(APIView):
 
     @extend_schema(request=None, responses=LinkAssinaturaSerializer, summary='Link do checkout do plano padrão')
     def post(self, request):
+        if (bloqueio := _assinatura_em_breve()) is not None:
+            return bloqueio
+
         plano = Plano.objects.filter(nome=settings.PLANO_PADRAO, ativo=True).first()
         if plano is None:
             return erro('O plano de assinatura não está configurado.', 'plano_nao_configurado')
@@ -83,6 +95,9 @@ class ConfirmarAssinaturaView(APIView):
         summary='Vincular ao negócio a assinatura feita no checkout do gateway',
     )
     def post(self, request):
+        if (bloqueio := _assinatura_em_breve()) is not None:
+            return bloqueio
+
         id_externo = request.data.get('id_externo')
         if not id_externo:
             return erro('id_externo é obrigatório.', 'parametros_invalidos')

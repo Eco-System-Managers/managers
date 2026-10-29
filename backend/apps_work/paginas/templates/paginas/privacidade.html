@@ -1,0 +1,99 @@
+{% extends "paginas/base.html" %}
+{% block titulo %}Política de privacidade — Work Manage{% endblock %}
+{% block robots %}{% endblock %}
+{% block conteudo %}
+  <h1>Política de privacidade</h1>
+  <p class="suave">Última atualização: 29 de outubro de 2026</p>
+
+  <p>
+    Esta política explica como o <strong>Work Manage</strong>, o app de gestão para
+    negócios de atendimento (agenda, clientes, serviços e caixa), trata dados pessoais,
+    conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018, a LGPD).
+  </p>
+
+  <h2>Quem é o responsável</h2>
+  <p>
+    O responsável pelos dados das contas do Work Manage é <strong>{{ responsavel }}</strong>.
+    {% if email %}Para qualquer assunto de privacidade, escreva para <a href="mailto:{{ email }}">{{ email }}</a>.{% endif %}
+  </p>
+  <p>
+    Os dados dos clientes que cada negócio cadastra no app pertencem a esse negócio:
+    ele decide o que cadastrar e para quê, e o Work Manage só guarda e processa esses
+    dados para que o negócio use o app.
+  </p>
+
+  <h2>Quais dados tratamos</h2>
+  <ul>
+    <li><strong>Da sua conta:</strong> nome, e-mail e senha (guardada só de forma cifrada, nunca em texto).</li>
+    <li><strong>Do negócio:</strong> nome, CPF ou CNPJ, telefone, endereço, localização no mapa, nichos de atuação, horários de funcionamento, serviços, preços e logo.</li>
+    <li><strong>Da equipe:</strong> nome, função, e-mail de quem tem acesso ao app e a comissão combinada.</li>
+    <li><strong>Dos clientes do negócio:</strong> o que o negócio cadastrar, como nome, telefone, e-mail, CPF, data de nascimento, endereço, veículos ou pets, atendimentos, pagamentos, saldo e contratos.</li>
+    <li><strong>De uso:</strong> o registro técnico de acesso necessário para manter a sua sessão segura.</li>
+  </ul>
+
+  <h2>Para que usamos</h2>
+  <ul>
+    <li>Fazer o app funcionar: agenda, cadastro de clientes, cobranças, caixa e contratos.</li>
+    <li>Entrar na conta com segurança e recuperar a senha.</li>
+    <li>Enviar e-mails do próprio serviço, como o código de confirmação e os convites da equipe.</li>
+    <li>Mostrar o negócio no app dos clientes (Service Manage), quando ele estiver publicado.</li>
+    <li>Cumprir obrigações legais.</li>
+  </ul>
+  <p>Não vendemos dados e não usamos os dados para publicidade.</p>
+
+  <h2>Com quem compartilhamos</h2>
+  <p>Só com os serviços necessários para o app funcionar:</p>
+  <ul>
+    <li>Hospedagem do servidor e do banco de dados (Railway).</li>
+    <li>Envio de e-mails (Resend).</li>
+    <li>Armazenamento de arquivos, como a logo (Amazon Web Services).</li>
+    <li>Pagamento da assinatura do app (Mercado Pago).</li>
+    <li>Busca de endereço pelo CEP (ViaCEP) e localização no mapa (OpenStreetMap).</li>
+  </ul>
+  <p>Também podemos compartilhar dados quando a lei ou uma autoridade exigir.</p>
+
+  <h2>Permissões do celular</h2>
+  <p>
+    O app pede acesso à câmera e às fotos só quando você escolhe a logo do negócio.
+    Nada é enviado sem a sua ação.
+  </p>
+
+  <h2>Por quanto tempo guardamos</h2>
+  <p>
+    Enquanto a conta existir. Quando você pede a exclusão da conta, ela é travada na
+    hora e os dados são apagados em até 30 dias. Cópias de segurança podem guardar
+    dados por mais algum tempo, até serem substituídas.
+  </p>
+
+  <h2>Como excluir a sua conta</h2>
+  <p>
+    No app, em <strong>Mais › Excluir conta</strong>. Do proprietário, a exclusão leva o
+    negócio inteiro, com os dados de clientes, agenda e caixa. De alguém da equipe, só
+    o acesso dessa pessoa; o nome continua no histórico de atendimentos do negócio.
+    Entrar de novo antes dos 30 dias cancela o pedido.
+  </p>
+
+  <h2>Seus direitos</h2>
+  <p>
+    Pela LGPD, você pode pedir a confirmação de que tratamos seus dados, o acesso a
+    eles, a correção, a exclusão, a portabilidade e informações sobre o compartilhamento.
+    {% if email %}Faça o pedido pelo e-mail <a href="mailto:{{ email }}">{{ email }}</a>.{% endif %}
+    Se você é cliente de um negócio que usa o Work Manage, fale primeiro com o
+    próprio negócio, que é quem cuida dos seus dados.
+  </p>
+
+  <h2>Segurança</h2>
+  <p>
+    A comunicação com o app é criptografada (HTTPS), as senhas são guardadas cifradas
+    e os dados de cada negócio ficam separados dos demais.
+  </p>
+
+  <h2>Crianças</h2>
+  <p>O Work Manage é feito para negócios e não é destinado a menores de 18 anos.</p>
+
+  <h2>Mudanças nesta política</h2>
+  <p>
+    Se esta política mudar, a data no topo será atualizada. Mudanças importantes serão
+    avisadas no app.
+  </p>
+{% endblock %}

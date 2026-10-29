@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/config/env.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/sombra_de_borda.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../home_provider.dart';
 
 // a aba "Mais": configurações, serviços, financeiro, contratos, equipe,
-// assinatura e sair
+// assinatura, a política de privacidade, sair e excluir a conta
 class MaisPage extends ConsumerWidget {
   const MaisPage({super.key});
 
@@ -102,6 +104,15 @@ class MaisPage extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/mais/assinatura'),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text('Política de privacidade'),
+                  trailing: const Icon(Icons.open_in_new_rounded),
+                  onTap: () => launchUrl(
+                    Uri.parse(Env.linkPrivacidade),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
                 const Divider(),
                 // sair é a ação destrutiva do menu: danger
                 ListTile(
@@ -112,6 +123,18 @@ class MaisPage extends ConsumerWidget {
                   ),
                   enabled: !mais.saindo,
                   onTap: () => _sair(context, ref),
+                ),
+                // as lojas exigem que dê para excluir a conta pelo próprio app
+                ListTile(
+                  leading: Icon(
+                    Icons.person_remove_outlined,
+                    color: cores.inkMuted,
+                  ),
+                  title: Text(
+                    'Excluir conta',
+                    style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
+                  ),
+                  onTap: () => context.push('/mais/excluir-conta'),
                 ),
               ],
             );

@@ -85,6 +85,7 @@ class AssinaturaRemoteDataSourceImpl implements AssinaturaRemoteDataSource {
       proximoVencimento: dataDaApi(json['proximo_vencimento'] as String),
       trialFim: trialFim == null ? null : dataDaApi(trialFim),
       bloqueada: json['bloqueada'] as bool? ?? false,
+      checkoutAberto: json['checkout_aberto'] as bool? ?? false,
     );
   }
 }

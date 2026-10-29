@@ -48,3 +48,23 @@ class CodigoCadastro(CodigoRecuperacaoBase):
 
     class Meta(CodigoRecuperacaoBase.Meta):
         pass
+
+
+class ExclusaoConta(models.Model):
+    """Pedido de exclusão de conta, feito pelo app (exigência das lojas e da
+    LGPD). A conta fica travada na hora e é apagada em `excluir_em`, pelo
+    comando `excluir_contas_vencidas`. Entrar de novo antes disso desiste.
+
+    Do dono, apaga o negócio inteiro (`apaga_negocio`); da equipe, só o login,
+    e o nome continua no histórico do negócio, que é do dono.
+    """
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='exclusao_conta')
+    # O negócio de onde o pedido saiu. String, e não FK: o tenant some na exclusão.
+    schema_name = models.CharField(max_length=63)
+    apaga_negocio = models.BooleanField(default=False)
+    pedida_em = models.DateTimeField(auto_now_add=True)
+    excluir_em = models.DateTimeField()
+
+    def __str__(self):
+        return f'{self.user.username} — {self.excluir_em:%d/%m/%Y}'

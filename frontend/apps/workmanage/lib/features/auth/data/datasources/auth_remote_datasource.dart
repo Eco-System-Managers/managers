@@ -20,6 +20,9 @@ abstract class AuthRemoteDataSource {
   });
 
   Future<void> logout(String refresh);
+
+  // pede a exclusão da conta de quem está logado (vai com Authorization)
+  Future<void> excluirConta(String senha);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -75,5 +78,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> logout(String refresh) async {
     await dio.post('auth/logout/', data: {'refresh': refresh});
+  }
+
+  // fora de auth/: é a conta de quem está logado, então leva o token. a API
+  // trava a conta na hora e apaga em 30 dias
+  @override
+  Future<void> excluirConta(String senha) async {
+    await dio.post('colaboradores/me/excluir/', data: {'senha': senha});
   }
 }

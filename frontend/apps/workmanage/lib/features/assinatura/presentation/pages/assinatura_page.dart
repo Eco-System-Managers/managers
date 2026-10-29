@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
@@ -184,7 +185,25 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
               style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             )
           else ...[
-            if (provider.podeAssinar) ...[
+            if (provider.mostraCompra && !provider.checkoutAberto) ...[
+              // a fase de testes: o checkout fica fechado, na API também
+              const _Aviso(
+                texto:
+                    'A assinatura pelo app chega em breve. Por enquanto, '
+                    'use o app normalmente.',
+                icone: Icons.schedule_rounded,
+                erro: false,
+              ),
+              const SizedBox(height: BrandSpacing.space3),
+              FilledButton.icon(
+                onPressed: null,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                ),
+                icon: const Icon(Icons.lock_clock_rounded),
+                label: const Text('Em breve'),
+              ),
+            ] else if (provider.mostraCompra) ...[
               FilledButton.icon(
                 onPressed: provider.isLoading ? null : _assinar,
                 style: FilledButton.styleFrom(
@@ -212,6 +231,25 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
                 child: const Text('Cancelar assinatura'),
               ),
             ],
+          ],
+
+          // bloqueado, o router prende a pessoa nesta tela: daqui ela ainda
+          // sai do app ou exclui a conta (as lojas exigem que dê para excluir)
+          if (provider.bloqueada) ...[
+            const SizedBox(height: BrandSpacing.space5),
+            OutlinedButton.icon(
+              onPressed: provider.saindo ? null : provider.sair,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+              ),
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Sair'),
+            ),
+            TextButton(
+              onPressed: () => context.push('/mais/excluir-conta'),
+              style: TextButton.styleFrom(foregroundColor: cores.inkMuted),
+              child: const Text('Excluir conta'),
+            ),
           ],
 
           const SizedBox(height: BrandSpacing.space5),

@@ -9,6 +9,7 @@ import 'package:managers/features/agenda/presentation/pages/bloqueio_form_page.d
 import 'package:managers/features/agenda/presentation/pages/historico_cliente_page.dart';
 import 'package:managers/features/agenda/presentation/pages/pendencias_page.dart';
 import 'package:managers/features/assinatura/presentation/pages/assinatura_page.dart';
+import 'package:managers/features/auth/presentation/pages/excluir_conta_page.dart';
 import 'package:managers/features/auth/presentation/pages/login_page.dart';
 import 'package:managers/features/auth/presentation/pages/recovery_page.dart';
 import 'package:managers/features/clientes/presentation/pages/cliente_form_page.dart';
@@ -63,11 +64,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!sessao.carregada) return null;
       final destino = state.matchedLocation;
       if (!sessao.autenticado && !_publica(destino)) return '/login';
-      // 402 em qualquer requisição: só a tela de assinatura resolve
+      // 402 em qualquer requisição: só a tela de assinatura resolve. excluir
+      // a conta continua aberto (as lojas exigem; a API deixa, sob /me/)
       if (sessao.autenticado &&
           bloqueio.bloqueada &&
           !_publica(destino) &&
-          destino != '/mais/assinatura') {
+          destino != '/mais/assinatura' &&
+          destino != '/mais/excluir-conta') {
         return '/mais/assinatura';
       }
       return null;
@@ -377,6 +380,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'assinatura',
                     parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, _) => const AssinaturaPage(),
+                  ),
+                  GoRoute(
+                    path: 'excluir-conta',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, _) => const ExcluirContaPage(),
                   ),
                   GoRoute(
                     path: 'etapas',

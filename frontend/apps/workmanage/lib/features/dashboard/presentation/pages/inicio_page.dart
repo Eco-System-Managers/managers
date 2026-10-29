@@ -820,6 +820,8 @@ class _DiaLivreCard extends StatelessWidget {
               ],
             ),
           ),
+          // o mesmo respiro do ícone: sem ele o texto quebra encostado no botão
+          const SizedBox(width: BrandSpacing.space3),
           FilledButton(
             onPressed: onMarcar,
             child: Text(isKanban ? 'Receber' : 'Marcar'),

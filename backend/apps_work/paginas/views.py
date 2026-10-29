@@ -2,6 +2,7 @@
 
 Três links saem por e-mail ou redirect e, sem deep link no app, não teriam
 onde abrir: o convite da equipe, o contrato do cliente e a volta do checkout.
+A quarta é a política de privacidade, que as lojas exigem num link público.
 As regras são as mesmas da API — estas views só recebem, delegam aos services
 e mostram o resultado.
 """
@@ -107,3 +108,16 @@ class RetornoPagamentoView(View):
 
     def get(self, request):
         return render(request, 'paginas/pagamento.html', {'preapproval_id': request.GET.get('preapproval_id', '')})
+
+
+class PrivacidadeView(View):
+    """A política de privacidade, que as lojas exigem num link público e que o
+    app abre em Mais. O responsável e o e-mail vêm das configurações."""
+
+    def get(self, request):
+        from django.conf import settings
+
+        return render(request, 'paginas/privacidade.html', {
+            'responsavel': settings.PRIVACIDADE_RESPONSAVEL,
+            'email': settings.PRIVACIDADE_EMAIL,
+        })

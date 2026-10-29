@@ -166,3 +166,19 @@ class TestPaginaPagamento:
 
         assert resposta.status_code == 200
         assert 'Copiar código' not in resposta.text
+
+
+@pytest.mark.django_db
+class TestPrivacidade:
+    def test_pagina_publica_com_o_responsavel_e_o_email(self, navegador, settings):
+        settings.PRIVACIDADE_RESPONSAVEL = 'Fulano de Tal'
+        settings.PRIVACIDADE_EMAIL = 'privacidade@exemplo.com'
+
+        resposta = navegador.get('/privacidade')
+
+        assert resposta.status_code == 200
+        assert 'Fulano de Tal' in resposta.text
+        assert 'mailto:privacidade@exemplo.com' in resposta.text
+        assert 'Excluir conta' in resposta.text
+        # a política é para ser achada: sem o noindex das outras páginas
+        assert 'noindex' not in resposta.text
