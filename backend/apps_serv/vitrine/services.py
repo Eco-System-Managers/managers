@@ -22,6 +22,44 @@ def _dinheiro(valor) -> str:
     """Valor monetário no formato da API: string com duas casas ("12.50")."""
     return str(Decimal(str(valor)).quantize(Decimal('0.01')))
 
+
+# O que o cliente pode marcar pelo app. A empresa, pelo Work Manage, não tem
+# nenhum dos dois: marca retorno distante e atende quem chegou na hora.
+ANTECEDENCIA_MINIMA = timedelta(minutes=30)
+LIMITE_DIAS = 30
+
+
+def _nao_antes_de() -> datetime:
+    """O primeiro início que o cliente pode marcar, no horário local e sem fuso
+    (o formato da grade). Vem do relógio do servidor, não do celular."""
+    return (timezone.localtime() + ANTECEDENCIA_MINIMA).replace(tzinfo=None)
+
+
+def _ultima_data() -> date:
+    return timezone.localdate() + timedelta(days=LIMITE_DIAS)
+
+
+def _conferir_janela_do_cliente(data_hora: datetime) -> None:
+    """A antecedência mínima e o limite de dias, nos dois modos de agenda."""
+    local = timezone.localtime(data_hora).replace(tzinfo=None)
+    if local < _nao_antes_de():
+        raise ErroDeNegocio(
+            'Escolha um horário com pelo menos 30 minutos de antecedência.', 'antecedencia_minima',
+        )
+    if local.date() > _ultima_data():
+        raise ErroDeNegocio(f'Dá para agendar até {LIMITE_DIAS} dias à frente.', 'fora_do_limite')
+
+
+def _conferir_colaborador(colaborador_id: int | None) -> None:
+    """No modo horário a agenda é individual: sem profissional ativo não há
+    grade nem conflito a conferir. Roda dentro do schema do negócio."""
+    from apps_work.usuarios.models import Colaborador
+
+    if not colaborador_id:
+        raise ErroDeNegocio('Escolha o profissional.', 'colaborador_obrigatorio')
+    if not Colaborador.objects.filter(pk=colaborador_id, ativo=True).exists():
+        raise ErroDeNegocio('Profissional não encontrado.', 'colaborador_invalido')
+
 logger = logging.getLogger(__name__)
 
 
@@ -106,70 +144,42 @@ class CrossTenantQueryService:
             }
 
     def listar_disponibilidade(self, schema_name: str, data: date, servico_ids: list, colaborador_id: int = None) -> list:
+        """Os inícios que o cliente pode marcar no dia, em ISO com fuso.
+
+        Já descontam a antecedência mínima; depois do limite de dias a lista vem
+        vazia. No modo horário é a mesma grade do Work Manage (`SlotsAgendaService`).
+        """
+        if data > _ultima_data():
+            return []
+
+        fuso = timezone.get_current_timezone()
+        nao_antes_de = _nao_antes_de()
+
         with schema_context(schema_name):
-            from apps_work.empresa.models import EmpresaConfig, HorarioFuncionamento
-            from apps_work.agenda.models import Agendamento
+            from apps_work.empresa.models import EmpresaConfig
             from apps_work.servicos.models import Servico
 
             config = EmpresaConfig.objects.filter(pk=1).first()
             if config and config.tipo_agenda == TipoAgenda.KANBAN:
                 from apps_work.kanban.services import SlotService
-                resultado = SlotService().gerar_slots(data)
-                return [
-                    datetime.combine(
-                        data, datetime.strptime(slot['horario'], '%H:%M').time(),
-                        tzinfo=timezone.get_current_timezone(),
-                    ).isoformat()
-                    for slot in resultado if slot['disponivel']
+                inicios = [
+                    datetime.combine(data, datetime.strptime(slot['horario'], '%H:%M').time())
+                    for slot in SlotService().gerar_slots(data) if slot['disponivel']
                 ]
+                return [i.replace(tzinfo=fuso).isoformat() for i in inicios if i >= nao_antes_de]
 
-            dia_semana = data.weekday()
+            from apps_work.agenda.services import SlotsAgendaService
 
-            try:
-                horario = HorarioFuncionamento.objects.get(dia=dia_semana, ativo=True)
-            except HorarioFuncionamento.DoesNotExist:
+            _conferir_colaborador(colaborador_id)
+
+            servicos = list(Servico.objects.filter(id__in=servico_ids, ativo=True))
+            if not servicos:
                 return []
 
-            if not horario.abertura or not horario.fechamento:
-                return []
-
-            servicos = Servico.objects.filter(id__in=servico_ids, ativo=True)
-            if not servicos.exists():
-                return []
-
-            duracao_total = sum(s.duracao for s in servicos)
-
-            inicio = datetime.combine(data, horario.abertura, tzinfo=timezone.get_current_timezone())
-            fim = datetime.combine(data, horario.fechamento, tzinfo=timezone.get_current_timezone())
-
-            agendamentos_qs = Agendamento.objects.filter(
-                data_hora__date=data,
-                status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO],
+            inicios = SlotsAgendaService().livres(
+                data, colaborador_id, sum(s.duracao for s in servicos), nao_antes_de,
             )
-            if colaborador_id:
-                agendamentos_qs = agendamentos_qs.filter(colaborador_id=colaborador_id)
-            agendamentos = agendamentos_qs.prefetch_related('servicos__servico')
-
-            ocupados = []
-            for ag in agendamentos:
-                duracao_ag = sum(s.servico.duracao for s in ag.servicos.all())
-                ocupados.append((ag.data_hora, ag.data_hora + timedelta(minutes=duracao_ag)))
-
-            slots = []
-            slot_atual = inicio
-            intervalo = timedelta(minutes=30)
-
-            while slot_atual + timedelta(minutes=duracao_total) <= fim:
-                fim_slot = slot_atual + timedelta(minutes=duracao_total)
-                conflito = any(
-                    not (fim_slot <= ini_oc or slot_atual >= fim_oc)
-                    for ini_oc, fim_oc in ocupados
-                )
-                if not conflito:
-                    slots.append(slot_atual.isoformat())
-                slot_atual += intervalo
-
-            return slots
+            return [i.replace(tzinfo=fuso).isoformat() for i in inicios]
 
 
 class StatusKanbanAgendamentosService:
@@ -216,6 +226,8 @@ class AgendamentoTenantService:
         negocio = NegocioPublico.objects.get(schema_name=schema_name)
         origem = OrigemAtendimento.KANBAN if negocio.tipo_agenda == TipoAgenda.KANBAN else OrigemAtendimento.AGENDA
 
+        _conferir_janela_do_cliente(data_hora)
+
         with transaction.atomic():
             # Resolver objeto antes de entrar no schema do tenant
             objeto_dados = None
@@ -241,6 +253,10 @@ class AgendamentoTenantService:
                 valor_total = sum(s.preco for s in servicos)
                 duracao_total = sum(s.duracao for s in servicos)
                 valor_taxa_cancelamento = sum(s.calcular_taxa_cancelamento() for s in servicos)
+
+                if origem == OrigemAtendimento.AGENDA:
+                    _conferir_colaborador(colaborador_id)
+                    self._conferir_horario_livre(data_hora, colaborador_id, duracao_total)
 
                 cliente = cliente_do_consumidor(consumidor)
                 if cliente is None:
@@ -318,6 +334,17 @@ class AgendamentoTenantService:
             )
 
         return agendamento_consumidor
+
+    def _conferir_horario_livre(self, data_hora: datetime, colaborador_id: int, duracao_minutos: int) -> None:
+        """O horário pedido precisa estar na grade que o cliente viu. Uma
+        conferência só cobre expediente, conflito com outro cliente e
+        antecedência — a lista é a regra, e não só uma sugestão da tela."""
+        from apps_work.agenda.services import SlotsAgendaService
+
+        local = timezone.localtime(data_hora).replace(tzinfo=None)
+        livres = SlotsAgendaService().livres(local.date(), colaborador_id, duracao_minutos, _nao_antes_de())
+        if local not in livres:
+            raise ErroDeNegocio('Esse horário não está mais livre. Escolha outro.', 'horario_indisponivel')
 
     def _criar_atendimento_kanban(self, cliente, servico, objeto_dados: dict, data_hora: datetime) -> int:
         """Encontra ou cria o Pet/Veículo do cliente no tenant a partir do

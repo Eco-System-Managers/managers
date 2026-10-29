@@ -61,6 +61,20 @@ aparecer aqui, o caminho é sinal:
 | `agendamento_status_alterado` | Espelha o status no `AgendamentoConsumidor` |
 | `atendimento_kanban_falta_alterada` | Espelha a falta — que não é coluna do quadro, então não seria lida ao vivo |
 
+## O que o cliente pode marcar
+
+- **Modo horário:** a disponibilidade é a mesma grade do Work Manage
+  (`SlotsAgendaService.livres`, de 15 em 15 min mais o fim de cada atendimento),
+  com a duração somada dos serviços. O profissional é obrigatório
+  (`colaborador_obrigatorio`): a agenda é individual.
+- **Janela do cliente:** pelo menos 30 min de antecedência (`antecedencia_minima`)
+  e até 30 dias à frente (`fora_do_limite`), pelo relógio do servidor. Vale nos
+  dois modos. A empresa não tem janela.
+- **A lista é a regra.** `criar()` só aceita, no modo horário, um horário que
+  esteja na grade naquele momento (`horario_indisponivel`). É essa conferência
+  que barra conflito com outro cliente, horário fora do expediente e qualquer
+  pedido montado à mão.
+
 ## O que é fácil errar aqui
 
 - **`criar()` grava nos dois schemas dentro de um `atomic()`.** Efeito colateral

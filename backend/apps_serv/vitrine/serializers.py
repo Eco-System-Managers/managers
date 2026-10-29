@@ -48,8 +48,15 @@ class DisponibilidadeSerializer(serializers.Serializer):
 
 class CriarAgendamentoSerializer(serializers.Serializer):
     servico_ids = serializers.ListField(child=serializers.IntegerField())
-    data_hora = serializers.DateTimeField(help_text='ISO 8601; precisa ser no futuro.')
-    colaborador_id = serializers.IntegerField(required=False, allow_null=True)
+    data_hora = serializers.DateTimeField(
+        help_text=(
+            'ISO 8601. No modo horário, um dos horários de disponibilidade/ (horario_indisponivel). '
+            'Pelo menos 30 min à frente (antecedencia_minima) e até 30 dias (fora_do_limite).'
+        ),
+    )
+    colaborador_id = serializers.IntegerField(
+        required=False, allow_null=True, help_text='Obrigatório em agenda por horário (colaborador_obrigatorio).',
+    )
     objeto_id = serializers.IntegerField(
         required=False, allow_null=True, help_text='Pet ou veículo do consumidor (obrigatório em agenda por esteira).',
     )

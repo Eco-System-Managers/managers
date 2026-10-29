@@ -109,6 +109,18 @@ class TestGradeDeSlots:
 
         assert all(s['disponivel'] for s in slots)
 
+    def test_nao_antes_de_corta_o_inicio_do_dia(self, expediente, colaborador):
+        # a antecedência do app do cliente: nada começa antes das 10:20
+        livres = SlotsAgendaService().livres(DIA, colaborador.pk, 60, nao_antes_de=datetime.combine(DIA, time(10, 20)))
+
+        assert [i.strftime('%H:%M') for i in livres] == ['10:30', '10:45', '11:00']
+
+    def test_duracao_somada_de_varios_servicos(self, expediente, colaborador):
+        # 90 min das 9 às 12: o último que cabe inteiro é 10:30
+        livres = SlotsAgendaService().livres(DIA, colaborador.pk, 90)
+
+        assert livres[-1].strftime('%H:%M') == '10:30'
+
 
 @pytest.mark.django_db
 class TestSlotsAPI:

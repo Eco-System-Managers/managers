@@ -103,3 +103,7 @@ cabe inteiro, antes do fechamento e sem bater em ninguém; `disponivel` vem
 sempre `True` (o campo fica pelo contrato comum com os slots do kanban, que
 ainda marcam os ocupados). A ocupação é por profissional: a agenda de um não
 interfere na do outro.
+
+O cálculo mora em `livres()`, que recebe a duração e um `nao_antes_de`. É o
+mesmo que o app do cliente usa (`apps_serv/vitrine`), com a soma dos serviços
+e a antecedência de 30 min; a empresa não passa `nao_antes_de`.

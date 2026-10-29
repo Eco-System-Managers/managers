@@ -233,9 +233,15 @@ class DisponibilidadeView(APIView):
     @extend_schema(
         responses=DisponibilidadeSerializer,
         parameters=[
-            OpenApiParameter('data', OpenApiTypes.DATE, required=True, description='YYYY-MM-DD, hoje ou futuro.'),
+            OpenApiParameter(
+                'data', OpenApiTypes.DATE, required=True,
+                description='YYYY-MM-DD, de hoje a 30 dias à frente; depois disso a lista vem vazia.',
+            ),
             OpenApiParameter('servico_id', int, required=True, many=True, explode=True),
-            OpenApiParameter('colaborador_id', int),
+            OpenApiParameter(
+                'colaborador_id', int,
+                description='Obrigatório no modo horário (400 colaborador_obrigatorio); ignorado na esteira.',
+            ),
         ],
         summary='Horários livres num dia',
     )
@@ -255,7 +261,9 @@ class DisponibilidadeView(APIView):
         except ValueError:
             return erro('Formato de data inválido. Use YYYY-MM-DD.', status_code=status.HTTP_400_BAD_REQUEST)
 
-        if data < timezone.now().date():
+        # localdate, e não now().date(): esse é o dia em UTC, que depois das 21h
+        # já é amanhã e fazia o próprio dia contar como passado.
+        if data < timezone.localdate():
             return erro('Data não pode ser no passado.', status_code=status.HTTP_400_BAD_REQUEST)
 
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():

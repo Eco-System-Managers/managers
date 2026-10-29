@@ -1,6 +1,6 @@
 import pytest
 from decimal import Decimal
-from datetime import timedelta
+from datetime import time, timedelta
 from unittest.mock import patch
 
 from django.db import connection
@@ -13,6 +13,7 @@ from apps_serv.vitrine.models import NegocioPublico
 from apps_serv.vitrine.services import (
     AgendamentoTenantService, CancelarAgendamentoService, CrossTenantQueryService, VincularNegocioService,
 )
+from core.excecoes import ErroDeNegocio
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +68,30 @@ def dois_servicos_no_tenant(tenant):
 
 
 @pytest.fixture
+def profissional(tenant):
+    """O profissional que o cliente escolhe, num negócio aberto o dia inteiro:
+    o cliente só marca horário que esteja na grade, e a grade sai do expediente."""
+    with schema_context(tenant.schema_name):
+        from apps_work.empresa.models import HorarioFuncionamento
+        from apps_work.usuarios.models import Colaborador
+        for dia in range(7):
+            HorarioFuncionamento.objects.update_or_create(
+                dia=dia, defaults={'abertura': time(0, 0), 'fechamento': time(23, 59), 'ativo': True},
+            )
+        return Colaborador.objects.create(nome='Profissional')
+
+
+def _horario_livre(horas: int):
+    """Um início da grade (de 15 em 15 min) umas `horas` à frente. Depois das
+    23h um serviço de até 50 min não cabe mais no dia: vai para a meia-noite."""
+    alvo = timezone.localtime() + timedelta(hours=horas)
+    alvo = alvo.replace(second=0, microsecond=0) + timedelta(minutes=-alvo.minute % 15)
+    if alvo.time() > time(23, 0):
+        alvo = (alvo + timedelta(days=1)).replace(hour=0, minute=0)
+    return alvo
+
+
+@pytest.fixture
 def negocio_publico_kanban(db, tenant):
     connection.set_schema_to_public()
     NegocioPublico.objects.filter(schema_name=tenant.schema_name).delete()
@@ -106,13 +131,13 @@ def objeto_consumidor_pet(consumidor_registrado):
 class TestAgendamentoTenantServiceCriar:
 
     def test_cria_agendamento(
-        self, tenant, consumidor_registrado, negocio_publico, servico_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
         ag = AgendamentoTenantService().criar(
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=2),
+            data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
 
         assert ag.valor_total == servico_no_tenant.preco
@@ -120,7 +145,7 @@ class TestAgendamentoTenantServiceCriar:
         assert ag.consumidor == consumidor_registrado
 
     def test_cria_agendamento_com_multiplos_servicos(
-        self, tenant, consumidor_registrado, negocio_publico, dois_servicos_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, dois_servicos_no_tenant
     ):
         s1, s2 = dois_servicos_no_tenant
         valor_esperado = s1.preco + s2.preco
@@ -129,20 +154,20 @@ class TestAgendamentoTenantServiceCriar:
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[s1.id, s2.id],
-            data_hora=timezone.now() + timedelta(hours=2),
+            data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
 
         assert ag.valor_total == valor_esperado
         assert len(ag.servicos) == 2
 
     def test_cria_cliente_no_schema_do_tenant(
-        self, tenant, consumidor_registrado, negocio_publico, servico_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
         AgendamentoTenantService().criar(
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=2),
+            data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
 
         with schema_context(tenant.schema_name):
@@ -150,7 +175,7 @@ class TestAgendamentoTenantServiceCriar:
             assert Cliente.objects.filter(email=consumidor_registrado.email).exists()
 
     def test_nao_duplica_cliente_existente_no_tenant(
-        self, tenant, consumidor_registrado, negocio_publico, servico_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
         svc = AgendamentoTenantService()
 
@@ -158,13 +183,13 @@ class TestAgendamentoTenantServiceCriar:
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=2),
+            data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
         svc.criar(
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=4),
+            data_hora=_horario_livre(4), colaborador_id=profissional.id,
         )
 
         with schema_context(tenant.schema_name):
@@ -172,13 +197,13 @@ class TestAgendamentoTenantServiceCriar:
             assert Cliente.objects.filter(email=consumidor_registrado.email).count() == 1
 
     def test_registra_snapshot_dos_servicos(
-        self, tenant, consumidor_registrado, negocio_publico, servico_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
         ag = AgendamentoTenantService().criar(
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=2),
+            data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
 
         assert len(ag.servicos) == 1
@@ -188,7 +213,7 @@ class TestAgendamentoTenantServiceCriar:
         assert float(snap['preco']) == float(servico_no_tenant.preco)
 
     def test_registra_snapshot_com_taxa_cancelamento_configurada(
-        self, tenant, consumidor_registrado, negocio_publico
+        self, tenant, consumidor_registrado, negocio_publico, profissional
     ):
         with schema_context(tenant.schema_name):
             from apps_work.servicos.models import Servico
@@ -202,25 +227,25 @@ class TestAgendamentoTenantServiceCriar:
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico.id],
-            data_hora=timezone.now() + timedelta(hours=2),
+            data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
 
         assert ag.valor_taxa_cancelamento == Decimal('20.00')
         assert ag.servicos[0]['taxa_cancelamento'] == '20.00'
 
     def test_servico_invalido_levanta_value_error(
-        self, tenant, consumidor_registrado, negocio_publico
+        self, tenant, consumidor_registrado, negocio_publico, profissional
     ):
         with pytest.raises(ValueError, match='serviço'):
             AgendamentoTenantService().criar(
                 schema_name=tenant.schema_name,
                 consumidor=consumidor_registrado,
                 servico_ids=[99999],
-                data_hora=timezone.now() + timedelta(hours=2),
+                data_hora=_horario_livre(2), colaborador_id=profissional.id,
             )
 
     def test_servico_inativo_nao_e_incluido(
-        self, tenant, consumidor_registrado, negocio_publico
+        self, tenant, consumidor_registrado, negocio_publico, profissional
     ):
         with schema_context(tenant.schema_name):
             from apps_work.servicos.models import Servico
@@ -233,17 +258,17 @@ class TestAgendamentoTenantServiceCriar:
                 schema_name=tenant.schema_name,
                 consumidor=consumidor_registrado,
                 servico_ids=[inativo.id],
-                data_hora=timezone.now() + timedelta(hours=2),
+                data_hora=_horario_livre(2), colaborador_id=profissional.id,
             )
 
     def test_cria_vinculo_automaticamente_no_primeiro_agendamento(
-        self, tenant, consumidor_registrado, negocio_publico, servico_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
         AgendamentoTenantService().criar(
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=2),
+            data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
 
         assert VinculoConsumidor.objects.filter(
@@ -251,7 +276,7 @@ class TestAgendamentoTenantServiceCriar:
         ).exists()
 
     def test_agendamento_reativa_vinculo_desvinculado(
-        self, tenant, consumidor_registrado, negocio_publico, servico_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
         vinculo = VinculoConsumidor.objects.create(
             consumidor=consumidor_registrado, schema_name=tenant.schema_name,
@@ -262,7 +287,7 @@ class TestAgendamentoTenantServiceCriar:
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=2),
+            data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
 
         vinculo.refresh_from_db()
@@ -270,21 +295,150 @@ class TestAgendamentoTenantServiceCriar:
         assert vinculo.desvinculado_em is None
 
     def test_segundo_agendamento_nao_duplica_vinculo(
-        self, tenant, consumidor_registrado, negocio_publico, servico_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
         svc = AgendamentoTenantService()
         svc.criar(
             schema_name=tenant.schema_name, consumidor=consumidor_registrado,
-            servico_ids=[servico_no_tenant.id], data_hora=timezone.now() + timedelta(hours=2),
+            servico_ids=[servico_no_tenant.id], data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
         svc.criar(
             schema_name=tenant.schema_name, consumidor=consumidor_registrado,
-            servico_ids=[servico_no_tenant.id], data_hora=timezone.now() + timedelta(hours=4),
+            servico_ids=[servico_no_tenant.id], data_hora=_horario_livre(4), colaborador_id=profissional.id,
         )
 
         assert VinculoConsumidor.objects.filter(
             consumidor=consumidor_registrado, schema_name=tenant.schema_name
         ).count() == 1
+
+
+@pytest.mark.django_db(transaction=True)
+class TestAgendamentoDoClienteConfereOHorario:
+    """O cliente só marca o que a grade oferece. Antes a criação conferia apenas
+    se a data era futura: dois clientes marcavam o mesmo horário."""
+
+    def _criar(self, tenant, consumidor, servico, data_hora, colaborador_id):
+        return AgendamentoTenantService().criar(
+            schema_name=tenant.schema_name, consumidor=consumidor,
+            servico_ids=[servico.id], data_hora=data_hora, colaborador_id=colaborador_id,
+        )
+
+    def _codigo_do_erro(self, *args) -> str:
+        with pytest.raises(ErroDeNegocio) as erro:
+            self._criar(*args)
+        return erro.value.code
+
+    def test_horario_ja_ocupado_e_recusado(
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
+    ):
+        quando = _horario_livre(2)
+        self._criar(tenant, consumidor_registrado, servico_no_tenant, quando, profissional.id)
+
+        codigo = self._codigo_do_erro(tenant, consumidor_registrado, servico_no_tenant, quando, profissional.id)
+
+        assert codigo == 'horario_indisponivel'
+
+    def test_horario_fora_da_grade_e_recusado(
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
+    ):
+        quando = _horario_livre(2) + timedelta(minutes=7)
+
+        codigo = self._codigo_do_erro(tenant, consumidor_registrado, servico_no_tenant, quando, profissional.id)
+
+        assert codigo == 'horario_indisponivel'
+
+    def test_dia_fechado_e_recusado(
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
+    ):
+        with schema_context(tenant.schema_name):
+            from apps_work.empresa.models import HorarioFuncionamento
+            HorarioFuncionamento.objects.update(ativo=False)
+
+        codigo = self._codigo_do_erro(
+            tenant, consumidor_registrado, servico_no_tenant, _horario_livre(2), profissional.id,
+        )
+
+        assert codigo == 'horario_indisponivel'
+
+    def test_sem_profissional_e_recusado(
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
+    ):
+        codigo = self._codigo_do_erro(tenant, consumidor_registrado, servico_no_tenant, _horario_livre(2), None)
+
+        assert codigo == 'colaborador_obrigatorio'
+
+    def test_profissional_inativo_e_recusado(
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
+    ):
+        with schema_context(tenant.schema_name):
+            profissional.ativo = False
+            profissional.save(update_fields=['ativo'])
+
+        codigo = self._codigo_do_erro(
+            tenant, consumidor_registrado, servico_no_tenant, _horario_livre(2), profissional.id,
+        )
+
+        assert codigo == 'colaborador_invalido'
+
+    def test_menos_de_30_minutos_de_antecedencia_e_recusado(
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
+    ):
+        codigo = self._codigo_do_erro(
+            tenant, consumidor_registrado, servico_no_tenant, timezone.now() + timedelta(minutes=10), profissional.id,
+        )
+
+        assert codigo == 'antecedencia_minima'
+
+    def test_mais_de_30_dias_a_frente_e_recusado(
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
+    ):
+        quando = timezone.localtime().replace(hour=10, minute=0, second=0, microsecond=0) + timedelta(days=31)
+
+        codigo = self._codigo_do_erro(tenant, consumidor_registrado, servico_no_tenant, quando, profissional.id)
+
+        assert codigo == 'fora_do_limite'
+
+
+@pytest.mark.django_db
+class TestListarDisponibilidadeHorario:
+    """No modo horário, a disponibilidade do cliente é a grade do Work Manage."""
+
+    def test_passo_de_15_minutos(self, tenant, profissional, servico_no_tenant):
+        amanha = timezone.localdate() + timedelta(days=1)
+        with schema_context(tenant.schema_name):
+            from apps_work.empresa.models import HorarioFuncionamento
+            HorarioFuncionamento.objects.filter(dia=amanha.weekday()).update(abertura=time(8, 0), fechamento=time(9, 30))
+
+        slots = CrossTenantQueryService().listar_disponibilidade(
+            tenant.schema_name, amanha, [servico_no_tenant.id], profissional.id,
+        )
+
+        from datetime import datetime as dt
+        assert [dt.fromisoformat(s).strftime('%H:%M') for s in slots] == ['08:00', '08:15', '08:30', '08:45', '09:00']
+
+    def test_hoje_comeca_30_minutos_depois_de_agora(self, tenant, profissional, servico_no_tenant):
+        slots = CrossTenantQueryService().listar_disponibilidade(
+            tenant.schema_name, timezone.localdate(), [servico_no_tenant.id], profissional.id,
+        )
+
+        from datetime import datetime as dt
+        limite = timezone.now() + timedelta(minutes=30)
+        assert all(dt.fromisoformat(s) >= limite - timedelta(minutes=1) for s in slots)
+
+    def test_depois_de_30_dias_vem_vazia(self, tenant, profissional, servico_no_tenant):
+        slots = CrossTenantQueryService().listar_disponibilidade(
+            tenant.schema_name, timezone.localdate() + timedelta(days=31), [servico_no_tenant.id], profissional.id,
+        )
+
+        assert slots == []
+
+    def test_sem_profissional_e_recusado(self, tenant, profissional, servico_no_tenant):
+        with pytest.raises(ErroDeNegocio) as erro:
+            CrossTenantQueryService().listar_disponibilidade(
+                tenant.schema_name, timezone.localdate() + timedelta(days=1), [servico_no_tenant.id],
+            )
+
+        assert erro.value.code == 'colaborador_obrigatorio'
 
 
 # ---------------------------------------------------------------------------
@@ -481,7 +635,7 @@ class TestCancelarComTaxaConfigurada:
     tem taxa_cancelamento configurada, cancelado fora do prazo."""
 
     def test_cancela_fora_do_prazo_registra_pendencia_no_tenant(
-        self, tenant, consumidor_registrado, negocio_publico
+        self, tenant, consumidor_registrado, negocio_publico, profissional
     ):
         with schema_context(tenant.schema_name):
             from apps_work.servicos.models import Servico
@@ -496,7 +650,7 @@ class TestCancelarComTaxaConfigurada:
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico.id],
-            data_hora=timezone.now() + timedelta(hours=3),
+            data_hora=_horario_livre(3), colaborador_id=profissional.id,
         )
         assert ag.valor_taxa_cancelamento == Decimal('20.00')
 
@@ -582,6 +736,21 @@ class TestAgendamentoTenantServiceCriarKanban:
                 data_hora=timezone.now() + timedelta(hours=5),
                 objeto_id=objeto_consumidor_pet.id,
             )
+
+    def test_antecedencia_minima_tambem_vale_na_esteira(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, servico_no_tenant,
+        etapa_no_tenant, objeto_consumidor_pet,
+    ):
+        with pytest.raises(ErroDeNegocio) as erro:
+            AgendamentoTenantService().criar(
+                schema_name=tenant.schema_name,
+                consumidor=consumidor_registrado,
+                servico_ids=[servico_no_tenant.id],
+                data_hora=timezone.now() + timedelta(minutes=10),
+                objeto_id=objeto_consumidor_pet.id,
+            )
+
+        assert erro.value.code == 'antecedencia_minima'
 
 
 # ---------------------------------------------------------------------------
@@ -683,7 +852,7 @@ def _erro_de_banco(*args, **kwargs):
 @pytest.mark.django_db(transaction=True)
 class TestFalhaNaSincronizacaoNaoDerrubaOAgendamento:
     def test_agendamento_persiste_apos_erro_de_banco_na_sincronizacao(
-        self, tenant, consumidor_registrado, negocio_publico, servico_no_tenant
+        self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
         """_sincronizar_cliente engole a excecao e roda dentro do atomic() de
         criar(). Sem savepoint, a transacao ficava abortada e o
@@ -695,7 +864,7 @@ class TestFalhaNaSincronizacaoNaoDerrubaOAgendamento:
                 schema_name=tenant.schema_name,
                 consumidor=consumidor_registrado,
                 servico_ids=[servico_no_tenant.id],
-                data_hora=timezone.now() + timedelta(hours=2),
+                data_hora=_horario_livre(2), colaborador_id=profissional.id,
             )
 
         assert AgendamentoConsumidor.objects.filter(pk=ag.pk).exists()

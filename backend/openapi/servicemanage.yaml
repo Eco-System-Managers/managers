@@ -980,12 +980,15 @@ paths:
         name: colaborador_id
         schema:
           type: integer
+        description: Obrigatório no modo horário (400 colaborador_obrigatorio); ignorado
+          na esteira.
       - in: query
         name: data
         schema:
           type: string
           format: date
-        description: YYYY-MM-DD, hoje ou futuro.
+        description: YYYY-MM-DD, de hoje a 30 dias à frente; depois disso a lista
+          vem vazia.
         required: true
       - in: path
         name: schema_name
@@ -1830,10 +1833,13 @@ components:
         data_hora:
           type: string
           format: date-time
-          description: ISO 8601; precisa ser no futuro.
+          description: ISO 8601. No modo horário, um dos horários de disponibilidade/
+            (horario_indisponivel). Pelo menos 30 min à frente (antecedencia_minima)
+            e até 30 dias (fora_do_limite).
         colaborador_id:
           type: integer
           nullable: true
+          description: Obrigatório em agenda por horário (colaborador_obrigatorio).
         objeto_id:
           type: integer
           nullable: true

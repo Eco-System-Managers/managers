@@ -7,6 +7,10 @@ from .models import Agendamento, OrigemAtendimento, PagamentoAgendamento, Status
 
 DURACAO_PADRAO_MINUTOS = 30
 
+# O que segura o horário do profissional. Concluído e faltou já tiveram
+# desfecho: o horário volta a ficar livre para quem chegar.
+STATUS_QUE_OCUPAM = (StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO)
+
 ERRO_HORARIO_CONFLITO = {
     'detail': 'Esse colaborador já tem um agendamento nesse horário.',
     'code': 'horario_conflito',
@@ -116,28 +120,42 @@ class SlotsAgendaService:
     INTERVALO_MINUTOS = 15
 
     def listar(self, data: date, servico_id: int, colaborador_id: int) -> list[dict]:
-        """Os horários livres do dia para este serviço com este profissional.
+        """Os horários livres do dia para este serviço com este profissional."""
+        from apps_work.servicos.models import Servico
+
+        servico = Servico.objects.filter(pk=servico_id, ativo=True).first()
+        if not servico:
+            return []
+
+        return [
+            {'horario': inicio.strftime('%H:%M'), 'disponivel': True}
+            for inicio in self.livres(data, colaborador_id, servico.duracao)
+        ]
+
+    def livres(
+        self, data: date, colaborador_id: int, duracao_minutos: int | None, nao_antes_de: datetime | None = None,
+    ) -> list[datetime]:
+        """Os inícios livres do dia, no horário local e sem fuso.
 
         Candidatos: a grade de 15 em 15 minutos a partir da abertura e, além
         dela, o fim de cada agendamento já marcado — acabou um às 9:20, o 9:20
         é oferecido, sem esperar o 9:30. Só os que cabem inteiros (o serviço
         todo antes do fechamento, sem bater em ninguém) entram; a grade da
         agenda já mostra o que está ocupado, então os ocupados não vêm.
+
+        Recebe a duração, e não o serviço, porque o app do cliente marca vários
+        serviços de uma vez. `nao_antes_de` (local, sem fuso) é a antecedência
+        de quem pede: o app do cliente passa agora + 30 min; a empresa não passa.
         """
         from apps_work.empresa.models import HorarioFuncionamento
-        from apps_work.servicos.models import Servico
 
         horario = HorarioFuncionamento.objects.filter(dia=data.weekday(), ativo=True).first()
         if not horario or not horario.abertura or not horario.fechamento:
             return []
 
-        servico = Servico.objects.filter(pk=servico_id, ativo=True).first()
-        if not servico:
-            return []
-
         abertura = datetime.combine(data, horario.abertura)
         fechamento = datetime.combine(data, horario.fechamento)
-        duracao = timedelta(minutes=servico.duracao or DURACAO_PADRAO_MINUTOS)
+        duracao = timedelta(minutes=duracao_minutos or DURACAO_PADRAO_MINUTOS)
 
         ocupados = self._intervalos_ocupados(data, colaborador_id)
 
@@ -151,25 +169,23 @@ class SlotsAgendaService:
                 candidatos.add(fim_oc)
 
         return [
-            {'horario': inicio.strftime('%H:%M'), 'disponivel': True}
-            for inicio in sorted(candidatos)
-            if all(inicio + duracao <= inicio_oc or inicio >= fim_oc for inicio_oc, fim_oc in ocupados)
+            inicio for inicio in sorted(candidatos)
+            if (nao_antes_de is None or inicio >= nao_antes_de)
+            and all(inicio + duracao <= inicio_oc or inicio >= fim_oc for inicio_oc, fim_oc in ocupados)
         ]
 
     def _intervalos_ocupados(self, data: date, colaborador_id: int) -> list[tuple]:
         agendamentos = (
             Agendamento.objects
-            .filter(
-                data_hora__date=data,
-                colaborador_id=colaborador_id,
-                status__in=[StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO],
-            )
+            .filter(data_hora__date=data, colaborador_id=colaborador_id, status__in=STATUS_QUE_OCUPAM)
             .prefetch_related('servicos__servico')
         )
         intervalos = []
         for ag in agendamentos:
             duracao = sum(s.servico.duracao for s in ag.servicos.all()) or DURACAO_PADRAO_MINUTOS
-            inicio = ag.data_hora.astimezone().replace(tzinfo=None)
+            # localtime, e não astimezone(): este usa o fuso do sistema
+            # operacional, que pode não ser o do Django.
+            inicio = timezone.localtime(ag.data_hora).replace(tzinfo=None)
             intervalos.append((inicio, inicio + timedelta(minutes=duracao)))
         return intervalos
 
