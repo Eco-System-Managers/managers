@@ -8,25 +8,40 @@ import 'package:validatorless/validatorless.dart';
 
 import '../../clientes_provider.dart';
 import '../../domain/entities/objeto_cliente.dart';
+import 'escolha_de_porte.dart';
 
 // cria ou edita um veículo do cliente, numa folha. devolve true quando
 // salvou ou removeu, para quem abriu recarregar
 class VeiculoFormSheet extends ConsumerStatefulWidget {
-  const VeiculoFormSheet({super.key, required this.clienteId, this.veiculo});
+  const VeiculoFormSheet({
+    super.key,
+    required this.clienteId,
+    this.veiculo,
+    this.permitirRemover = true,
+  });
 
   final int clienteId;
 
   // null = novo
   final Veiculo? veiculo;
 
+  // false quando a folha abre de um atendimento, para corrigir o cadastro:
+  // ali o veículo tem atendimento e não sai da ficha
+  final bool permitirRemover;
+
   static Future<bool> abrir(
     BuildContext context, {
     required int clienteId,
     Veiculo? veiculo,
+    bool permitirRemover = true,
   }) async {
     final mudou = await abrirFolha<bool>(
       context,
-      builder: (_) => VeiculoFormSheet(clienteId: clienteId, veiculo: veiculo),
+      builder: (_) => VeiculoFormSheet(
+        clienteId: clienteId,
+        veiculo: veiculo,
+        permitirRemover: permitirRemover,
+      ),
     );
     return mudou ?? false;
   }
@@ -51,6 +66,7 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
   late final _corController = TextEditingController(
     text: widget.veiculo?.cor ?? '',
   );
+  late Porte? _porte = widget.veiculo?.porte;
 
   @override
   void dispose() {
@@ -73,6 +89,7 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
             marca: _marcaController.text.trim(),
             modelo: _modeloController.text.trim(),
             cor: _corController.text.trim(),
+            porte: _porte,
           ),
         );
   }
@@ -190,6 +207,16 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
                 onChanged: (_) => provider.limparErroDoCampo('cor'),
                 decoration: const InputDecoration(labelText: 'Cor'),
               ),
+              const SizedBox(height: BrandSpacing.space4),
+              EscolhaDePorte(
+                tipo: TipoObjeto.veiculo,
+                valor: _porte,
+                onChanged: (porte) {
+                  setState(() => _porte = porte);
+                  provider.limparErroDoCampo('porte');
+                },
+                forceErrorText: provider.erroDoCampo('porte'),
+              ),
               const SizedBox(height: BrandSpacing.space5),
               FilledButton(
                 onPressed: provider.isLoading ? null : _salvar,
@@ -198,7 +225,7 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
                 ),
                 child: const Text('Salvar'),
               ),
-              if (widget.veiculo != null) ...[
+              if (widget.veiculo != null && widget.permitirRemover) ...[
                 const SizedBox(height: BrandSpacing.space2),
                 TextButton(
                   onPressed: provider.isLoading ? null : _remover,

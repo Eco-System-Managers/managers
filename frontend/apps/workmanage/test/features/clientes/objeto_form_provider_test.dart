@@ -99,7 +99,7 @@ void main() {
       clienteId: 7,
       nome: 'Rex',
       especie: 'Cachorro',
-      porte: PortePet.medio,
+      porte: Porte.medio,
     );
     when(() => salvarPet(any())).thenAnswer((_) async => const Right(rex));
     final provider = montar();
