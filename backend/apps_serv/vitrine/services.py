@@ -12,7 +12,7 @@ from apps_serv.vitrine.models import NegocioPublico
 from core.excecoes import ErroDeNegocio
 from tenants.models import Membro
 from apps_work.agenda.models import FormaPagamento, OrigemAtendimento, StatusAgendamento
-from apps_work.clientes.models import OrigemCliente, TipoObjeto
+from apps_work.clientes.models import OrigemCliente, PorteVeiculo, TipoObjeto
 from apps_work.clientes.validators import normalizar_porte
 from apps_work.empresa.models import TipoAgenda
 from apps_work.notificacoes.models import TipoNotificacao
@@ -60,20 +60,36 @@ def _conferir_colaborador(colaborador_id: int | None) -> None:
     if not Colaborador.objects.filter(pk=colaborador_id, ativo=True).exists():
         raise ErroDeNegocio('Profissional não encontrado.', 'colaborador_invalido')
 
+
+def _porte_declarado(objeto_dados: dict) -> str:
+    """O porte que o cliente informou no pet ou no veículo, como o enum guarda.
+    Pets antigos guardaram o rótulo ('Médio'); valor que não se reconhece vira ''."""
+    porte = objeto_dados.get('porte', '')
+    if objeto_dados.get('tipo') == TipoObjeto.PET:
+        return normalizar_porte(porte)
+    return porte if porte in PorteVeiculo.values else ''
+
 logger = logging.getLogger(__name__)
 
 
 class CrossTenantQueryService:
 
-    def listar_servicos(self, schema_name: str) -> list:
+    def listar_servicos(self, schema_name: str, porte: str = '') -> list:
+        """Os serviços ativos. Com `porte`, só os que servem para ele: os do
+        porte e os sem porte, que valem para qualquer um."""
         with schema_context(schema_name):
             from apps_work.servicos.models import Servico
+            servicos = Servico.objects.filter(ativo=True)
+            if porte:
+                servicos = servicos.filter(porte__in=['', porte])
             return [
                 {
                     'id': s.id,
                     'nome': s.nome,
                     # A pasta do serviço: o app do cliente agrupa por ela.
                     'nicho': s.nicho,
+                    # Na esteira: o porte que o serviço atende; vazio, qualquer um.
+                    'porte': s.porte,
                     'descricao': s.descricao,
                     'duracao': s.duracao,
                     # Dinheiro sai como string, como nos serializers ("12.50"):
@@ -81,7 +97,7 @@ class CrossTenantQueryService:
                     'preco': _dinheiro(s.preco),
                     'taxa_cancelamento': _dinheiro(s.calcular_taxa_cancelamento()),
                 }
-                for s in Servico.objects.filter(ativo=True)
+                for s in servicos
             ]
 
     def listar_colaboradores(self, schema_name: str) -> list:
@@ -254,6 +270,16 @@ class AgendamentoTenantService:
                 duracao_total = sum(s.duracao for s in servicos)
                 valor_taxa_cancelamento = sum(s.calcular_taxa_cancelamento() for s in servicos)
 
+                if origem == OrigemAtendimento.KANBAN:
+                    # Pelo porte que o cliente declarou, que é o que ele viu
+                    # na lista de serviços.
+                    from apps_work.servicos.services import conferir_porte
+                    for servico in servicos:
+                        conferir_porte(
+                            servico, _porte_declarado(objeto_dados),
+                            o_que_fazer='Escolha um serviço para o seu veículo ou pet.',
+                        )
+
                 if origem == OrigemAtendimento.AGENDA:
                     _conferir_colaborador(colaborador_id)
                     self._conferir_horario_livre(data_hora, colaborador_id, duracao_total)
@@ -354,6 +380,7 @@ class AgendamentoTenantService:
         from apps_work.kanban.services import AtendimentoKanbanService
 
         tipo = objeto_dados.get('tipo')
+        porte = _porte_declarado(objeto_dados)
         if tipo == TipoObjeto.VEICULO:
             from apps_work.clientes.models import Veiculo
             objeto = Veiculo.objects.filter(cliente=cliente, placa=objeto_dados.get('placa', '')).first()
@@ -364,6 +391,7 @@ class AgendamentoTenantService:
                     marca=objeto_dados.get('marca', ''),
                     modelo=objeto_dados.get('modelo', ''),
                     cor=objeto_dados.get('cor', ''),
+                    porte=porte,
                 )
         elif tipo == TipoObjeto.PET:
             from apps_work.clientes.models import Pet
@@ -374,10 +402,16 @@ class AgendamentoTenantService:
                     nome=objeto_dados.get('nome', ''),
                     especie=objeto_dados.get('especie', ''),
                     raca=objeto_dados.get('raca', ''),
-                    porte=normalizar_porte(objeto_dados.get('porte', '')),
+                    porte=porte,
                 )
         else:
             raise ErroDeNegocio('Tipo de objeto inválido para agendamento por esteira.', 'objeto_invalido')
+
+        if not objeto.porte and porte:
+            # Cadastro de antes do porte ganha o que o cliente declarou. O porte
+            # que o negócio já informou (ou corrigiu na chegada) não é tocado.
+            objeto.porte = porte
+            objeto.save(update_fields=['porte'])
 
         etapa = EtapaKanban.objects.order_by('ordem').first()
         if etapa is None:
@@ -389,6 +423,8 @@ class AgendamentoTenantService:
             servico_id=servico.id,
             horario_entrada=data_hora.time(),
             data=data_hora.date(),
+            # Já conferido com o porte declarado pelo cliente (em criar).
+            conferir_porte=False,
         )
         return atendimento.id
 

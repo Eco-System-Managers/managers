@@ -1,7 +1,7 @@
 from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema_field
 from rest_framework import serializers
 
-from apps_work.clientes.models import PortePet
+from apps_work.clientes.models import PortePet, PorteVeiculo
 from apps_work.clientes.validators import normalizar_porte, validar_cpf, validar_placa_br, validar_telefone_br
 
 from apps_serv.vitrine.serializers import NegocioPublicoSerializer
@@ -79,6 +79,8 @@ class DadosVeiculoSerializer(serializers.Serializer):
     marca = serializers.CharField(max_length=50)
     modelo = serializers.CharField(max_length=100)
     cor = serializers.CharField(max_length=50, required=False, allow_blank=True, default='')
+    # Como no veículo cadastrado pelo negócio: decide quais serviços servem.
+    porte = serializers.ChoiceField(choices=PorteVeiculo.choices)
 
     def validate_placa(self, valor):
         return validar_placa_br(valor)

@@ -19,6 +19,9 @@ class ServicoVitrineSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     nome = serializers.CharField()
     nicho = serializers.CharField(help_text='A pasta do serviço: um dos `nichos` do negócio.')
+    porte = serializers.CharField(
+        help_text='Na esteira: o porte do veículo ou do pet que o serviço atende. Vazio vale para qualquer porte.',
+    )
     descricao = serializers.CharField()
     duracao = serializers.IntegerField(help_text='Minutos.')
     preco = serializers.DecimalField(max_digits=10, decimal_places=2)

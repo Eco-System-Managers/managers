@@ -753,6 +753,91 @@ class TestAgendamentoTenantServiceCriarKanban:
         assert erro.value.code == 'antecedencia_minima'
 
 
+@pytest.mark.django_db(transaction=True)
+class TestPorteNaEsteiraDoCliente:
+    """O cliente só marca serviço do porte que declarou no pet ou no veículo."""
+
+    def _servico(self, tenant, nome, porte):
+        with schema_context(tenant.schema_name):
+            from apps_work.servicos.models import Servico
+            return Servico.objects.create(nome=nome, duracao=40, preco=Decimal('60.00'), porte=porte)
+
+    def _agendar(self, tenant, consumidor, servico, objeto):
+        return AgendamentoTenantService().criar(
+            schema_name=tenant.schema_name,
+            consumidor=consumidor,
+            servico_ids=[servico.id],
+            data_hora=timezone.now() + timedelta(hours=5),
+            objeto_id=objeto.id,
+        )
+
+    def _pet_no_negocio(self, tenant, consumidor, porte):
+        """O Rex já conhecido pelo negócio, como o negócio cadastrou."""
+        with schema_context(tenant.schema_name):
+            from apps_work.clientes.models import Cliente, Pet
+            cliente = Cliente.objects.create(
+                nome=consumidor.nome, telefone='11999990000', origem='servicemanage', consumidor_id=consumidor.id,
+            )
+            return Pet.objects.create(cliente=cliente, tipo='pet', nome='Rex', especie='Cachorro', porte=porte)
+
+    def test_servico_de_outro_porte_e_recusado(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+    ):
+        # O Rex foi declarado médio (pelo rótulo antigo, 'Médio').
+        grande = self._servico(tenant, 'Banho G', 'grande')
+
+        with pytest.raises(ErroDeNegocio) as erro:
+            self._agendar(tenant, consumidor_registrado, grande, objeto_consumidor_pet)
+
+        assert erro.value.code == 'servico_de_outro_porte'
+        with schema_context(tenant.schema_name):
+            from apps_work.kanban.models import AtendimentoKanban
+            assert not AtendimentoKanban.objects.exists()
+
+    def test_servico_do_porte_declarado(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+    ):
+        medio = self._servico(tenant, 'Banho M', 'medio')
+
+        assert self._agendar(tenant, consumidor_registrado, medio, objeto_consumidor_pet).origem == 'kanban'
+
+    def test_vale_o_porte_declarado_mesmo_com_o_cadastro_corrigido_pelo_negocio(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+    ):
+        # O negócio viu que o Rex é grande; o cliente ainda declara médio e não
+        # teria como resolver a diferença. O cadastro do negócio não é tocado.
+        pet = self._pet_no_negocio(tenant, consumidor_registrado, 'grande')
+        medio = self._servico(tenant, 'Banho M', 'medio')
+
+        self._agendar(tenant, consumidor_registrado, medio, objeto_consumidor_pet)
+
+        with schema_context(tenant.schema_name):
+            pet.refresh_from_db()
+            assert pet.porte == 'grande'
+
+    def test_cadastro_sem_porte_ganha_o_declarado(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+    ):
+        pet = self._pet_no_negocio(tenant, consumidor_registrado, '')
+        qualquer = self._servico(tenant, 'Banho', '')
+
+        self._agendar(tenant, consumidor_registrado, qualquer, objeto_consumidor_pet)
+
+        with schema_context(tenant.schema_name):
+            pet.refresh_from_db()
+            assert pet.porte == 'medio'
+
+    def test_lista_so_os_servicos_do_porte(self, tenant, negocio_publico_kanban):
+        self._servico(tenant, 'Banho P', 'pequeno')
+        self._servico(tenant, 'Banho M', 'medio')
+        self._servico(tenant, 'Hidratação', '')
+
+        servicos = CrossTenantQueryService().listar_servicos(tenant.schema_name, porte='medio')
+
+        assert sorted(s['nome'] for s in servicos) == ['Banho M', 'Hidratação']
+        assert {s['nome']: s['porte'] for s in servicos}['Banho M'] == 'medio'
+
+
 # ---------------------------------------------------------------------------
 # CrossTenantQueryService.listar_disponibilidade() -- negócio em modo Kanban
 # ---------------------------------------------------------------------------

@@ -70,6 +70,12 @@ aparecer aqui, o caminho é sinal:
 - **Janela do cliente:** pelo menos 30 min de antecedência (`antecedencia_minima`)
   e até 30 dias à frente (`fora_do_limite`), pelo relógio do servidor. Vale nos
   dois modos. A empresa não tem janela.
+- **Esteira: o porte.** A lista de serviços aceita `?porte=` (os do porte e os
+  sem porte), e `criar()` recusa serviço de outro porte
+  (`servico_de_outro_porte`) pelo porte que o cliente declarou no pet ou
+  veículo (`_porte_declarado`, que também lê o rótulo antigo dos pets,
+  "Médio"). O `Pet`/`Veiculo` do tenant sem porte ganha o declarado; o porte
+  que o negócio já informou não é tocado.
 - **A lista é a regra.** `criar()` só aceita, no modo horário, um horário que
   esteja na grade naquele momento (`horario_indisponivel`). É essa conferência
   que barra conflito com outro cliente, horário fora do expediente e qualquer

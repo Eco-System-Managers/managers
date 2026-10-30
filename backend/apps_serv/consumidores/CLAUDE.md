@@ -135,5 +135,9 @@ upload, e um snapshot mostraria a marca antiga para sempre.
   validação de placa do veículo cadastrado pelo negócio
   (`clientes.validators.validar_placa_br`) e a placa gravada normalizada. Antes
   havia uma cópia da validação na view que nunca era chamada.
+- **O porte é obrigatório no veículo e no pet** (`DadosVeiculoSerializer`,
+  `DadosPetSerializer`): é ele que filtra os serviços na esteira. Sem ele, o
+  cadastro responde `campos_obrigatorios`; porte de outro tipo,
+  `porte_invalido`.
 - **A foto de perfil está em `FotoConsumidorService`**: troca, remoção, apagar o
   arquivo anterior e sincronizar com os negócios vinculados.

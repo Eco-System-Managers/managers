@@ -185,7 +185,16 @@ class ServicosNegocioView(APIView):
     permission_classes = [AllowAny]
     pagination_class = Paginacao
 
-    @extend_schema(responses=ServicoVitrineSerializer(many=True), summary='Serviços ativos do negócio')
+    @extend_schema(
+        responses=ServicoVitrineSerializer(many=True), summary='Serviços ativos do negócio',
+        parameters=[
+            OpenApiParameter(
+                'porte', str,
+                description='Na esteira: só os serviços que servem para o porte do veículo ou do pet escolhido '
+                            '(os dele e os sem porte).',
+            ),
+        ],
+    )
     def get(self, request, schema_name):
         if not _schema_valido(schema_name):
             return erro('Identificador de negócio inválido.', status_code=status.HTTP_400_BAD_REQUEST)
@@ -193,7 +202,9 @@ class ServicosNegocioView(APIView):
         if not NegocioPublico.objects.filter(schema_name=schema_name, ativo=True).exists():
             return erro('Negócio não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
 
-        servicos = CrossTenantQueryService().listar_servicos(schema_name)
+        servicos = CrossTenantQueryService().listar_servicos(
+            schema_name, porte=request.query_params.get('porte', ''),
+        )
         return resposta_paginada(request, servicos, self)
 
 

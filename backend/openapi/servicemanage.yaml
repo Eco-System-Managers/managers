@@ -1177,6 +1177,12 @@ paths:
         description: Número de resultados a serem retornados por página.
         schema:
           type: integer
+      - in: query
+        name: porte
+        schema:
+          type: string
+        description: 'Na esteira: só os serviços que servem para o porte do veículo
+          ou do pet escolhido (os dele e os sem porte).'
       - in: path
         name: schema_name
         schema:
@@ -1865,7 +1871,7 @@ components:
           type: string
           maxLength: 50
         porte:
-          $ref: '#/components/schemas/PorteEnum'
+          $ref: '#/components/schemas/DadosPetPorteEnum'
         raca:
           type: string
           default: ''
@@ -1874,6 +1880,18 @@ components:
       - especie
       - nome
       - porte
+    DadosPetPorteEnum:
+      enum:
+      - pequeno
+      - medio
+      - grande
+      - gigante
+      type: string
+      description: |-
+        * `pequeno` - Pequeno (até 10 kg)
+        * `medio` - Médio (10 a 25 kg)
+        * `grande` - Grande (25 a 45 kg)
+        * `gigante` - Gigante (acima de 45 kg)
     DadosPetRequest:
       type: object
       properties:
@@ -1886,7 +1904,7 @@ components:
           minLength: 1
           maxLength: 50
         porte:
-          $ref: '#/components/schemas/PorteEnum'
+          $ref: '#/components/schemas/DadosPetPorteEnum'
         raca:
           type: string
           default: ''
@@ -1911,10 +1929,27 @@ components:
           type: string
           default: ''
           maxLength: 50
+        porte:
+          $ref: '#/components/schemas/DadosVeiculoPorteEnum'
       required:
       - marca
       - modelo
       - placa
+      - porte
+    DadosVeiculoPorteEnum:
+      enum:
+      - moto
+      - carro
+      - suv
+      - van
+      - caminhao
+      type: string
+      description: |-
+        * `moto` - Moto
+        * `carro` - Carro
+        * `suv` - SUV ou caminhonete
+        * `van` - Van
+        * `caminhao` - Caminhão
     DadosVeiculoRequest:
       type: object
       properties:
@@ -1934,10 +1969,13 @@ components:
           type: string
           default: ''
           maxLength: 50
+        porte:
+          $ref: '#/components/schemas/DadosVeiculoPorteEnum'
       required:
       - marca
       - modelo
       - placa
+      - porte
     Disponibilidade:
       type: object
       properties:
@@ -2344,18 +2382,6 @@ components:
         numero_endereco:
           type: string
           maxLength: 10
-    PorteEnum:
-      enum:
-      - pequeno
-      - medio
-      - grande
-      - gigante
-      type: string
-      description: |-
-        * `pequeno` - Pequeno
-        * `medio` - Médio
-        * `grande` - Grande
-        * `gigante` - Gigante
     RecuperarSenhaConsumidorRequest:
       type: object
       properties:
@@ -2406,6 +2432,10 @@ components:
         nicho:
           type: string
           description: 'A pasta do serviço: um dos `nichos` do negócio.'
+        porte:
+          type: string
+          description: 'Na esteira: o porte do veículo ou do pet que o serviço atende.
+            Vazio vale para qualquer porte.'
         descricao:
           type: string
         duracao:
@@ -2425,6 +2455,7 @@ components:
       - id
       - nicho
       - nome
+      - porte
       - preco
       - taxa_cancelamento
     SessaoConsumidor:

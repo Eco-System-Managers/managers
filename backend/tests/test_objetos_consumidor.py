@@ -39,7 +39,8 @@ class TestCadastroDeObjetos:
 
     def test_veiculo_grava_a_placa_normalizada(self, api):
         resposta = api.post(
-            URL, {'tipo': 'veiculo', 'dados': {'placa': 'abc-1d23', 'marca': 'VW', 'modelo': 'Gol'}}, format='json',
+            URL, {'tipo': 'veiculo', 'dados': {'placa': 'abc-1d23', 'marca': 'VW', 'modelo': 'Gol', 'porte': 'carro'}},
+            format='json',
         )
         assert resposta.status_code == 201
         objeto = ObjetoConsumidor.objects.get()
@@ -49,7 +50,8 @@ class TestCadastroDeObjetos:
     def test_placa_invalida_e_recusada(self, api):
         # Antes a validação existia mas nunca era chamada: qualquer placa passava.
         resposta = api.post(
-            URL, {'tipo': 'veiculo', 'dados': {'placa': '1234', 'marca': 'VW', 'modelo': 'Gol'}}, format='json',
+            URL, {'tipo': 'veiculo', 'dados': {'placa': '1234', 'marca': 'VW', 'modelo': 'Gol', 'porte': 'carro'}},
+            format='json',
         )
         assert resposta.status_code == 400
         assert resposta.json()['code'] == 'placa_invalida'
@@ -79,6 +81,20 @@ class TestCadastroDeObjetos:
     def test_porte_invalido(self, api):
         dados = {'nome': 'Rex', 'especie': 'cão', 'porte': 'enorme'}
         resposta = api.post(URL, {'tipo': 'pet', 'dados': dados}, format='json')
+        assert resposta.status_code == 400
+        assert resposta.json()['code'] == 'porte_invalido'
+
+    def test_veiculo_exige_o_porte(self, api):
+        # O porte decide quais serviços servem para o veículo.
+        resposta = api.post(
+            URL, {'tipo': 'veiculo', 'dados': {'placa': 'ABC1D23', 'marca': 'VW', 'modelo': 'Gol'}}, format='json',
+        )
+        assert resposta.status_code == 400
+        assert resposta.json()['code'] == 'campos_obrigatorios'
+
+    def test_porte_de_pet_nao_serve_para_veiculo(self, api):
+        dados = {'placa': 'ABC1D23', 'marca': 'VW', 'modelo': 'Gol', 'porte': 'grande'}
+        resposta = api.post(URL, {'tipo': 'veiculo', 'dados': dados}, format='json')
         assert resposta.status_code == 400
         assert resposta.json()['code'] == 'porte_invalido'
 
