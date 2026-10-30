@@ -1,8 +1,9 @@
 # Lançamento para testadores — Android e iPhone
 
 O roteiro para pôr o Work Manage na mão dos primeiros testadores. Estado em
-2026-10-29: o código está pronto para os dois; o que falta é publicar o
-servidor, gerar os aplicativos e testar nos aparelhos.
+2026-10-29: o código está pronto para os dois e o servidor está no ar; a
+chave do Android já está no Mac; a conta Apple Developer está em análise
+(pending). Falta gerar os aplicativos e testar nos aparelhos.
 
 A ordem importa: **o servidor vem primeiro**. O app novo fala com rotas que
 só existem depois do deploy (excluir conta, política de privacidade, bloqueios
@@ -48,78 +49,146 @@ testes, o mínimo é:
 
 ## 2. Android (APK)
 
-1. **Backup da chave**, antes de tudo: `C:\Users\Melina\keystores\workmanage-upload.jks`
-   e `frontend/apps/workmanage/android/key.properties` (tem a senha). Num
-   lugar seguro, fora deste computador. Sem eles nenhuma atualização instala
-   por cima, e a Play Store não aceita a mesma app depois.
-2. **Gerar numa máquina com o `key.properties`** (sem ele o Gradle avisa e
-   assina com a chave de debug, que não serve):
+1. **Backup da chave**, antes de tudo: o `workmanage-upload.jks` e o
+   `frontend/apps/workmanage/android/key.properties` (tem a senha), juntos,
+   num lugar seguro fora dos computadores. Sem eles nenhuma atualização
+   instala por cima, e a Play Store não aceita a mesma app depois.
+2. **Onde a chave fica:** o `.jks` fora do repositório (Windows:
+   `C:\Users\Melina\keystores\`; Mac: `~/keystores/`) e o `key.properties`
+   sempre em `frontend/apps/workmanage/android/`, com o `storeFile` no
+   **caminho completo** da máquina (no Mac,
+   `/Users/wilsonjunior/keystores/workmanage-upload.jks`; caminho relativo
+   é lido a partir de `android/app/`, e `~` não vale). Os dois estão no
+   `.gitignore`.
+3. **Gerar numa máquina com o `key.properties`:**
    ```
    cd frontend/apps/workmanage
    flutter build apk --release
    ```
    Sem `--dart-define`: o padrão já é a API de produção. O arquivo sai em
    `build/app/outputs/flutter-apk/app-release.apk`.
-3. **Testar você mesmo num celular, contra a produção:** cadastro e código
+
+   **Cuidado:** sem o `key.properties` o build **não falha**: o Gradle só
+   avisa no meio do log ("key.properties não encontrado") e assina com a
+   chave de debug da máquina. O APK instala num celular limpo, mas não
+   atualiza por cima de um com a chave verdadeira (nem o contrário), muda de
+   máquina para máquina e a Play Store não aceita. Para conferir a
+   assinatura:
+   ```
+   ~/Library/Android/sdk/build-tools/<versão>/apksigner verify --print-certs \
+     build/app/outputs/flutter-apk/app-release.apk
+   ```
+   Se aparecer `CN=Android Debug`, não distribuir.
+4. **Testar você mesmo num celular, contra a produção:** cadastro e código
    por e-mail, onboarding, serviço, cliente, agendamento, bloqueio, cobrança,
    caixa, política de privacidade e excluir conta (numa conta de teste).
    Performance só vale no release: o `flutter run` comum é debug e é mais lento.
-4. **Distribuir:** mandar o `.apk` por WhatsApp ou Drive. O testador libera
+5. **Distribuir:** mandar o `.apk` por WhatsApp ou Drive. O testador libera
    "instalar apps desconhecidos"; se o Play Protect avisar "app não
    verificado", é "Instalar mesmo assim".
-5. **Roteiro e canal de feedback:** uma lista curta do que testar e um grupo
+6. **Roteiro e canal de feedback:** uma lista curta do que testar e um grupo
    para os problemas ("manda print e o que fez antes").
-6. **Atualizações:** subir o `+N` do `version` no `pubspec.yaml` (`1.0.0+1`
-   → `1.0.0+2`) e gerar de novo, com a mesma chave. Instala por cima.
+7. **Atualizações:** subir o `+N` (ver "Números de versão") e gerar de novo,
+   com a mesma chave. Instala por cima.
 
 ## 3. iPhone (TestFlight)
 
 O app nunca foi compilado para iOS: a primeira compilação no Mac pode pedir
-algum ajuste (versão mínima de um pacote, CocoaPods).
+algum ajuste (versão mínima de um pacote, CocoaPods). O projeto já tem o
+bundle `br.com.workmanage.app`, iOS mínimo 15, os textos de permissão
+(câmera e fotos) e a criptografia declarada; o `Podfile` o Flutter cria no
+primeiro build.
 
 1. **Conta Apple Developer** (US$ 99/ano; pessoa física serve e sai em 1–2
    dias): developer.apple.com/programs/enroll, com um Apple ID com verificação
-   em duas etapas.
-2. **Preparar o Mac:** Xcode pela App Store (abrir uma vez e baixar a
-   plataforma iOS), `sudo xcodebuild -license accept`, Homebrew e
-   `brew install cocoapods`, Flutter na **mesma versão** do Windows. No
-   projeto: `flutter pub get` e `flutter doctor` com ✓ no Xcode. No Xcode,
-   Settings › Accounts com o Apple ID da conta.
-3. **Cadastrar o app no App Store Connect** (appstoreconnect.apple.com ›
+   em duas etapas. *Em análise desde 2026-10-29.*
+2. **Preparar o Mac** (já tem Xcode 27, CocoaPods e Flutter 3.47.4, a mesma
+   versão do Windows): `sudo xcodebuild -license accept`; em Xcode › Settings ›
+   **Components**, baixar o **iOS 27.0** (sem ele o Xcode recusa compilar para
+   iOS, e ele traz o simulador); `flutter doctor --android-licenses` para o
+   doctor ficar limpo; no projeto, `flutter pub get` e `flutter doctor` com ✓
+   no Xcode. No Xcode, Settings › Accounts com o Apple ID da conta.
+3. **iPhone pronto para desenvolvimento:** no cabo e desbloqueado, "Confiar"
+   no Mac, abrir o Xcode › Window › Devices and Simulators e esperar preparar o
+   aparelho; depois, no iPhone, Ajustes › Privacidade e Segurança › **Modo
+   Desenvolvedor** (só aparece depois do Xcode) e reiniciar.
+4. **Enquanto a conta não sai:**
+   - **Simulador**, sem conta nenhuma: `open -a Simulator` e `flutter run`.
+     Mostra o app inteiro em iOS contra a produção; é debug (performance não
+     vale) e não tem câmera.
+   - **No próprio iPhone com o Apple ID grátis** (Personal Team): o app
+     expira em 7 dias e só vale nos aparelhos ligados ao Mac. **Nunca com o
+     bundle de verdade:** a equipe grátis pode prender o
+     `br.com.workmanage.app` e a conta paga não consegue mais registrá-lo
+     ("App ID not available"). Para isso, trocar só na máquina para
+     `br.com.workmanage.app.dev`, sem comitar.
+5. **Registrar o identificador** (com a conta aprovada): developer.apple.com ›
+   Certificates, IDs & Profiles › Identifiers › + › App IDs, bundle
+   **`br.com.workmanage.app`**, descrição "Work Manage", sem capabilities.
+6. **Cadastrar o app no App Store Connect** (appstoreconnect.apple.com ›
    Apps › + › Novo app): plataforma iOS, nome (único na loja; se "Work Manage"
    estiver ocupado, algo como "Work Manage Agenda"), idioma português (Brasil),
-   ID do pacote **`br.com.workmanage.app`** (registrar antes em
-   developer.apple.com › Identifiers, se não aparecer), SKU `workmanage-ios`.
-4. **Assinatura no Xcode** (uma vez): abrir
+   ID do pacote `br.com.workmanage.app`, SKU `workmanage-ios`.
+7. **Assinatura no Xcode** (uma vez): abrir
    `frontend/apps/workmanage/ios/Runner.xcworkspace`, alvo Runner › Signing &
-   Capabilities › Automatically manage signing e escolher o Team.
-5. **Gerar e enviar:**
+   Capabilities (aba *All*) › Automatically manage signing e escolher o Team.
+   Se o Team pago não aparecer, sair e entrar de novo com o Apple ID em
+   Xcode › Settings › Accounts: a conta aprovada nem sempre aparece sozinha.
+8. **Primeiro teste no aparelho, em release:** iPhone no cabo e
+   `flutter run --release`. Os ajustes da primeira compilação aparecem aqui,
+   e não no envio.
+9. **Gerar e enviar:**
    ```
    cd frontend/apps/workmanage
    flutter build ipa --release
    ```
-   Arrastar o `.ipa` de `build/ios/ipa/` para o app **Transporter** e
-   entregar. Em 10–30 min aparece em App Store Connect › TestFlight. Cada envio
-   precisa de um `+N` novo no `pubspec.yaml`.
-6. **Testar como interno** (até 100 pessoas da equipe no App Store Connect,
-   sem revisão da Apple): TestFlight › Testes internos, criar o grupo e
-   adicionar a versão.
-7. **Testadores externos** (até 10.000, com a revisão do beta, de horas a 1
-   dia):
-   - Informações de teste: descrição do beta, e-mail de feedback e o link
-     `https://api.workmanage.com.br/privacidade`.
-   - Revisão do beta: contato e uma **conta de teste** que funcione na
-     produção (negócio preenchido, serviços cadastrados, em período de teste
-     ou vitalícia), com usuário e senha para o revisor.
-   - Criar o grupo externo, adicionar a versão, enviar para revisão e, depois
-     de aprovado, ligar o **link público**.
-8. **O testador:** instala o app TestFlight, abre o link e instala. Cada
-   versão vale 90 dias.
+   Arrastar o `.ipa` de `build/ios/ipa/` para o app **Transporter** (Mac App
+   Store, grátis) e entregar. Em 10–30 min aparece em App Store Connect ›
+   TestFlight; a pergunta de criptografia não vem, já está declarada. Cada
+   envio precisa de um `+N` novo (ver "Números de versão").
+10. **Testar como interno** (até 100 pessoas, que precisam estar em Usuários e
+    Acesso no App Store Connect; sem revisão da Apple): TestFlight › Testes
+    internos, criar o grupo e adicionar a versão.
+11. **Testadores externos** (até 10.000, com a revisão do beta, de horas a 1
+    dia):
+    - Informações de teste: descrição do beta, e-mail de feedback e o link
+      `https://api.workmanage.com.br/privacidade`.
+    - Revisão do beta: contato e uma **conta de teste** que funcione na
+      produção (negócio preenchido, serviços e clientes cadastrados, em
+      período de teste ou vitalícia, para não cair no bloqueio), com usuário e
+      senha para o revisor.
+    - Criar o grupo externo, adicionar a versão, enviar para revisão e, depois
+      de aprovado, ligar o **link público**.
+12. **O testador:** instala o app TestFlight, abre o link e instala. Cada
+    versão vale 90 dias.
 
 O que a revisão olha e como estamos: abre sem travar (testar antes); login
 com a conta de teste e servidor no ar; permissões explicadas (câmera e fotos,
 ok); política de privacidade (ok, depois do deploy); excluir conta pelo app
 (ok); nenhuma compra com pagamento de fora (ok); criptografia declarada (ok).
+
+## Números de versão
+
+O `version` do `pubspec.yaml` (`1.0.0+1`) tem o **nome** (`1.0.0`, o que
+aparece na loja e nos ajustes) e o **número do build** (`+1`, o que o
+sistema e as lojas comparam). O Flutter leva os dois para as plataformas:
+`versionName`/`versionCode` no Android, `CFBundleShortVersionString`/
+`CFBundleVersion` no iPhone.
+
+- **Quando mudar:** só quando o build vai para outras pessoas ou para a Apple.
+  Os primeiros APK e `.ipa` saem como `1.0.0+1`; o build que fica no seu
+  celular para testar não muda nada.
+- **Android:** o celular recusa um número menor por cima do instalado
+  (downgrade); a cada APK novo para os testadores, `+1` → `+2` → `+3`.
+- **iPhone:** o App Store Connect recusa um número já enviado na mesma
+  versão, mesmo que ninguém tenha recebido aquele build: reenviar é sempre
+  com um número novo. Builds da mesma `1.0.0` ficam juntos no TestFlight e
+  passam rápido na revisão externa; um nome novo (`1.0.1`) pede a revisão
+  completa do beta de novo.
+- **Nos testes:** o nome fica em `1.0.0` e só o `+N` sobe, o **mesmo número
+  nas duas plataformas** ("estou na 1.0.0 (3)" diz qual código é). Subir
+  antes de gerar e comitar junto (`chore: sobe a versão para 1.0.0+2`). O
+  `+N` nunca volta.
 
 ## 4. Antes de liberar a assinatura (depois dos testes)
 
