@@ -10,6 +10,8 @@ import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/dinheiro_input_formatter.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/folha.dart';
+import 'package:managers/features/clientes/domain/entities/porte.dart';
+import 'package:managers/features/clientes/presentation/widgets/escolha_de_porte.dart';
 import 'package:managers/features/empresa/domain/entities/nicho.dart';
 import 'package:managers/features/empresa/presentation/widgets/nicho_visual.dart';
 import 'package:validatorless/validatorless.dart';
@@ -47,6 +49,9 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
   TipoTaxaCancelamento? _taxaTipo;
   final Set<int> _colaboradores = {};
   late Nicho? _nicho = widget.nichoInicial;
+
+  // null = qualquer porte
+  Porte? _porte;
 
   // os campos são preenchidos uma vez, quando o serviço chega
   bool _preenchido = false;
@@ -91,6 +96,7 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
     // serviço de um nicho que o negócio deixou volta sem pasta: a pessoa
     // escolhe uma das atuais
     _nicho = _provider.nichos.contains(servico.nicho) ? servico.nicho : null;
+    _porte = servico.porte;
   }
 
   // com um nicho só, o serviço fica nele (inclusive o que veio de um nicho
@@ -117,6 +123,7 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
       Servico(
         nome: _nomeController.text.trim(),
         nicho: _nichoParaSalvar(),
+        porte: _provider.escolhePorte ? _porte : null,
         descricao: _descricaoController.text.trim(),
         duracao: int.parse(_duracaoController.text),
         preco: dinheiroDoTexto(_precoController.text)!,
@@ -244,6 +251,32 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
                 labelText: 'Nicho',
                 helperText: 'A pasta em que o serviço aparece',
                 prefixIcon: Icon(Icons.folder_rounded),
+              ),
+            ),
+          ],
+
+          if (provider.escolhePorte) ...[
+            const SizedBox(height: BrandSpacing.space4),
+            DropdownButtonFormField<Porte?>(
+              initialValue: _porte,
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem(
+                  value: null,
+                  child: Text('Qualquer porte'),
+                ),
+                for (final porte in provider.portes)
+                  DropdownMenuItem(value: porte, child: Text(porte.rotulo)),
+              ],
+              onChanged: (porte) => setState(() {
+                _porte = porte;
+                provider.limparErroDoCampo('porte');
+              }),
+              forceErrorText: provider.erroDoCampo('porte'),
+              decoration: const InputDecoration(
+                labelText: 'Porte',
+                helperText: 'Com um porte, o serviço só aparece para ele',
+                prefixIcon: Icon(Icons.straighten_rounded),
               ),
             ),
           ],

@@ -84,6 +84,8 @@ void main() {
     expect(requisicao.path, 'servicos/');
     expect(requisicao.data, {
       'nome': 'Corte',
+      // sem porte: vale para qualquer um (e no modo horário é sempre assim)
+      'porte': '',
       'descricao': '',
       'duracao': 30,
       'preco': '45.50',

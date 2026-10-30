@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 import 'package:equatable/equatable.dart';
+import 'package:managers/features/clientes/domain/entities/porte.dart';
 import 'package:managers/features/empresa/domain/entities/nicho.dart';
 
 // como a taxa de cancelamento é cobrada: valor fixo em reais ou percentual
@@ -12,6 +13,7 @@ class Servico extends Equatable {
     this.id = 0,
     required this.nome,
     this.nicho,
+    this.porte,
     this.descricao = '',
     required this.duracao,
     required this.preco,
@@ -28,6 +30,10 @@ class Servico extends Equatable {
   // a pasta do serviço: um dos nichos do negócio. null num serviço novo
   // de negócio com um nicho só, que a API preenche com ele
   final Nicho? nicho;
+
+  // só na esteira: o porte do veículo ou do pet que o serviço atende
+  // ("Lavagem simples · Moto"). null vale para qualquer porte
+  final Porte? porte;
 
   final String descricao;
 
@@ -48,10 +54,17 @@ class Servico extends Equatable {
 
   bool get ehNovo => id == 0;
 
+  // se atende um veículo ou pet deste porte, a mesma regra da API: serviço
+  // sem porte atende qualquer um, e objeto sem porte (cadastro de antes
+  // dele) aceita qualquer serviço, porque não há com o que comparar
+  bool servePara(Porte? porteDoObjeto) =>
+      porte == null || porteDoObjeto == null || porte == porteDoObjeto;
+
   Servico copyWith({
     int? id,
     String? nome,
     Nicho? nicho,
+    Porte? porte,
     String? descricao,
     int? duracao,
     Decimal? preco,
@@ -65,6 +78,7 @@ class Servico extends Equatable {
       id: id ?? this.id,
       nome: nome ?? this.nome,
       nicho: nicho ?? this.nicho,
+      porte: porte ?? this.porte,
       descricao: descricao ?? this.descricao,
       duracao: duracao ?? this.duracao,
       preco: preco ?? this.preco,
@@ -84,6 +98,7 @@ class Servico extends Equatable {
     id,
     nome,
     nicho,
+    porte,
     descricao,
     duracao,
     preco,
