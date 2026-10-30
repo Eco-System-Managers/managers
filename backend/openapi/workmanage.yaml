@@ -7076,6 +7076,12 @@ paths:
         schema:
           type: integer
       - in: query
+        name: porte
+        schema:
+          type: string
+        description: 'Só os que servem para este porte: os dele e os sem porte (valem
+          para qualquer um).'
+      - in: query
         name: search
         schema:
           type: string
@@ -10284,7 +10290,7 @@ components:
           maxLength: 100
         porte:
           oneOf:
-          - $ref: '#/components/schemas/PorteEnum'
+          - $ref: '#/components/schemas/PetPorteEnum'
           - $ref: '#/components/schemas/BlankEnum'
         data_nascimento:
           type: string
@@ -10316,6 +10322,22 @@ components:
             * `lava_rapido` - Lava-rápido
             * `banho_tosa` - Banho e Tosa
             * `outro` - Outro
+        porte:
+          description: |-
+            Só na esteira: o porte do veículo ou do pet que o serviço atende. Vazio vale para qualquer porte.
+
+            * `moto` - Moto
+            * `carro` - Carro
+            * `suv` - SUV ou caminhonete
+            * `van` - Van
+            * `caminhao` - Caminhão
+            * `pequeno` - Pequeno (até 10 kg)
+            * `medio` - Médio (10 a 25 kg)
+            * `grande` - Grande (25 a 45 kg)
+            * `gigante` - Gigante (acima de 45 kg)
+          oneOf:
+          - $ref: '#/components/schemas/ServicoPorteEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         descricao:
           type: string
         duracao:
@@ -10362,6 +10384,10 @@ components:
           type: string
           minLength: 1
           maxLength: 50
+        porte:
+          oneOf:
+          - $ref: '#/components/schemas/VeiculoPorteEnum'
+          - $ref: '#/components/schemas/BlankEnum'
     PendenciaCobranca:
       type: object
       properties:
@@ -10452,7 +10478,7 @@ components:
           maxLength: 100
         porte:
           oneOf:
-          - $ref: '#/components/schemas/PorteEnum'
+          - $ref: '#/components/schemas/PetPorteEnum'
           - $ref: '#/components/schemas/BlankEnum'
         data_nascimento:
           type: string
@@ -10467,6 +10493,19 @@ components:
       - criado_em
       - id
       - nome
+      - porte
+    PetPorteEnum:
+      enum:
+      - pequeno
+      - medio
+      - grande
+      - gigante
+      type: string
+      description: |-
+        * `pequeno` - Pequeno (até 10 kg)
+        * `medio` - Médio (10 a 25 kg)
+        * `grande` - Grande (25 a 45 kg)
+        * `gigante` - Gigante (acima de 45 kg)
     PetRequest:
       type: object
       properties:
@@ -10484,7 +10523,7 @@ components:
           maxLength: 100
         porte:
           oneOf:
-          - $ref: '#/components/schemas/PorteEnum'
+          - $ref: '#/components/schemas/PetPorteEnum'
           - $ref: '#/components/schemas/BlankEnum'
         data_nascimento:
           type: string
@@ -10493,6 +10532,7 @@ components:
       required:
       - cliente
       - nome
+      - porte
     PontoDaSerie:
       type: object
       properties:
@@ -10511,18 +10551,6 @@ components:
       - atendimentos
       - data
       - faturamento
-    PorteEnum:
-      enum:
-      - pequeno
-      - medio
-      - grande
-      - gigante
-      type: string
-      description: |-
-        * `pequeno` - Pequeno
-        * `medio` - Médio
-        * `grande` - Grande
-        * `gigante` - Gigante
     RankingServico:
       type: object
       properties:
@@ -10638,6 +10666,22 @@ components:
             * `lava_rapido` - Lava-rápido
             * `banho_tosa` - Banho e Tosa
             * `outro` - Outro
+        porte:
+          description: |-
+            Só na esteira: o porte do veículo ou do pet que o serviço atende. Vazio vale para qualquer porte.
+
+            * `moto` - Moto
+            * `carro` - Carro
+            * `suv` - SUV ou caminhonete
+            * `van` - Van
+            * `caminhao` - Caminhão
+            * `pequeno` - Pequeno (até 10 kg)
+            * `medio` - Médio (10 a 25 kg)
+            * `grande` - Grande (25 a 45 kg)
+            * `gigante` - Gigante (acima de 45 kg)
+          oneOf:
+          - $ref: '#/components/schemas/ServicoPorteEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         descricao:
           type: string
         duracao:
@@ -10668,6 +10712,28 @@ components:
       - id
       - nome
       - preco
+    ServicoPorteEnum:
+      enum:
+      - moto
+      - carro
+      - suv
+      - van
+      - caminhao
+      - pequeno
+      - medio
+      - grande
+      - gigante
+      type: string
+      description: |-
+        * `moto` - Moto
+        * `carro` - Carro
+        * `suv` - SUV ou caminhonete
+        * `van` - Van
+        * `caminhao` - Caminhão
+        * `pequeno` - Pequeno (até 10 kg)
+        * `medio` - Médio (10 a 25 kg)
+        * `grande` - Grande (25 a 45 kg)
+        * `gigante` - Gigante (acima de 45 kg)
     ServicoRequest:
       type: object
       properties:
@@ -10694,6 +10760,22 @@ components:
             * `lava_rapido` - Lava-rápido
             * `banho_tosa` - Banho e Tosa
             * `outro` - Outro
+        porte:
+          description: |-
+            Só na esteira: o porte do veículo ou do pet que o serviço atende. Vazio vale para qualquer porte.
+
+            * `moto` - Moto
+            * `carro` - Carro
+            * `suv` - SUV ou caminhonete
+            * `van` - Van
+            * `caminhao` - Caminhão
+            * `pequeno` - Pequeno (até 10 kg)
+            * `medio` - Médio (10 a 25 kg)
+            * `grande` - Grande (25 a 45 kg)
+            * `gigante` - Gigante (acima de 45 kg)
+          oneOf:
+          - $ref: '#/components/schemas/ServicoPorteEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         descricao:
           type: string
         duracao:
@@ -10907,6 +10989,10 @@ components:
         cor:
           type: string
           maxLength: 50
+        porte:
+          oneOf:
+          - $ref: '#/components/schemas/VeiculoPorteEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         criado_em:
           type: string
           format: date-time
@@ -10919,6 +11005,21 @@ components:
       - marca
       - modelo
       - placa
+      - porte
+    VeiculoPorteEnum:
+      enum:
+      - moto
+      - carro
+      - suv
+      - van
+      - caminhao
+      type: string
+      description: |-
+        * `moto` - Moto
+        * `carro` - Carro
+        * `suv` - SUV ou caminhonete
+        * `van` - Van
+        * `caminhao` - Caminhão
     VeiculoRequest:
       type: object
       properties:
@@ -10940,12 +11041,17 @@ components:
           type: string
           minLength: 1
           maxLength: 50
+        porte:
+          oneOf:
+          - $ref: '#/components/schemas/VeiculoPorteEnum'
+          - $ref: '#/components/schemas/BlankEnum'
       required:
       - cliente
       - cor
       - marca
       - modelo
       - placa
+      - porte
     VerificarCodigoRequest:
       type: object
       properties:

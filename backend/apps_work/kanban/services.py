@@ -91,12 +91,20 @@ class AtendimentoKanbanService:
         horario_entrada: time | None = None,
         data: date | None = None,
         colaborador=None,
+        conferir_porte: bool = True,
     ) -> AtendimentoKanban:
-        from apps_work.clientes.models import ObjetoCliente
+        """`conferir_porte=False` é do app do cliente, que já conferiu com o
+        porte que o cliente declarou: o cadastro aqui pode ter sido corrigido
+        pelo negócio, e o cliente não teria como resolver a diferença."""
+        from apps_work.clientes.models import ObjetoCliente, porte_do_objeto
         from apps_work.servicos.models import Servico
+        from apps_work.servicos.services import conferir_porte as conferir_porte_do_servico
         objeto = ObjetoCliente.objects.get(pk=objeto_id)
         servico = Servico.objects.get(pk=servico_id)
         data = data or date.today()
+
+        if conferir_porte:
+            conferir_porte_do_servico(servico, porte_do_objeto(objeto))
 
         if horario_entrada and AtendimentoKanban.objects.filter(data=data, horario_entrada=horario_entrada).exists():
             raise ValidationError(ERRO_HORARIO_OCUPADO)

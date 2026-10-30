@@ -12,7 +12,9 @@ from .models import AtendimentoKanban, EtapaKanban
 from .serializers import AtendimentoKanbanSerializer, EtapaKanbanSerializer
 from .services import AtendimentoKanbanService, EtapaService, SlotService
 from apps_work.agenda.serializers import SlotSerializer
+from apps_work.clientes.models import porte_do_objeto
 from apps_work.financeiro.serializers import CobrancaSerializer
+from apps_work.servicos.services import conferir_porte
 from core.excecoes import erro
 from core.permissions import exigir_poder_cobrar
 
@@ -85,6 +87,17 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
             colaborador=serializer.validated_data.get('colaborador'),
         )
         serializer.instance = atendimento
+
+    def perform_update(self, serializer):
+        # Trocar o serviço ou o objeto por aqui passa pela mesma trava do porte.
+        dados = serializer.validated_data
+        if 'servico' in dados or 'objeto' in dados:
+            atendimento = serializer.instance
+            conferir_porte(
+                dados.get('servico', atendimento.servico),
+                porte_do_objeto(dados.get('objeto', atendimento.objeto)),
+            )
+        serializer.save()
 
     @extend_schema(
         request=inline_serializer('MoverAtendimento', {'etapa_id': serializers.IntegerField()}),

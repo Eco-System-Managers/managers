@@ -17,6 +17,10 @@ from .serializers import ServicoSerializer
                 description='`true` só os ativos, `false` só os inativos; sem o filtro, todos.',
             ),
             OpenApiParameter('colaborador', OpenApiTypes.INT, description='Só os serviços que este colaborador executa.'),
+            OpenApiParameter(
+                'porte', OpenApiTypes.STR,
+                description='Só os que servem para este porte: os dele e os sem porte (valem para qualquer um).',
+            ),
         ],
     ),
 )
@@ -42,5 +46,9 @@ class ServicoViewSet(viewsets.ModelViewSet):
         colaborador = self.request.query_params.get('colaborador')
         if colaborador:
             qs = qs.filter(colaboradores__id=colaborador)
+
+        porte = self.request.query_params.get('porte')
+        if porte:
+            qs = qs.filter(Q(porte='') | Q(porte=porte))
 
         return qs.order_by('nome')

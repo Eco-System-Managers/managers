@@ -4,14 +4,31 @@ from .models import Cliente, ObjetoCliente, OrigemCliente, Pet, TipoObjeto, Veic
 from .validators import validar_cpf, validar_telefone_br, validar_placa_br
 
 
+# O porte decide quais serviços servem para o veículo ou o pet, então todo
+# cadastro novo informa. O modelo aceita vazio por causa dos cadastros
+# anteriores, que saem com '' e continuam editáveis numa edição parcial que
+# não mexe nele; quem manda o porte não pode mandar vazio.
+_PORTE_OBRIGATORIO = {'porte': {'required': True}}
+
+
+def _exigir_porte(valor: str) -> str:
+    if not valor:
+        raise serializers.ValidationError('Informe o porte.')
+    return valor
+
+
 class VeiculoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Veiculo
-        fields = ['id', 'cliente', 'placa', 'marca', 'modelo', 'cor', 'criado_em']
+        fields = ['id', 'cliente', 'placa', 'marca', 'modelo', 'cor', 'porte', 'criado_em']
         read_only_fields = ['id', 'criado_em']
+        extra_kwargs = _PORTE_OBRIGATORIO
 
     def validate_placa(self, value):
         return validar_placa_br(value)
+
+    def validate_porte(self, value):
+        return _exigir_porte(value)
 
 
 class PetSerializer(serializers.ModelSerializer):
@@ -19,6 +36,10 @@ class PetSerializer(serializers.ModelSerializer):
         model = Pet
         fields = ['id', 'cliente', 'nome', 'especie', 'raca', 'porte', 'data_nascimento', 'criado_em']
         read_only_fields = ['id', 'criado_em']
+        extra_kwargs = _PORTE_OBRIGATORIO
+
+    def validate_porte(self, value):
+        return _exigir_porte(value)
 
 
 class ObjetoClienteSerializer(serializers.ModelSerializer):

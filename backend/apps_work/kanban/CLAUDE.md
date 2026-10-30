@@ -11,7 +11,7 @@ do profissional": existe uma fila de etapas, e o atendimento anda por ela.
 | Arquivo | O que faz |
 |---|---|
 | `models.py` | `EtapaKanban` (as colunas do quadro), `AtendimentoKanban` (o card) e `PagamentoAtendimento` |
-| `services.py` | Traduz posição no quadro em status, cria etapas padrão, reordena colunas e cria o atendimento com checagem de horário |
+| `services.py` | Traduz posição no quadro em status, cria etapas padrão, reordena colunas e cria o atendimento com checagem de horário e de porte |
 | `views.py` | Os dois ViewSets, mais as ações `mover`, `cobrar`, `desfazer_cobranca` e `marcar_falta` |
 | `serializers.py` | Representação do quadro |
 | `signals.py` | Declara `atendimento_kanban_falta_alterada`, escutado pela vitrine |
@@ -100,6 +100,12 @@ Remover etapa com atendimentos dentro responde 400 `etapa_com_atendimentos`
   atendimento só entra sem hora marcada.
 - **Cobrar gera troco como crédito.** O excedente vira `TransacaoCredito` na
   comanda do cliente (app `financeiro`), não dinheiro devolvido.
+- **O serviço tem de servir para o porte do objeto** (`servico_de_outro_porte`,
+  ver `servicos`): `AtendimentoKanbanService.criar` confere, e o PATCH que
+  troca o serviço ou o objeto também. O app B2C chama `criar` com
+  `conferir_porte=False`, porque já conferiu com o porte que o cliente
+  declarou: o cadastro do negócio pode ter sido corrigido na chegada, e o
+  cliente não teria como resolver a diferença.
 - **Não dá para marcar falta em atendimento já pago** — a regra está em
   `ERRO_FALTA_EM_PAGO`.
 - **O `AtendimentoKanban` pode nascer pelo app B2C**, via

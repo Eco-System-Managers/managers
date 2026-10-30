@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from rest_framework import serializers
+from apps_work.clientes.models import portes_do_tipo
 from apps_work.empresa.models import EmpresaConfig
 from apps_work.usuarios.models import Colaborador
 from .models import Servico, TipoTaxaCancelamento
@@ -16,7 +17,7 @@ class ServicoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Servico
         fields = [
-            'id', 'nome', 'nicho', 'descricao', 'duracao', 'preco',
+            'id', 'nome', 'nicho', 'porte', 'descricao', 'duracao', 'preco',
             'taxa_cancelamento_tipo', 'taxa_cancelamento_valor',
             'ativo', 'colaboradores',
         ]
@@ -25,6 +26,10 @@ class ServicoSerializer(serializers.ModelSerializer):
                 'required': False,
                 'help_text': 'A pasta do serviço: um dos nichos do negócio. Opcional quando o negócio tem um '
                              'nicho só, que é o usado.',
+            },
+            'porte': {
+                'help_text': 'Só na esteira: o porte do veículo ou do pet que o serviço atende. Vazio vale '
+                             'para qualquer porte.',
             },
         }
 
@@ -64,7 +69,18 @@ class ServicoSerializer(serializers.ModelSerializer):
                 )
 
         self._resolver_nicho(attrs)
+        self._conferir_porte(attrs)
         return attrs
+
+    def _conferir_porte(self, attrs):
+        """O porte é do que o negócio atende: de veículo no lava-rápido, de pet
+        no banho e tosa, e nenhum no modo horário."""
+        porte = attrs.get('porte')
+        if not porte:
+            return
+        tipo_objeto = EmpresaConfig.objects.filter(pk=1).values_list('tipo_objeto', flat=True).first() or ''
+        if porte not in portes_do_tipo(tipo_objeto):
+            raise serializers.ValidationError({'porte': 'Este porte não é do que o negócio atende.'})
 
     def _resolver_nicho(self, attrs):
         """O serviço fica num dos nichos do negócio. Com um nicho só, é ele.

@@ -12,11 +12,34 @@ class TipoObjeto(models.TextChoices):
     PET = 'pet', 'Pet'
 
 
+# O porte decide o tempo e o preço do serviço: lavar uma moto não é lavar um
+# caminhão, e banho de yorkshire não é banho de golden. O serviço pode ser de
+# um porte só (Servico.porte), e a lista de serviços de um atendimento segue o
+# porte do veículo ou do pet.
+
+class PorteVeiculo(models.TextChoices):
+    MOTO = 'moto', 'Moto'
+    CARRO = 'carro', 'Carro'
+    SUV = 'suv', 'SUV ou caminhonete'
+    VAN = 'van', 'Van'
+    CAMINHAO = 'caminhao', 'Caminhão'
+
+
 class PortePet(models.TextChoices):
-    PEQUENO = 'pequeno', 'Pequeno'
-    MEDIO = 'medio', 'Médio'
-    GRANDE = 'grande', 'Grande'
-    GIGANTE = 'gigante', 'Gigante'
+    # Pelo peso, que é fato; "médio" sem a faixa é opinião.
+    PEQUENO = 'pequeno', 'Pequeno (até 10 kg)'
+    MEDIO = 'medio', 'Médio (10 a 25 kg)'
+    GRANDE = 'grande', 'Grande (25 a 45 kg)'
+    GIGANTE = 'gigante', 'Gigante (acima de 45 kg)'
+
+
+def portes_do_tipo(tipo: str) -> list[str]:
+    """Os portes de um tipo de objeto; nenhum para o que não é veículo nem pet."""
+    if tipo == TipoObjeto.VEICULO:
+        return list(PorteVeiculo.values)
+    if tipo == TipoObjeto.PET:
+        return list(PortePet.values)
+    return []
 
 
 class Cliente(models.Model):
@@ -118,6 +141,8 @@ class Veiculo(ObjetoCliente):
     marca = models.CharField(max_length=50)
     modelo = models.CharField(max_length=100)
     cor = models.CharField(max_length=50)
+    # Vazio só nos cadastros anteriores ao porte; o serializer exige.
+    porte = models.CharField(max_length=10, choices=PorteVeiculo.choices, blank=True)
 
     def __str__(self):
         return f'{self.marca} {self.modelo} ({self.placa})'
@@ -127,8 +152,19 @@ class Pet(ObjetoCliente):
     nome = models.CharField(max_length=100)
     especie = models.CharField(max_length=50, blank=True)
     raca = models.CharField(max_length=100, blank=True)
+    # Vazio só nos cadastros anteriores ao porte obrigatório; o serializer exige.
     porte = models.CharField(max_length=10, choices=PortePet.choices, blank=True)
     data_nascimento = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return self.nome
+
+
+def porte_do_objeto(objeto: ObjetoCliente) -> str:
+    """O porte do veículo ou do pet, '' quando não foi informado. Aceita o
+    ObjetoCliente (o card do kanban aponta para ele) ou o próprio Veiculo/Pet."""
+    if isinstance(objeto, (Veiculo, Pet)):
+        return objeto.porte
+    if objeto.tipo == TipoObjeto.VEICULO:
+        return objeto.veiculo.porte
+    return objeto.pet.porte
