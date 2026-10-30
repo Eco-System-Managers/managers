@@ -20,8 +20,8 @@ import '../../domain/usecases/kanban_use_cases.dart';
 
 // estado do formulário de receber um atendimento (montado em
 // kanban_provider.dart, na raiz da feature): cliente, o veículo ou pet dele,
-// serviço, dia e uma hora de entrada opcional. o card entra na primeira
-// etapa do quadro
+// serviço, dia e uma hora de entrada opcional. os serviços seguem o porte do
+// veículo ou do pet. o card entra na primeira etapa do quadro
 class AtendimentoKanbanFormProvider extends ChangeNotifier {
   AtendimentoKanbanFormProvider({
     required this._listarEtapas,
@@ -74,7 +74,16 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
   // a tela pode ser fechada durante uma requisição
   bool _disposed = false;
 
-  List<Servico> get servicos => _servicos;
+  // os que servem para o veículo ou pet escolhido: os do porte dele e os
+  // sem porte. sem objeto, ou com objeto sem porte, todos
+  List<Servico> get servicos => [
+    for (final s in _servicos)
+      if (s.servePara(_objeto?.porte)) s,
+  ];
+
+  // há serviço ativo, mas nenhum para o porte do objeto escolhido
+  bool get nenhumServicoParaOPorte => _servicos.isNotEmpty && servicos.isEmpty;
+
   bool get carregado => _carregado;
   Failure? get erroAoCarregar => _erroAoCarregar;
 
@@ -151,12 +160,14 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     // com um objeto só, ele já fica escolhido
     final objetos = this.objetos;
     _objeto = objetos.length == 1 ? objetos.single : null;
+    _soltarServicoQueNaoServe();
     _fieldErrors = {..._fieldErrors}..remove('objeto');
     notifyListeners();
   }
 
-  // a folha cadastrou um veículo ou pet: o cliente vem da API de novo e o
-  // objeto mais novo fica escolhido
+  // a folha cadastrou ou corrigiu um veículo ou pet: o cliente vem da API de
+  // novo. o objeto escolhido continua (com o cadastro novo); sem ele, o mais
+  // novo fica escolhido
   Future<void> recarregarCliente() async {
     final cliente = _cliente;
     if (cliente == null) return;
@@ -165,19 +176,27 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     result.fold((_) {}, (c) {
       _cliente = c;
       final objetos = this.objetos;
-      if (objetos.isEmpty) {
-        _objeto = null;
-      } else if (_objeto == null || !objetos.contains(_objeto)) {
-        _objeto = objetos.reduce((a, b) => a.id >= b.id ? a : b);
-      }
+      _objeto = objetos.isEmpty
+          ? null
+          : objetos.where((o) => o.id == _objeto?.id).firstOrNull ??
+                objetos.reduce((a, b) => a.id >= b.id ? a : b);
+      _soltarServicoQueNaoServe();
     });
     notifyListeners();
   }
 
   void selecionarObjeto(ObjetoCliente? objeto) {
     _objeto = objeto;
+    _soltarServicoQueNaoServe();
     _fieldErrors = {..._fieldErrors}..remove('objeto');
     notifyListeners();
+  }
+
+  // trocar o veículo ou pet (ou o porte dele) pode deixar o serviço
+  // escolhido de fora: ele sai, e a pessoa escolhe entre os que servem
+  void _soltarServicoQueNaoServe() {
+    final servico = _servico;
+    if (servico != null && !servico.servePara(_objeto?.porte)) _servico = null;
   }
 
   void selecionarColaborador(Colaborador? colaborador) {

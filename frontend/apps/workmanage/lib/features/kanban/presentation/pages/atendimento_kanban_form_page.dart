@@ -78,6 +78,25 @@ class _AtendimentoKanbanFormPageState
     if (mudou && mounted) await _provider.recarregarCliente();
   }
 
+  // cadastro de antes do porte: informar o porte filtra os serviços
+  Future<void> _informarPorte(ObjetoCliente objeto) async {
+    final veiculo = objeto.veiculo;
+    final mudou = veiculo != null
+        ? await VeiculoFormSheet.abrir(
+            context,
+            clienteId: objeto.clienteId,
+            veiculo: veiculo,
+            permitirRemover: false,
+          )
+        : await PetFormSheet.abrir(
+            context,
+            clienteId: objeto.clienteId,
+            pet: objeto.pet,
+            permitirRemover: false,
+          );
+    if (mudou && mounted) await _provider.recarregarCliente();
+  }
+
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
     await _provider.salvar(observacao: _observacaoController.text.trim());
@@ -128,6 +147,8 @@ class _AtendimentoKanbanFormPageState
     final textos = Theme.of(context).textTheme;
     final hoje = somenteData(DateTime.now());
     final objetos = provider.objetos;
+    // o escolhido é de antes do porte: os serviços não têm como ser filtrados
+    final semPorte = provider.objeto != null && provider.objeto!.porte == null;
 
     return Form(
       key: _formKey,
@@ -199,17 +220,27 @@ class _AtendimentoKanbanFormPageState
                     ? (veiculo
                           ? 'Este cliente ainda não tem veículo cadastrado.'
                           : 'Este cliente ainda não tem pet cadastrado.')
+                    : semPorte
+                    ? 'Sem porte no cadastro: aparecem todos os serviços.'
                     : null,
                 errorText: provider.erroDoCampo('objeto'),
               ),
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: _novoObjeto,
-                icon: const Icon(Icons.add_rounded),
-                label: Text(veiculo ? 'Novo veículo' : 'Novo pet'),
-              ),
+            Wrap(
+              alignment: WrapAlignment.end,
+              children: [
+                if (semPorte)
+                  TextButton.icon(
+                    onPressed: () => _informarPorte(provider.objeto!),
+                    icon: const Icon(Icons.straighten_rounded),
+                    label: const Text('Informar o porte'),
+                  ),
+                TextButton.icon(
+                  onPressed: _novoObjeto,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(veiculo ? 'Novo veículo' : 'Novo pet'),
+                ),
+              ],
             ),
           ],
 
@@ -230,7 +261,10 @@ class _AtendimentoKanbanFormPageState
             decoration: InputDecoration(
               labelText: 'Serviço',
               prefixIcon: const Icon(Icons.design_services_rounded),
-              helperText: provider.servicos.isEmpty
+              helperText: provider.nenhumServicoParaOPorte
+                  ? 'Nenhum serviço para este porte. Cadastre em '
+                        'Mais › Serviços.'
+                  : provider.servicos.isEmpty
                   ? 'Cadastre um serviço ativo em Mais › Serviços.'
                   : null,
               errorText: provider.erroDoCampo('servico'),

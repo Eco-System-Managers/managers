@@ -181,6 +181,139 @@ void main() {
     expect(provider.objeto, const ObjetoCliente.veiculo(_gol));
   });
 
+  group('porte', () {
+    final lavagemMoto = Servico(
+      id: 4,
+      nome: 'Lavagem moto',
+      porte: Porte.moto,
+      duracao: 20,
+      preco: Decimal.fromInt(25),
+    );
+    final lavagemCarro = Servico(
+      id: 5,
+      nome: 'Lavagem carro',
+      porte: Porte.carro,
+      duracao: 40,
+      preco: Decimal.fromInt(40),
+    );
+    const unoCarro = Veiculo(
+      id: 10,
+      clienteId: 7,
+      placa: 'ABC1D23',
+      marca: 'Fiat',
+      modelo: 'Uno',
+      cor: 'Prata',
+      porte: Porte.carro,
+    );
+    const cg = Veiculo(
+      id: 12,
+      clienteId: 7,
+      placa: 'MOT0A12',
+      marca: 'Honda',
+      modelo: 'CG',
+      cor: 'Vermelha',
+      porte: Porte.moto,
+    );
+
+    Future<AtendimentoKanbanFormProvider> carregado(
+      List<Servico> servicos,
+    ) async {
+      when(() => listarServicos(any()))
+          .thenAnswer((_) async => Right(servicos));
+      final provider = montar();
+      await provider.carregar();
+      return provider;
+    }
+
+    test('os serviços seguem o porte do veículo escolhido', () async {
+      final provider = await carregado([_lavagem, lavagemMoto, lavagemCarro]);
+      // sem veículo, todos
+      expect(provider.servicos, [_lavagem, lavagemMoto, lavagemCarro]);
+
+      provider.selecionarCliente(
+        const Cliente(
+          id: 7,
+          nome: 'Ana',
+          telefone: '19999990000',
+          veiculos: [unoCarro],
+        ),
+      );
+
+      // os do porte e os que valem para qualquer um
+      expect(provider.servicos, [_lavagem, lavagemCarro]);
+    });
+
+    test('veículo sem porte vê todos os serviços', () async {
+      final provider = await carregado([_lavagem, lavagemMoto, lavagemCarro]);
+
+      provider.selecionarCliente(_ana);
+
+      expect(provider.objeto!.porte, isNull);
+      expect(provider.servicos, hasLength(3));
+    });
+
+    test('trocar para um veículo de outro porte solta o serviço que não '
+        'serve', () async {
+      final provider = await carregado([_lavagem, lavagemMoto, lavagemCarro]);
+      provider.selecionarCliente(
+        const Cliente(
+          id: 7,
+          nome: 'Ana',
+          telefone: '19999990000',
+          veiculos: [unoCarro, cg],
+        ),
+      );
+      provider.selecionarObjeto(const ObjetoCliente.veiculo(unoCarro));
+      provider.selecionarServico(_lavagem);
+
+      // o sem porte serve para os dois
+      provider.selecionarObjeto(const ObjetoCliente.veiculo(cg));
+      expect(provider.servico, _lavagem);
+
+      provider.selecionarServico(lavagemMoto);
+      provider.selecionarObjeto(const ObjetoCliente.veiculo(unoCarro));
+      expect(provider.servico, isNull);
+    });
+
+    test('avisa quando nenhum serviço serve para o porte', () async {
+      final provider = await carregado([lavagemMoto]);
+
+      provider.selecionarCliente(
+        const Cliente(
+          id: 7,
+          nome: 'Ana',
+          telefone: '19999990000',
+          veiculos: [unoCarro],
+        ),
+      );
+
+      expect(provider.servicos, isEmpty);
+      expect(provider.nenhumServicoParaOPorte, isTrue);
+    });
+
+    test('informar o porte na folha: o mesmo veículo continua escolhido, '
+        'agora com o porte', () async {
+      // o Gol é mais novo, mas quem estava escolhido era o Uno
+      when(() => obterCliente(7)).thenAnswer(
+        (_) async => const Right(
+          Cliente(
+            id: 7,
+            nome: 'Ana',
+            telefone: '19999990000',
+            veiculos: [unoCarro, _gol],
+          ),
+        ),
+      );
+      final provider = await carregado([_lavagem, lavagemMoto, lavagemCarro]);
+      provider.selecionarCliente(_ana);
+
+      await provider.recarregarCliente();
+
+      expect(provider.objeto, const ObjetoCliente.veiculo(unoCarro));
+      expect(provider.servicos, [_lavagem, lavagemCarro]);
+    });
+  });
+
   test('selecionarData limpa a hora e recarrega a grade', () async {
     final provider = montar();
     await provider.carregar();

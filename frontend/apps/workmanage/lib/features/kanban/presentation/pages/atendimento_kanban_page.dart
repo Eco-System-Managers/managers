@@ -9,6 +9,8 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
+import 'package:managers/features/clientes/presentation/widgets/pet_form_sheet.dart';
+import 'package:managers/features/clientes/presentation/widgets/veiculo_form_sheet.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
 import 'package:managers/features/financeiro/presentation/widgets/cobranca_sheet.dart';
@@ -44,6 +46,25 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
 
   void _avisar(String texto) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
+  }
+
+  // o cadastro do veículo ou do pet, sem o remover: ele tem este atendimento
+  Future<void> _corrigirObjeto(AtendimentoKanban a) async {
+    final veiculo = a.objeto.veiculo;
+    final mudou = veiculo != null
+        ? await VeiculoFormSheet.abrir(
+            context,
+            clienteId: a.clienteId,
+            veiculo: veiculo,
+            permitirRemover: false,
+          )
+        : await PetFormSheet.abrir(
+            context,
+            clienteId: a.clienteId,
+            pet: a.objeto.pet,
+            permitirRemover: false,
+          );
+    if (mudou && mounted) await _provider.carregar();
   }
 
   Future<void> _cobrar(AtendimentoKanban a) async {
@@ -248,6 +269,8 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => context.push('/clientes/${a.clienteId}'),
               ),
+              // na chegada o dono confere o cadastro: o porte errado ("veio
+              // uma caminhonete, não um carro") se corrige daqui
               ListTile(
                 leading: Icon(
                   a.objeto.veiculo != null
@@ -258,6 +281,8 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                 subtitle: a.objeto.detalhe.isEmpty
                     ? null
                     : Text(a.objeto.detalhe),
+                trailing: const Icon(Icons.mode_edit_outline_rounded),
+                onTap: () => _corrigirObjeto(a),
               ),
               const Divider(),
               if (a.colaboradorNome.isNotEmpty)
