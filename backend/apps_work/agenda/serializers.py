@@ -51,10 +51,22 @@ class AgendamentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Agendamento
         fields = '__all__'
+        # Os dois só mudam pela cobrança (cobrar/), em comum acordo com o
+        # cliente: por PATCH seriam ignorados.
+        read_only_fields = ['acrescimo', 'acrescimo_motivo']
+        extra_kwargs = {
+            'acrescimo': {'help_text': 'O que o atendimento custou a mais, acertado na cobrança. Zero sem acréscimo.'},
+            'acrescimo_motivo': {'help_text': 'O motivo do acréscimo, que o cliente vê no app ("tempo excedido").'},
+        }
 
 
 class BloqueioSerializer(serializers.ModelSerializer):
-    colaborador_nome = serializers.ReadOnlyField(source='colaborador.nome_exibido')
+    colaborador_nome = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_colaborador_nome(self, obj):
+        # nulo no bloqueio do negócio, que não é de ninguém em particular
+        return obj.colaborador.nome_exibido if obj.colaborador else None
 
     class Meta:
         model = Bloqueio
@@ -63,6 +75,10 @@ class BloqueioSerializer(serializers.ModelSerializer):
             'hora_inicio', 'hora_fim', 'motivo', 'criado_em',
         ]
         extra_kwargs = {
+            'colaborador': {
+                'help_text': 'De quem é a agenda bloqueada. Nulo (ou omitido) é o negócio inteiro: vale para '
+                             'todos os profissionais e para a esteira. Só o proprietário cria e exclui esse.',
+            },
             'data_fim': {'help_text': 'Nulo é o bloqueio fixo: vale todos os dias a partir do início.'},
             'hora_inicio': {'help_text': 'Nulo junto com hora_fim: o dia inteiro.'},
         }
@@ -98,8 +114,10 @@ class PendenciaCobrancaSerializer(serializers.Serializer):
     origem = serializers.ChoiceField(choices=OrigemAtendimento.choices)
     id = serializers.IntegerField(help_text='Id do agendamento ou do atendimento do kanban.')
     data = serializers.DateField()
-    cliente_id = serializers.IntegerField()
-    cliente_nome = serializers.CharField()
+    cliente_id = serializers.IntegerField(
+        allow_null=True, help_text='Nulo no avulso da esteira, que não tem cliente.',
+    )
+    cliente_nome = serializers.CharField(help_text='No avulso da esteira, a identificação ("Hilux branca").')
     servico_nome = serializers.CharField()
     valor = serializers.DecimalField(max_digits=10, decimal_places=2)
     servicos = PendenciaServicoSerializer(many=True)

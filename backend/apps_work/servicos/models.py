@@ -11,6 +11,11 @@ class TipoTaxaCancelamento(models.TextChoices):
     PERCENTUAL = 'percentual', 'Percentual (%)'
 
 
+
+# Um serviço pode ser de um porte de veículo ou de pet: a união dos dois é
+# um enum à parte no OpenAPI (ENUM_NAME_OVERRIDES).
+PORTE_SERVICO_CHOICES = PorteVeiculo.choices + PortePet.choices
+
 class Servico(models.Model):
     nome = models.CharField(max_length=255)
     # A pasta do serviço: um dos nichos do negócio. Gravado sempre, mesmo com
@@ -19,7 +24,7 @@ class Servico(models.Model):
     # Só na esteira: o porte do veículo ou do pet que o serviço atende
     # ("Lavagem simples · Moto"). Vazio vale para qualquer porte, e é o único
     # valor possível no modo horário.
-    porte = models.CharField(max_length=10, choices=PorteVeiculo.choices + PortePet.choices, blank=True)
+    porte = models.CharField(max_length=10, choices=PORTE_SERVICO_CHOICES, blank=True)
     descricao = models.TextField(blank=True)
     duracao = models.PositiveIntegerField(help_text='Duração em minutos')
     preco = models.DecimalField(max_digits=8, decimal_places=2)

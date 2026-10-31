@@ -54,7 +54,8 @@ campos é o serializer, ao concluir — não o banco.
 | `abertura` | `TimeField` nulo | |
 | `fechamento` | `TimeField` nulo | |
 | `ativo` | `Boolean` = `True` | Dia fechado é `ativo=False`, a linha continua existindo |
-| `capacidade` | `PositiveInteger` nulo | Quantos atendimentos simultâneos. Usado pela esteira |
+| `capacidade` | `PositiveInteger` nulo | O máximo de atendimentos no dia da esteira (com ou sem hora); nulo é sem máximo. `AjusteDoDia` (kanban) substitui numa data só |
+| `vagas` | `PositiveInteger` = 1 | Quantos atendimentos da esteira andam ao mesmo tempo |
 
 Ordenação por `dia`. O `unique` no dia é o que garante no máximo sete linhas.
 

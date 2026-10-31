@@ -144,6 +144,12 @@ class Veiculo(ObjetoCliente):
     # Vazio só nos cadastros anteriores ao porte; o serializer exige.
     porte = models.CharField(max_length=10, choices=PorteVeiculo.choices, blank=True)
 
+    def save(self, *args, **kwargs):
+        # O tipo vem da subclasse: quem cria um Veiculo sem dizer o tipo (um
+        # teste, um import) não pode deixar o objeto como pet.
+        self.tipo = TipoObjeto.VEICULO
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f'{self.marca} {self.modelo} ({self.placa})'
 
@@ -156,6 +162,10 @@ class Pet(ObjetoCliente):
     porte = models.CharField(max_length=10, choices=PortePet.choices, blank=True)
     data_nascimento = models.DateField(null=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        self.tipo = TipoObjeto.PET
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.nome
 
@@ -167,4 +177,7 @@ def porte_do_objeto(objeto: ObjetoCliente) -> str:
         return objeto.porte
     if objeto.tipo == TipoObjeto.VEICULO:
         return objeto.veiculo.porte
-    return objeto.pet.porte
+    if objeto.tipo == TipoObjeto.PET:
+        return objeto.pet.porte
+    # cadastro de antes do tipo ser obrigatório: sem porte, qualquer serviço serve
+    return ''

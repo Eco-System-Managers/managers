@@ -164,9 +164,14 @@ class AgendamentoConsumidorSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'schema_name', 'agendamento_id', 'origem', 'negocio_nome',
             'servicos', 'profissional_nome', 'objeto_dados', 'data_hora',
-            'duracao_total', 'valor_total', 'valor_taxa_cancelamento',
+            'duracao_total', 'valor_total', 'acrescimo', 'acrescimo_motivo', 'valor_taxa_cancelamento',
             'status', 'status_kanban', 'etapa_nome', 'logo_url', 'criado_em',
         ]
+        extra_kwargs = {
+            'valor_total': {'help_text': 'O combinado ao marcar; depois da cobrança, o que foi cobrado de verdade.'},
+            'acrescimo': {'help_text': 'O que o atendimento custou a mais, acertado com o negócio na cobrança.'},
+            'acrescimo_motivo': {'help_text': 'O motivo do acréscimo ("tempo excedido").'},
+        }
 
     def _status_kanban(self, obj) -> dict:
         return (self.context.get('status_kanban') or {}).get(obj.id, {})

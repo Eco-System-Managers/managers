@@ -70,6 +70,12 @@ só as `urls` são incluídas no `core/urls.py`.
   O parceiro vê os próprios, e `repasse` é o que ele tem a receber.
 - **Ele lê os dois modos de agenda.** Um negócio usa agenda ou esteira, então
   metade das consultas volta vazia — e está correto assim.
+- **O avulso da esteira não tem cliente.** Em `agendamentos_hoje` ele sai com
+  `cliente_nome` = identificação ("Hilux branca") e `cliente_telefone` vazio
+  (sem WhatsApp). Leia `at.rotulo`/`at.cliente`, nunca `at.objeto.cliente`.
+- **O acréscimo da cobrança entra pelos pagamentos**, como no caixa:
+  `faturamento` soma o `valor` dos pagamentos, que já carrega o acréscimo e o
+  desconto, então não há nada a somar por fora.
 - **É o app mais sensível a mudança alheia.** Renomear campo ou status em
   `agenda`, `kanban` ou `financeiro` quebra aqui, silenciosamente, porque ele
   agrega sem serializer no meio.

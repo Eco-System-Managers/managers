@@ -1,6 +1,6 @@
 import pytest
 from decimal import Decimal
-from datetime import time, timedelta
+from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 from django.db import connection
@@ -111,6 +111,18 @@ def etapa_no_tenant(tenant):
     with schema_context(tenant.schema_name):
         from apps_work.kanban.models import EtapaKanban
         return EtapaKanban.objects.create(nome='Aguardando', ordem=0)
+
+
+@pytest.fixture
+def esteira_aberta(tenant):
+    """A esteira aberta o dia inteiro, todo dia: como na agenda, o cliente só
+    marca horário que esteja na grade (a lista é a regra)."""
+    with schema_context(tenant.schema_name):
+        from apps_work.empresa.models import HorarioFuncionamento
+        for dia in range(7):
+            HorarioFuncionamento.objects.update_or_create(
+                dia=dia, defaults={'abertura': time(0, 0), 'fechamento': time(23, 59), 'ativo': True},
+            )
 
 
 @pytest.fixture
@@ -676,9 +688,9 @@ class TestCancelarComTaxaConfigurada:
 class TestAgendamentoTenantServiceCriarKanban:
     def test_cria_atendimento_kanban_com_origem_correta(
         self, tenant, consumidor_registrado, negocio_publico_kanban, servico_no_tenant,
-        etapa_no_tenant, objeto_consumidor_pet,
+        etapa_no_tenant, objeto_consumidor_pet, esteira_aberta,
     ):
-        data_hora = timezone.now() + timedelta(hours=5)
+        data_hora = _horario_livre(5)
         ag = AgendamentoTenantService().criar(
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
@@ -699,13 +711,13 @@ class TestAgendamentoTenantServiceCriarKanban:
 
     def test_cria_pet_no_tenant_sincronizado_com_objeto_do_consumidor(
         self, tenant, consumidor_registrado, negocio_publico_kanban, servico_no_tenant,
-        etapa_no_tenant, objeto_consumidor_pet,
+        etapa_no_tenant, objeto_consumidor_pet, esteira_aberta,
     ):
         AgendamentoTenantService().criar(
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=5),
+            data_hora=_horario_livre(5),
             objeto_id=objeto_consumidor_pet.id,
         )
         with schema_context(tenant.schema_name):
@@ -727,15 +739,84 @@ class TestAgendamentoTenantServiceCriarKanban:
 
     def test_sem_etapa_configurada_lanca_erro(
         self, tenant, consumidor_registrado, negocio_publico_kanban, servico_no_tenant, objeto_consumidor_pet,
+        esteira_aberta,
     ):
         with pytest.raises(ValueError, match='etapas'):
             AgendamentoTenantService().criar(
                 schema_name=tenant.schema_name,
                 consumidor=consumidor_registrado,
                 servico_ids=[servico_no_tenant.id],
-                data_hora=timezone.now() + timedelta(hours=5),
+                data_hora=_horario_livre(5),
                 objeto_id=objeto_consumidor_pet.id,
             )
+
+    def test_mais_de_um_servico_e_recusado_na_esteira(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, dois_servicos_no_tenant,
+        etapa_no_tenant, objeto_consumidor_pet, esteira_aberta,
+    ):
+        """O card da esteira tem um serviço só, como na cobrança."""
+        corte, barba = dois_servicos_no_tenant
+
+        with pytest.raises(ErroDeNegocio) as erro:
+            AgendamentoTenantService().criar(
+                schema_name=tenant.schema_name,
+                consumidor=consumidor_registrado,
+                servico_ids=[corte.id, barba.id],
+                data_hora=_horario_livre(5),
+                objeto_id=objeto_consumidor_pet.id,
+            )
+
+        assert erro.value.code == 'um_servico_so'
+        with schema_context(tenant.schema_name):
+            from apps_work.kanban.models import AtendimentoKanban
+            assert not AtendimentoKanban.objects.exists()
+
+    def test_hora_sem_vaga_e_horario_indisponivel(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, servico_no_tenant,
+        etapa_no_tenant, objeto_consumidor_pet, esteira_aberta,
+    ):
+        """Uma vaga por vez: o segundo cliente na mesma hora não entra."""
+        data_hora = _horario_livre(5)
+
+        def marcar():
+            return AgendamentoTenantService().criar(
+                schema_name=tenant.schema_name,
+                consumidor=consumidor_registrado,
+                servico_ids=[servico_no_tenant.id],
+                data_hora=data_hora,
+                objeto_id=objeto_consumidor_pet.id,
+            )
+
+        marcar()
+        with pytest.raises(ErroDeNegocio) as erro:
+            marcar()
+
+        assert erro.value.code == 'horario_indisponivel'
+
+    def test_a_hora_em_utc_vira_a_hora_local_do_negocio(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, servico_no_tenant,
+        etapa_no_tenant, objeto_consumidor_pet, esteira_aberta,
+    ):
+        """Amanhã às 23h local, mandado em UTC (já é o dia seguinte lá): o
+        card fica no dia e na hora do negócio."""
+        from zoneinfo import ZoneInfo
+        local = timezone.make_aware(datetime.combine(timezone.localdate() + timedelta(days=1), time(23, 0)))
+        em_utc = local.astimezone(ZoneInfo('UTC'))
+        assert em_utc.date() != local.date()
+
+        ag = AgendamentoTenantService().criar(
+            schema_name=tenant.schema_name,
+            consumidor=consumidor_registrado,
+            servico_ids=[servico_no_tenant.id],
+            data_hora=em_utc,
+            objeto_id=objeto_consumidor_pet.id,
+        )
+
+        with schema_context(tenant.schema_name):
+            from apps_work.kanban.models import AtendimentoKanban
+            atendimento = AtendimentoKanban.objects.get(id=ag.agendamento_id)
+            assert atendimento.data == local.date()
+            assert atendimento.horario_entrada == time(23, 0)
 
     def test_antecedencia_minima_tambem_vale_na_esteira(
         self, tenant, consumidor_registrado, negocio_publico_kanban, servico_no_tenant,
@@ -767,7 +848,7 @@ class TestPorteNaEsteiraDoCliente:
             schema_name=tenant.schema_name,
             consumidor=consumidor,
             servico_ids=[servico.id],
-            data_hora=timezone.now() + timedelta(hours=5),
+            data_hora=_horario_livre(5),
             objeto_id=objeto.id,
         )
 
@@ -782,6 +863,7 @@ class TestPorteNaEsteiraDoCliente:
 
     def test_servico_de_outro_porte_e_recusado(
         self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+        esteira_aberta,
     ):
         # O Rex foi declarado médio (pelo rótulo antigo, 'Médio').
         grande = self._servico(tenant, 'Banho G', 'grande')
@@ -796,6 +878,7 @@ class TestPorteNaEsteiraDoCliente:
 
     def test_servico_do_porte_declarado(
         self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+        esteira_aberta,
     ):
         medio = self._servico(tenant, 'Banho M', 'medio')
 
@@ -803,6 +886,7 @@ class TestPorteNaEsteiraDoCliente:
 
     def test_vale_o_porte_declarado_mesmo_com_o_cadastro_corrigido_pelo_negocio(
         self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+        esteira_aberta,
     ):
         # O negócio viu que o Rex é grande; o cliente ainda declara médio e não
         # teria como resolver a diferença. O cadastro do negócio não é tocado.
@@ -817,6 +901,7 @@ class TestPorteNaEsteiraDoCliente:
 
     def test_cadastro_sem_porte_ganha_o_declarado(
         self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+        esteira_aberta,
     ):
         pet = self._pet_no_negocio(tenant, consumidor_registrado, '')
         qualquer = self._servico(tenant, 'Banho', '')
@@ -858,7 +943,8 @@ class TestListarDisponibilidadeKanban:
         slots = CrossTenantQueryService().listar_disponibilidade(
             tenant.schema_name, hoje, [servico.id],
         )
-        assert len(slots) == 3
+        # a grade de 15 em 15 min, até onde o Banho de 30 min cabe (10:30)
+        assert len(slots) == 11
         from datetime import datetime as dt
         primeiro = dt.fromisoformat(slots[0])
         assert primeiro.date() == hoje
@@ -886,8 +972,42 @@ class TestListarDisponibilidadeKanban:
         slots = CrossTenantQueryService().listar_disponibilidade(
             tenant.schema_name, hoje, [servico.id],
         )
-        assert len(slots) == 2
-        assert all('08:00' not in s for s in slots)
+        # o Banho das 8:00 ocupa até 8:30: saem 08:00 e 08:15
+        assert len(slots) == 9
+        assert all('08:00' not in s and '08:15' not in s for s in slots)
+
+    def test_dia_lotado_nao_tem_horario_e_nao_aceita_marcar(
+        self, tenant, consumidor_registrado, negocio_publico_kanban, etapa_no_tenant, objeto_consumidor_pet,
+        esteira_aberta,
+    ):
+        amanha = timezone.localdate() + timedelta(days=1)
+        with schema_context(tenant.schema_name):
+            from apps_work.empresa.models import EmpresaConfig, HorarioFuncionamento
+            from apps_work.servicos.models import Servico
+            from apps_work.kanban.models import AtendimentoKanban
+            from apps_work.clientes.models import Cliente, Pet
+            EmpresaConfig.objects.create(pk=1, tipo_agenda='kanban')
+            HorarioFuncionamento.objects.update_or_create(
+                dia=amanha.weekday(),
+                defaults={'abertura': '08:00', 'fechamento': '18:00', 'ativo': True, 'capacidade': 1},
+            )
+            servico = Servico.objects.create(nome='Banho', duracao=30, preco=Decimal('50.00'), ativo=True)
+            cliente = Cliente.objects.create(nome='Fulano')
+            pet = Pet.objects.create(cliente=cliente, tipo='pet', nome='Bob')
+            # um sem hora já lota o dia de máximo 1
+            AtendimentoKanban.objects.create(etapa=etapa_no_tenant, objeto=pet, servico=servico, data=amanha)
+
+        assert CrossTenantQueryService().listar_disponibilidade(tenant.schema_name, amanha, [servico.id]) == []
+
+        with pytest.raises(ErroDeNegocio) as erro:
+            AgendamentoTenantService().criar(
+                schema_name=tenant.schema_name,
+                consumidor=consumidor_registrado,
+                servico_ids=[servico.id],
+                data_hora=timezone.make_aware(datetime.combine(amanha, time(10, 0))),
+                objeto_id=objeto_consumidor_pet.id,
+            )
+        assert erro.value.code == 'dia_lotado'
 
 
 # ---------------------------------------------------------------------------
@@ -898,13 +1018,13 @@ class TestListarDisponibilidadeKanban:
 class TestCancelarAgendamentoKanban:
     def test_cancelar_remove_atendimento_kanban(
         self, tenant, consumidor_registrado, negocio_publico_kanban, servico_no_tenant,
-        etapa_no_tenant, objeto_consumidor_pet,
+        etapa_no_tenant, objeto_consumidor_pet, esteira_aberta,
     ):
         ag = AgendamentoTenantService().criar(
             schema_name=tenant.schema_name,
             consumidor=consumidor_registrado,
             servico_ids=[servico_no_tenant.id],
-            data_hora=timezone.now() + timedelta(hours=10),
+            data_hora=_horario_livre(10),
             objeto_id=objeto_consumidor_pet.id,
         )
         atendimento_id = ag.agendamento_id

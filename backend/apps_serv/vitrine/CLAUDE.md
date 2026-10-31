@@ -60,6 +60,7 @@ aparecer aqui, o caminho é sinal:
 | `cliente_servicemanage_removido` | Desfaz o vínculo, para o negócio sair de "Seus negócios" |
 | `agendamento_status_alterado` | Espelha o status no `AgendamentoConsumidor` |
 | `atendimento_kanban_falta_alterada` | Espelha a falta — que não é coluna do quadro, então não seria lida ao vivo |
+| `cobranca_registrada` | Espelha o que a cobrança decidiu — o serviço trocado, o acréscimo com o motivo e o total cobrado — nos dois modos, pelo `origem` + `agendamento_id` |
 
 ## O que o cliente pode marcar
 
@@ -89,6 +90,9 @@ aparecer aqui, o caminho é sinal:
   agendamento **depois** de já ter escrito no tenant.
 - **Status de esteira é lido ao vivo, status de agenda é espelhado.** Confundir
   os dois faz o cliente ver o estado errado. Falta é a exceção que se espelha.
+  A cobrança (serviço trocado, acréscimo, total) é espelhada nos dois modos, e
+  o filtro leva `origem` junto com `agendamento_id`: o id de um atendimento da
+  esteira não pode bater num agendamento da agenda.
 - **Endpoint público recebe `schema_name` pela URL.** Sempre passar por
   `_schema_valido` antes — ele vira troca de schema logo em seguida.
 - **O recorte por área é caixa, não círculo.** Exagera nos cantos de propósito,

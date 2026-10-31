@@ -176,25 +176,23 @@ class CrossTenantQueryService:
             from apps_work.servicos.models import Servico
 
             config = EmpresaConfig.objects.filter(pk=1).first()
+            servicos = list(Servico.objects.filter(id__in=servico_ids, ativo=True))
+            if not servicos:
+                return []
+            duracao = sum(s.duracao for s in servicos)
+
             if config and config.tipo_agenda == TipoAgenda.KANBAN:
-                from apps_work.kanban.services import SlotService
-                inicios = [
-                    datetime.combine(data, datetime.strptime(slot['horario'], '%H:%M').time())
-                    for slot in SlotService().gerar_slots(data) if slot['disponivel']
-                ]
-                return [i.replace(tzinfo=fuso).isoformat() for i in inicios if i >= nao_antes_de]
+                # A mesma grade do Work Manage: a duração do serviço, as vagas do
+                # dia e a ocupação lida do quadro (CapacidadeService).
+                from apps_work.kanban.services import CapacidadeService
+                inicios = CapacidadeService().livres(data, duracao, nao_antes_de)
+                return [i.replace(tzinfo=fuso).isoformat() for i in inicios]
 
             from apps_work.agenda.services import SlotsAgendaService
 
             _conferir_colaborador(colaborador_id)
 
-            servicos = list(Servico.objects.filter(id__in=servico_ids, ativo=True))
-            if not servicos:
-                return []
-
-            inicios = SlotsAgendaService().livres(
-                data, colaborador_id, sum(s.duracao for s in servicos), nao_antes_de,
-            )
+            inicios = SlotsAgendaService().livres(data, colaborador_id, duracao, nao_antes_de)
             return [i.replace(tzinfo=fuso).isoformat() for i in inicios]
 
 
@@ -271,6 +269,11 @@ class AgendamentoTenantService:
                 valor_taxa_cancelamento = sum(s.calcular_taxa_cancelamento() for s in servicos)
 
                 if origem == OrigemAtendimento.KANBAN:
+                    # O card da esteira tem um serviço só (o mesmo
+                    # `um_servico_so` da cobrança): com vários, o card e a
+                    # cobrança diriam uma coisa e o app do cliente outra.
+                    if len(servicos) != 1:
+                        raise ErroDeNegocio('Na esteira o agendamento tem um serviço só. Escolha um.', 'um_servico_so')
                     # Pelo porte que o cliente declarou, que é o que ele viu
                     # na lista de serviços.
                     from apps_work.servicos.services import conferir_porte
@@ -279,6 +282,7 @@ class AgendamentoTenantService:
                             servico, _porte_declarado(objeto_dados),
                             o_que_fazer='Escolha um serviço para o seu veículo ou pet.',
                         )
+                    self._conferir_vaga_na_esteira(data_hora, duracao_total)
 
                 if origem == OrigemAtendimento.AGENDA:
                     _conferir_colaborador(colaborador_id)
@@ -361,6 +365,21 @@ class AgendamentoTenantService:
 
         return agendamento_consumidor
 
+    def _conferir_vaga_na_esteira(self, data_hora: datetime, duracao_minutos: int) -> None:
+        """Na esteira, para o cliente o limite é parede: dia lotado
+        (`dia_lotado`) e hora sem vaga (`horario_indisponivel`) não passam. A
+        lista que ele viu é a regra, como na agenda."""
+        from apps_work.kanban.services import CapacidadeService
+
+        capacidade = CapacidadeService()
+        local = timezone.localtime(data_hora).replace(tzinfo=None)
+        # roda dentro do atomic de criar: o dia fica travado até gravar
+        capacidade.travar_dia(local.date())
+        if capacidade.lotado(local.date()):
+            raise ErroDeNegocio('Este dia já está lotado. Escolha outro dia.', 'dia_lotado')
+        if local not in capacidade.livres(local.date(), duracao_minutos, _nao_antes_de()):
+            raise ErroDeNegocio('Esse horário não está mais livre. Escolha outro.', 'horario_indisponivel')
+
     def _conferir_horario_livre(self, data_hora: datetime, colaborador_id: int, duracao_minutos: int) -> None:
         """O horário pedido precisa estar na grade que o cliente viu. Uma
         conferência só cobre expediente, conflito com outro cliente e
@@ -417,14 +436,20 @@ class AgendamentoTenantService:
         if etapa is None:
             raise ErroDeNegocio('Este negócio ainda não configurou as etapas de atendimento.', 'esteira_nao_configurada')
 
+        # No horário local do negócio: o app pode mandar a hora em UTC.
+        local = timezone.localtime(data_hora)
         atendimento = AtendimentoKanbanService().criar(
             etapa=etapa,
             objeto_id=objeto.id,
             servico_id=servico.id,
-            horario_entrada=data_hora.time(),
-            data=data_hora.date(),
+            horario_entrada=local.time().replace(second=0, microsecond=0),
+            data=local.date(),
             # Já conferido com o porte declarado pelo cliente (em criar).
             conferir_porte=False,
+            # A vaga já foi conferida em _conferir_vaga_na_esteira, com o dia
+            # travado e os erros do cliente (horario_indisponivel); a trava do
+            # dono não roda de novo para não trocar o code.
+            ignorar_limite=True,
         )
         return atendimento.id
 

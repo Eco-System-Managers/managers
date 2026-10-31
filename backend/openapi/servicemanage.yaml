@@ -1707,6 +1707,18 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: O combinado ao marcar; depois da cobrança, o que foi cobrado
+            de verdade.
+        acrescimo:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: O que o atendimento custou a mais, acertado com o negócio na
+            cobrança.
+        acrescimo_motivo:
+          type: string
+          description: O motivo do acréscimo ("tempo excedido").
+          maxLength: 60
         valor_taxa_cancelamento:
           type: string
           format: decimal
@@ -1871,7 +1883,7 @@ components:
           type: string
           maxLength: 50
         porte:
-          $ref: '#/components/schemas/DadosPetPorteEnum'
+          $ref: '#/components/schemas/PortePetEnum'
         raca:
           type: string
           default: ''
@@ -1880,18 +1892,6 @@ components:
       - especie
       - nome
       - porte
-    DadosPetPorteEnum:
-      enum:
-      - pequeno
-      - medio
-      - grande
-      - gigante
-      type: string
-      description: |-
-        * `pequeno` - Pequeno (até 10 kg)
-        * `medio` - Médio (10 a 25 kg)
-        * `grande` - Grande (25 a 45 kg)
-        * `gigante` - Gigante (acima de 45 kg)
     DadosPetRequest:
       type: object
       properties:
@@ -1904,7 +1904,7 @@ components:
           minLength: 1
           maxLength: 50
         porte:
-          $ref: '#/components/schemas/DadosPetPorteEnum'
+          $ref: '#/components/schemas/PortePetEnum'
         raca:
           type: string
           default: ''
@@ -1930,26 +1930,12 @@ components:
           default: ''
           maxLength: 50
         porte:
-          $ref: '#/components/schemas/DadosVeiculoPorteEnum'
+          $ref: '#/components/schemas/PorteVeiculoEnum'
       required:
       - marca
       - modelo
       - placa
       - porte
-    DadosVeiculoPorteEnum:
-      enum:
-      - moto
-      - carro
-      - suv
-      - van
-      - caminhao
-      type: string
-      description: |-
-        * `moto` - Moto
-        * `carro` - Carro
-        * `suv` - SUV ou caminhonete
-        * `van` - Van
-        * `caminhao` - Caminhão
     DadosVeiculoRequest:
       type: object
       properties:
@@ -1970,7 +1956,7 @@ components:
           default: ''
           maxLength: 50
         porte:
-          $ref: '#/components/schemas/DadosVeiculoPorteEnum'
+          $ref: '#/components/schemas/PorteVeiculoEnum'
       required:
       - marca
       - modelo
@@ -2382,6 +2368,32 @@ components:
         numero_endereco:
           type: string
           maxLength: 10
+    PortePetEnum:
+      enum:
+      - pequeno
+      - medio
+      - grande
+      - gigante
+      type: string
+      description: |-
+        * `pequeno` - Pequeno (até 10 kg)
+        * `medio` - Médio (10 a 25 kg)
+        * `grande` - Grande (25 a 45 kg)
+        * `gigante` - Gigante (acima de 45 kg)
+    PorteVeiculoEnum:
+      enum:
+      - moto
+      - carro
+      - suv
+      - van
+      - caminhao
+      type: string
+      description: |-
+        * `moto` - Moto
+        * `carro` - Carro
+        * `suv` - SUV ou caminhonete
+        * `van` - Van
+        * `caminhao` - Caminhão
     RecuperarSenhaConsumidorRequest:
       type: object
       properties:

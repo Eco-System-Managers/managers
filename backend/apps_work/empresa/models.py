@@ -105,7 +105,15 @@ class HorarioFuncionamento(models.Model):
     abertura = models.TimeField(null=True, blank=True)
     fechamento = models.TimeField(null=True, blank=True)
     ativo = models.BooleanField(default=True)
+    # Só na esteira, o quanto cabe neste dia da semana (a data que foge do
+    # padrão tem o kanban.AjusteDoDia). Cada negócio usa o número que faz
+    # sentido para ele: o pet shop conta o dia ("faço 8 cachorros"), o
+    # lava-rápido conta o pátio ("tenho 2 boxes").
+    # O máximo de atendimentos no dia, com ou sem hora marcada; nulo é sem
+    # máximo, e a grade é quem limita.
     capacidade = models.PositiveIntegerField(null=True, blank=True)
+    # Quantos atendimentos andam juntos (boxes, banhistas).
+    vagas = models.PositiveIntegerField(default=1)
 
     class Meta:
         ordering = ['dia']

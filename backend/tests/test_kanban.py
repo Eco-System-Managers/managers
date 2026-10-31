@@ -426,7 +426,9 @@ class TestAtendimentoKanbanAPI:
 
 @pytest.fixture
 def horario_segunda(patch_tenant_middleware):
-    # Segunda-feira = dia 0, com capacidade 3 em 3 horas → intervalo de 60 min
+    # Segunda-feira = dia 0, das 8h às 11h, até 3 no dia e 1 por vez. A grade
+    # anda de 15 em 15 min e segue a duração do serviço (30 min sem serviço):
+    # 08:00, 08:15, ... 10:30, onze horas de entrada.
     return HorarioFuncionamento.objects.create(
         dia=0, abertura='08:00', fechamento='11:00', ativo=True, capacidade=3
     )
@@ -434,13 +436,20 @@ def horario_segunda(patch_tenant_middleware):
 
 @pytest.mark.django_db
 class TestSlotService:
-    def test_gera_slots_corretos_para_dia_com_horario(self, horario_segunda):
+    def test_gera_a_grade_de_15_em_15_ate_onde_o_servico_cabe(self, horario_segunda):
         # 2026-06-15 é uma segunda-feira
         slots = SlotService().gerar_slots(date(2026, 6, 15))
-        assert len(slots) == 3
+        assert len(slots) == 11
         assert slots[0] == {'horario': '08:00', 'disponivel': True}
-        assert slots[1] == {'horario': '09:00', 'disponivel': True}
-        assert slots[2] == {'horario': '10:00', 'disponivel': True}
+        assert slots[1] == {'horario': '08:15', 'disponivel': True}
+        assert slots[-1] == {'horario': '10:30', 'disponivel': True}
+
+    def test_a_grade_segue_a_duracao_do_servico(self, horario_segunda, servico):
+        servico.duracao = 120
+        servico.save()
+        slots = SlotService().gerar_slots(date(2026, 6, 15), servico.pk)
+        # 09:00 + 2h = 11:00, o fechamento
+        assert slots[-1]['horario'] == '09:00'
 
     def test_retorna_vazio_para_dia_sem_horario(self, patch_tenant_middleware):
         # Nenhum HorarioFuncionamento cadastrado
@@ -452,23 +461,21 @@ class TestSlotService:
         slots = SlotService().gerar_slots(date(2026, 6, 15))
         assert slots == []
 
-    def test_retorna_vazio_sem_capacidade_definida(self, patch_tenant_middleware):
+    def test_sem_maximo_no_dia_a_grade_vem_inteira(self, patch_tenant_middleware):
         HorarioFuncionamento.objects.create(dia=0, abertura='08:00', fechamento='18:00', ativo=True, capacidade=None)
         slots = SlotService().gerar_slots(date(2026, 6, 15))
-        assert slots == []
+        assert slots[0]['horario'] == '08:00'
+        assert slots[-1]['horario'] == '17:30'
 
-    def test_marca_slot_ocupado_quando_ha_atendimento(self, patch_tenant_middleware, etapa, objeto, servico):
-        hoje = date.today()
-        HorarioFuncionamento.objects.create(
-            dia=hoje.weekday(), abertura='08:00', fechamento='11:00', ativo=True, capacidade=3
-        )
+    def test_a_hora_tomada_some_da_grade(self, horario_segunda, etapa, objeto, servico):
         AtendimentoKanban.objects.create(
-            etapa=etapa, objeto=objeto, servico=servico, horario_entrada=time(8, 0), data=hoje,
+            etapa=etapa, objeto=objeto, servico=servico, horario_entrada=time(8, 0), data=date(2026, 6, 15),
         )
-        slots = SlotService().gerar_slots(hoje)
-        assert slots[0] == {'horario': '08:00', 'disponivel': False}
-        assert slots[1]['disponivel'] is True
-        assert slots[2]['disponivel'] is True
+        horarios = [s['horario'] for s in SlotService().gerar_slots(date(2026, 6, 15))]
+        # o Banho de 30 min ocupa das 8:00 às 8:30
+        assert '08:00' not in horarios
+        assert '08:15' not in horarios
+        assert '08:30' in horarios
 
     def test_retorna_vazio_quando_fechamento_antes_da_abertura(self, patch_tenant_middleware):
         HorarioFuncionamento.objects.create(
@@ -477,21 +484,12 @@ class TestSlotService:
         slots = SlotService().gerar_slots(date(2026, 6, 15))
         assert slots == []
 
-    def test_retorna_vazio_quando_intervalo_calculado_e_zero(self, patch_tenant_middleware):
-        HorarioFuncionamento.objects.create(
-            dia=0, abertura='08:00', fechamento='08:01', ativo=True, capacidade=3
-        )
-        slots = SlotService().gerar_slots(date(2026, 6, 15))
-        assert slots == []
-
-    def test_loop_interrompido_quando_horario_ultrapassa_fechamento(self, patch_tenant_middleware):
-        # total_minutos=5, capacidade=6 → intervalo=round(5/6)=1, 6ª iteração quebra o loop
+    def test_servico_que_nao_cabe_no_expediente_nao_tem_hora(self, patch_tenant_middleware):
         HorarioFuncionamento.objects.create(
             dia=0, abertura='08:00', fechamento='08:05', ativo=True, capacidade=6
         )
         slots = SlotService().gerar_slots(date(2026, 6, 15))
-        assert len(slots) == 5
-        assert slots[0]['horario'] == '08:00'
+        assert slots == []
 
     def test_slot_de_outro_dia_nao_afeta_disponibilidade(self, horario_segunda, etapa, objeto, servico):
         # Atendimento agendado para terça (2026-06-16) não deve bloquear slots de segunda (2026-06-15)
@@ -499,7 +497,7 @@ class TestSlotService:
             etapa=etapa, objeto=objeto, servico=servico, horario_entrada=time(8, 0), data=date(2026, 6, 16),
         )
         slots = SlotService().gerar_slots(date(2026, 6, 15))
-        assert all(s['disponivel'] for s in slots)
+        assert len(slots) == 11
 
 
 # --- API Slots ---
@@ -522,7 +520,7 @@ class TestSlotsAPI:
     def test_retorna_slots_do_dia(self, client_autenticado, horario_segunda):
         response = client_autenticado.get('/api/v1/kanban/slots/?data=2026-06-15')
         assert response.status_code == 200
-        assert len(response.data) == 3
+        assert len(response.data) == 11
         assert response.data[0]['horario'] == '08:00'
         assert response.data[0]['disponivel'] is True
 

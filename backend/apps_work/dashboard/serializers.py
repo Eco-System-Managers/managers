@@ -51,8 +51,8 @@ class PontoDaSerieSerializer(serializers.Serializer):
 
 class AgendamentoHojeSerializer(serializers.Serializer):
     id = serializers.IntegerField()
-    cliente_nome = serializers.CharField()
-    cliente_telefone = serializers.CharField(help_text='Só dígitos; para o WhatsApp.')
+    cliente_nome = serializers.CharField(help_text='No avulso da esteira, a identificação ("Hilux branca").')
+    cliente_telefone = serializers.CharField(help_text='Só dígitos; para o WhatsApp. Vazio no avulso da esteira.')
     servico_nome = serializers.CharField()
     colaborador_nome = serializers.CharField(help_text='Vazio sem profissional.')
     hora = serializers.CharField(help_text='HH:MM')

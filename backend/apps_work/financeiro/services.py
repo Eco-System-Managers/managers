@@ -69,6 +69,76 @@ class SaldoService:
         )
 
 
+def _dinheiro(valor) -> str:
+    """Valor monetário no formato da API: string com duas casas ("12.50")."""
+    return str(Decimal(str(valor)).quantize(Decimal('0.01')))
+
+
+def conferir_total_da_cobranca(
+    total_servicos: Decimal,
+    desconto: Decimal,
+    acrescimo: Decimal,
+    pagamentos: list,
+    credito_aplicado: Decimal,
+) -> Decimal:
+    """O total a cobrar e a conferência da soma, iguais nos dois modos de agenda.
+
+    O total é o dos serviços (já depois da troca, se houve) mais o acréscimo
+    menos o desconto; o que o cliente entregou — os pagamentos mais o crédito
+    da comanda — tem de bater com ele (400 `soma_invalida`). Devolve o total.
+    """
+    total_esperado = (Decimal(total_servicos) + acrescimo - desconto).quantize(Decimal('0.01'))
+    total_pagamentos = sum((Decimal(str(p['valor'])) for p in pagamentos), Decimal('0'))
+    total_efetivo = (total_pagamentos + credito_aplicado).quantize(Decimal('0.01'))
+
+    if total_efetivo != total_esperado:
+        raise ValidationError({
+            'detail': f'A soma dos pagamentos (R$ {total_efetivo}) não bate com o total a cobrar (R$ {total_esperado}).',
+            'code': 'soma_invalida',
+        })
+    return total_esperado
+
+
+def snapshot_do_servico(servico, preco=None) -> dict:
+    """O serviço como o app do cliente guarda no agendamento dele: nome, nicho,
+    duração, preço e taxa, congelados, com o dinheiro em string. `preco` é o
+    cobrado quando difere do da tabela (o congelado da agenda)."""
+    return {
+        'nome': servico.nome,
+        'nicho': servico.nicho,
+        'duracao': servico.duracao,
+        'preco': _dinheiro(servico.preco if preco is None else preco),
+        'taxa_cancelamento': _dinheiro(servico.calcular_taxa_cancelamento()),
+    }
+
+
+def notificar_cobranca(
+    sender,
+    origem: str,
+    agendamento_id: int,
+    valor_total: Decimal,
+    acrescimo: Decimal,
+    acrescimo_motivo: str,
+    servicos: list[dict],
+) -> None:
+    """Avisa quem acompanha o atendimento de fora do tenant (o app do cliente)
+    do que a cobrança decidiu. Roda no fim do `cobrar` dos dois modos, e no
+    desfazer da esteira com o acréscimo zerado."""
+    from django.db import connection
+    from .signals import cobranca_registrada
+
+    cobranca_registrada.send(
+        sender=sender,
+        schema_name=connection.schema_name,
+        agendamento_id=agendamento_id,
+        origem=origem,
+        valor_total=valor_total,
+        acrescimo=acrescimo,
+        acrescimo_motivo=acrescimo_motivo,
+        servicos=servicos,
+    )
+
+
 def pagamentos_efetivados():
     """Pagamentos que contam como receita, nos dois modos de agenda.
 
@@ -118,7 +188,8 @@ class CaixaService:
             colaborador = p.atendimento.colaborador
             pagamentos.append({
                 'origem': OrigemAtendimento.KANBAN,
-                'cliente_nome': p.atendimento.objeto.cliente.nome,
+                # o avulso não tem cliente: entra pela identificação ("Hilux branca")
+                'cliente_nome': p.atendimento.rotulo,
                 'servico_nome': p.atendimento.servico.nome,
                 'colaborador_nome': colaborador.nome_exibido if colaborador else '',
                 'forma': p.forma,

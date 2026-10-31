@@ -28,8 +28,9 @@ def test_schemas_versionados_estao_atualizados(tmp_path):
     assert 'Error' not in saida and 'Warning' not in saida, saida
 
     for produto in ('workmanage', 'servicemanage'):
-        gerado = (tmp_path / f'{produto}.yaml').read_text()
-        versionado = (BACKEND / 'openapi' / f'{produto}.yaml').read_text()
+        # utf-8 explícito: no Windows o padrão é cp1252, que não lê "Água"
+        gerado = (tmp_path / f'{produto}.yaml').read_text(encoding='utf-8')
+        versionado = (BACKEND / 'openapi' / f'{produto}.yaml').read_text(encoding='utf-8')
         assert gerado == versionado, f'openapi/{produto}.yaml desatualizado: rode manage.py gerar_openapi'
 
 
@@ -42,7 +43,7 @@ def test_toda_action_de_viewset_tem_extend_schema():
 
     faltando = []
     for arquivo in BACKEND.glob('apps_*/**/views.py'):
-        for no in ast.walk(ast.parse(arquivo.read_text())):
+        for no in ast.walk(ast.parse(arquivo.read_text(encoding='utf-8'))):
             if not isinstance(no, ast.FunctionDef):
                 continue
             nomes = [

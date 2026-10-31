@@ -5,6 +5,7 @@ from django.utils import timezone
 from apps_work.agenda.signals import agendamento_status_alterado
 from apps_work.clientes.signals import cliente_servicemanage_removido
 from apps_work.empresa.signals import empresa_config_atualizada
+from apps_work.financeiro.signals import cobranca_registrada
 from apps_work.kanban.signals import atendimento_kanban_falta_alterada
 from apps_work.agenda.models import OrigemAtendimento, StatusAgendamento
 
@@ -88,7 +89,41 @@ def _on_atendimento_kanban_falta_alterada(sender, schema_name, atendimento_id, f
         )
 
 
+def _on_cobranca_registrada(
+    sender, schema_name, agendamento_id, origem, valor_total, acrescimo, acrescimo_motivo, servicos, **kwargs,
+):
+    """Espelha no schema público o que a cobrança decidiu: o serviço feito de
+    verdade (se foi trocado), o acréscimo com o motivo e o total cobrado.
+
+    É a exceção ao snapshot do agendamento: o combinado na hora de marcar dá
+    lugar ao que foi cobrado, para o cliente ver no app o mesmo que pagou no
+    balcão. Vale nos dois modos — `origem` diz qual tabela do tenant o id
+    aponta, e o filtro leva os dois para o id da esteira não bater num
+    agendamento da agenda. O do balcão não tem contraparte e não acha nada.
+    """
+    from apps_serv.consumidores.models import AgendamentoConsumidor
+
+    try:
+        AgendamentoConsumidor.objects.filter(
+            schema_name=schema_name,
+            agendamento_id=agendamento_id,
+            origem=origem,
+        ).update(
+            valor_total=valor_total,
+            acrescimo=acrescimo,
+            acrescimo_motivo=acrescimo_motivo,
+            servicos=servicos,
+        )
+    except Exception:
+        logger.warning(
+            'Falha ao espelhar a cobrança no schema público',
+            extra={'schema_name': schema_name, 'agendamento_id': agendamento_id, 'origem': origem},
+            exc_info=True,
+        )
+
+
 empresa_config_atualizada.connect(_on_empresa_config_atualizada)
 cliente_servicemanage_removido.connect(_on_cliente_servicemanage_removido)
 agendamento_status_alterado.connect(_on_agendamento_status_alterado)
 atendimento_kanban_falta_alterada.connect(_on_atendimento_kanban_falta_alterada)
+cobranca_registrada.connect(_on_cobranca_registrada)

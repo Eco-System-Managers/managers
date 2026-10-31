@@ -1,4 +1,5 @@
 from datetime import date as date_type
+from django.db.models import Q
 from rest_framework import mixins, viewsets, status as drf_status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -17,25 +18,45 @@ from .services import (
 )
 from apps_work.financeiro.serializers import CobrancaSerializer
 from core.excecoes import ErroDeNegocio, erro
-from core.permissions import exigir_poder_bloquear, exigir_poder_cobrar
+from core.permissions import eh_proprietario, exigir_poder_bloquear, exigir_poder_cobrar
+
+
+def exigir_poder_bloquear_em(request, colaborador_id: int | None) -> None:
+    """Quem pode criar ou excluir um bloqueio. Sem colaborador é o do negócio
+    inteiro — fecha a agenda de todos e a esteira —, então só o dono (403
+    sem_permissao). Com colaborador vale a regra da agenda individual
+    (`exigir_poder_bloquear`)."""
+    if colaborador_id is None:
+        if not eh_proprietario(request):
+            raise ErroDeNegocio('Só o proprietário fecha horários do negócio.', 'sem_permissao', 403)
+        return
+    exigir_poder_bloquear(request, colaborador_id)
 
 
 @extend_schema_view(
     list=extend_schema(
-        summary='Bloqueios da agenda',
+        summary='Bloqueios da agenda e do negócio',
         parameters=[
             OpenApiParameter('data', OpenApiTypes.DATE, description='Só os que valem neste dia (o fixo vale do início em diante).'),
-            OpenApiParameter('colaborador', OpenApiTypes.INT),
+            OpenApiParameter(
+                'colaborador', OpenApiTypes.INT,
+                description='Os que valem na agenda deste profissional: os dele e os do negócio (colaborador nulo).',
+            ),
         ],
     ),
     create=extend_schema(
-        summary='Bloquear um período da agenda',
+        summary='Bloquear um período da agenda ou do negócio',
         description=(
-            'O dono bloqueia a agenda de qualquer um; o parceiro, só a própria (403 sem_permissao_bloquear). '
+            'Com `colaborador`, a agenda de um profissional: o dono bloqueia a de qualquer um; o parceiro, só a '
+            'própria (403 sem_permissao_bloquear). Sem `colaborador` (nulo ou omitido), o negócio inteiro fecha '
+            'no período — a agenda de todos e a esteira —, e só o proprietário faz isso (403 sem_permissao). '
             'Recusado com 400 bloqueio_com_cliente quando há atendimento marcado dentro do período.'
         ),
     ),
-    destroy=extend_schema(summary='Excluir um bloqueio'),
+    destroy=extend_schema(
+        summary='Excluir um bloqueio',
+        description='O do negócio (colaborador nulo) só o proprietário exclui (403 sem_permissao).',
+    ),
 )
 class BloqueioViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
     """Sem editar: para mudar um bloqueio, a pessoa exclui e cria de novo."""
@@ -49,17 +70,19 @@ class BloqueioViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.Des
         try:
             qs = BloqueioService().do_dia(date_type.fromisoformat(data)) if data else Bloqueio.objects.all()
             if colaborador:
-                qs = qs.filter(colaborador_id=int(colaborador))
+                # o fechamento do negócio vale na agenda de todos: entra junto
+                qs = qs.filter(Q(colaborador_id=int(colaborador)) | Q(colaborador__isnull=True))
         except ValueError:
             raise ErroDeNegocio('Parâmetros inválidos: data (YYYY-MM-DD) e colaborador (número).', 'parametros_invalidos')
         return qs.select_related('colaborador__user')
 
     def perform_create(self, serializer):
-        exigir_poder_bloquear(self.request, serializer.validated_data['colaborador'].pk)
+        colaborador = serializer.validated_data.get('colaborador')
+        exigir_poder_bloquear_em(self.request, colaborador.pk if colaborador else None)
         serializer.instance = BloqueioService().criar(**serializer.validated_data)
 
     def perform_destroy(self, instance):
-        exigir_poder_bloquear(self.request, instance.colaborador_id)
+        exigir_poder_bloquear_em(self.request, instance.colaborador_id)
         instance.delete()
 
 
@@ -175,7 +198,15 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
         serializer.save()
         AgendamentoService().notificar_mudanca_de_status(serializer.instance, status_anterior)
 
-    @extend_schema(request=CobrancaSerializer, responses=AgendamentoSerializer, summary='Cobrar o atendimento')
+    @extend_schema(
+        request=CobrancaSerializer, responses=AgendamentoSerializer, summary='Cobrar o atendimento',
+        description=(
+            'Conclui o agendamento. O total é o dos serviços mais o acréscimo menos o desconto, e a soma dos '
+            'pagamentos com o crédito aplicado tem de bater com ele (400 soma_invalida). `servico_ids` troca os '
+            'serviços pelos que foram feitos de verdade, com o preço atual de cada um (400 servico_invalido se '
+            'algum não existe ou está inativo).'
+        ),
+    )
     @action(detail=True, methods=['post'])
     def cobrar(self, request, pk=None):
         exigir_poder_cobrar(request)
@@ -188,6 +219,9 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
             agendamento, dados['desconto'], dados['pagamentos'],
             credito_aplicado=dados['credito_aplicado'],
             troco_credito=dados['troco_credito'],
+            acrescimo=dados['acrescimo'],
+            acrescimo_motivo=dados['acrescimo_motivo'],
+            servico_ids=dados.get('servico_ids'),
         )
 
         return Response(AgendamentoSerializer(agendamento).data)

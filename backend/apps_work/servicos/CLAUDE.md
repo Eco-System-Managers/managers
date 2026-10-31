@@ -12,7 +12,7 @@ cliente final.
 | `models.py` | `Servico` — nome, duração, preço, quais colaboradores executam, e a taxa de cancelamento |
 | `serializers.py` | Validação de preço, duração, o teto da taxa e o nicho do serviço |
 | `views.py` | ViewSet. Escrita restrita ao proprietário; leitura liberada para colaborador. A lista filtra por `?search=`, `?ativo=`, `?colaborador=` e `?porte=` (os do porte e os sem porte), documentados no OpenAPI |
-| `services.py` | `conferir_porte`: a trava do serviço de um porte só (`servico_de_outro_porte`), usada pelo kanban e pelo agendamento do app do cliente |
+| `services.py` | `conferir_porte`: a trava do serviço de um porte só (`servico_de_outro_porte`), usada pelo kanban e pelo agendamento do app do cliente. `servicos_ativos`: os serviços de uma lista de ids, ativos, na ordem pedida e sem repetição (`servico_invalido`), usado pela troca de serviço na cobrança dos dois modos |
 | `urls.py` | Rotas sob `/api/v1/servicos/` |
 
 ## Tabela

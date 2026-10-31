@@ -9,12 +9,14 @@ paths:
       operationId: agenda_bloqueios_list
       description: 'Sem editar: para mudar um bloqueio, a pessoa exclui e cria de
         novo.'
-      summary: Bloqueios da agenda
+      summary: Bloqueios da agenda e do negócio
       parameters:
       - in: query
         name: colaborador
         schema:
           type: integer
+        description: 'Os que valem na agenda deste profissional: os dele e os do negócio
+          (colaborador nulo).'
       - in: query
         name: data
         schema:
@@ -76,10 +78,13 @@ paths:
                 $ref: '#/components/schemas/Erro'
     post:
       operationId: agenda_bloqueios_create
-      description: O dono bloqueia a agenda de qualquer um; o parceiro, só a própria
-        (403 sem_permissao_bloquear). Recusado com 400 bloqueio_com_cliente quando
-        há atendimento marcado dentro do período.
-      summary: Bloquear um período da agenda
+      description: 'Com `colaborador`, a agenda de um profissional: o dono bloqueia
+        a de qualquer um; o parceiro, só a própria (403 sem_permissao_bloquear). Sem
+        `colaborador` (nulo ou omitido), o negócio inteiro fecha no período — a agenda
+        de todos e a esteira —, e só o proprietário faz isso (403 sem_permissao).
+        Recusado com 400 bloqueio_com_cliente quando há atendimento marcado dentro
+        do período.'
+      summary: Bloquear um período da agenda ou do negócio
       tags:
       - agenda
       requestBody:
@@ -136,8 +141,7 @@ paths:
   /api/v1/agenda/bloqueios/{id}/:
     delete:
       operationId: agenda_bloqueios_destroy
-      description: 'Sem editar: para mudar um bloqueio, a pessoa exclui e cria de
-        novo.'
+      description: O do negócio (colaborador nulo) só o proprietário exclui (403 sem_permissao).
       summary: Excluir um bloqueio
       parameters:
       - in: path
@@ -703,6 +707,11 @@ paths:
   /api/v1/agendamentos/{id}/cobrar/:
     post:
       operationId: agendamentos_cobrar_create
+      description: Conclui o agendamento. O total é o dos serviços mais o acréscimo
+        menos o desconto, e a soma dos pagamentos com o crédito aplicado tem de bater
+        com ele (400 soma_invalida). `servico_ids` troca os serviços pelos que foram
+        feitos de verdade, com o preço atual de cada um (400 servico_invalido se algum
+        não existe ou está inativo).
       summary: Cobrar o atendimento
       parameters:
       - in: path
@@ -5404,7 +5413,8 @@ paths:
         name: cliente
         schema:
           type: integer
-        description: Só os atendimentos dos objetos deste cliente (o histórico).
+        description: Só os atendimentos dos objetos deste cliente (o histórico). O
+          avulso não tem cliente e fica de fora.
       - in: query
         name: colaborador
         schema:
@@ -5747,6 +5757,12 @@ paths:
   /api/v1/kanban/atendimentos/{id}/cobrar/:
     post:
       operationId: kanban_atendimentos_cobrar_create
+      description: 'O total é o do serviço mais o acréscimo menos o desconto, e a
+        soma dos pagamentos com o crédito aplicado tem de bater com ele (400 soma_invalida).
+        `servico_ids` troca o serviço pelo que foi feito de verdade: um id só (400
+        um_servico_so), do porte do veículo ou pet (400 servico_de_outro_porte), existente
+        e ativo (400 servico_invalido). O avulso não aceita crédito nem troco na comanda
+        (400 avulso_sem_credito).'
       summary: Cobrar o atendimento
       parameters:
       - in: path
@@ -5811,6 +5827,8 @@ paths:
   /api/v1/kanban/atendimentos/{id}/desfazer_cobranca/:
     post:
       operationId: kanban_atendimentos_desfazer_cobranca_create
+      description: Apaga os pagamentos e zera desconto e acréscimo. A troca de serviço
+        feita na cobrança fica.
       summary: Desfazer cobrança
       parameters:
       - in: path
@@ -5998,6 +6016,177 @@ paths:
               schema:
                 $ref: '#/components/schemas/AtendimentoKanban'
           description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/v1/kanban/capacidade/:
+    get:
+      operationId: kanban_capacidade_retrieve
+      description: |-
+        Quanto cabe num dia da esteira: o padrão da semana ou o ajuste da data
+        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono.
+      summary: Capacidade e ocupação de um dia
+      parameters:
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - kanban
+      security:
+      - workmanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapacidadeDoDia'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    put:
+      operationId: kanban_capacidade_update
+      description: |-
+        Quanto cabe num dia da esteira: o padrão da semana ou o ajuste da data
+        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono.
+      summary: Ajustar a capacidade só desta data
+      parameters:
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - kanban
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AjusteDoDiaRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AjusteDoDiaRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AjusteDoDiaRequestRequest'
+        required: true
+      security:
+      - workmanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapacidadeDoDia'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    delete:
+      operationId: kanban_capacidade_destroy
+      description: |-
+        Quanto cabe num dia da esteira: o padrão da semana ou o ajuste da data
+        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono.
+      summary: Voltar a data ao padrão da semana
+      parameters:
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - kanban
+      security:
+      - workmanageJWT: []
+      responses:
+        '204':
+          description: No response body
         '400':
           description: Requisição inválida ou regra de negócio violada.
           content:
@@ -6360,6 +6549,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+  /api/v1/kanban/etapas/{id}/pronto/:
+    post:
+      operationId: kanban_etapas_pronto_create
+      summary: Marcar esta etapa como a de pronto (desmarca a anterior)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Um valor inteiro único que identifica este Etapa.
+        required: true
+      tags:
+      - kanban
+      security:
+      - workmanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EtapaKanban'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
   /api/v1/kanban/etapas/reordenar/:
     post:
       operationId: kanban_etapas_reordenar_create
@@ -6424,6 +6665,18 @@ paths:
           type: string
           format: date
         required: true
+      - in: query
+        name: excluir
+        schema:
+          type: integer
+        description: 'O atendimento que está sendo remarcado: a grade não o conta
+          como ocupação.'
+      - in: query
+        name: servico
+        schema:
+          type: integer
+        description: 'O serviço que vai entrar: a grade só traz as horas em que a
+          duração dele cabe. Sem ele, 30 minutos. Serviço inexistente é 404.'
       tags:
       - kanban
       security:
@@ -7799,6 +8052,17 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        acrescimo:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          readOnly: true
+          description: O que o atendimento custou a mais, acertado na cobrança. Zero
+            sem acréscimo.
+        acrescimo_motivo:
+          type: string
+          readOnly: true
+          description: O motivo do acréscimo, que o cliente vê no app ("tempo excedido").
         observacoes:
           type: string
         criado_em:
@@ -7811,6 +8075,8 @@ components:
           type: integer
           nullable: true
       required:
+      - acrescimo
+      - acrescimo_motivo
       - cliente
       - cliente_nome
       - cliente_telefone
@@ -7827,9 +8093,10 @@ components:
           type: integer
         cliente_nome:
           type: string
+          description: No avulso da esteira, a identificação ("Hilux branca").
         cliente_telefone:
           type: string
-          description: Só dígitos; para o WhatsApp.
+          description: Só dígitos; para o WhatsApp. Vazio no avulso da esteira.
         servico_nome:
           type: string
         colaborador_nome:
@@ -7937,6 +8204,24 @@ components:
       required:
       - tem_pendentes
       - total
+    AjusteDoDiaRequestRequest:
+      type: object
+      description: |-
+        Os dois números sempre vêm: `capacidade` nula é "sem máximo" de
+        propósito, e omitida seria um "sem máximo" por acidente.
+      properties:
+        capacidade:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: O máximo do dia; null é sem máximo.
+        vagas:
+          type: integer
+          minimum: 1
+          description: Quantos atendimentos andam juntos.
+      required:
+      - capacidade
+      - vagas
     Assinatura:
       type: object
       properties:
@@ -7982,17 +8267,34 @@ components:
           readOnly: true
         objeto:
           type: integer
+          nullable: true
+          description: 'O veículo ou pet. Opcional: sem ele o atendimento é avulso
+            e a identificação é obrigatória (400 avulso_sem_identificacao com os dois
+            vazios).'
         objeto_detalhe:
           allOf:
           - $ref: '#/components/schemas/ObjetoCliente'
           readOnly: true
+          nullable: true
+          description: Nulo no avulso.
         cliente_nome:
           type: string
           readOnly: true
+          nullable: true
+          description: Nulo no avulso.
         cliente_telefone:
           type: string
           readOnly: true
           nullable: true
+          description: Nulo no avulso.
+        identificacao:
+          type: string
+          description: O texto que identifica o avulso no pátio ("Hilux branca", "ABC-1234").
+          maxLength: 80
+        avulso:
+          type: boolean
+          readOnly: true
+          description: 'true quando não há veículo nem pet: o atendimento é só a identificação.'
         servico:
           type: integer
         servico_nome:
@@ -8031,26 +8333,57 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        acrescimo:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          readOnly: true
+          description: O que o atendimento custou a mais, acertado na cobrança. Zero
+            sem acréscimo.
+        acrescimo_motivo:
+          type: string
+          readOnly: true
+          description: O motivo do acréscimo, que o cliente vê no app ("tempo excedido").
         pagamentos:
           type: array
           items:
             $ref: '#/components/schemas/PagamentoAtendimento'
           readOnly: true
+        minutos_extras:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: 'O tempo a mais previsto, em minutos. É do pátio: o preço não
+            muda.'
+        duracao_prevista:
+          type: integer
+          readOnly: true
+          description: 'Minutos: a duração do serviço mais o tempo a mais previsto.'
+        pronto_em:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: Quando o card chegou na etapa de pronto; nulo antes disso.
         criado_em:
           type: string
           format: date-time
           readOnly: true
       required:
+      - acrescimo
+      - acrescimo_motivo
+      - avulso
       - cliente_nome
       - cliente_telefone
       - colaborador_nome
       - criado_em
+      - duracao_prevista
       - etapa
       - etapa_nome
       - id
-      - objeto
       - objeto_detalhe
       - pagamentos
+      - pronto_em
       - servico
       - servico_duracao
       - servico_nome
@@ -8062,6 +8395,14 @@ components:
           type: integer
         objeto:
           type: integer
+          nullable: true
+          description: 'O veículo ou pet. Opcional: sem ele o atendimento é avulso
+            e a identificação é obrigatória (400 avulso_sem_identificacao com os dois
+            vazios).'
+        identificacao:
+          type: string
+          description: O texto que identifica o avulso no pátio ("Hilux branca", "ABC-1234").
+          maxLength: 80
         servico:
           type: integer
         colaborador:
@@ -8085,9 +8426,20 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        minutos_extras:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: 'O tempo a mais previsto, em minutos. É do pátio: o preço não
+            muda.'
+        ignorar_limite:
+          type: boolean
+          writeOnly: true
+          default: false
+          description: Recebe mesmo passando do máximo do dia ou sem vaga na hora
+            (o limite é aviso para o negócio).
       required:
       - etapa
-      - objeto
       - servico
     BlankEnum:
       enum:
@@ -8100,8 +8452,13 @@ components:
           readOnly: true
         colaborador:
           type: integer
+          nullable: true
+          description: 'De quem é a agenda bloqueada. Nulo (ou omitido) é o negócio
+            inteiro: vale para todos os profissionais e para a esteira. Só o proprietário
+            cria e exclui esse.'
         colaborador_nome:
           type: string
+          nullable: true
           readOnly: true
         data_inicio:
           type: string
@@ -8128,7 +8485,6 @@ components:
           format: date-time
           readOnly: true
       required:
-      - colaborador
       - colaborador_nome
       - criado_em
       - data_inicio
@@ -8138,6 +8494,10 @@ components:
       properties:
         colaborador:
           type: integer
+          nullable: true
+          description: 'De quem é a agenda bloqueada. Nulo (ou omitido) é o negócio
+            inteiro: vale para todos os profissionais e para a esteira. Só o proprietário
+            cria e exclui esse.'
         data_inicio:
           type: string
           format: date
@@ -8159,7 +8519,6 @@ components:
           type: string
           maxLength: 60
       required:
-      - colaborador
       - data_inicio
     CadastroRequest:
       type: object
@@ -8281,6 +8640,32 @@ components:
       - forma
       - percentual
       - total
+    CapacidadeDoDia:
+      type: object
+      description: Quanto cabe no dia e quanto já há nele.
+      properties:
+        data:
+          type: string
+          format: date
+        capacidade:
+          type: integer
+          nullable: true
+          description: O máximo de atendimentos no dia; nulo é sem máximo.
+        vagas:
+          type: integer
+          description: Quantos atendimentos andam juntos.
+        ajustado:
+          type: boolean
+          description: true quando a data tem um ajuste, fora do padrão da semana.
+        ocupados:
+          type: integer
+          description: Os atendimentos do dia, com ou sem hora; quem faltou não conta.
+      required:
+      - ajustado
+      - capacidade
+      - data
+      - ocupados
+      - vagas
     CategoriaEnum:
       enum:
       - aluguel
@@ -8448,12 +8833,37 @@ components:
 
         Antes cada view fazia `Decimal(str(...))` direto no corpo: valor inválido
         virava 500 (InvalidOperation). Aqui vira 400 com o campo apontado.
+
+        O total a cobrar é o dos serviços (depois da troca, se houve) mais o
+        acréscimo menos o desconto, e pagamentos + crédito aplicado têm de bater
+        com ele (`conferir_total_da_cobranca`, em services.py).
       properties:
         desconto:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
           default: '0.00'
+        acrescimo:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          default: '0.00'
+          description: 'Valor a mais no total, combinado com o cliente (ex.: tempo
+            excedido). Zero sem acréscimo.'
+        acrescimo_motivo:
+          type: string
+          default: ''
+          description: O motivo do acréscimo, que o cliente vê no app ("tempo excedido").
+          maxLength: 60
+        servico_ids:
+          type: array
+          items:
+            type: integer
+          description: 'Troca o serviço pelo que foi feito de verdade, na hora de
+            cobrar. Na esteira, um id só (400 um_servico_so), conferido com o porte
+            do veículo ou pet; na agenda, a lista substitui os serviços do agendamento,
+            com o preço atual de cada um. Inexistente ou inativo: 400 servico_invalido.
+            Sem o campo, cobra o serviço combinado.'
         pagamentos:
           type: array
           items:
@@ -9125,9 +9535,15 @@ components:
         cor:
           type: string
           maxLength: 7
+        pronto:
+          type: boolean
+          readOnly: true
+          description: A etapa em que o atendimento está pronto; as depois dela também
+            contam.
       required:
       - id
       - nome
+      - pronto
     EtapaKanbanRequest:
       type: object
       properties:
@@ -9219,6 +9635,13 @@ components:
           maximum: 2147483647
           minimum: 0
           nullable: true
+          description: 'Esteira: o máximo de atendimentos no dia, com ou sem hora.
+            Nulo é sem máximo.'
+        vagas:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: 'Esteira: quantos atendimentos andam juntos (boxes, banhistas).'
       required:
       - dia
       - dia_label
@@ -9246,6 +9669,13 @@ components:
           maximum: 2147483647
           minimum: 0
           nullable: true
+          description: 'Esteira: o máximo de atendimentos no dia, com ou sem hora.
+            Nulo é sem máximo.'
+        vagas:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: 'Esteira: quantos atendimentos andam juntos (boxes, banhistas).'
       required:
       - dia
     LinkAssinatura:
@@ -10006,6 +10436,14 @@ components:
           type: integer
         objeto:
           type: integer
+          nullable: true
+          description: 'O veículo ou pet. Opcional: sem ele o atendimento é avulso
+            e a identificação é obrigatória (400 avulso_sem_identificacao com os dois
+            vazios).'
+        identificacao:
+          type: string
+          description: O texto que identifica o avulso no pátio ("Hilux branca", "ABC-1234").
+          maxLength: 80
         servico:
           type: integer
         colaborador:
@@ -10029,6 +10467,18 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        minutos_extras:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: 'O tempo a mais previsto, em minutos. É do pátio: o preço não
+            muda.'
+        ignorar_limite:
+          type: boolean
+          writeOnly: true
+          default: false
+          description: Recebe mesmo passando do máximo do dia ou sem vaga na hora
+            (o limite é aviso para o negócio).
     PatchedClienteRequest:
       type: object
       properties:
@@ -10259,6 +10709,13 @@ components:
           maximum: 2147483647
           minimum: 0
           nullable: true
+          description: 'Esteira: o máximo de atendimentos no dia, com ou sem hora.
+            Nulo é sem máximo.'
+        vagas:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: 'Esteira: quantos atendimentos andam juntos (boxes, banhistas).'
     PatchedModeloContratoRequest:
       type: object
       properties:
@@ -10290,7 +10747,7 @@ components:
           maxLength: 100
         porte:
           oneOf:
-          - $ref: '#/components/schemas/PetPorteEnum'
+          - $ref: '#/components/schemas/PortePetEnum'
           - $ref: '#/components/schemas/BlankEnum'
         data_nascimento:
           type: string
@@ -10336,7 +10793,7 @@ components:
             * `grande` - Grande (25 a 45 kg)
             * `gigante` - Gigante (acima de 45 kg)
           oneOf:
-          - $ref: '#/components/schemas/ServicoPorteEnum'
+          - $ref: '#/components/schemas/PorteServicoEnum'
           - $ref: '#/components/schemas/BlankEnum'
         descricao:
           type: string
@@ -10386,7 +10843,7 @@ components:
           maxLength: 50
         porte:
           oneOf:
-          - $ref: '#/components/schemas/VeiculoPorteEnum'
+          - $ref: '#/components/schemas/PorteVeiculoEnum'
           - $ref: '#/components/schemas/BlankEnum'
     PendenciaCobranca:
       type: object
@@ -10401,8 +10858,11 @@ components:
           format: date
         cliente_id:
           type: integer
+          nullable: true
+          description: Nulo no avulso da esteira, que não tem cliente.
         cliente_nome:
           type: string
+          description: No avulso da esteira, a identificação ("Hilux branca").
         servico_nome:
           type: string
         valor:
@@ -10478,7 +10938,7 @@ components:
           maxLength: 100
         porte:
           oneOf:
-          - $ref: '#/components/schemas/PetPorteEnum'
+          - $ref: '#/components/schemas/PortePetEnum'
           - $ref: '#/components/schemas/BlankEnum'
         data_nascimento:
           type: string
@@ -10494,18 +10954,6 @@ components:
       - id
       - nome
       - porte
-    PetPorteEnum:
-      enum:
-      - pequeno
-      - medio
-      - grande
-      - gigante
-      type: string
-      description: |-
-        * `pequeno` - Pequeno (até 10 kg)
-        * `medio` - Médio (10 a 25 kg)
-        * `grande` - Grande (25 a 45 kg)
-        * `gigante` - Gigante (acima de 45 kg)
     PetRequest:
       type: object
       properties:
@@ -10523,7 +10971,7 @@ components:
           maxLength: 100
         porte:
           oneOf:
-          - $ref: '#/components/schemas/PetPorteEnum'
+          - $ref: '#/components/schemas/PortePetEnum'
           - $ref: '#/components/schemas/BlankEnum'
         data_nascimento:
           type: string
@@ -10551,6 +10999,54 @@ components:
       - atendimentos
       - data
       - faturamento
+    PortePetEnum:
+      enum:
+      - pequeno
+      - medio
+      - grande
+      - gigante
+      type: string
+      description: |-
+        * `pequeno` - Pequeno (até 10 kg)
+        * `medio` - Médio (10 a 25 kg)
+        * `grande` - Grande (25 a 45 kg)
+        * `gigante` - Gigante (acima de 45 kg)
+    PorteServicoEnum:
+      enum:
+      - moto
+      - carro
+      - suv
+      - van
+      - caminhao
+      - pequeno
+      - medio
+      - grande
+      - gigante
+      type: string
+      description: |-
+        * `moto` - Moto
+        * `carro` - Carro
+        * `suv` - SUV ou caminhonete
+        * `van` - Van
+        * `caminhao` - Caminhão
+        * `pequeno` - Pequeno (até 10 kg)
+        * `medio` - Médio (10 a 25 kg)
+        * `grande` - Grande (25 a 45 kg)
+        * `gigante` - Gigante (acima de 45 kg)
+    PorteVeiculoEnum:
+      enum:
+      - moto
+      - carro
+      - suv
+      - van
+      - caminhao
+      type: string
+      description: |-
+        * `moto` - Moto
+        * `carro` - Carro
+        * `suv` - SUV ou caminhonete
+        * `van` - Van
+        * `caminhao` - Caminhão
     RankingServico:
       type: object
       properties:
@@ -10680,7 +11176,7 @@ components:
             * `grande` - Grande (25 a 45 kg)
             * `gigante` - Gigante (acima de 45 kg)
           oneOf:
-          - $ref: '#/components/schemas/ServicoPorteEnum'
+          - $ref: '#/components/schemas/PorteServicoEnum'
           - $ref: '#/components/schemas/BlankEnum'
         descricao:
           type: string
@@ -10712,28 +11208,6 @@ components:
       - id
       - nome
       - preco
-    ServicoPorteEnum:
-      enum:
-      - moto
-      - carro
-      - suv
-      - van
-      - caminhao
-      - pequeno
-      - medio
-      - grande
-      - gigante
-      type: string
-      description: |-
-        * `moto` - Moto
-        * `carro` - Carro
-        * `suv` - SUV ou caminhonete
-        * `van` - Van
-        * `caminhao` - Caminhão
-        * `pequeno` - Pequeno (até 10 kg)
-        * `medio` - Médio (10 a 25 kg)
-        * `grande` - Grande (25 a 45 kg)
-        * `gigante` - Gigante (acima de 45 kg)
     ServicoRequest:
       type: object
       properties:
@@ -10774,7 +11248,7 @@ components:
             * `grande` - Grande (25 a 45 kg)
             * `gigante` - Gigante (acima de 45 kg)
           oneOf:
-          - $ref: '#/components/schemas/ServicoPorteEnum'
+          - $ref: '#/components/schemas/PorteServicoEnum'
           - $ref: '#/components/schemas/BlankEnum'
         descricao:
           type: string
@@ -10991,7 +11465,7 @@ components:
           maxLength: 50
         porte:
           oneOf:
-          - $ref: '#/components/schemas/VeiculoPorteEnum'
+          - $ref: '#/components/schemas/PorteVeiculoEnum'
           - $ref: '#/components/schemas/BlankEnum'
         criado_em:
           type: string
@@ -11006,20 +11480,6 @@ components:
       - modelo
       - placa
       - porte
-    VeiculoPorteEnum:
-      enum:
-      - moto
-      - carro
-      - suv
-      - van
-      - caminhao
-      type: string
-      description: |-
-        * `moto` - Moto
-        * `carro` - Carro
-        * `suv` - SUV ou caminhonete
-        * `van` - Van
-        * `caminhao` - Caminhão
     VeiculoRequest:
       type: object
       properties:
@@ -11043,7 +11503,7 @@ components:
           maxLength: 50
         porte:
           oneOf:
-          - $ref: '#/components/schemas/VeiculoPorteEnum'
+          - $ref: '#/components/schemas/PorteVeiculoEnum'
           - $ref: '#/components/schemas/BlankEnum'
       required:
       - cliente
