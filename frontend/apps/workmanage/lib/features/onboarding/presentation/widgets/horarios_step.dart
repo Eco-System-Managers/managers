@@ -5,8 +5,8 @@ import 'package:managers/features/empresa/presentation/widgets/horario_dia_card.
 import '../providers/wizard_provider.dart';
 
 // step 3: os dias e horários de trabalho, com os mesmos cards das
-// configurações. para agenda kanban, cada dia aberto pede também a
-// capacidade (quantos atendimentos o negócio dá conta no dia)
+// configurações. na esteira, cada dia aberto tem também os próprios números:
+// o máximo no dia e o ao mesmo tempo
 class HorariosStep extends StatelessWidget {
   const HorariosStep({super.key, required this.provider});
 
@@ -19,11 +19,19 @@ class HorariosStep extends StatelessWidget {
       children: [
         Text(
           provider.isKanban
-              ? 'Marque os dias abertos, o horário e quantos atendimentos '
-                    'cabem em cada dia.'
+              ? 'Marque os dias abertos, o horário e quanto cabe em cada dia.'
               : 'Marque os dias abertos e o horário de cada um.',
           style: Theme.of(context).textTheme.bodyMedium
               ?.copyWith(color: BrandColors.of(context).inkMuted),
+        ),
+
+        const SizedBox(height: BrandSpacing.space3),
+
+        // acerta o primeiro dia e copia para os outros
+        RepetirDiaButton(
+          primeiroDiaAberto: provider.primeiroDiaAberto,
+          enabled: !provider.isLoading,
+          onPressed: provider.repetirPrimeiroDiaNosOutros,
         ),
 
         const SizedBox(height: BrandSpacing.space4),
@@ -36,6 +44,11 @@ class HorariosStep extends StatelessWidget {
             enabled: !provider.isLoading,
             onChanged: provider.atualizarHorario,
           ),
+          const SizedBox(height: BrandSpacing.space3),
+        ],
+
+        if (provider.isKanban) ...[
+          const AjudaDosNumeros(),
           const SizedBox(height: BrandSpacing.space3),
         ],
 
