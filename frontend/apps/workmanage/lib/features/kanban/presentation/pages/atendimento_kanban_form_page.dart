@@ -239,10 +239,14 @@ class _AtendimentoKanbanFormPageState
                 'Informe como reconhecer o atendimento',
               ),
               forceErrorText: provider.erroDoCampo('identificacao'),
-              decoration: const InputDecoration(
+              // o exemplo fala a língua do negócio: carro no lava-rápido,
+              // pet no banho e tosa
+              decoration: InputDecoration(
                 labelText: 'Identificação',
-                hintText: 'Hilux branca, ABC-1234',
-                prefixIcon: Icon(Icons.label_outline_rounded),
+                hintText: veiculo
+                    ? 'Hilux branca, ABC-1234'
+                    : 'Poodle branco, Rex da Ana',
+                prefixIcon: const Icon(Icons.label_outline_rounded),
               ),
             )
           else ...[
