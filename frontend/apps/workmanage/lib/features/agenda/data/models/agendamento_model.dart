@@ -48,6 +48,8 @@ class AgendamentoModel {
               ''] ??
           StatusAgendamento.agendado,
       desconto: dinheiroDaApi(json['desconto'] as String? ?? '0'),
+      acrescimo: dinheiroDaApi(json['acrescimo'] as String? ?? '0'),
+      acrescimoMotivo: json['acrescimo_motivo'] as String? ?? '',
       observacoes: json['observacoes'] as String? ?? '',
       servicos: servicos,
       pagamentos: pagamentos,

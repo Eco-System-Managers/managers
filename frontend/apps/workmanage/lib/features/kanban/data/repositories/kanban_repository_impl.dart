@@ -6,6 +6,7 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../../domain/entities/atendimento_kanban.dart';
+import '../../domain/entities/capacidade_do_dia.dart';
 import '../../domain/entities/etapa.dart';
 import '../../domain/params/kanban_params.dart';
 import '../../domain/repositories/kanban_repository.dart';
@@ -44,6 +45,11 @@ class KanbanRepositoryImpl implements KanbanRepository {
   @override
   Future<Either<Failure, void>> reordenarEtapas(List<int> ids) =>
       _executar(() => _remoteDataSource.reordenarEtapas(ids));
+
+  @override
+  Future<Either<Failure, Etapa>> marcarEtapaPronto(int id) => _executar(
+    () async => (await _remoteDataSource.marcarEtapaPronto(id)).toEntity(),
+  );
 
   @override
   Future<Either<Failure, List<AtendimentoKanban>>> listarDoDia(
@@ -90,6 +96,26 @@ class KanbanRepositoryImpl implements KanbanRepository {
   }
 
   @override
+  Future<Either<Failure, AtendimentoKanban>> remarcar(
+    RemarcarAtendimentoKanbanParams params,
+  ) => _executar(
+    () async => (await _remoteDataSource.remarcar(params)).toEntity(),
+  );
+
+  @override
+  Future<Either<Failure, AtendimentoKanban>> ajustarTempo(
+    AjustarTempoParams params,
+  ) {
+    return _executar(() async {
+      final model = await _remoteDataSource.ajustarTempo(
+        params.id,
+        params.minutosExtras,
+      );
+      return model.toEntity();
+    });
+  }
+
+  @override
   Future<Either<Failure, AtendimentoKanban>> cobrar(CobrancaParams params) =>
       _executar(
         () async => (await _remoteDataSource.cobrar(params)).toEntity(),
@@ -116,8 +142,33 @@ class KanbanRepositoryImpl implements KanbanRepository {
       _executar(() => _remoteDataSource.remover(id));
 
   @override
-  Future<Either<Failure, List<Hora>>> slots(DateTime data) =>
-      _executar(() => _remoteDataSource.slots(data));
+  Future<Either<Failure, List<Hora>>> slots(SlotsKanbanParams params) =>
+      _executar(
+        () => _remoteDataSource.slots(
+          params.data,
+          servicoId: params.servicoId,
+          excluirId: params.excluirId,
+        ),
+      );
+
+  @override
+  Future<Either<Failure, CapacidadeDoDia>> capacidadeDoDia(DateTime data) =>
+      _executar(
+        () async => (await _remoteDataSource.capacidadeDoDia(data)).toEntity(),
+      );
+
+  @override
+  Future<Either<Failure, CapacidadeDoDia>> ajustarCapacidade(
+    AjustarCapacidadeParams params,
+  ) => _executar(
+    () async => (await _remoteDataSource.ajustarCapacidade(params)).toEntity(),
+  );
+
+  @override
+  Future<Either<Failure, CapacidadeDoDia>> desfazerAjuste(DateTime data) =>
+      _executar(
+        () async => (await _remoteDataSource.desfazerAjuste(data)).toEntity(),
+      );
 
   // o try/catch é igual em todos os métodos: fica num lugar só
   Future<Either<Failure, T>> _executar<T>(Future<T> Function() acao) async {

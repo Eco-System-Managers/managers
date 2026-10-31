@@ -8,6 +8,7 @@ import 'package:managers/core/compartilhar/whatsapp.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
+import 'package:managers/core/utils/texto.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/brand_logo.dart';
 import 'package:managers/core/widgets/carregando.dart';

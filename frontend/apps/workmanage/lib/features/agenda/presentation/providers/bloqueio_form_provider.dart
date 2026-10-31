@@ -13,13 +13,15 @@ import '../../domain/usecases/agenda_use_cases.dart';
 // estado do formulário de bloqueio (montado em agenda_provider.dart, na raiz
 // da feature): de quem, o período (um dia, uma semana, um mês ou fixo), o
 // início e a faixa de horário ou o dia inteiro. começa no almoço, 12h às 13h,
-// o bloqueio mais comum
+// o bloqueio mais comum. no modo do negócio (a esteira) não há profissional:
+// o período fecha para marcar no negócio inteiro
 class BloqueioFormProvider extends ChangeNotifier {
   BloqueioFormProvider({
     required this._listarColaboradores,
     required this._criar,
     this.somenteColaboradorId,
     this.colaboradorInicialId,
+    this.doNegocio = false,
     DateTime? dataInicial,
     DateTime? hoje,
   }) : _hoje = somenteData(hoje ?? DateTime.now()),
@@ -35,6 +37,10 @@ class BloqueioFormProvider extends ChangeNotifier {
   // fixo nele. null para o dono, que escolhe
   final int? somenteColaboradorId;
   final int? colaboradorInicialId;
+
+  // o bloqueio do negócio inteiro, sem profissional (só o proprietário, e
+  // quem monta o provider já conferiu). a equipe nem é carregada
+  final bool doNegocio;
 
   final DateTime _hoje;
 
@@ -96,6 +102,13 @@ class BloqueioFormProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
+    // o negócio inteiro não escolhe profissional: nada a buscar
+    if (doNegocio) {
+      _carregado = true;
+      notifyListeners();
+      return;
+    }
+
     final result = await _listarColaboradores(NoParams());
     if (_disposed) return;
 
@@ -143,10 +156,10 @@ class BloqueioFormProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // a tela já conferiu o profissional e a faixa de horário
+  // a tela já conferiu o profissional (quando há) e a faixa de horário
   Future<void> salvar({String motivo = ''}) async {
     final colaborador = _colaborador;
-    if (colaborador == null || !horarioValido) return;
+    if ((!doNegocio && colaborador == null) || !horarioValido) return;
 
     _isLoading = true;
     _errorMessage = null;
@@ -155,7 +168,7 @@ class BloqueioFormProvider extends ChangeNotifier {
 
     final result = await _criar(
       NovoBloqueioParams(
-        colaboradorId: colaborador.id,
+        colaboradorId: doNegocio ? null : colaborador?.id,
         dataInicio: _dataInicio,
         dataFim: dataFim,
         horaInicio: _diaInteiro ? null : _horaInicio,
@@ -189,13 +202,19 @@ class BloqueioFormProvider extends ChangeNotifier {
   }
 }
 
-// com o que o formulário abre: o dia e o profissional abertos na agenda
+// com o que o formulário abre: o dia e o profissional abertos na agenda, ou
+// o dia aberto no quadro, para fechar o horário do negócio inteiro
 class BloqueioFormArgs extends Equatable {
-  const BloqueioFormArgs({this.data, this.colaboradorId});
+  const BloqueioFormArgs({
+    this.data,
+    this.colaboradorId,
+    this.doNegocio = false,
+  });
 
   final DateTime? data;
   final int? colaboradorId;
+  final bool doNegocio;
 
   @override
-  List<Object?> get props => [data, colaboradorId];
+  List<Object?> get props => [data, colaboradorId, doNegocio];
 }

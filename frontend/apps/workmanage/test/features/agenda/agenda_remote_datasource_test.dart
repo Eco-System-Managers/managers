@@ -9,7 +9,11 @@ import 'package:managers/features/financeiro/domain/params/cobranca_params.dart'
 
 import '../../helpers/fake_adapter.dart';
 
-Map<String, dynamic> _agendamentoJson(int id, {String status = 'agendado'}) => {
+Map<String, dynamic> _agendamentoJson(
+  int id, {
+  String status = 'agendado',
+  String acrescimo = '0.00',
+}) => {
   'id': id,
   'cliente': 7,
   'cliente_nome': 'Ana Silva',
@@ -19,6 +23,8 @@ Map<String, dynamic> _agendamentoJson(int id, {String status = 'agendado'}) => {
   'data_hora': '2026-10-25T10:30:00-03:00',
   'status': status,
   'desconto': '0.00',
+  'acrescimo': acrescimo,
+  'acrescimo_motivo': acrescimo == '0.00' ? '' : 'Serviço extra',
   'observacoes': 'Sem máquina',
   'criado_em': '2026-10-20T10:00:00-03:00',
   'servicos': [
@@ -113,6 +119,15 @@ void main() {
     expect(a.colaboradorNome, 'Bia');
   });
 
+  test('o model lê o acréscimo e o soma no total', () {
+    final a = AgendamentoModel.fromJson(_agendamentoJson(1, acrescimo: '10.00'))
+        .toEntity();
+
+    expect(a.acrescimo, Decimal.parse('10.00'));
+    expect(a.acrescimoMotivo, 'Serviço extra');
+    expect(a.valorTotal, Decimal.parse('55.50'));
+  });
+
   test(
     'criar manda o JSON do contrato, com servico_id e a data com fuso',
     () async {
@@ -187,6 +202,8 @@ void main() {
     expect(requisicao.path, 'agendamentos/3/cobrar/');
     expect(requisicao.data, {
       'desconto': '0.00',
+      'acrescimo': '0.00',
+      'acrescimo_motivo': '',
       'pagamentos': [
         {'forma': 'qr_code', 'valor': '40.50'},
         {'forma': 'dinheiro', 'valor': '5.00'},
@@ -338,6 +355,36 @@ void main() {
         });
       },
     );
+
+    test('o bloqueio do negócio vem e vai com o colaborador nulo', () async {
+      final fechado = {
+        ...almoco,
+        'id': 8,
+        'colaborador': null,
+        'colaborador_nome': null,
+      };
+      final adapter = FakeAdapter((_) async => respostaJson(201, fechado));
+      final datasource = AgendaRemoteDataSourceImpl(dioDeTeste(adapter));
+
+      final criado = await datasource.criarBloqueio(
+        NovoBloqueioParams(
+          dataInicio: DateTime(2026, 11, 3),
+          dataFim: DateTime(2026, 11, 3),
+          horaInicio: (hora: 12, minuto: 0),
+          horaFim: (hora: 13, minuto: 0),
+          motivo: 'Almoço',
+        ),
+      );
+
+      final corpo = adapter.requisicoes.single.data as Map<String, dynamic>;
+      // null explícito: é assim que a API sabe que é do negócio inteiro
+      expect(corpo.containsKey('colaborador'), isTrue);
+      expect(corpo['colaborador'], isNull);
+      final b = criado.toEntity();
+      expect(b.doNegocio, isTrue);
+      expect(b.colaboradorId, isNull);
+      expect(b.colaboradorNome, '');
+    });
 
     test('excluirBloqueio faz DELETE no id', () async {
       final adapter = FakeAdapter((_) async => respostaJson(204, null));

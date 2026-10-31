@@ -4,6 +4,9 @@ import 'package:managers/core/error/failures.dart';
 import 'package:managers/features/financeiro/domain/entities/saldo_cliente.dart';
 import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 import 'package:managers/features/financeiro/domain/usecases/financeiro_use_cases.dart';
+import 'package:managers/features/servicos/domain/entities/servico.dart';
+import 'package:managers/features/servicos/domain/params/listar_servicos_params.dart';
+import 'package:managers/features/servicos/domain/usecases/listar_servicos_use_case.dart';
 
 import '../../domain/entities/agendamento.dart';
 import '../../domain/entities/slot.dart';
@@ -22,6 +25,7 @@ class AgendamentoProvider extends ChangeNotifier {
     required this._cobrar,
     required this._listarSlots,
     required this._obterSaldo,
+    this._listarServicos,
   });
 
   final int id;
@@ -32,8 +36,13 @@ class AgendamentoProvider extends ChangeNotifier {
   final ListarSlotsUseCase _listarSlots;
   final ObterSaldoClienteUseCase _obterSaldo;
 
+  // o catálogo, para a cobrança trocar o serviço pelo que foi feito de
+  // verdade. opcional: sem ele a cobrança não oferece a troca
+  final ListarServicosUseCase? _listarServicos;
+
   Agendamento? _agendamento;
   SaldoCliente? _saldo;
+  List<Servico> _servicos = const [];
   bool _isLoading = false;
   Failure? _erroAoCarregar;
   String? _errorMessage;
@@ -57,12 +66,16 @@ class AgendamentoProvider extends ChangeNotifier {
   // true depois de cancelar: a tela fecha, o dia não lista cancelados
   bool get cancelado => _cancelado;
 
+  // os serviços ativos, pelos quais a cobrança pode trocar o combinado.
+  // vazio sem catálogo carregado
+  List<Servico> get servicosParaTrocar => _servicos;
+
   Future<void> carregar() async {
     _isLoading = true;
     _erroAoCarregar = null;
     notifyListeners();
 
-    final result = await _obter(id);
+    final (result, _) = await (_obter(id), _carregarServicos()).wait;
     if (_disposed) return;
 
     await result.fold((failure) async => _erroAoCarregar = failure, (a) async {
@@ -78,6 +91,15 @@ class AgendamentoProvider extends ChangeNotifier {
   Future<void> _carregarSaldo(int clienteId) async {
     final result = await _obterSaldo(clienteId);
     result.fold((_) => _saldo = null, (s) => _saldo = s);
+  }
+
+  // o catálogo ativo, para a troca na cobrança. falhou (ou não há use case),
+  // a ficha segue sem a troca
+  Future<void> _carregarServicos() async {
+    final listar = _listarServicos;
+    if (listar == null) return;
+    final result = await listar(const ListarServicosParams(ativo: true));
+    result.fold((_) {}, (lista) => _servicos = lista);
   }
 
   Future<void> alterarStatus(StatusAgendamento status) async {

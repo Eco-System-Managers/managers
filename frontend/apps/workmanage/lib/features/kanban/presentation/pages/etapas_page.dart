@@ -5,15 +5,19 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/folha.dart';
+import 'package:managers/core/widgets/selo_de_status.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../domain/entities/etapa.dart';
 import '../../kanban_provider.dart';
+import '../providers/etapas_provider.dart';
 import '../widgets/cor_da_etapa.dart';
 
 // as colunas do quadro, para o proprietário: renomear, trocar a cor,
-// arrastar para reordenar, criar e remover. a ordem define o status que o
-// cliente vê no app dele (primeira = aguardando, última = concluído)
+// arrastar para reordenar, criar, remover e marcar qual é a de pronto. a
+// primeira é onde o atendimento entra ("aguardando" para o cliente); a de
+// pronto libera a vaga e avisa o cliente, e as depois dela também contam
+// como pronto
 class EtapasPage extends ConsumerStatefulWidget {
   const EtapasPage({super.key});
 
@@ -51,11 +55,23 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
     await ref.read(etapasProvider).remover(etapa.id);
   }
 
+  // o que a etapa significa, pela posição: entrada, pronto (ou depois) ou o
+  // meio do caminho
+  String _papel(EtapasProvider provider, Etapa etapa, int index) {
+    if (index == 0) return 'Entrada (aguardando)';
+    if (provider.ehDePronto(etapa)) {
+      return 'Pronto: libera a vaga e avisa o cliente';
+    }
+    if (provider.ehDepoisDePronto(etapa)) return 'Depois de pronto';
+    return 'Em atendimento';
+  }
+
   @override
   Widget build(BuildContext context) {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
     final provider = ref.watch(etapasProvider);
     final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
     return ListenableBuilder(
@@ -90,7 +106,9 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
                       ),
                       child: Text(
                         'Arraste para mudar a ordem. A primeira coluna é onde '
-                        'o atendimento entra; a última é a de concluído.',
+                        'o atendimento entra. A etapa de pronto libera a vaga '
+                        'e avisa o cliente; as que vêm depois dela também '
+                        'contam como pronto.',
                         style: textos.bodyMedium?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
@@ -135,36 +153,60 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
                         ),
                         itemBuilder: (context, index) {
                           final etapa = provider.etapas[index];
+                          final pronto = provider.ehDePronto(etapa);
                           return ListTile(
                             key: ValueKey(etapa.id),
                             leading: CircleAvatar(
                               radius: 10,
                               backgroundColor: corDaEtapa(etapa.cor, colors),
                             ),
-                            title: Text(etapa.nome),
-                            subtitle: Text(
-                              index == 0
-                                  ? 'Entrada (aguardando)'
-                                  : index == provider.etapas.length - 1
-                                  ? 'Saída (concluído)'
-                                  : 'Em atendimento',
+                            title: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    etapa.nome,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                // pronto é concluído: success
+                                if (pronto) ...[
+                                  const SizedBox(width: BrandSpacing.space2),
+                                  SeloDeStatus(
+                                    texto: 'Pronto',
+                                    cor: cores.success,
+                                    icone: Icons.check_circle_outline_rounded,
+                                  ),
+                                ],
+                              ],
                             ),
+                            subtitle: Text(_papel(provider, etapa, index)),
+                            onTap: () => _editar(etapa),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                IconButton(
-                                  tooltip: 'Editar',
-                                  icon: const Icon(
-                                    Icons.mode_edit_outline_rounded,
-                                  ),
-                                  onPressed: () => _editar(etapa),
-                                ),
-                                IconButton(
-                                  tooltip: 'Remover',
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                  ),
-                                  onPressed: () => _remover(etapa),
+                                PopupMenuButton<_AcaoDaEtapa>(
+                                  tooltip: 'Mais ações',
+                                  onSelected: (acao) => switch (acao) {
+                                    _AcaoDaEtapa.editar => _editar(etapa),
+                                    _AcaoDaEtapa.pronto =>
+                                      provider.marcarPronto(etapa.id),
+                                    _AcaoDaEtapa.remover => _remover(etapa),
+                                  },
+                                  itemBuilder: (_) => [
+                                    const PopupMenuItem(
+                                      value: _AcaoDaEtapa.editar,
+                                      child: Text('Editar'),
+                                    ),
+                                    if (!pronto)
+                                      const PopupMenuItem(
+                                        value: _AcaoDaEtapa.pronto,
+                                        child: Text('Marcar como pronto'),
+                                      ),
+                                    const PopupMenuItem(
+                                      value: _AcaoDaEtapa.remover,
+                                      child: Text('Remover'),
+                                    ),
+                                  ],
                                 ),
                                 ReorderableDragStartListener(
                                   index: index,
@@ -188,6 +230,9 @@ class _EtapasPageState extends ConsumerState<EtapasPage> {
     );
   }
 }
+
+// o menu de uma etapa: editar, marcar como pronto e remover
+enum _AcaoDaEtapa { editar, pronto, remover }
 
 // nome e cor de uma etapa, nova ou existente
 class _EtapaFormSheet extends ConsumerStatefulWidget {

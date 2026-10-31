@@ -82,9 +82,30 @@ const nomesDosMeses = [
 // na ordem de DateTime.weekday (segunda = 1)
 const nomesCurtosDosDias = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 
+// como se fala: "quinta", "sábado" (sem o "-feira")
+const nomesDosDias = [
+  'segunda',
+  'terça',
+  'quarta',
+  'quinta',
+  'sexta',
+  'sábado',
+  'domingo',
+];
+
 String nomeDoMes(int mes) => nomesDosMeses[mes - 1];
 
 String nomeCurtoDoDia(DateTime d) => nomesCurtosDosDias[d.weekday - 1];
+
+String nomeDoDiaDaSemana(DateTime d) => nomesDosDias[d.weekday - 1];
+
+// uma duração em minutos como se fala: "40 min", "1 h", "1h30", "2 h"
+String formatarDuracao(int minutos) {
+  if (minutos < 60) return '$minutos min';
+  final horas = minutos ~/ 60;
+  final resto = minutos % 60;
+  return resto == 0 ? '$horas h' : '${horas}h${_doisDigitos(resto)}';
+}
 
 // "outubro de 2026"
 String formatarMesAno(DateTime d) => '${nomeDoMes(d.month)} de ${d.year}';

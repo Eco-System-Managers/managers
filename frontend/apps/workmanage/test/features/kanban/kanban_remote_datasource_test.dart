@@ -4,16 +4,23 @@ import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
 import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 import 'package:managers/features/kanban/data/datasources/kanban_remote_datasource.dart';
 import 'package:managers/features/kanban/data/models/kanban_models.dart';
+import 'package:managers/features/kanban/domain/entities/capacidade_do_dia.dart';
 import 'package:managers/features/kanban/domain/entities/etapa.dart';
 import 'package:managers/features/kanban/domain/params/kanban_params.dart';
 
 import '../../helpers/fake_adapter.dart';
 
-Map<String, dynamic> _etapaJson(int id, String nome, int ordem) => {
+Map<String, dynamic> _etapaJson(
+  int id,
+  String nome,
+  int ordem, {
+  bool pronto = false,
+}) => {
   'id': id,
   'nome': nome,
   'ordem': ordem,
   'cor': '#F59E0B',
+  'pronto': pronto,
 };
 
 Map<String, dynamic> _atendimentoJson(
@@ -21,6 +28,9 @@ Map<String, dynamic> _atendimentoJson(
   bool pago = false,
   String tipo = 'veiculo',
   String? hora = '09:30:00',
+  int minutosExtras = 0,
+  String? prontoEm,
+  String acrescimo = '0.00',
 }) => {
   'id': id,
   'etapa': 1,
@@ -63,12 +73,28 @@ Map<String, dynamic> _atendimentoJson(
   'pago': pago,
   'faltou': false,
   'desconto': '0.00',
+  'acrescimo': acrescimo,
+  'acrescimo_motivo': acrescimo == '0.00' ? '' : 'Tempo excedido',
   'pagamentos': pago
       ? [
           {'id': 1, 'forma': 'pix', 'valor': '60.00'},
         ]
       : <Object>[],
+  'minutos_extras': minutosExtras,
+  'duracao_prevista': 40 + minutosExtras,
+  'pronto_em': prontoEm,
   'criado_em': '2026-10-25T09:00:00-03:00',
+};
+
+Map<String, dynamic> _capacidadeJson({
+  int? capacidade = 8,
+  bool ajustado = false,
+}) => {
+  'data': '2026-10-25',
+  'capacidade': capacidade,
+  'vagas': 2,
+  'ajustado': ajustado,
+  'ocupados': 3,
 };
 
 Map<String, dynamic> _pagina(List<Map<String, dynamic>> results) => {
@@ -96,40 +122,45 @@ void main() {
     );
   });
 
-  test(
-    'etapa nova é POST e existente é PATCH; reordenar manda os ids',
-    () async {
-      final adapter = FakeAdapter((options) async {
-        if (options.path.endsWith('reordenar/')) return respostaJson(204, null);
-        return respostaJson(200, _etapaJson(5, 'Secando', 2));
-      });
-      final datasource = KanbanRemoteDataSourceImpl(dioDeTeste(adapter));
+  test('etapa nova é POST e existente é PATCH; reordenar manda os ids; pronto '
+      'é uma ação', () async {
+    final adapter = FakeAdapter((options) async {
+      if (options.path.endsWith('reordenar/')) return respostaJson(204, null);
+      if (options.path.endsWith('pronto/')) {
+        return respostaJson(200, _etapaJson(5, 'Secando', 2, pronto: true));
+      }
+      return respostaJson(200, _etapaJson(5, 'Secando', 2));
+    });
+    final datasource = KanbanRemoteDataSourceImpl(dioDeTeste(adapter));
 
-      await datasource.criarEtapa(
-        const Etapa(nome: 'Secando', ordem: 2, cor: '#3B82F6'),
-      );
-      await datasource.atualizarEtapa(
-        const Etapa(id: 5, nome: 'Secagem', ordem: 2),
-      );
-      await datasource.reordenarEtapas([3, 1, 2]);
-      await datasource.removerEtapa(5);
+    await datasource.criarEtapa(
+      const Etapa(nome: 'Secando', ordem: 2, cor: '#3B82F6'),
+    );
+    await datasource.atualizarEtapa(
+      const Etapa(id: 5, nome: 'Secagem', ordem: 2),
+    );
+    await datasource.reordenarEtapas([3, 1, 2]);
+    final pronta = await datasource.marcarEtapaPronto(5);
+    await datasource.removerEtapa(5);
 
-      expect(adapter.requisicoes.map((r) => '${r.method} ${r.path}'), [
-        'POST kanban/etapas/',
-        'PATCH kanban/etapas/5/',
-        'POST kanban/etapas/reordenar/',
-        'DELETE kanban/etapas/5/',
-      ]);
-      expect(adapter.requisicoes[0].data, {
-        'nome': 'Secando',
-        'ordem': 2,
-        'cor': '#3B82F6',
-      });
-      expect(adapter.requisicoes[2].data, {
-        'ordem': [3, 1, 2],
-      });
-    },
-  );
+    expect(adapter.requisicoes.map((r) => '${r.method} ${r.path}'), [
+      'POST kanban/etapas/',
+      'PATCH kanban/etapas/5/',
+      'POST kanban/etapas/reordenar/',
+      'POST kanban/etapas/5/pronto/',
+      'DELETE kanban/etapas/5/',
+    ]);
+    // pronto não vai no corpo: só muda pela ação
+    expect(adapter.requisicoes[0].data, {
+      'nome': 'Secando',
+      'ordem': 2,
+      'cor': '#3B82F6',
+    });
+    expect(adapter.requisicoes[2].data, {
+      'ordem': [3, 1, 2],
+    });
+    expect(pronta.toEntity().pronto, isTrue);
+  });
 
   test(
     'listarDoDia manda o dia e page_size 100; o model converte o card',
@@ -148,8 +179,8 @@ void main() {
       });
       final a = lista.single.toEntity();
       expect(a.etapaNome, 'Aguardando');
-      expect(a.objeto.veiculo?.placa, 'ABC1D23');
-      expect(a.objeto.titulo, 'Fiat Uno');
+      expect(a.objeto!.veiculo?.placa, 'ABC1D23');
+      expect(a.objeto!.titulo, 'Fiat Uno');
       expect(a.clienteId, 7);
       expect(a.horarioEntrada, (hora: 9, minuto: 30));
       expect(a.data, DateTime(2026, 10, 25));
@@ -157,17 +188,45 @@ void main() {
       expect(a.valorTotal, Decimal.parse('60.00'));
       expect(a.pago, isTrue);
       expect(a.pagamentos.single.forma, FormaPagamento.pix);
+      expect(a.minutosExtras, 0);
+      expect(a.duracaoPrevista, 40);
+      expect(a.pronto, isFalse);
     },
   );
+
+  test('o model lê o acréscimo e o soma no total', () {
+    final a = AtendimentoKanbanModel.fromJson(
+      _atendimentoJson(2, acrescimo: '12.50'),
+    ).toEntity();
+
+    expect(a.acrescimo, Decimal.parse('12.50'));
+    expect(a.acrescimoMotivo, 'Tempo excedido');
+    expect(a.valorTotal, Decimal.parse('72.50'));
+  });
 
   test('o model lê um pet e um card sem hora', () {
     final a = AtendimentoKanbanModel.fromJson(
       _atendimentoJson(2, tipo: 'pet', hora: null),
     ).toEntity();
 
-    expect(a.objeto.pet?.nome, 'Rex');
-    expect(a.objeto.detalhe, 'Cachorro · Médio');
+    expect(a.objeto!.pet?.nome, 'Rex');
+    expect(a.objeto!.detalhe, 'Cachorro · Médio');
     expect(a.horarioEntrada, isNull);
+  });
+
+  test('o model lê o tempo a mais e a hora de pronto', () {
+    final a = AtendimentoKanbanModel.fromJson(
+      _atendimentoJson(
+        2,
+        minutosExtras: 20,
+        prontoEm: '2026-10-25T11:05:00-03:00',
+      ),
+    ).toEntity();
+
+    expect(a.minutosExtras, 20);
+    expect(a.duracaoPrevista, 60);
+    expect(a.pronto, isTrue);
+    expect(a.prontoEm, DateTime.parse('2026-10-25T11:05:00-03:00').toLocal());
   });
 
   test('criar manda o corpo do contrato, com e sem hora de entrada', () async {
@@ -193,6 +252,7 @@ void main() {
         servicoId: 3,
         data: DateTime(2026, 10, 25),
         colaboradorId: 2,
+        ignorarLimite: true,
       ),
     );
 
@@ -212,6 +272,45 @@ void main() {
       isFalse,
     );
     expect((adapter.requisicoes[1].data as Map)['colaborador'], 2);
+    // ignorar_limite só vai quando o dono mandou receber mesmo assim
+    expect((adapter.requisicoes[1].data as Map)['ignorar_limite'], isTrue);
+  });
+
+  test('remarcar e ajustar o tempo são PATCH no próprio atendimento', () async {
+    final adapter = FakeAdapter(
+      (_) async => respostaJson(200, _atendimentoJson(3)),
+    );
+    final datasource = KanbanRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    await datasource.remarcar(
+      RemarcarAtendimentoKanbanParams(
+        id: 3,
+        data: DateTime(2026, 11, 5),
+        horarioEntrada: (hora: 9, minuto: 0),
+        ignorarLimite: true,
+      ),
+    );
+    await datasource.remarcar(
+      RemarcarAtendimentoKanbanParams(id: 3, data: DateTime(2026, 11, 5)),
+    );
+    await datasource.ajustarTempo(3, 30);
+
+    expect(adapter.requisicoes.map((r) => '${r.method} ${r.path}'), [
+      'PATCH kanban/atendimentos/3/',
+      'PATCH kanban/atendimentos/3/',
+      'PATCH kanban/atendimentos/3/',
+    ]);
+    expect(adapter.requisicoes[0].data, {
+      'data': '2026-11-05',
+      'horario_entrada': '09:00',
+      'ignorar_limite': true,
+    });
+    // sem hora é null mesmo, e ignorar_limite só vai quando mandado
+    expect(adapter.requisicoes[1].data, {
+      'data': '2026-11-05',
+      'horario_entrada': null,
+    });
+    expect(adapter.requisicoes[2].data, {'minutos_extras': 30});
   });
 
   test(
@@ -251,6 +350,8 @@ void main() {
       expect(adapter.requisicoes[0].data, {'etapa_id': 2});
       expect(adapter.requisicoes[1].data, {
         'desconto': '0.00',
+        'acrescimo': '0.00',
+        'acrescimo_motivo': '',
         'pagamentos': [
           {'forma': 'dinheiro', 'valor': '60.00'},
         ],
@@ -260,7 +361,8 @@ void main() {
     },
   );
 
-  test('slots manda o dia e fica só com as horas livres', () async {
+  test('slots manda o dia (e o serviço, quando há) e fica só com as horas '
+      'livres', () async {
     final adapter = FakeAdapter(
       (_) async => respostaJson(200, [
         {'horario': '09:00', 'disponivel': true},
@@ -271,13 +373,71 @@ void main() {
     final datasource = KanbanRemoteDataSourceImpl(dioDeTeste(adapter));
 
     final horas = await datasource.slots(DateTime(2026, 10, 25));
+    await datasource.slots(DateTime(2026, 10, 25), servicoId: 3, excluirId: 9);
 
-    expect(adapter.requisicoes.single.uri.path, endsWith('kanban/slots/'));
-    expect(adapter.requisicoes.single.uri.queryParameters, {
+    expect(adapter.requisicoes[0].uri.path, endsWith('kanban/slots/'));
+    expect(adapter.requisicoes[0].uri.queryParameters, {'data': '2026-10-25'});
+    expect(adapter.requisicoes[1].uri.queryParameters, {
       'data': '2026-10-25',
+      'servico': '3',
+      'excluir': '9',
     });
     expect(horas, [(hora: 9, minuto: 0), (hora: 10, minuto: 30)]);
   });
+
+  test('capacidade: GET lê, PUT ajusta e DELETE volta ao padrão', () async {
+    final adapter = FakeAdapter((options) async {
+      if (options.method == 'PUT') {
+        return respostaJson(
+          200,
+          _capacidadeJson(capacidade: null, ajustado: true),
+        );
+      }
+      return respostaJson(200, _capacidadeJson());
+    });
+    final datasource = KanbanRemoteDataSourceImpl(dioDeTeste(adapter));
+    final dia = DateTime(2026, 10, 25);
+
+    final lida = await datasource.capacidadeDoDia(dia);
+    final ajustada = await datasource.ajustarCapacidade(
+      AjustarCapacidadeParams(data: dia, vagas: 2),
+    );
+    final padrao = await datasource.desfazerAjuste(dia);
+
+    expect(adapter.requisicoes.map((r) => '${r.method} ${r.path}'), [
+      'GET kanban/capacidade/',
+      'PUT kanban/capacidade/',
+      'DELETE kanban/capacidade/',
+    ]);
+    for (final r in adapter.requisicoes) {
+      expect(r.uri.queryParameters, {'data': '2026-10-25'});
+    }
+    // a capacidade vai mesmo nula: é "sem máximo"
+    expect(adapter.requisicoes[1].data, {'capacidade': null, 'vagas': 2});
+    expect(
+      lida.toEntity(),
+      CapacidadeDoDia(data: dia, capacidade: 8, vagas: 2, ocupados: 3),
+    );
+    expect(ajustada.toEntity().semMaximo, isTrue);
+    expect(ajustada.toEntity().ajustado, isTrue);
+    expect(padrao.toEntity().capacidade, 8);
+  });
+
+  test(
+    'desfazerAjuste sem corpo na resposta lê a capacidade de novo',
+    () async {
+      final adapter = FakeAdapter((options) async {
+        if (options.method == 'DELETE') return respostaJson(204, null);
+        return respostaJson(200, _capacidadeJson());
+      });
+      final datasource = KanbanRemoteDataSourceImpl(dioDeTeste(adapter));
+
+      final c = await datasource.desfazerAjuste(DateTime(2026, 10, 25));
+
+      expect(adapter.requisicoes.map((r) => r.method), ['DELETE', 'GET']);
+      expect(c.toEntity().capacidade, 8);
+    },
+  );
 
   test('listarDoCliente filtra pelo cliente', () async {
     final adapter = FakeAdapter(

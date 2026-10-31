@@ -50,11 +50,14 @@ class Agendamento extends Equatable {
     required this.dataHora,
     this.status = StatusAgendamento.agendado,
     Decimal? desconto,
+    Decimal? acrescimo,
+    this.acrescimoMotivo = '',
     this.observacoes = '',
     this.servicos = const [],
     this.pagamentos = const [],
     this.criadoEm,
-  }) : desconto = desconto ?? Decimal.fromInt(0);
+  }) : desconto = desconto ?? Decimal.fromInt(0),
+       acrescimo = acrescimo ?? Decimal.fromInt(0);
 
   final int id;
   final int clienteId;
@@ -69,6 +72,11 @@ class Agendamento extends Equatable {
   final DateTime dataHora;
   final StatusAgendamento status;
   final Decimal desconto;
+
+  // o valor a mais combinado com o cliente na cobrança e o porquê ("Tempo
+  // excedido"); zero e vazio sem acréscimo
+  final Decimal acrescimo;
+  final String acrescimoMotivo;
   final String observacoes;
   final List<ServicoAgendado> servicos;
   final List<Pagamento> pagamentos;
@@ -84,7 +92,8 @@ class Agendamento extends Equatable {
     (soma, s) => soma + s.precoCobrado - s.desconto,
   );
 
-  Decimal get valorTotal => valorDosServicos - desconto;
+  // o que foi (ou é) cobrado: os serviços mais o acréscimo, menos o desconto
+  Decimal get valorTotal => valorDosServicos + acrescimo - desconto;
 
   Decimal get valorPago =>
       pagamentos.fold(Decimal.fromInt(0), (soma, p) => soma + p.valor);
@@ -107,6 +116,8 @@ class Agendamento extends Equatable {
     dataHora,
     status,
     desconto,
+    acrescimo,
+    acrescimoMotivo,
     observacoes,
     servicos,
     pagamentos,

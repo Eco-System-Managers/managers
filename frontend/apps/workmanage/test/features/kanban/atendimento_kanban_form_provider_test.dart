@@ -93,7 +93,7 @@ void main() {
     registerFallbackValue(NoParams());
     registerFallbackValue(const ListarServicosParams());
     registerFallbackValue(const ListarClientesParams());
-    registerFallbackValue(_dia);
+    registerFallbackValue(SlotsKanbanParams(data: _dia));
     registerFallbackValue(
       NovoAtendimentoParams(etapaId: 0, objetoId: 0, servicoId: 0, data: _dia),
     );
@@ -323,10 +323,40 @@ void main() {
     await pumpEventQueue();
 
     expect(provider.hora, isNull);
-    expect(
-      verify(() => listarSlots(captureAny())).captured.last,
-      DateTime(2026, 10, 26),
-    );
+    final params =
+        verify(() => listarSlots(captureAny())).captured.last
+            as SlotsKanbanParams;
+    expect(params.data, DateTime(2026, 10, 26));
+  });
+
+  test('a grade segue o serviço: trocar recarrega com o servicoId e a hora '
+      'que saiu da grade é limpa', () async {
+    final provider = montar();
+    await provider.carregar();
+    // sem serviço, a grade vem sem ele
+    final semServico =
+        verify(() => listarSlots(captureAny())).captured.single
+            as SlotsKanbanParams;
+    expect(semServico.servicoId, isNull);
+    provider.selecionarHora(_nove);
+
+    when(() => listarSlots(any())).thenAnswer((_) async => const Right([_dez]));
+    provider.selecionarServico(_lavagem);
+    await pumpEventQueue();
+
+    final params =
+        verify(() => listarSlots(captureAny())).captured.single
+            as SlotsKanbanParams;
+    expect(params.servicoId, 3);
+    expect(params.data, _dia);
+    expect(provider.slots, [_dez]);
+    // 09:00 não está mais na grade: a hora sai
+    expect(provider.hora, isNull);
+
+    // o mesmo serviço de novo não busca
+    provider.selecionarServico(_lavagem);
+    await pumpEventQueue();
+    verifyNever(() => listarSlots(any()));
   });
 
   test('salvar monta o atendimento na primeira etapa e fecha', () async {
@@ -359,7 +389,8 @@ void main() {
     verifyNever(() => criar(any()));
   });
 
-  test('hora ocupada: mensagem, hora limpa e grade recarregada', () async {
+  test('hora sem vaga vira pergunta; desistir limpa a hora e recarrega a '
+      'grade', () async {
     when(() => criar(any())).thenAnswer(
       (_) async => const Left(
         ServerFailure(
@@ -372,16 +403,97 @@ void main() {
     await provider.carregar();
     provider.selecionarCliente(_ana);
     provider.selecionarServico(_lavagem);
+    await pumpEventQueue();
     provider.selecionarHora(_dez);
+
+    await provider.salvar();
+
+    expect(provider.salvo, isFalse);
+    expect(provider.limiteEstourado, contains('já foi reservado'));
+    expect(provider.errorMessage, isNull);
+    // a hora continua até a pessoa decidir
+    expect(provider.hora, _dez);
+
+    clearInteractions(listarSlots);
+    provider.desistirDoLimite();
+    await pumpEventQueue();
+
+    expect(provider.limiteEstourado, isNull);
+    expect(provider.hora, isNull);
+    verify(() => listarSlots(any())).called(1);
+  });
+
+  test('horário fechado do negócio não tem "mesmo assim": a mensagem vai '
+      'para a tela, a hora sai e a grade vem de novo', () async {
+    when(() => criar(any())).thenAnswer(
+      (_) async => const Left(
+        ServerFailure(
+          message: 'Esse horário está fechado.',
+          code: 'horario_bloqueado',
+        ),
+      ),
+    );
+    final provider = montar();
+    await provider.carregar();
+    provider.selecionarCliente(_ana);
+    provider.selecionarServico(_lavagem);
+    await pumpEventQueue();
+    provider.selecionarHora(_dez);
+    clearInteractions(listarSlots);
 
     await provider.salvar();
     await pumpEventQueue();
 
     expect(provider.salvo, isFalse);
-    expect(provider.errorMessage, contains('já foi reservado'));
+    expect(provider.limiteEstourado, isNull);
+    expect(provider.errorMessage, 'Esse horário está fechado.');
     expect(provider.hora, isNull);
-    verify(() => listarSlots(any())).called(2);
+    verify(() => listarSlots(any())).called(1);
   });
+
+  test(
+    'dia lotado vira pergunta; receber mesmo assim manda ignorarLimite',
+    () async {
+      when(() => criar(any())).thenAnswer(
+        (_) async => const Left(
+          ServerFailure(
+            message: 'O dia já está no limite: 8 de 8 atendimentos.',
+            code: 'dia_lotado',
+          ),
+        ),
+      );
+      final provider = montar();
+      await provider.carregar();
+      provider.selecionarCliente(_ana);
+      provider.selecionarServico(_lavagem);
+
+      await provider.salvar();
+
+      expect(provider.limiteEstourado, contains('8 de 8'));
+      expect(provider.salvo, isFalse);
+      final primeiro =
+          verify(() => criar(captureAny())).captured.single
+              as NovoAtendimentoParams;
+      expect(primeiro.ignorarLimite, isFalse);
+
+      // desistir do dia lotado não mexe na grade
+      clearInteractions(listarSlots);
+      provider.desistirDoLimite();
+      await pumpEventQueue();
+      expect(provider.limiteEstourado, isNull);
+      verifyNever(() => listarSlots(any()));
+
+      when(() => criar(any())).thenAnswer((_) async => Right(_criado));
+      await provider.salvar(ignorarLimite: true);
+
+      final segundo =
+          verify(() => criar(captureAny())).captured.single
+              as NovoAtendimentoParams;
+      expect(segundo.ignorarLimite, isTrue);
+      expect(provider.limiteEstourado, isNull);
+      expect(provider.salvo, isTrue);
+    },
+  );
 
   test('erro de validação vai para o campo', () async {
     when(() => criar(any())).thenAnswer(

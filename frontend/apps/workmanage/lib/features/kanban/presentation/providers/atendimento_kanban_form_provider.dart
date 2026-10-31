@@ -14,14 +14,17 @@ import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 
 import '../../domain/entities/atendimento_kanban.dart';
+import '../../domain/entities/capacidade_do_dia.dart';
 import '../../domain/entities/etapa.dart';
 import '../../domain/params/kanban_params.dart';
 import '../../domain/usecases/kanban_use_cases.dart';
 
 // estado do formulário de receber um atendimento (montado em
 // kanban_provider.dart, na raiz da feature): cliente, o veículo ou pet dele,
-// serviço, dia e uma hora de entrada opcional. os serviços seguem o porte do
-// veículo ou do pet. o card entra na primeira etapa do quadro
+// serviço, dia e uma hora de entrada opcional; ou o avulso, só com uma
+// identificação e o serviço. os serviços seguem o porte do veículo ou do
+// pet; a grade de horas segue a duração do serviço. o card entra na primeira
+// etapa do quadro
 class AtendimentoKanbanFormProvider extends ChangeNotifier {
   AtendimentoKanbanFormProvider({
     required this._listarEtapas,
@@ -53,6 +56,7 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
   bool _carregado = false;
   Failure? _erroAoCarregar;
 
+  bool _avulso = false;
   Cliente? _cliente;
   ObjetoCliente? _objeto;
   Servico? _servico;
@@ -71,18 +75,29 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
   Map<String, String> _fieldErrors = const {};
   AtendimentoKanban? _criado;
 
+  // a API recusou por capacidade: a mensagem dela e o code, para a tela
+  // perguntar se recebe mesmo assim
+  String? _limiteEstourado;
+  String? _codeDoLimite;
+
   // a tela pode ser fechada durante uma requisição
   bool _disposed = false;
 
   // os que servem para o veículo ou pet escolhido: os do porte dele e os
-  // sem porte. sem objeto, ou com objeto sem porte, todos
+  // sem porte. sem objeto, ou com objeto sem porte, todos; no avulso não há
+  // porte, então todos
   List<Servico> get servicos => [
     for (final s in _servicos)
-      if (s.servePara(_objeto?.porte)) s,
+      if (_avulso || s.servePara(_objeto?.porte)) s,
   ];
 
   // há serviço ativo, mas nenhum para o porte do objeto escolhido
-  bool get nenhumServicoParaOPorte => _servicos.isNotEmpty && servicos.isEmpty;
+  bool get nenhumServicoParaOPorte =>
+      !_avulso && _servicos.isNotEmpty && servicos.isEmpty;
+
+  // o cliente que chegou sem cadastro: só o serviço e uma identificação,
+  // sem cliente nem veículo ou pet
+  bool get avulso => _avulso;
 
   bool get carregado => _carregado;
   Failure? get erroAoCarregar => _erroAoCarregar;
@@ -112,12 +127,16 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
 
-  // erro que não é de campo (rede, horário ocupado)
+  // erro que não é de campo (rede, regra de negócio)
   String? get errorMessage => _errorMessage;
 
   // erro de validação da API, campo a campo, com os nomes do contrato
   // (objeto, servico, etapa, data, horario_entrada, observacao)
   String? erroDoCampo(String campo) => _fieldErrors[campo];
+
+  // o dia lotado ou a hora sem vaga (a mensagem da API): a tela pergunta
+  // "receber mesmo assim?" e chama salvar com ignorarLimite, ou desiste
+  String? get limiteEstourado => _limiteEstourado;
 
   AtendimentoKanban? get criado => _criado;
   bool get salvo => _criado != null;
@@ -153,6 +172,19 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
   Future<List<Cliente>> buscarClientes(String busca) async {
     final result = await _listarClientes(ListarClientesParams(busca: busca));
     return result.fold((_) => const [], (pagina) => pagina.itens);
+  }
+
+  // liga e desliga o avulso. ligado, o cliente e o objeto escolhidos ficam
+  // guardados mas não vão; desligado, o porte volta a valer e o serviço que
+  // não serve sai
+  void alternarAvulso(bool avulso) {
+    if (avulso == _avulso) return;
+    _avulso = avulso;
+    _fieldErrors = {..._fieldErrors}
+      ..remove('objeto')
+      ..remove('identificacao');
+    if (!avulso) _soltarServicoQueNaoServe();
+    notifyListeners();
   }
 
   void selecionarCliente(Cliente cliente) {
@@ -193,10 +225,15 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
   }
 
   // trocar o veículo ou pet (ou o porte dele) pode deixar o serviço
-  // escolhido de fora: ele sai, e a pessoa escolhe entre os que servem
+  // escolhido de fora: ele sai, e a pessoa escolhe entre os que servem. a
+  // grade era a dele: vem de novo. no avulso não há porte para conferir
   void _soltarServicoQueNaoServe() {
+    if (_avulso) return;
     final servico = _servico;
-    if (servico != null && !servico.servePara(_objeto?.porte)) _servico = null;
+    if (servico != null && !servico.servePara(_objeto?.porte)) {
+      _servico = null;
+      _carregarSlots();
+    }
   }
 
   void selecionarColaborador(Colaborador? colaborador) {
@@ -205,10 +242,14 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // a grade é do serviço: só as horas em que a duração dele cabe. a hora
+  // escolhida que não estiver mais na grade é limpa
   void selecionarServico(Servico? servico) {
+    final mudou = servico?.id != _servico?.id;
     _servico = servico;
     _fieldErrors = {..._fieldErrors}..remove('servico');
     notifyListeners();
+    if (mudou) _carregarSlots();
   }
 
   void selecionarData(DateTime data) {
@@ -235,12 +276,15 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     _slotsErrorMessage = null;
     notifyListeners();
 
-    final result = await _listarSlots(_data);
+    final result = await _listarSlots(
+      SlotsKanbanParams(data: _data, servicoId: _servico?.id),
+    );
     if (_disposed || busca != _buscaDeSlots) return;
 
     result.fold((failure) => _slotsErrorMessage = failure.message, (slots) {
       _slots = slots;
-      // a hora escolhida pode ter sido tomada
+      // a hora escolhida pode ter sido tomada, ou o serviço novo não cabe
+      // nela
       if (_hora != null && !slots.contains(_hora)) _hora = null;
     });
 
@@ -248,12 +292,21 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // a tela já conferiu que cliente, objeto e serviço existem
-  Future<void> salvar({String observacao = ''}) async {
-    final objeto = _objeto;
+  // a tela já conferiu que cliente, objeto e serviço existem (no avulso, a
+  // identificação e o serviço). com ignorarLimite, o dono recebe mesmo com
+  // o dia lotado ou sem vaga na hora
+  Future<void> salvar({
+    String observacao = '',
+    String identificacao = '',
+    bool ignorarLimite = false,
+  }) async {
+    final objetoId = _avulso ? null : _objeto?.id;
+    final texto = _avulso ? identificacao.trim() : '';
     final servico = _servico;
     final etapa = etapaDeEntrada;
-    if (objeto == null || servico == null) return;
+    if (servico == null || (_avulso ? texto.isEmpty : objetoId == null)) {
+      return;
+    }
     if (etapa == null) {
       _errorMessage =
           'O quadro não tem etapas. Cadastre em Mais › Configurações › '
@@ -264,36 +317,45 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
 
     _isLoading = true;
     _errorMessage = null;
+    _limiteEstourado = null;
+    _codeDoLimite = null;
     _fieldErrors = const {};
     notifyListeners();
 
     final result = await _criar(
       NovoAtendimentoParams(
         etapaId: etapa.id,
-        objetoId: objeto.id,
+        objetoId: objetoId,
+        identificacao: texto,
         servicoId: servico.id,
         data: _data,
         horarioEntrada: _hora,
         colaboradorId: _colaborador?.id,
         observacao: observacao,
+        ignorarLimite: ignorarLimite,
       ),
     );
     if (_disposed) return;
 
     result.fold(
       (failure) {
-        if (failure is ValidationFailure && failure.fields.isNotEmpty) {
+        if (!ignorarLimite && passaDoLimite(failure)) {
+          // para o negócio o limite é aviso: a tela pergunta
+          _limiteEstourado = failure.message;
+          _codeDoLimite = failure.code;
+        } else if (failure.code == 'horario_bloqueado') {
+          // o horário fechado não tem "mesmo assim": o dono reabre antes.
+          // a hora sai e a grade vem de novo, já sem ela
+          _errorMessage = failure.message;
+          _hora = null;
+          _carregarSlots();
+        } else if (failure is ValidationFailure && failure.fields.isNotEmpty) {
           _fieldErrors = {
             for (final e in failure.fields.entries)
               if (e.value.isNotEmpty) e.key: e.value.first,
           };
         } else {
           _errorMessage = failure.message;
-        }
-        // alguém tomou a hora enquanto a tela estava aberta
-        if (failure.code == 'horario_ocupado') {
-          _hora = null;
-          _carregarSlots();
         }
       },
       (criado) {
@@ -302,6 +364,19 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     );
 
     _isLoading = false;
+    notifyListeners();
+  }
+
+  // a pessoa não quis passar do limite. se era a hora sem vaga, ela sai e
+  // a grade vem de novo (alguém tomou a hora enquanto a tela estava aberta)
+  void desistirDoLimite() {
+    final naHora = _codeDoLimite == 'horario_ocupado';
+    _limiteEstourado = null;
+    _codeDoLimite = null;
+    if (naHora) {
+      _hora = null;
+      _carregarSlots();
+    }
     notifyListeners();
   }
 

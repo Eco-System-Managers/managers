@@ -60,11 +60,13 @@ class ChipDeFiltro extends StatelessWidget {
   }
 }
 
-// abre a folha com as opções e devolve a escolhida (null se fechou)
+// abre a folha com as opções e devolve a escolhida (null se fechou). a
+// descrição, quando vem, explica a escolha embaixo do título
 Future<T?> escolherNaFolha<T>(
   BuildContext context, {
   required String titulo,
   required List<OpcaoDaFolha<T>> opcoes,
+  String? descricao,
 }) {
   return abrirFolha<T>(
     context,
@@ -79,8 +81,21 @@ Future<T?> escolherNaFolha<T>(
             BrandSpacing.space5,
             BrandSpacing.space2,
           ),
-          // o título da folha é um título de seção: h3
-          child: Text(titulo, style: Theme.of(context).textTheme.titleLarge),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // o título da folha é um título de seção: h3
+              Text(titulo, style: Theme.of(context).textTheme.titleLarge),
+              if (descricao != null) ...[
+                const SizedBox(height: BrandSpacing.space1),
+                Text(
+                  descricao,
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: BrandColors.of(context).inkMuted),
+                ),
+              ],
+            ],
+          ),
         ),
         for (final o in opcoes)
           _LinhaDaOpcao(
@@ -137,10 +152,4 @@ class _LinhaDaOpcao extends StatelessWidget {
       onTap: onTap,
     );
   }
-}
-
-// "Ana Silva" -> "Ana"
-String primeiroNome(String nome) {
-  final partes = nome.trim().split(RegExp(r'\s+'));
-  return partes.isEmpty ? '' : partes.first;
 }

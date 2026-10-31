@@ -52,12 +52,18 @@ void main() {
     when(() => criar(any())).thenAnswer((_) async => Right(_criado));
   });
 
-  BloqueioFormProvider montar({int? somente, int? inicial, DateTime? data}) {
+  BloqueioFormProvider montar({
+    int? somente,
+    int? inicial,
+    DateTime? data,
+    bool doNegocio = false,
+  }) {
     return BloqueioFormProvider(
       listarColaboradores: listarColaboradores,
       criar: criar,
       somenteColaboradorId: somente,
       colaboradorInicialId: inicial,
+      doNegocio: doNegocio,
       dataInicial: data,
       hoje: _hoje,
     );
@@ -81,6 +87,25 @@ void main() {
     expect(provider.colaboradores, [_leo]);
     expect(provider.colaborador, _leo);
     expect(provider.colaboradorFixo, isTrue);
+  });
+
+  test('do negócio: não busca a equipe e manda o colaborador nulo', () async {
+    final provider = montar(doNegocio: true, inicial: 2);
+
+    await provider.carregar();
+
+    expect(provider.carregado, isTrue);
+    expect(provider.colaborador, isNull);
+    verifyNever(() => listarColaboradores(any()));
+
+    await provider.salvar(motivo: 'Almoço');
+
+    final params =
+        verify(() => criar(captureAny())).captured.single as NovoBloqueioParams;
+    expect(params.colaboradorId, isNull);
+    expect(params.dataInicio, _hoje);
+    expect(params.motivo, 'Almoço');
+    expect(provider.salvo, isTrue);
   });
 
   test('aberto de um dia que já passou, começa hoje', () {

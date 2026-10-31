@@ -3,13 +3,14 @@ import 'package:managers/core/utils/datas.dart';
 
 // um período em que o profissional não atende: um imprevisto, uma folga, as
 // férias ou a pausa de todo dia (o almoço). tira o trecho da grade, para a
-// empresa e para o app do cliente
+// empresa e para o app do cliente. sem profissional é o bloqueio do negócio
+// inteiro (a esteira): nada é oferecido para marcar nesse período
 class Bloqueio extends Equatable {
   const Bloqueio({
     required this.id,
-    required this.colaboradorId,
-    required this.colaboradorNome,
     required this.dataInicio,
+    this.colaboradorId,
+    this.colaboradorNome = '',
     this.dataFim,
     this.horaInicio,
     this.horaFim,
@@ -17,7 +18,9 @@ class Bloqueio extends Equatable {
   });
 
   final int id;
-  final int colaboradorId;
+
+  // null: o bloqueio é do negócio inteiro, não de um profissional
+  final int? colaboradorId;
   final String colaboradorNome;
   final DateTime dataInicio;
 
@@ -31,6 +34,7 @@ class Bloqueio extends Equatable {
 
   bool get fixo => dataFim == null;
   bool get diaInteiro => horaInicio == null || horaFim == null;
+  bool get doNegocio => colaboradorId == null;
 
   @override
   List<Object?> get props => [

@@ -53,18 +53,19 @@ class SlotsParams {
 }
 
 // o que cria um bloqueio. "uma semana" e "um mês" chegam aqui como dataFim;
-// dataFim null é o fixo, horas null são o dia inteiro
+// dataFim null é o fixo, horas null são o dia inteiro. colaboradorId null é
+// o bloqueio do negócio inteiro (só o proprietário)
 class NovoBloqueioParams {
   const NovoBloqueioParams({
-    required this.colaboradorId,
     required this.dataInicio,
+    this.colaboradorId,
     this.dataFim,
     this.horaInicio,
     this.horaFim,
     this.motivo = '',
   });
 
-  final int colaboradorId;
+  final int? colaboradorId;
   final DateTime dataInicio;
   final DateTime? dataFim;
   final Hora? horaInicio;

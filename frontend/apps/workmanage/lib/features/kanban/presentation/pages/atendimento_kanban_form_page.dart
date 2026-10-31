@@ -6,6 +6,7 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/carregando.dart';
+import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/features/clientes/domain/entities/objeto_cliente.dart';
@@ -15,12 +16,16 @@ import 'package:managers/features/clientes/presentation/widgets/veiculo_form_she
 import 'package:managers/features/servicos/domain/entities/servico.dart';
 import 'package:managers/features/servicos/presentation/widgets/itens_de_servico.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
+import 'package:validatorless/validatorless.dart';
 
 import '../../kanban_provider.dart';
 import '../providers/atendimento_kanban_form_provider.dart';
 
 // recebe um atendimento na esteira: cliente, o veículo ou pet dele, serviço,
-// dia e uma hora de entrada opcional. fecha com true quando entrou
+// dia e uma hora de entrada opcional (a grade segue a duração do serviço);
+// ou o avulso, quem chegou sem cadastro, só com uma identificação e o
+// serviço. o dia lotado ou a hora sem vaga é aviso: o dono pode receber
+// mesmo assim. fecha com true quando entrou
 class AtendimentoKanbanFormPage extends ConsumerStatefulWidget {
   const AtendimentoKanbanFormPage({super.key, this.dataInicial});
 
@@ -34,8 +39,14 @@ class AtendimentoKanbanFormPage extends ConsumerStatefulWidget {
 
 class _AtendimentoKanbanFormPageState
     extends ConsumerState<AtendimentoKanbanFormPage> {
+  static final _notBlank = RegExp(r'\S');
+
+  // o limite da identificação na API
+  static const _tamanhoDaIdentificacao = 80;
+
   final _formKey = GlobalKey<FormState>();
   final _clienteController = TextEditingController();
+  final _identificacaoController = TextEditingController();
   final _observacaoController = TextEditingController();
 
   // com hora marcada ou sem
@@ -55,6 +66,7 @@ class _AtendimentoKanbanFormPageState
   @override
   void dispose() {
     _clienteController.dispose();
+    _identificacaoController.dispose();
     _observacaoController.dispose();
     super.dispose();
   }
@@ -97,9 +109,38 @@ class _AtendimentoKanbanFormPageState
     if (mudou && mounted) await _provider.recarregarCliente();
   }
 
+  // a API recusou por capacidade (dia lotado ou hora sem vaga): para o
+  // negócio o limite é aviso, então a tela pergunta e, se a pessoa quiser,
+  // recebe mesmo assim. se desistiu da hora sem vaga, ela sai e a grade
+  // vem de novo
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
-    await _provider.salvar(observacao: _observacaoController.text.trim());
+    final observacao = _observacaoController.text.trim();
+    final identificacao = _identificacaoController.text.trim();
+    await _provider.salvar(
+      observacao: observacao,
+      identificacao: identificacao,
+    );
+    if (!mounted) return;
+
+    final aviso = _provider.limiteEstourado;
+    if (aviso == null) return;
+    final receber = await confirmar(
+      context,
+      titulo: 'Passa do limite',
+      mensagem: '$aviso Receber mesmo assim?',
+      textoConfirmar: 'Receber mesmo assim',
+    );
+    if (!mounted) return;
+    if (receber) {
+      await _provider.salvar(
+        observacao: observacao,
+        identificacao: identificacao,
+        ignorarLimite: true,
+      );
+    } else {
+      _provider.desistirDoLimite();
+    }
   }
 
   @override
@@ -172,76 +213,110 @@ class _AtendimentoKanbanFormPageState
             const SizedBox(height: BrandSpacing.space4),
           ],
 
-          // o cliente é escolhido numa folha; o campo só mostra o nome
-          TextFormField(
-            controller: _clienteController,
-            readOnly: true,
-            onTap: _escolherCliente,
-            validator: (_) =>
-                provider.cliente == null ? 'Escolha o cliente' : null,
-            decoration: const InputDecoration(
-              labelText: 'Cliente',
-              prefixIcon: Icon(Icons.person_outline_rounded),
-              suffixIcon: Icon(Icons.chevron_right_rounded),
+          // quem chegou sem cadastro ("lava aí"): só o serviço e uma
+          // identificação. não entra na ficha de ninguém nem tem comanda
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Avulso (sem cadastro)'),
+            subtitle: const Text(
+              'Só o serviço e uma identificação. Não entra na ficha de '
+              'nenhum cliente.',
             ),
+            value: provider.avulso,
+            onChanged: provider.alternarAvulso,
           ),
+          const SizedBox(height: BrandSpacing.space2),
 
-          if (provider.cliente != null) ...[
-            const SizedBox(height: BrandSpacing.space4),
-            DropdownButtonFormField<ObjetoCliente>(
-              // a key nova recria o campo quando o provider troca o valor
-              key: ValueKey(
-                'objeto-${provider.cliente?.id}-${provider.objeto?.id}',
+          if (provider.avulso)
+            // como reconhecer o atendimento no pátio
+            TextFormField(
+              controller: _identificacaoController,
+              textCapitalization: TextCapitalization.sentences,
+              // o maxLength já segura o tamanho: só falta barrar o vazio
+              maxLength: _tamanhoDaIdentificacao,
+              validator: Validatorless.regex(
+                _notBlank,
+                'Informe como reconhecer o atendimento',
               ),
-              initialValue: provider.objeto,
-              isExpanded: true,
-              items: [
-                for (final o in objetos)
-                  DropdownMenuItem(
-                    value: o,
-                    child: Text(
-                      o.detalhe.isEmpty
-                          ? o.titulo
-                          : '${o.titulo} · ${o.detalhe}',
-                      overflow: TextOverflow.ellipsis,
+              forceErrorText: provider.erroDoCampo('identificacao'),
+              decoration: const InputDecoration(
+                labelText: 'Identificação',
+                hintText: 'Hilux branca, ABC-1234',
+                prefixIcon: Icon(Icons.label_outline_rounded),
+              ),
+            )
+          else ...[
+            // o cliente é escolhido numa folha; o campo só mostra o nome
+            TextFormField(
+              controller: _clienteController,
+              readOnly: true,
+              onTap: _escolherCliente,
+              validator: (_) =>
+                  provider.cliente == null ? 'Escolha o cliente' : null,
+              decoration: const InputDecoration(
+                labelText: 'Cliente',
+                prefixIcon: Icon(Icons.person_outline_rounded),
+                suffixIcon: Icon(Icons.chevron_right_rounded),
+              ),
+            ),
+
+            if (provider.cliente != null) ...[
+              const SizedBox(height: BrandSpacing.space4),
+              DropdownButtonFormField<ObjetoCliente>(
+                // a key nova recria o campo quando o provider troca o valor
+                key: ValueKey(
+                  'objeto-${provider.cliente?.id}-${provider.objeto?.id}',
+                ),
+                initialValue: provider.objeto,
+                isExpanded: true,
+                items: [
+                  for (final o in objetos)
+                    DropdownMenuItem(
+                      value: o,
+                      child: Text(
+                        o.detalhe.isEmpty
+                            ? o.titulo
+                            : '${o.titulo} · ${o.detalhe}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: provider.selecionarObjeto,
-              validator: (o) => o == null
-                  ? (veiculo ? 'Escolha o veículo' : 'Escolha o pet')
-                  : null,
-              decoration: InputDecoration(
-                labelText: veiculo ? 'Veículo' : 'Pet',
-                prefixIcon: Icon(
-                  veiculo ? Icons.directions_car_rounded : Icons.pets_rounded,
-                ),
-                helperText: objetos.isEmpty
-                    ? (veiculo
-                          ? 'Este cliente ainda não tem veículo cadastrado.'
-                          : 'Este cliente ainda não tem pet cadastrado.')
-                    : semPorte
-                    ? 'Sem porte no cadastro: aparecem todos os serviços.'
+                ],
+                onChanged: provider.selecionarObjeto,
+                validator: (o) => o == null
+                    ? (veiculo ? 'Escolha o veículo' : 'Escolha o pet')
                     : null,
-                errorText: provider.erroDoCampo('objeto'),
-              ),
-            ),
-            Wrap(
-              alignment: WrapAlignment.end,
-              children: [
-                if (semPorte)
-                  TextButton.icon(
-                    onPressed: () => _informarPorte(provider.objeto!),
-                    icon: const Icon(Icons.straighten_rounded),
-                    label: const Text('Informar o porte'),
+                decoration: InputDecoration(
+                  labelText: veiculo ? 'Veículo' : 'Pet',
+                  prefixIcon: Icon(
+                    veiculo ? Icons.directions_car_rounded : Icons.pets_rounded,
                   ),
-                TextButton.icon(
-                  onPressed: _novoObjeto,
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(veiculo ? 'Novo veículo' : 'Novo pet'),
+                  helperText: objetos.isEmpty
+                      ? (veiculo
+                            ? 'Este cliente ainda não tem veículo cadastrado.'
+                            : 'Este cliente ainda não tem pet cadastrado.')
+                      : semPorte
+                      ? 'Sem porte no cadastro: aparecem todos os serviços.'
+                      : null,
+                  errorText: provider.erroDoCampo('objeto'),
                 ),
-              ],
-            ),
+              ),
+              Wrap(
+                alignment: WrapAlignment.end,
+                children: [
+                  if (semPorte)
+                    TextButton.icon(
+                      onPressed: () => _informarPorte(provider.objeto!),
+                      icon: const Icon(Icons.straighten_rounded),
+                      label: const Text('Informar o porte'),
+                    ),
+                  TextButton.icon(
+                    onPressed: _novoObjeto,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(veiculo ? 'Novo veículo' : 'Novo pet'),
+                  ),
+                ],
+              ),
+            ],
           ],
 
           const SizedBox(height: BrandSpacing.space2),
@@ -250,7 +325,8 @@ class _AtendimentoKanbanFormPageState
             key: ValueKey('servico-${provider.servico?.id}'),
             initialValue: provider.servico,
             isExpanded: true,
-            // com mais de um nicho, os serviços vêm agrupados por nicho
+            // com mais de um nicho, os serviços vêm agrupados por nicho; no
+            // avulso vêm todos, sem o filtro de porte
             items: itensDeServico(
               context,
               servicos: provider.servicos,
@@ -366,7 +442,8 @@ class _AtendimentoKanbanFormPageState
   }
 }
 
-// as horas de entrada livres do dia, pela capacidade do expediente
+// as horas de entrada em que o serviço cabe no dia, pelas vagas e pelo
+// máximo do dia
 class _GradeDeEntrada extends StatelessWidget {
   const _GradeDeEntrada({required this.provider});
 
@@ -398,9 +475,12 @@ class _GradeDeEntrada extends StatelessWidget {
     }
     if (provider.slots.isEmpty) {
       return Text(
-        'Sem horas livres neste dia: o negócio não abre, não tem capacidade '
-        'definida nos horários ou já lotou. Escolha outro dia ou receba sem '
-        'hora marcada.',
+        provider.servico == null
+            ? 'Sem horas livres neste dia: o negócio não abre ou o dia já '
+                  'encheu. Escolha outro dia ou receba sem hora marcada.'
+            : 'Sem hora livre para este serviço neste dia: o negócio não '
+                  'abre ou o dia já encheu. Escolha outro dia ou receba sem '
+                  'hora marcada.',
         style: textos.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
       );
     }

@@ -129,7 +129,7 @@ class _HistoricoKanbanCardState extends ConsumerState<HistoricoKanbanCard> {
                       ].join(' · '),
                     ),
                     subtitle: Text(
-                      '${a.objeto.titulo} · ${a.servicoNome}',
+                      '${a.titulo} · ${a.servicoNome}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
