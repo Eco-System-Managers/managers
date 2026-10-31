@@ -2,22 +2,15 @@ import 'package:equatable/equatable.dart';
 import 'package:managers/features/empresa/domain/entities/empresa_config.dart'
     show TipoObjeto;
 
+import 'porte.dart';
+
 export 'package:managers/features/empresa/domain/entities/empresa_config.dart'
     show TipoObjeto;
 
-// o porte do pet, como a API guarda
-enum PortePet { pequeno, medio, grande, gigante }
+export 'porte.dart';
 
-extension PortePetNomes on PortePet {
-  String get nome => switch (this) {
-    PortePet.pequeno => 'Pequeno',
-    PortePet.medio => 'Médio',
-    PortePet.grande => 'Grande',
-    PortePet.gigante => 'Gigante',
-  };
-}
-
-// o veículo do cliente (lava-rápido). os quatro campos são obrigatórios na API
+// o veículo do cliente (lava-rápido). os campos de texto e o porte são
+// obrigatórios na API; o porte só vem null em cadastro de antes dele
 class Veiculo extends Equatable {
   const Veiculo({
     this.id = 0,
@@ -26,6 +19,7 @@ class Veiculo extends Equatable {
     required this.marca,
     required this.modelo,
     required this.cor,
+    this.porte,
   });
 
   // 0 enquanto não existe na API
@@ -35,20 +29,26 @@ class Veiculo extends Equatable {
   final String marca;
   final String modelo;
   final String cor;
+  final Porte? porte;
 
   bool get ehNovo => id == 0;
 
   // "Fiat Uno"
   String get titulo => [marca, modelo].where((t) => t.isNotEmpty).join(' ');
 
-  // "ABC1D23 · Prata"
-  String get detalhe => [placa, cor].where((t) => t.isNotEmpty).join(' · ');
+  // "ABC1D23 · Prata · Carro"
+  String get detalhe => [
+    placa,
+    cor,
+    if (porte != null) porte!.nome,
+  ].where((t) => t.isNotEmpty).join(' · ');
 
   @override
-  List<Object?> get props => [id, clienteId, placa, marca, modelo, cor];
+  List<Object?> get props => [id, clienteId, placa, marca, modelo, cor, porte];
 }
 
-// o pet do cliente (banho & tosa). só o nome é obrigatório
+// o pet do cliente (banho & tosa). nome e porte são obrigatórios na API; o
+// porte só vem null em cadastro de antes dele
 class Pet extends Equatable {
   const Pet({
     this.id = 0,
@@ -65,7 +65,7 @@ class Pet extends Equatable {
   final String nome;
   final String especie;
   final String raca;
-  final PortePet? porte;
+  final Porte? porte;
   final DateTime? dataNascimento;
 
   bool get ehNovo => id == 0;
@@ -108,8 +108,11 @@ class ObjetoCliente extends Equatable {
   // "Fiat Uno" / "Rex"
   String get titulo => veiculo?.titulo ?? pet!.nome;
 
-  // "ABC1D23 · Prata" / "Cachorro · Poodle"
+  // "ABC1D23 · Prata · Carro" / "Cachorro · Poodle · Pequeno"
   String get detalhe => veiculo?.detalhe ?? pet!.detalhe;
+
+  // decide quais serviços servem; null em cadastro de antes do porte
+  Porte? get porte => veiculo != null ? veiculo!.porte : pet!.porte;
 
   @override
   List<Object?> get props => [tipo, veiculo, pet];

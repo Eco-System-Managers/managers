@@ -9,6 +9,7 @@ class HorarioFuncionamentoModel {
     required this.abertura,
     required this.fechamento,
     required this.capacidade,
+    this.vagas = 1,
   });
 
   final int dia;
@@ -16,6 +17,7 @@ class HorarioFuncionamentoModel {
   final String? abertura;
   final String? fechamento;
   final int? capacidade;
+  final int vagas;
 
   factory HorarioFuncionamentoModel.fromJson(Map<String, dynamic> json) {
     return HorarioFuncionamentoModel(
@@ -24,6 +26,8 @@ class HorarioFuncionamentoModel {
       abertura: json['abertura'] as String?,
       fechamento: json['fechamento'] as String?,
       capacidade: json['capacidade'] as int?,
+      // resposta antiga sem o campo vale como o padrão da API
+      vagas: json['vagas'] as int? ?? 1,
     );
   }
 
@@ -34,6 +38,7 @@ class HorarioFuncionamentoModel {
       'abertura': abertura,
       'fechamento': fechamento,
       'capacidade': capacidade,
+      'vagas': vagas,
     };
   }
 
@@ -45,6 +50,7 @@ class HorarioFuncionamentoModel {
       abertura: _paraTexto(horario.abertura),
       fechamento: _paraTexto(horario.fechamento),
       capacidade: horario.capacidade,
+      vagas: horario.vagas,
     );
   }
 
@@ -55,6 +61,7 @@ class HorarioFuncionamentoModel {
       abertura: _paraHora(abertura),
       fechamento: _paraHora(fechamento),
       capacidade: capacidade,
+      vagas: vagas,
     );
   }
 

@@ -140,6 +140,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      // fechar o horário do negócio inteiro (só o dono). antes do :id,
+      // senão "bloquear" vira id (?data=2026-10-25)
+      GoRoute(
+        path: '/quadro/bloquear',
+        builder: (_, state) {
+          final data = state.uri.queryParameters['data'];
+          return BloqueioFormPage(
+            dataInicial: data == null ? null : DateTime.tryParse(data),
+            doNegocio: true,
+          );
+        },
+      ),
       GoRoute(
         path: '/quadro/:id',
         builder: (_, state) =>

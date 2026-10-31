@@ -5,6 +5,7 @@ import 'package:managers/core/utils/datas.dart';
 import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
 
 import '../entities/atendimento_kanban.dart';
+import '../entities/capacidade_do_dia.dart';
 import '../entities/etapa.dart';
 import '../params/kanban_params.dart';
 import '../repositories/kanban_repository.dart';
@@ -50,6 +51,16 @@ class ReordenarEtapasUseCase implements UseCase<void, List<int>> {
   @override
   Future<Either<Failure, void>> call(List<int> params) =>
       _repository.reordenarEtapas(params);
+}
+
+class MarcarEtapaProntoUseCase implements UseCase<Etapa, int> {
+  const MarcarEtapaProntoUseCase(this._repository);
+
+  final KanbanRepository _repository;
+
+  @override
+  Future<Either<Failure, Etapa>> call(int params) =>
+      _repository.marcarEtapaPronto(params);
 }
 
 class ListarAtendimentosDoDiaUseCase
@@ -110,6 +121,29 @@ class MoverAtendimentoUseCase
   ) => _repository.mover(params);
 }
 
+class RemarcarAtendimentoKanbanUseCase
+    implements UseCase<AtendimentoKanban, RemarcarAtendimentoKanbanParams> {
+  const RemarcarAtendimentoKanbanUseCase(this._repository);
+
+  final KanbanRepository _repository;
+
+  @override
+  Future<Either<Failure, AtendimentoKanban>> call(
+    RemarcarAtendimentoKanbanParams params,
+  ) => _repository.remarcar(params);
+}
+
+class AjustarTempoAtendimentoUseCase
+    implements UseCase<AtendimentoKanban, AjustarTempoParams> {
+  const AjustarTempoAtendimentoUseCase(this._repository);
+
+  final KanbanRepository _repository;
+
+  @override
+  Future<Either<Failure, AtendimentoKanban>> call(AjustarTempoParams params) =>
+      _repository.ajustarTempo(params);
+}
+
 class CobrarAtendimentoKanbanUseCase
     implements UseCase<AtendimentoKanban, CobrancaParams> {
   const CobrarAtendimentoKanbanUseCase(this._repository);
@@ -161,12 +195,46 @@ class RemoverAtendimentoKanbanUseCase implements UseCase<void, int> {
   Future<Either<Failure, void>> call(int params) => _repository.remover(params);
 }
 
-class ListarSlotsKanbanUseCase implements UseCase<List<Hora>, DateTime> {
+class ListarSlotsKanbanUseCase
+    implements UseCase<List<Hora>, SlotsKanbanParams> {
   const ListarSlotsKanbanUseCase(this._repository);
 
   final KanbanRepository _repository;
 
   @override
-  Future<Either<Failure, List<Hora>>> call(DateTime params) =>
+  Future<Either<Failure, List<Hora>>> call(SlotsKanbanParams params) =>
       _repository.slots(params);
+}
+
+class ObterCapacidadeDoDiaUseCase
+    implements UseCase<CapacidadeDoDia, DateTime> {
+  const ObterCapacidadeDoDiaUseCase(this._repository);
+
+  final KanbanRepository _repository;
+
+  @override
+  Future<Either<Failure, CapacidadeDoDia>> call(DateTime params) =>
+      _repository.capacidadeDoDia(params);
+}
+
+class AjustarCapacidadeDoDiaUseCase
+    implements UseCase<CapacidadeDoDia, AjustarCapacidadeParams> {
+  const AjustarCapacidadeDoDiaUseCase(this._repository);
+
+  final KanbanRepository _repository;
+
+  @override
+  Future<Either<Failure, CapacidadeDoDia>> call(
+    AjustarCapacidadeParams params,
+  ) => _repository.ajustarCapacidade(params);
+}
+
+class DesfazerAjusteDoDiaUseCase implements UseCase<CapacidadeDoDia, DateTime> {
+  const DesfazerAjusteDoDiaUseCase(this._repository);
+
+  final KanbanRepository _repository;
+
+  @override
+  Future<Either<Failure, CapacidadeDoDia>> call(DateTime params) =>
+      _repository.desfazerAjuste(params);
 }

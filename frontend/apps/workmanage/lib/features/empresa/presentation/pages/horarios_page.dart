@@ -81,10 +81,19 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
                 children: [
                   Text(
                     provider.isKanban
-                        ? 'Marque os dias abertos, o horário e quantos '
-                              'atendimentos cabem em cada dia.'
+                        ? 'Marque os dias abertos, o horário e quanto cabe '
+                              'em cada dia.'
                         : 'Marque os dias abertos e o horário de cada um.',
                     style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
+                  ),
+
+                  const SizedBox(height: BrandSpacing.space3),
+
+                  // acerta o primeiro dia e copia para os outros
+                  RepetirDiaButton(
+                    primeiroDiaAberto: provider.primeiroDiaAberto,
+                    enabled: !provider.isLoading,
+                    onPressed: provider.repetirPrimeiroDiaNosOutros,
                   ),
 
                   const SizedBox(height: BrandSpacing.space4),
@@ -97,6 +106,11 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
                       enabled: !provider.isLoading,
                       onChanged: provider.atualizarHorario,
                     ),
+                    const SizedBox(height: BrandSpacing.space3),
+                  ],
+
+                  if (provider.isKanban) ...[
+                    const AjudaDosNumeros(),
                     const SizedBox(height: BrandSpacing.space3),
                   ],
 

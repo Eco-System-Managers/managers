@@ -3,6 +3,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/features/clientes/domain/entities/porte.dart';
 import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
 import 'package:managers/features/empresa/domain/entities/nicho.dart';
 import 'package:managers/features/empresa/domain/usecases/buscar_config_use_case.dart';
@@ -210,6 +211,29 @@ void main() {
       );
 
       expect(montar(null).escolheNicho, isTrue);
+    });
+  });
+
+  group('porte', () {
+    test('no modo horário não há porte', () {
+      final provider = montar(null);
+
+      expect(provider.portes, isEmpty);
+      expect(provider.escolhePorte, isFalse);
+    });
+
+    test('na esteira, os portes do que o negócio recebe', () {
+      negocio.atualizarConfig(
+        const EmpresaConfig(
+          nichos: [Nicho.banhoTosa],
+          tipoAgenda: TipoAgenda.kanban,
+          tipoObjeto: TipoObjeto.pet,
+        ),
+      );
+      final provider = montar(null);
+
+      expect(provider.escolhePorte, isTrue);
+      expect(provider.portes, Porte.doTipo(TipoObjeto.pet));
     });
   });
 }

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
+import 'package:managers/core/widgets/selo_de_status.dart';
 
 import '../../domain/entities/atendimento_kanban.dart';
 import '../../domain/entities/etapa.dart';
 
-// um card do quadro: hora de entrada, cliente, o veículo ou pet, o serviço e
-// as marcas de pago e falta. o menu move para outra coluna
+// um card do quadro: hora de entrada, cliente, o veículo ou pet (ou a
+// identificação do avulso), o serviço, as marcas de pago e falta e, quando
+// passou do tempo previsto, o atraso. o menu move para outra coluna
 class AtendimentoKanbanCard extends StatelessWidget {
   const AtendimentoKanbanCard({
     super.key,
@@ -15,6 +17,7 @@ class AtendimentoKanbanCard extends StatelessWidget {
     required this.etapas,
     required this.onTap,
     required this.onMover,
+    this.agora,
   });
 
   final AtendimentoKanban atendimento;
@@ -22,13 +25,32 @@ class AtendimentoKanbanCard extends StatelessWidget {
   final VoidCallback onTap;
   final ValueChanged<Etapa> onMover;
 
+  // o momento para contar o atraso; null é agora mesmo
+  final DateTime? agora;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
     final a = atendimento;
+    final objeto = a.objeto;
     final destinos = etapas.where((e) => e.id != a.etapaId).toList();
+    final atraso = a.atrasoEm(agora ?? DateTime.now());
+
+    // no canto: o atraso é atenção (warning), o avulso é neutro, pago e
+    // falta são status. atraso não convive com pago nem com falta
+    final marcas = <Widget>[
+      if (atraso > 0)
+        SeloDeStatus(
+          texto: '+${formatarDuracao(atraso)}',
+          cor: cores.warning,
+          icone: Icons.timer_outlined,
+        ),
+      if (a.ehAvulso) _Marca(texto: 'Avulso', cor: cores.inkMuted),
+      if (a.pago) _Marca(texto: 'Pago', cor: cores.success),
+      if (a.faltou) _Marca(texto: 'Faltou', cor: cores.danger),
+    ];
 
     return Card(
       margin: const EdgeInsets.symmetric(
@@ -67,29 +89,30 @@ class AtendimentoKanbanCard extends StatelessWidget {
                           style: textos.bodySmall,
                         ),
                         const Spacer(),
-                        if (a.pago) _Marca(texto: 'Pago', cor: cores.success),
-                        if (a.faltou) ...[
-                          const SizedBox(width: BrandSpacing.space1),
-                          _Marca(texto: 'Faltou', cor: cores.danger),
+                        for (final (i, marca) in marcas.indexed) ...[
+                          if (i > 0) const SizedBox(width: BrandSpacing.space1),
+                          marca,
                         ],
                       ],
                     ),
                     const SizedBox(height: BrandSpacing.space1),
+                    // o cliente ou, no avulso, a identificação
                     Text(
-                      a.clienteNome,
+                      a.rotulo,
                       style: textos.titleMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      [
-                        a.objeto.titulo,
-                        if (a.objeto.detalhe.isNotEmpty) a.objeto.detalhe,
-                      ].join(' · '),
-                      style: textos.bodySmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    if (objeto != null)
+                      Text(
+                        [
+                          objeto.titulo,
+                          if (objeto.detalhe.isNotEmpty) objeto.detalhe,
+                        ].join(' · '),
+                        style: textos.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     const SizedBox(height: BrandSpacing.space1),
                     Text(
                       [

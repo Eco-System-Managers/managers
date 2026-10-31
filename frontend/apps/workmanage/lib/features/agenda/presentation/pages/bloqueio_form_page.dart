@@ -16,16 +16,26 @@ import '../providers/bloqueio_form_provider.dart';
 
 // bloqueia um período da agenda: de quem, por quanto tempo (um dia, uma
 // semana, um mês ou fixo), a partir de quando e em que horário. fecha com
-// true quando bloqueou, para a agenda recarregar
+// true quando bloqueou, para a agenda recarregar. com doNegocio (o quadro da
+// esteira) não há profissional: o horário fecha para o negócio inteiro
 class BloqueioFormPage extends ConsumerStatefulWidget {
-  const BloqueioFormPage({super.key, this.dataInicial, this.colaboradorId});
+  const BloqueioFormPage({
+    super.key,
+    this.dataInicial,
+    this.colaboradorId,
+    this.doNegocio = false,
+  });
 
   // o dia e o profissional abertos na agenda
   final DateTime? dataInicial;
   final int? colaboradorId;
+  final bool doNegocio;
 
-  BloqueioFormArgs get args =>
-      BloqueioFormArgs(data: dataInicial, colaboradorId: colaboradorId);
+  BloqueioFormArgs get args => BloqueioFormArgs(
+    data: dataInicial,
+    colaboradorId: colaboradorId,
+    doNegocio: doNegocio,
+  );
 
   @override
   ConsumerState<BloqueioFormPage> createState() => _BloqueioFormPageState();
@@ -63,7 +73,11 @@ class _BloqueioFormPageState extends ConsumerState<BloqueioFormPage> {
     final provider = ref.watch(bloqueioFormProvider(widget.args));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Bloquear horário')),
+      appBar: AppBar(
+        title: Text(
+          provider.doNegocio ? 'Fechar horário' : 'Bloquear horário',
+        ),
+      ),
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
@@ -122,28 +136,39 @@ class _BloqueioFormPageState extends ConsumerState<BloqueioFormPage> {
             const SizedBox(height: BrandSpacing.space4),
           ],
 
-          DropdownButtonFormField<Colaborador>(
-            key: ValueKey('colaborador-${provider.colaborador?.id}'),
-            initialValue: provider.colaborador,
-            isExpanded: true,
-            items: [
-              for (final c in provider.colaboradores)
-                DropdownMenuItem(
-                  value: c,
-                  child: Text(c.nome, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            // o parceiro só bloqueia a própria agenda
-            onChanged: provider.colaboradorFixo
-                ? null
-                : provider.selecionarColaborador,
-            validator: (c) => c == null ? 'Escolha o profissional' : null,
-            decoration: InputDecoration(
-              labelText: 'Profissional',
-              prefixIcon: const Icon(Icons.badge_rounded),
-              errorText: provider.erroDoCampo('colaborador'),
+          if (provider.doNegocio)
+            // o negócio inteiro: em vez do profissional, o que o fechamento
+            // faz
+            Text(
+              'Nesse período nada é oferecido para marcar. '
+              'Quem já tinha marcado continua marcado.',
+              style: textos.bodyMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            )
+          else
+            DropdownButtonFormField<Colaborador>(
+              key: ValueKey('colaborador-${provider.colaborador?.id}'),
+              initialValue: provider.colaborador,
+              isExpanded: true,
+              items: [
+                for (final c in provider.colaboradores)
+                  DropdownMenuItem(
+                    value: c,
+                    child: Text(c.nome, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              // o parceiro só bloqueia a própria agenda
+              onChanged: provider.colaboradorFixo
+                  ? null
+                  : provider.selecionarColaborador,
+              validator: (c) => c == null ? 'Escolha o profissional' : null,
+              decoration: InputDecoration(
+                labelText: 'Profissional',
+                prefixIcon: const Icon(Icons.badge_rounded),
+                errorText: provider.erroDoCampo('colaborador'),
+              ),
             ),
-          ),
 
           const SizedBox(height: BrandSpacing.space5),
 
@@ -236,9 +261,11 @@ class _BloqueioFormPageState extends ConsumerState<BloqueioFormPage> {
             maxLength: 60,
             validator: Validatorless.max(60, 'No máximo 60 caracteres'),
             forceErrorText: provider.erroDoCampo('motivo'),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Motivo (opcional)',
-              hintText: 'Almoço, férias, consulta...',
+              hintText: provider.doNegocio
+                  ? 'Almoço, imprevisto, feriado...'
+                  : 'Almoço, férias, consulta...',
             ),
           ),
 
@@ -251,7 +278,7 @@ class _BloqueioFormPageState extends ConsumerState<BloqueioFormPage> {
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
-            child: const Text('Bloquear'),
+            child: Text(provider.doNegocio ? 'Fechar horário' : 'Bloquear'),
           ),
         ],
       ),

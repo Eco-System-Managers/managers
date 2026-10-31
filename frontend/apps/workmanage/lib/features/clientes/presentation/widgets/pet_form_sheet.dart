@@ -8,25 +8,40 @@ import 'package:validatorless/validatorless.dart';
 
 import '../../clientes_provider.dart';
 import '../../domain/entities/objeto_cliente.dart';
+import 'escolha_de_porte.dart';
 
 // cria ou edita um pet do cliente, numa folha. devolve true quando salvou
 // ou removeu, para quem abriu recarregar
 class PetFormSheet extends ConsumerStatefulWidget {
-  const PetFormSheet({super.key, required this.clienteId, this.pet});
+  const PetFormSheet({
+    super.key,
+    required this.clienteId,
+    this.pet,
+    this.permitirRemover = true,
+  });
 
   final int clienteId;
 
   // null = novo
   final Pet? pet;
 
+  // false quando a folha abre de um atendimento, para corrigir o cadastro:
+  // ali o pet tem atendimento e não sai da ficha
+  final bool permitirRemover;
+
   static Future<bool> abrir(
     BuildContext context, {
     required int clienteId,
     Pet? pet,
+    bool permitirRemover = true,
   }) async {
     final mudou = await abrirFolha<bool>(
       context,
-      builder: (_) => PetFormSheet(clienteId: clienteId, pet: pet),
+      builder: (_) => PetFormSheet(
+        clienteId: clienteId,
+        pet: pet,
+        permitirRemover: permitirRemover,
+      ),
     );
     return mudou ?? false;
   }
@@ -48,7 +63,7 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
   late final _racaController = TextEditingController(
     text: widget.pet?.raca ?? '',
   );
-  late PortePet? _porte = widget.pet?.porte;
+  late Porte? _porte = widget.pet?.porte;
   late DateTime? _nascimento = widget.pet?.dataNascimento;
 
   @override
@@ -170,26 +185,14 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
                 ],
               ),
               const SizedBox(height: BrandSpacing.space4),
-              DropdownButtonFormField<PortePet?>(
-                initialValue: _porte,
-                // a lista que abre é um menu: o raio dos menus do tema
-                borderRadius: BrandRadius.mdAll,
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('Não informado'),
-                  ),
-                  for (final p in PortePet.values)
-                    DropdownMenuItem(value: p, child: Text(p.nome)),
-                ],
-                onChanged: (p) {
-                  setState(() => _porte = p);
+              EscolhaDePorte(
+                tipo: TipoObjeto.pet,
+                valor: _porte,
+                onChanged: (porte) {
+                  setState(() => _porte = porte);
                   provider.limparErroDoCampo('porte');
                 },
-                decoration: InputDecoration(
-                  labelText: 'Porte',
-                  errorText: provider.erroDoCampo('porte'),
-                ),
+                forceErrorText: provider.erroDoCampo('porte'),
               ),
               const SizedBox(height: BrandSpacing.space4),
               CampoData(
@@ -209,7 +212,7 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
                 ),
                 child: const Text('Salvar'),
               ),
-              if (widget.pet != null) ...[
+              if (widget.pet != null && widget.permitirRemover) ...[
                 const SizedBox(height: BrandSpacing.space2),
                 TextButton(
                   onPressed: provider.isLoading ? null : _remover,

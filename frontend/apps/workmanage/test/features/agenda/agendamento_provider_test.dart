@@ -11,6 +11,9 @@ import 'package:managers/features/financeiro/domain/entities/saldo_cliente.dart'
 import 'package:managers/features/financeiro/domain/usecases/financeiro_use_cases.dart';
 import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
 import 'package:managers/features/financeiro/domain/params/cobranca_params.dart';
+import 'package:managers/features/servicos/domain/entities/servico.dart';
+import 'package:managers/features/servicos/domain/params/listar_servicos_params.dart';
+import 'package:managers/features/servicos/domain/usecases/listar_servicos_use_case.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockObter extends Mock implements ObterAgendamentoUseCase {}
@@ -25,6 +28,8 @@ class _MockCobrar extends Mock implements CobrarAgendamentoUseCase {}
 class _MockListarSlots extends Mock implements ListarSlotsUseCase {}
 
 class _MockObterSaldo extends Mock implements ObterSaldoClienteUseCase {}
+
+class _MockListarServicos extends Mock implements ListarServicosUseCase {}
 
 Agendamento _agendamento({
   StatusAgendamento status = StatusAgendamento.agendado,
@@ -58,6 +63,7 @@ void main() {
   late _MockCobrar cobrar;
   late _MockListarSlots listarSlots;
   late _MockObterSaldo obterSaldo;
+  late _MockListarServicos listarServicos;
 
   setUpAll(() {
     registerFallbackValue(
@@ -70,9 +76,10 @@ void main() {
     registerFallbackValue(
       SlotsParams(data: DateTime(2026), servicoId: 0, colaboradorId: 0),
     );
+    registerFallbackValue(const ListarServicosParams());
   });
 
-  AgendamentoProvider montar() {
+  AgendamentoProvider montar({bool comCatalogo = false}) {
     return AgendamentoProvider(
       id: 3,
       obter: obter,
@@ -81,6 +88,7 @@ void main() {
       cobrar: cobrar,
       listarSlots: listarSlots,
       obterSaldo: obterSaldo,
+      listarServicos: comCatalogo ? listarServicos : null,
     );
   }
 
@@ -91,6 +99,7 @@ void main() {
     cobrar = _MockCobrar();
     listarSlots = _MockListarSlots();
     obterSaldo = _MockObterSaldo();
+    listarServicos = _MockListarServicos();
     when(() => obter(3)).thenAnswer((_) async => Right(_agendamento()));
     when(() => obterSaldo(7)).thenAnswer((_) async => Right(_saldo));
   });
@@ -112,6 +121,40 @@ void main() {
       expect(provider.agendamento, isNotNull);
       expect(provider.saldo, isNull);
       expect(provider.erroAoCarregar, isNull);
+    },
+  );
+
+  test(
+    'com o catálogo injetado, carregar traz os serviços ativos para a troca '
+    'na cobrança; falhando ou sem o use case, a ficha segue sem a troca',
+    () async {
+      final corte = Servico(
+        id: 3,
+        nome: 'Corte',
+        duracao: 30,
+        preco: Decimal.parse('45.50'),
+      );
+      when(() => listarServicos(any())).thenAnswer((_) async => Right([corte]));
+      final provider = montar(comCatalogo: true);
+
+      await provider.carregar();
+
+      expect(provider.servicosParaTrocar, [corte]);
+      final params =
+          verify(() => listarServicos(captureAny())).captured.single
+              as ListarServicosParams;
+      expect(params.ativo, isTrue);
+
+      when(() => listarServicos(any()))
+          .thenAnswer((_) async => const Left(NetworkFailure()));
+      final semCatalogo = montar(comCatalogo: true);
+      await semCatalogo.carregar();
+      expect(semCatalogo.agendamento, isNotNull);
+      expect(semCatalogo.servicosParaTrocar, isEmpty);
+
+      final semUseCase = montar();
+      await semUseCase.carregar();
+      expect(semUseCase.servicosParaTrocar, isEmpty);
     },
   );
 

@@ -1,7 +1,7 @@
 from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema_field
 from rest_framework import serializers
 
-from apps_work.clientes.models import PortePet
+from apps_work.clientes.models import PortePet, PorteVeiculo
 from apps_work.clientes.validators import normalizar_porte, validar_cpf, validar_placa_br, validar_telefone_br
 
 from apps_serv.vitrine.serializers import NegocioPublicoSerializer
@@ -79,6 +79,8 @@ class DadosVeiculoSerializer(serializers.Serializer):
     marca = serializers.CharField(max_length=50)
     modelo = serializers.CharField(max_length=100)
     cor = serializers.CharField(max_length=50, required=False, allow_blank=True, default='')
+    # Como no veículo cadastrado pelo negócio: decide quais serviços servem.
+    porte = serializers.ChoiceField(choices=PorteVeiculo.choices)
 
     def validate_placa(self, valor):
         return validar_placa_br(valor)
@@ -162,9 +164,14 @@ class AgendamentoConsumidorSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'schema_name', 'agendamento_id', 'origem', 'negocio_nome',
             'servicos', 'profissional_nome', 'objeto_dados', 'data_hora',
-            'duracao_total', 'valor_total', 'valor_taxa_cancelamento',
+            'duracao_total', 'valor_total', 'acrescimo', 'acrescimo_motivo', 'valor_taxa_cancelamento',
             'status', 'status_kanban', 'etapa_nome', 'logo_url', 'criado_em',
         ]
+        extra_kwargs = {
+            'valor_total': {'help_text': 'O combinado ao marcar; depois da cobrança, o que foi cobrado de verdade.'},
+            'acrescimo': {'help_text': 'O que o atendimento custou a mais, acertado com o negócio na cobrança.'},
+            'acrescimo_motivo': {'help_text': 'O motivo do acréscimo ("tempo excedido").'},
+        }
 
     def _status_kanban(self, obj) -> dict:
         return (self.context.get('status_kanban') or {}).get(obj.id, {})

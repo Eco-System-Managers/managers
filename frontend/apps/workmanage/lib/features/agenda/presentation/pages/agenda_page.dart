@@ -91,9 +91,12 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
   }
 
   void _abrirBloqueio(Bloqueio bloqueio) {
-    final podeExcluir = ref
-        .read(negocioAtualProvider)
-        .podeBloquearAgendaDe(bloqueio.colaboradorId);
+    final negocio = ref.read(negocioAtualProvider);
+    final colaboradorId = bloqueio.colaboradorId;
+    // o bloqueio do negócio inteiro só o dono exclui
+    final podeExcluir = colaboradorId == null
+        ? negocio.ehProprietario
+        : negocio.podeBloquearAgendaDe(colaboradorId);
     BloqueioSheet.abrir(
       context,
       bloqueio: bloqueio,

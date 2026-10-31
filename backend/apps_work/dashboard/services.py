@@ -234,8 +234,9 @@ class DashboardService:
             return [
                 {
                     'id': at.id,
-                    'cliente_nome': at.objeto.cliente.nome,
-                    'cliente_telefone': at.objeto.cliente.telefone,
+                    # o avulso não tem cliente: sai pela identificação, sem WhatsApp
+                    'cliente_nome': at.rotulo,
+                    'cliente_telefone': at.cliente.telefone if at.cliente is not None else '',
                     'servico_nome': at.servico.nome,
                     'colaborador_nome': at.colaborador.nome_exibido if at.colaborador_id else '',
                     'hora': (

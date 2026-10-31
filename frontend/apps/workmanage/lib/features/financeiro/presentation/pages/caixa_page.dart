@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
+import 'package:managers/core/utils/texto.dart';
 import 'package:managers/core/widgets/avatar_iniciais.dart';
 import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';

@@ -38,8 +38,12 @@ class HorariosProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get salvo => _salvo;
 
-  // a capacidade diária só existe na agenda kanban
+  // o máximo no dia e o ao mesmo tempo só existem na esteira
   bool get isKanban => _negocio.isKanban;
+
+  // o dia que dá nome ao "Repetir segunda nos outros dias"; null com a
+  // semana toda fechada
+  HorarioFuncionamento? get primeiroDiaAberto => primeiroDiaAbertoDe(_horarios);
 
   Future<void> carregar() async {
     _isLoading = true;
@@ -61,6 +65,14 @@ class HorariosProvider extends ChangeNotifier {
   // cada mudança num dia troca o horário daquele dia na lista
   void atualizarHorario(HorarioFuncionamento horario) {
     _horarios = [for (final h in _horarios) h.dia == horario.dia ? horario : h];
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  // copia os horários e os números do primeiro dia aberto para os outros,
+  // sem abrir nem fechar dia nenhum
+  void repetirPrimeiroDiaNosOutros() {
+    _horarios = repetirPrimeiroDiaAberto(_horarios);
     _errorMessage = null;
     notifyListeners();
   }

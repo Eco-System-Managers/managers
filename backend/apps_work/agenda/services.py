@@ -5,7 +5,10 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from core.excecoes import ErroDeNegocio
-from .models import Agendamento, Bloqueio, OrigemAtendimento, PagamentoAgendamento, StatusAgendamento
+from core.grade import inicios_livres
+from .models import (
+    Agendamento, AgendamentoServico, Bloqueio, OrigemAtendimento, PagamentoAgendamento, StatusAgendamento,
+)
 
 DURACAO_PADRAO_MINUTOS = 30
 
@@ -79,7 +82,8 @@ class PendenciasCobrancaService:
                 'cliente_id': ag.cliente_id,
                 'cliente_nome': ag.cliente.nome,
                 'servico_nome': ' + '.join(s.servico.nome for s in servicos) or '—',
-                'valor': str(sum((s.preco_cobrado for s in servicos), Decimal('0')) - ag.desconto),
+                # a mesma conta da cobrança: serviços + acréscimo - desconto
+                'valor': str(sum((s.preco_cobrado for s in servicos), Decimal('0')) + ag.acrescimo - ag.desconto),
                 # No formato que o CobrancaModal consome, pra cobrar direto da
                 # lista sem precisar abrir a agenda naquele dia.
                 'servicos': [
@@ -98,10 +102,11 @@ class PendenciasCobrancaService:
                 'origem': OrigemAtendimento.KANBAN,
                 'id': at.pk,
                 'data': at.data.isoformat(),
-                'cliente_id': at.objeto.cliente_id,
-                'cliente_nome': at.objeto.cliente.nome,
+                # o avulso da esteira não tem cliente: id nulo, e o nome é a identificação
+                'cliente_id': at.objeto.cliente_id if not at.avulso else None,
+                'cliente_nome': at.rotulo,
                 'servico_nome': at.servico.nome,
-                'valor': str(at.servico.preco - at.desconto),
+                'valor': str(at.servico.preco + at.acrescimo - at.desconto),
                 'servicos': [
                     {'servico_id': at.servico_id, 'nome': at.servico.nome, 'preco': str(at.servico.preco)}
                 ],
@@ -122,9 +127,6 @@ class SlotsAgendaService:
     A agenda é individual — a grade olha só os agendamentos daquele colaborador,
     e a ocupação de um não interfere na do outro.
     """
-
-    # o passo da grade, igual ao da agenda do app
-    INTERVALO_MINUTOS = 15
 
     def listar(self, data: date, servico_id: int, colaborador_id: int) -> list[dict]:
         """Os horários livres do dia para este serviço com este profissional."""
@@ -160,26 +162,15 @@ class SlotsAgendaService:
         if not horario or not horario.abertura or not horario.fechamento:
             return []
 
-        abertura = datetime.combine(data, horario.abertura)
-        fechamento = datetime.combine(data, horario.fechamento)
-        duracao = timedelta(minutes=duracao_minutos or DURACAO_PADRAO_MINUTOS)
-
-        ocupados = self._intervalos_ocupados(data, colaborador_id)
-
-        candidatos = set()
-        atual = abertura
-        while atual + duracao <= fechamento:
-            candidatos.add(atual)
-            atual += timedelta(minutes=self.INTERVALO_MINUTOS)
-        for _, fim_oc in ocupados:
-            if abertura <= fim_oc and fim_oc + duracao <= fechamento:
-                candidatos.add(fim_oc)
-
-        return [
-            inicio for inicio in sorted(candidatos)
-            if (nao_antes_de is None or inicio >= nao_antes_de)
-            and all(inicio + duracao <= inicio_oc or inicio >= fim_oc for inicio_oc, fim_oc in ocupados)
-        ]
+        # A grade é a mesma da esteira (core/grade.py); a agenda é individual,
+        # então cabe um atendimento por vez no profissional.
+        return inicios_livres(
+            datetime.combine(data, horario.abertura),
+            datetime.combine(data, horario.fechamento),
+            timedelta(minutes=duracao_minutos or DURACAO_PADRAO_MINUTOS),
+            self._intervalos_ocupados(data, colaborador_id),
+            nao_antes_de=nao_antes_de,
+        )
 
     def _intervalos_ocupados(self, data: date, colaborador_id: int) -> list[tuple]:
         agendamentos = (
@@ -200,6 +191,11 @@ class SlotsAgendaService:
 class BloqueioService:
     """Os bloqueios da agenda: o que eles tiram da grade e a regra para criar.
 
+    Dois tipos: o de um profissional (com colaborador), que tira o trecho da
+    agenda dele; e o do negócio (sem colaborador), que fecha o negócio inteiro
+    no período — vale na agenda de todos e na esteira, que não tem agenda
+    individual.
+
     Não existe editar: para mudar, a pessoa exclui e cria de novo, e a regra
     de não bloquear em cima de cliente só precisa valer na criação.
     """
@@ -213,21 +209,27 @@ class BloqueioService:
         )
 
     def intervalos_do_dia(self, data: date, colaborador_id: int) -> list[tuple]:
-        """Os trechos bloqueados do dia, no horário local e sem fuso, no mesmo
-        formato dos agendamentos da grade. O dia inteiro vai da meia-noite à
-        meia-noite seguinte."""
+        """Os trechos bloqueados do dia na agenda de um profissional, no
+        horário local e sem fuso, no mesmo formato dos agendamentos da grade:
+        os dele e os do negócio inteiro, que fecham a agenda de todos. O dia
+        inteiro vai da meia-noite à meia-noite seguinte."""
         return [
             self._intervalo(b, data)
-            for b in self.do_dia(data).filter(colaborador_id=colaborador_id)
+            for b in self.do_dia(data).filter(Q(colaborador_id=colaborador_id) | Q(colaborador__isnull=True))
         ]
+
+    def intervalos_do_negocio(self, data: date) -> list[tuple]:
+        """Só os trechos em que o negócio inteiro está fechado no dia. É o que
+        a esteira usa: lá não há agenda individual."""
+        return [self._intervalo(b, data) for b in self.do_dia(data).filter(colaborador__isnull=True)]
 
     @transaction.atomic
     def criar(
-        self, colaborador, data_inicio: date, data_fim: date | None = None,
+        self, data_inicio: date, colaborador=None, data_fim: date | None = None,
         hora_inicio: time | None = None, hora_fim: time | None = None, motivo: str = '',
     ) -> Bloqueio:
         # os opcionais podem nem vir no pedido: o fixo não manda data_fim, o
-        # dia inteiro não manda as horas
+        # dia inteiro não manda as horas, o do negócio não manda colaborador
         bloqueio = Bloqueio(
             colaborador=colaborador, data_inicio=data_inicio, data_fim=data_fim,
             hora_inicio=hora_inicio, hora_fim=hora_fim, motivo=motivo,
@@ -242,30 +244,56 @@ class BloqueioService:
 
     def _tem_cliente(self, bloqueio: Bloqueio) -> bool:
         """Algum atendimento ainda por acontecer cai dentro do bloqueio. No
-        fixo, olha todas as datas a partir do início, não só a primeira."""
+        fixo, olha todas as datas a partir do início, não só a primeira. O do
+        negócio olha a agenda de todos os profissionais e também a esteira."""
         agora = timezone.localtime().replace(tzinfo=None)
         agendamentos = (
             Agendamento.objects
-            .filter(
-                colaborador=bloqueio.colaborador,
-                status__in=STATUS_QUE_OCUPAM,
-                data_hora__date__gte=bloqueio.data_inicio,
-            )
+            .filter(status__in=STATUS_QUE_OCUPAM, data_hora__date__gte=bloqueio.data_inicio)
             .prefetch_related('servicos__servico')
         )
+        # o do negócio fecha a agenda de todos: nenhum profissional fica de fora
+        if bloqueio.colaborador_id is not None:
+            agendamentos = agendamentos.filter(colaborador=bloqueio.colaborador)
         if bloqueio.data_fim:
             agendamentos = agendamentos.filter(data_hora__date__lte=bloqueio.data_fim)
 
         for ag in agendamentos:
             duracao = sum(s.servico.duracao for s in ag.servicos.all()) or DURACAO_PADRAO_MINUTOS
             inicio = timezone.localtime(ag.data_hora).replace(tzinfo=None)
-            fim = inicio + timedelta(minutes=duracao)
-            if fim <= agora:
-                continue
-            inicio_bl, fim_bl = self._intervalo(bloqueio, inicio.date())
-            if inicio < fim_bl and inicio_bl < fim:
+            if self._cai_no_bloqueio(bloqueio, inicio, inicio + timedelta(minutes=duracao), agora):
+                return True
+
+        return bloqueio.colaborador_id is None and self._tem_atendimento_na_esteira(bloqueio, agora)
+
+    def _tem_atendimento_na_esteira(self, bloqueio: Bloqueio, agora: datetime) -> bool:
+        """Os cards da esteira com hora marcada dentro do período (quem faltou
+        não conta), ocupando a duração prevista. O card sem hora não cai em
+        faixa nenhuma e não impede: ele continua marcado, só não entra mais
+        ninguém."""
+        from apps_work.kanban.models import AtendimentoKanban
+
+        atendimentos = (
+            AtendimentoKanban.objects
+            .filter(faltou=False, data__gte=bloqueio.data_inicio, horario_entrada__isnull=False)
+            .select_related('servico')
+        )
+        if bloqueio.data_fim:
+            atendimentos = atendimentos.filter(data__lte=bloqueio.data_fim)
+
+        for at in atendimentos:
+            inicio = datetime.combine(at.data, at.horario_entrada).replace(second=0, microsecond=0)
+            if self._cai_no_bloqueio(bloqueio, inicio, inicio + timedelta(minutes=at.duracao_prevista), agora):
                 return True
         return False
+
+    def _cai_no_bloqueio(self, bloqueio: Bloqueio, inicio: datetime, fim: datetime, agora: datetime) -> bool:
+        """Se o atendimento [inicio, fim), ainda por acontecer, sobrepõe o
+        bloqueio no dia dele."""
+        if fim <= agora:
+            return False
+        inicio_bl, fim_bl = self._intervalo(bloqueio, inicio.date())
+        return inicio < fim_bl and inicio_bl < fim
 
     def _intervalo(self, bloqueio: Bloqueio, data: date) -> tuple[datetime, datetime]:
         if bloqueio.hora_inicio is None:
@@ -311,7 +339,8 @@ class AgendamentoService:
         fim = data_hora + timedelta(minutes=duracao)
 
         # O bloqueio vale também para a empresa: para marcar em cima dele, o
-        # bloqueio sai antes.
+        # bloqueio sai antes. Os do negócio inteiro entram junto com os do
+        # profissional (intervalos_do_dia).
         inicio_local = timezone.localtime(inicio).replace(tzinfo=None)
         fim_local = inicio_local + timedelta(minutes=duracao)
         for inicio_bl, fim_bl in BloqueioService().intervalos_do_dia(inicio_local.date(), colaborador.pk):
@@ -341,19 +370,40 @@ class AgendamentoService:
         pagamentos: list,
         credito_aplicado: Decimal = Decimal('0'),
         troco_credito: Decimal = Decimal('0'),
+        acrescimo: Decimal = Decimal('0'),
+        acrescimo_motivo: str = '',
+        servico_ids: list[int] | None = None,
     ) -> Agendamento:
-        from apps_work.financeiro.services import SaldoService
+        """Fecha o atendimento. O total é o dos serviços mais o acréscimo menos
+        o desconto, e tem de bater com o que o cliente entregou.
 
-        total_servicos = sum(s.preco_cobrado for s in agendamento.servicos.all())
-        total_esperado = (total_servicos - desconto).quantize(Decimal('0.01'))
-        total_pagamentos = sum(Decimal(str(p['valor'])) for p in pagamentos).quantize(Decimal('0.01'))
-        total_efetivo = (total_pagamentos + credito_aplicado).quantize(Decimal('0.01'))
+        Dois acertos em comum acordo com o cliente cabem aqui, e só aqui:
+        `servico_ids` troca os serviços pelos que foram feitos de verdade (os
+        AgendamentoServico são substituídos, com o preço atual de cada um — é
+        o que deixa o registro e os relatórios certos), e o acréscimo mantém o
+        serviço e cobra o que custou a mais, com o motivo que o cliente vê no
+        app. Sem nenhum dos dois, cobra o combinado.
+        """
+        from apps_work.financeiro.services import (
+            SaldoService, conferir_total_da_cobranca, notificar_cobranca, snapshot_do_servico,
+        )
+        from apps_work.servicos.services import servicos_ativos
 
-        if total_efetivo != total_esperado:
-            raise ValidationError({
-                'detail': f'A soma dos pagamentos (R$ {total_efetivo}) não bate com o total a cobrar (R$ {total_esperado}).',
-                'code': 'soma_invalida',
-            })
+        if servico_ids:
+            servicos = servicos_ativos(servico_ids)
+            # .all().delete() também limpa o prefetch da view: a resposta sai
+            # com os serviços novos, não com os que ela tinha carregado.
+            agendamento.servicos.all().delete()
+            AgendamentoServico.objects.bulk_create([
+                AgendamentoServico(agendamento=agendamento, servico=servico, preco_cobrado=servico.preco)
+                for servico in servicos
+            ])
+        itens = list(agendamento.servicos.select_related('servico').order_by('pk'))
+
+        total_esperado = conferir_total_da_cobranca(
+            sum((item.preco_cobrado for item in itens), Decimal('0')),
+            desconto, acrescimo, pagamentos, credito_aplicado,
+        )
 
         saldo_service = SaldoService()
 
@@ -362,8 +412,10 @@ class AgendamentoService:
 
         status_anterior = agendamento.status
         agendamento.desconto = desconto
+        agendamento.acrescimo = acrescimo
+        agendamento.acrescimo_motivo = acrescimo_motivo
         agendamento.status = StatusAgendamento.CONCLUIDO
-        agendamento.save(update_fields=['desconto', 'status'])
+        agendamento.save(update_fields=['desconto', 'acrescimo', 'acrescimo_motivo', 'status'])
         self.notificar_mudanca_de_status(agendamento, status_anterior)
 
         # a comissão do parceiro congela aqui: mudar o acordo depois não
@@ -382,4 +434,9 @@ class AgendamentoService:
         if troco_credito > Decimal('0'):
             saldo_service.adicionar_troco(agendamento.cliente_id, troco_credito, agendamento_id=agendamento.pk)
 
+        # o app do cliente passa a mostrar o que foi cobrado de verdade
+        notificar_cobranca(
+            Agendamento, OrigemAtendimento.AGENDA, agendamento.pk, total_esperado, acrescimo, acrescimo_motivo,
+            [snapshot_do_servico(item.servico, item.preco_cobrado) for item in itens],
+        )
         return agendamento

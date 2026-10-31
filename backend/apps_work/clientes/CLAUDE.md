@@ -9,7 +9,7 @@ Service Manage. A diferença muda o que o painel pode fazer com ele.
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `Cliente` e a hierarquia `ObjetoCliente` → `Veiculo` / `Pet` |
+| `models.py` | `Cliente`, a hierarquia `ObjetoCliente` → `Veiculo` / `Pet` e os portes (`PorteVeiculo`, `PortePet`, `portes_do_tipo`, `porte_do_objeto`) |
 | `validators.py` | Validação de CPF, telefone brasileiro (com lista de DDDs válidos) e placa (formato antigo e Mercosul) |
 | `serializers.py` | Representação e validação. Trava campos quando o cadastro pertence ao consumidor |
 | `services.py` | `RemocaoClienteService` — remoção que respeita a origem |
@@ -67,6 +67,7 @@ Ordenação por `-criado_em`. As duas tabelas abaixo herdam dela por
 |---|---|---|
 | `placa` | `CharField(10)` | Validada por `validar_placa_br` no serializer — mas **não** quando criada pelo fluxo do app B2C |
 | `marca` · `modelo` · `cor` | `CharField` | |
+| `porte` | `CharField(10)` vazio | `moto`, `carro`, `suv` (SUV ou caminhonete), `van`, `caminhao`. Obrigatório no serializer; vazio só em cadastro de antes dele |
 
 ### `Pet`
 
@@ -74,7 +75,7 @@ Ordenação por `-criado_em`. As duas tabelas abaixo herdam dela por
 |---|---|---|
 | `nome` | `CharField(100)` | |
 | `especie` · `raca` | `CharField` vazios | |
-| `porte` | `CharField(10)` vazio | `pequeno`, `medio`, `grande`, `gigante` |
+| `porte` | `CharField(10)` vazio | Pelo peso: `pequeno` (até 10 kg), `medio` (10 a 25), `grande` (25 a 45), `gigante` (acima de 45). Obrigatório no serializer; vazio só em cadastro de antes dele |
 | `data_nascimento` | `DateField` nulo | |
 
 ## Os campos que decidem comportamento
@@ -114,6 +115,11 @@ veículo, banho e tosa usa pet, e no nicho `outro` o dono escolhe
 - **Remover cliente manual com atendimento responde 400 `cliente_com_atendimentos`.**
   Agendamento e atendimento protegem o cliente (`PROTECT`); antes o `delete()`
   estourava em 500.
+- **O porte decide quais serviços servem** para o veículo ou o pet
+  (`Servico.porte`, ver `servicos`). Veículo e pet novos exigem porte no
+  serializer; o modelo aceita vazio por causa dos cadastros anteriores, que
+  saem com `''` e continuam editáveis numa edição parcial que não mexe nele.
+  `porte_do_objeto` lê o porte de um `ObjetoCliente` sem saber o tipo.
 - **O cadastro que veio do app é sincronizado de fora.** Editar aqui campo que o
   consumidor controla é trabalho perdido: a próxima sincronização sobrescreve.
 

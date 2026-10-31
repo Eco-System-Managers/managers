@@ -3,6 +3,9 @@ import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
 
 import '../../domain/entities/etapa.dart';
+// a regra de qual etapa é a de pronto é do domínio; o prefixo evita o choque
+// com o getter de mesmo nome
+import '../../domain/entities/etapa.dart' as dominio show indiceDePronto;
 import '../../domain/usecases/kanban_use_cases.dart';
 
 // estado da tela de etapas do quadro (montado em kanban_provider.dart, na
@@ -13,12 +16,14 @@ class EtapasProvider extends ChangeNotifier {
     required this._salvar,
     required this._remover,
     required this._reordenar,
+    required this._marcarPronto,
   });
 
   final ListarEtapasUseCase _listar;
   final SalvarEtapaUseCase _salvar;
   final RemoverEtapaUseCase _remover;
   final ReordenarEtapasUseCase _reordenar;
+  final MarcarEtapaProntoUseCase _marcarPronto;
 
   List<Etapa> _etapas = const [];
   bool _carregado = false;
@@ -36,7 +41,7 @@ class EtapasProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   Failure? get erroAoCarregar => _erroAoCarregar;
 
-  // erro de uma ação (etapa_com_atendimentos ao remover)
+  // erro de uma ação (etapa_com_atendimentos ou etapa_pronto ao remover)
   String? get errorMessage => _errorMessage;
 
   // erro de validação da API no campo (nome, cor)
@@ -44,6 +49,23 @@ class EtapasProvider extends ChangeNotifier {
 
   // true logo depois de salvar: a folha fecha e zera
   bool get salvo => _salvo;
+
+  // a partir desta posição o atendimento conta como pronto: a etapa
+  // marcada ou, sem marcação, a última. -1 sem etapas
+  int get indiceDePronto => dominio.indiceDePronto(_etapas);
+
+  // a etapa marcada, ou a última quando nenhuma foi marcada
+  bool ehDePronto(Etapa etapa) {
+    final indice = indiceDePronto;
+    return indice >= 0 && _etapas[indice].id == etapa.id;
+  }
+
+  // as etapas depois da de pronto também contam como pronto
+  bool ehDepoisDePronto(Etapa etapa) {
+    final indice = indiceDePronto;
+    final posicao = _etapas.indexWhere((e) => e.id == etapa.id);
+    return indice >= 0 && posicao > indice;
+  }
 
   Future<void> carregar() async {
     _isLoading = true;
@@ -109,6 +131,22 @@ class EtapasProvider extends ChangeNotifier {
     notifyListeners();
 
     final result = await _remover(id);
+    if (_disposed) return;
+
+    await result.fold((failure) async {
+      _errorMessage = failure.message;
+      _isLoading = false;
+      notifyListeners();
+    }, (_) => carregar());
+  }
+
+  // esta passa a ser a etapa de pronto; a lista é relida com a marca nova
+  Future<void> marcarPronto(int id) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _marcarPronto(id);
     if (_disposed) return;
 
     await result.fold((failure) async {

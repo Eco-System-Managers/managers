@@ -20,8 +20,9 @@ String descreverHorario(Bloqueio b) => b.diaInteiro
     ? 'Dia inteiro'
     : '${formatarHora(b.horaInicio!)} às ${formatarHora(b.horaFim!)}';
 
-// a ficha de um bloqueio, aberta ao tocar na faixa da grade: de quem é, o
-// período, o horário e o motivo. quem pode exclui; não existe editar
+// a ficha de um bloqueio, aberta ao tocar na faixa da grade (ou na faixa
+// fechada do quadro): de quem é, o período, o horário e o motivo. quem pode
+// exclui; não existe editar
 class BloqueioSheet extends StatefulWidget {
   const BloqueioSheet({
     super.key,
@@ -60,7 +61,11 @@ class _BloqueioSheetState extends State<BloqueioSheet> {
     final ok = await confirmar(
       context,
       titulo: 'Excluir bloqueio?',
-      mensagem: 'O horário volta a ficar livre na agenda.',
+      // do negócio, o que volta é a oferta para marcar; do profissional, o
+      // horário dele na agenda
+      mensagem: widget.bloqueio.doNegocio
+          ? 'O período volta a ser oferecido para marcar.'
+          : 'O horário volta a ficar livre na agenda.',
       textoConfirmar: 'Excluir',
       destrutivo: true,
     );
@@ -98,12 +103,15 @@ class _BloqueioSheetState extends State<BloqueioSheet> {
       ),
       children: [
         Text(
-          b.motivo.isEmpty ? 'Bloqueado' : b.motivo,
+          b.motivo.isEmpty
+              ? (b.doNegocio ? 'Fechado' : 'Bloqueado')
+              : b.motivo,
           style: textos.titleLarge,
         ),
         const SizedBox(height: BrandSpacing.space1),
+        // sem profissional é o negócio inteiro
         Text(
-          b.colaboradorNome,
+          b.doNegocio ? 'Todo o negócio' : b.colaboradorNome,
           style: textos.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
         ),
         const SizedBox(height: BrandSpacing.space4),

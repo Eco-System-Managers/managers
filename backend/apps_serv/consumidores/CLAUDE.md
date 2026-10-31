@@ -101,11 +101,13 @@ de duplicar.
 | `agendamento_id` | `PositiveInteger` | Referência solta ao `Agendamento` ou `AtendimentoKanban` no tenant |
 | `origem` | `CharField(10)` = `agenda` | `agenda` ou `kanban`. Decide qual tabela do tenant o id aponta |
 | `negocio_nome` | `CharField(255)` | Snapshot |
-| `servicos` | `JSONField` = `[]` | Snapshot: nome, nicho, duração, preço e taxa de cada serviço. O nicho vem por serviço porque o negócio pode ter vários |
+| `servicos` | `JSONField` = `[]` | Snapshot: nome, nicho, duração, preço e taxa de cada serviço. O nicho vem por serviço porque o negócio pode ter vários. A cobrança o reescreve com o que foi feito de verdade |
 | `profissional_nome` | `CharField(255)` vazio | Snapshot. Vazio na esteira |
 | `data_hora` | `DateTimeField` | Ordenação por `-data_hora` |
 | `duracao_total` | `PositiveInteger` | Em minutos. Define o prazo de cancelamento gratuito |
-| `valor_total` | `Decimal(10,2)` | Snapshot |
+| `valor_total` | `Decimal(10,2)` | Snapshot do combinado ao marcar; a cobrança o troca pelo que foi cobrado de verdade (serviços + acréscimo − desconto) |
+| `acrescimo` | `Decimal(10,2)` = 0 | O que o negócio acertou a mais com o cliente na cobrança. Chega pelo sinal `cobranca_registrada` |
+| `acrescimo_motivo` | `CharField(60)` vazio | O motivo do acréscimo ("tempo excedido") |
 | `valor_taxa_cancelamento` | `Decimal(10,2)` = 0 | Snapshot da taxa no momento do agendamento |
 | `status` | `CharField(20)` = `agendado` | `agendado`, `confirmado`, `concluido`, `cancelado`, `faltou` |
 | `objeto_dados` | `JSONField` nulo | Snapshot do pet/veículo |
@@ -123,6 +125,14 @@ histórico do cliente continua mostrando o que foi combinado.
 A exceção é a **logo**, que é resolvida ao vivo no serializer: logo troca por
 upload, e um snapshot mostraria a marca antiga para sempre.
 
+A outra exceção é a **cobrança**: o que o negócio acertou com o cliente no
+balcão (trocar o serviço pelo que foi feito, cobrar um acréscimo com motivo)
+vale mais que o combinado ao marcar. O sinal `cobranca_registrada`
+(`apps_work/financeiro/signals.py`, escutado em `vitrine/handlers.py`)
+reescreve `servicos`, `valor_total`, `acrescimo` e `acrescimo_motivo` nos dois
+modos de agenda; na esteira, desfazer a cobrança manda o mesmo sinal com o
+acréscimo zerado.
+
 ## O que é fácil errar aqui
 
 - **`SincronizarClienteService` engole exceção de propósito.** Salvar o perfil
@@ -135,5 +145,9 @@ upload, e um snapshot mostraria a marca antiga para sempre.
   validação de placa do veículo cadastrado pelo negócio
   (`clientes.validators.validar_placa_br`) e a placa gravada normalizada. Antes
   havia uma cópia da validação na view que nunca era chamada.
+- **O porte é obrigatório no veículo e no pet** (`DadosVeiculoSerializer`,
+  `DadosPetSerializer`): é ele que filtra os serviços na esteira. Sem ele, o
+  cadastro responde `campos_obrigatorios`; porte de outro tipo,
+  `porte_invalido`.
 - **A foto de perfil está em `FotoConsumidorService`**: troca, remoção, apagar o
   arquivo anterior e sincronizar com os negócios vinculados.

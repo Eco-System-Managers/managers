@@ -4,7 +4,8 @@ import '../../domain/entities/bloqueio.dart';
 import '../../domain/params/agenda_params.dart';
 
 // o schema Bloqueio do contrato. as horas vêm "12:00:00" ou nulas (o dia
-// inteiro); a data de fim nula é o bloqueio fixo
+// inteiro); a data de fim nula é o bloqueio fixo; o colaborador nulo é o
+// bloqueio do negócio inteiro, e o nome vem nulo junto
 class BloqueioModel {
   const BloqueioModel(this.json);
 
@@ -20,7 +21,7 @@ class BloqueioModel {
 
     return Bloqueio(
       id: json['id'] as int,
-      colaboradorId: json['colaborador'] as int,
+      colaboradorId: json['colaborador'] as int?,
       colaboradorNome: json['colaborador_nome'] as String? ?? '',
       dataInicio: dataDaApi(json['data_inicio'] as String),
       dataFim: dataFim == null ? null : dataDaApi(dataFim),
@@ -30,7 +31,8 @@ class BloqueioModel {
     );
   }
 
-  // o corpo do POST (BloqueioRequest)
+  // o corpo do POST (BloqueioRequest). o colaborador vai null de propósito
+  // no bloqueio do negócio: é assim que a API sabe que é de todos
   static Map<String, dynamic> corpoDeCriacao(NovoBloqueioParams params) {
     final dataFim = params.dataFim;
     final horaInicio = params.horaInicio;

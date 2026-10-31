@@ -319,6 +319,45 @@ void main() {
       expect(wizard.errorMessage, 'Corrija os horários marcados');
     });
 
+    test('repetir o primeiro dia copia horário e números para os outros', () {
+      wizard.atualizarHorario(
+        _semana.first.copyWith(
+          fechamento: const HoraDoDia(20, 0),
+          capacidade: 8,
+          vagas: 2,
+        ),
+      );
+
+      expect(wizard.primeiroDiaAberto?.dia, DiaSemana.segunda);
+      wizard.repetirPrimeiroDiaNosOutros();
+
+      // o domingo continua fechado, mas já com os mesmos números
+      final sexta = wizard.horarios[4];
+      final domingo = wizard.horarios[6];
+      expect(sexta.fechamento?.emMinutos, 20 * 60);
+      expect(sexta.capacidade, 8);
+      expect(sexta.vagas, 2);
+      expect(domingo.ativo, isFalse);
+      expect(domingo.vagas, 2);
+    });
+
+    test('salva os horários com vagas, conclui e chega ao fim', () async {
+      when(() => salvarHorarios(any())).thenAnswer((_) async => Right(_semana));
+      when(() => concluir(any())).thenAnswer(
+        (_) async => Right(_configCompleta.copyWith(onboardingConcluido: true)),
+      );
+      wizard.atualizarHorario(_semana.first.copyWith(vagas: 3));
+
+      await wizard.concluir();
+
+      final enviados =
+          verify(() => salvarHorarios(captureAny())).captured.single
+              as List<HorarioFuncionamento>;
+      expect(enviados.first.vagas, 3);
+      expect(wizard.step, WizardStep.concluido);
+      expect(wizard.config.onboardingConcluido, isTrue);
+    });
+
     test('salva os horários, conclui e chega ao fim', () async {
       when(() => salvarHorarios(any())).thenAnswer((_) async => Right(_semana));
       when(() => concluir(any())).thenAnswer(

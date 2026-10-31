@@ -41,12 +41,20 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
     });
   }
 
+  // a folha oferece trocar o serviço pelo que foi feito só quando o
+  // agendamento tem um serviço: com vários, servico_ids trocaria todos
   Future<void> _cobrar(Agendamento agendamento) async {
+    final unico = agendamento.servicos.length == 1
+        ? agendamento.servicos.single
+        : null;
     final cobrou = await CobrancaSheet.abrir(
       context,
       atendimentoId: agendamento.id,
       valorServicos: agendamento.valorDosServicos,
       creditoDisponivel: _provider.saldo?.saldo ?? Decimal.fromInt(0),
+      servicos: unico == null ? null : _provider.servicosParaTrocar,
+      servicoAtualId: unico?.servicoId,
+      servicoAtualNome: unico?.nome ?? '',
       onCobrar: (params) async {
         final ok = await _provider.cobrar(params);
         return ok ? null : _provider.errorMessage;
@@ -222,6 +230,17 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
                   title: Text(s.nome),
                   subtitle: Text('${s.duracao} min'),
                   trailing: Text(formatarDinheiro(s.precoCobrado - s.desconto)),
+                ),
+              // o que foi acertado com o cliente na cobrança
+              if (a.acrescimo > Decimal.fromInt(0))
+                ListTile(
+                  leading: const Icon(Icons.add_circle_outline_rounded),
+                  title: Text(
+                    a.acrescimoMotivo.isEmpty
+                        ? 'Acréscimo'
+                        : 'Acréscimo (${a.acrescimoMotivo})',
+                  ),
+                  trailing: Text('+ ${formatarDinheiro(a.acrescimo)}'),
                 ),
               if (a.desconto > Decimal.fromInt(0))
                 ListTile(

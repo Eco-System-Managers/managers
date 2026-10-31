@@ -11,7 +11,8 @@ cliente final.
 |---|---|
 | `models.py` | `Servico` — nome, duração, preço, quais colaboradores executam, e a taxa de cancelamento |
 | `serializers.py` | Validação de preço, duração, o teto da taxa e o nicho do serviço |
-| `views.py` | ViewSet. Escrita restrita ao proprietário; leitura liberada para colaborador. A lista filtra por `?search=`, `?ativo=` e `?colaborador=` (documentados no OpenAPI) |
+| `views.py` | ViewSet. Escrita restrita ao proprietário; leitura liberada para colaborador. A lista filtra por `?search=`, `?ativo=`, `?colaborador=` e `?porte=` (os do porte e os sem porte), documentados no OpenAPI |
+| `services.py` | `conferir_porte`: a trava do serviço de um porte só (`servico_de_outro_porte`), usada pelo kanban e pelo agendamento do app do cliente. `servicos_ativos`: os serviços de uma lista de ids, ativos, na ordem pedida e sem repetição (`servico_invalido`), usado pela troca de serviço na cobrança dos dois modos |
 | `urls.py` | Rotas sob `/api/v1/servicos/` |
 
 ## Tabela
@@ -22,6 +23,7 @@ cliente final.
 |---|---|---|
 | `nome` | `CharField(255)` | |
 | `nicho` | `CharField(50)` | A pasta do serviço: um dos `EmpresaConfig.nichos`. Gravado sempre; a interface só mostra pastas com 2+ nichos |
+| `porte` | `CharField(10)` vazio | Só na esteira: o porte do veículo ou do pet que o serviço atende ("Lavagem simples · Moto"). Vazio vale para qualquer porte, e é o único valor no modo horário. O serializer só aceita porte do `tipo_objeto` do negócio |
 | `descricao` | `TextField` vazio | |
 | `duracao` | `PositiveInteger` | **Em minutos.** É o que define conflito de horário na agenda |
 | `preco` | `Decimal(8,2)` | |
@@ -63,5 +65,10 @@ e está em `apps_serv/vitrine/services.py`.
   (`nicho_fora_do_negocio`).
 - **Tirar um nicho na config inativa os serviços dele** — ver
   `apps_work/empresa/CLAUDE.md`.
+- **Serviço de um porte só atende esse porte** (`Servico.serve_para`): sem
+  porte atende qualquer um, e objeto sem porte (cadastro antigo) aceita
+  qualquer serviço, porque não há com o que comparar. A trava
+  (`conferir_porte`) vale ao receber no kanban, ao trocar o serviço do card
+  por PATCH e no agendamento do app do cliente.
 - **O app B2C lê este catálogo** via `CrossTenantQueryService.listar_servicos`,
   filtrando por `ativo=True`. Desativar serviço o remove da vitrine na hora.

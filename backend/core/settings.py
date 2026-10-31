@@ -425,6 +425,11 @@ SPECTACULAR_SETTINGS = {
         'TipoPlanoEnum': 'apps_work.billing.models.TipoPlano',
         # pet | veiculo: usado no B2B (ObjetoCliente) e no B2C.
         'TipoObjetoEnum': 'apps_work.clientes.models.TipoObjeto',
+        # O porte do veículo, o do pet e a união dos dois (o do serviço): três
+        # campos chamados `porte`, no B2B e no B2C.
+        'PorteVeiculoEnum': 'apps_work.clientes.models.PorteVeiculo',
+        'PortePetEnum': 'apps_work.clientes.models.PortePet',
+        'PorteServicoEnum': 'apps_work.servicos.models.PORTE_SERVICO_CHOICES',
     },
     'POSTPROCESSING_HOOKS': [
         'drf_spectacular.hooks.postprocess_schema_enums',

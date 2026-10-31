@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/usecases/use_case.dart';
+import 'package:managers/features/clientes/domain/entities/porte.dart';
 import 'package:managers/features/empresa/domain/entities/nicho.dart';
 import 'package:managers/features/empresa/presentation/providers/negocio_atual_provider.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
@@ -56,6 +57,15 @@ class ServicoFormProvider extends ChangeNotifier {
 
   // com um nicho só não há o que escolher: o serviço fica nele
   bool get escolheNicho => nichos.length > 1;
+
+  // na esteira o serviço pode ser de um porte só, do veículo ou do pet que
+  // o negócio recebe; no modo horário não há porte
+  List<Porte> get portes {
+    final tipo = _negocio.config?.tipoObjeto;
+    return tipo == null ? const [] : Porte.doTipo(tipo);
+  }
+
+  bool get escolhePorte => portes.isNotEmpty;
 
   // null enquanto carrega ou quando é novo
   Servico? get servico => _servico;

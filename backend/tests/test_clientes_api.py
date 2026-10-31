@@ -166,7 +166,7 @@ class TestVeiculoAPI:
         assert len(response.data['results']) == 1
 
     def test_criar_veiculo_seta_tipo_veiculo(self, client_autenticado, cliente):
-        payload = {'cliente': cliente.id, 'modelo': 'Gol', 'marca': 'VW', 'placa': 'XYZ-9999', 'cor': 'Prata'}
+        payload = {'cliente': cliente.id, 'modelo': 'Gol', 'marca': 'VW', 'placa': 'XYZ-9999', 'cor': 'Prata', 'porte': 'carro'}
         response = client_autenticado.post('/api/v1/veiculos/', payload)
         assert response.status_code == 201
         assert Veiculo.objects.get(pk=response.data['id']).tipo == 'veiculo'
@@ -200,7 +200,7 @@ class TestPetAPI:
         assert len(response.data['results']) == 1
 
     def test_criar_pet_seta_tipo_pet(self, client_autenticado, cliente):
-        payload = {'cliente': cliente.id, 'nome': 'Bolinha', 'especie': 'Gato'}
+        payload = {'cliente': cliente.id, 'nome': 'Bolinha', 'especie': 'Gato', 'porte': 'pequeno'}
         response = client_autenticado.post('/api/v1/pets/', payload)
         assert response.status_code == 201
         assert Pet.objects.get(pk=response.data['id']).tipo == 'pet'

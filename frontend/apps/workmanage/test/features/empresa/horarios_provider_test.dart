@@ -120,14 +120,87 @@ void main() {
     expect(provider.salvo, isTrue);
   });
 
-  test('na agenda kanban, dia aberto precisa de capacidade', () async {
+  test('na esteira, dia sem máximo é válido e vagas vai no salvar', () async {
     negocio.atualizarConfig(const EmpresaConfig(tipoAgenda: TipoAgenda.kanban));
     await provider.carregar();
+    provider.atualizarHorario(
+      _semana.first.copyWith(capacidade: null, vagas: 2),
+    );
 
     expect(provider.isKanban, isTrue);
+    expect(provider.erroDoDia(provider.horarios.first), isNull);
+
+    await provider.salvar();
+
+    final enviados =
+        verify(() => salvarHorarios(captureAny())).captured.single
+            as List<HorarioFuncionamento>;
+    expect(enviados.first.capacidade, isNull);
+    expect(enviados.first.vagas, 2);
+    expect(provider.salvo, isTrue);
+  });
+
+  test('na esteira, máximo no dia abaixo de 1 é apontado', () async {
+    negocio.atualizarConfig(const EmpresaConfig(tipoAgenda: TipoAgenda.kanban));
+    await provider.carregar();
+    provider.atualizarHorario(_semana.first.copyWith(capacidade: 0));
+
     expect(
       provider.erroDoDia(provider.horarios.first),
-      'Informe quantos atendimentos cabem no dia',
+      'O máximo no dia é pelo menos 1',
     );
+  });
+
+  group('repetir o primeiro dia aberto', () {
+    test('copia horário e números sem abrir nem fechar dia', () async {
+      await provider.carregar();
+      // a segunda está fechada: a terça é quem dá o modelo
+      provider.atualizarHorario(_semana.first.copyWith(ativo: false));
+      provider.atualizarHorario(
+        _semana[1].copyWith(
+          abertura: const HoraDoDia(7, 30),
+          fechamento: const HoraDoDia(16, 0),
+          capacidade: 8,
+          vagas: 2,
+        ),
+      );
+
+      expect(provider.primeiroDiaAberto?.dia, DiaSemana.terca);
+      provider.repetirPrimeiroDiaNosOutros();
+
+      final segunda = provider.horarios[0];
+      final sabado = provider.horarios[5];
+      final domingo = provider.horarios[6];
+      expect(segunda.ativo, isFalse);
+      expect(segunda.abertura?.emMinutos, 7 * 60 + 30);
+      expect(sabado.ativo, isTrue);
+      expect(sabado.fechamento?.emMinutos, 16 * 60);
+      expect(sabado.capacidade, 8);
+      expect(sabado.vagas, 2);
+      expect(domingo.ativo, isFalse);
+      expect(domingo.capacidade, 8);
+    });
+
+    test('sem máximo também é copiado', () async {
+      await provider.carregar();
+      provider.atualizarHorario(_semana[1].copyWith(capacidade: 5));
+      provider.atualizarHorario(_semana.first.copyWith(capacidade: null));
+
+      provider.repetirPrimeiroDiaNosOutros();
+
+      expect(provider.horarios[1].capacidade, isNull);
+    });
+
+    test('com a semana toda fechada não muda nada', () async {
+      await provider.carregar();
+      for (final h in provider.horarios) {
+        provider.atualizarHorario(h.copyWith(ativo: false));
+      }
+
+      expect(provider.primeiroDiaAberto, isNull);
+      provider.repetirPrimeiroDiaNosOutros();
+
+      expect(provider.horarios.first.abertura?.emMinutos, 9 * 60);
+    });
   });
 }

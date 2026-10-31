@@ -118,6 +118,13 @@ class AgendamentoConsumidor(models.Model):
     data_hora = models.DateTimeField()
     duracao_total = models.PositiveIntegerField(help_text='Duração total em minutos')
     valor_total = models.DecimalField(max_digits=10, decimal_places=2)
+    # O que o negócio acertou com o cliente na hora de cobrar: o valor a mais e
+    # o motivo ("tempo excedido"). Chegam pelo sinal `cobranca_registrada`
+    # (apps_work/financeiro), que também atualiza `valor_total` e `servicos` —
+    # a exceção ao snapshot: o que foi cobrado de verdade vale mais que o
+    # combinado na hora de marcar.
+    acrescimo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    acrescimo_motivo = models.CharField(max_length=60, blank=True, default='')
     valor_taxa_cancelamento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     # Espelha o status do agendamento no negócio — inclusive "faltou", que o
     # negócio marca no painel: o cliente precisa saber que constou como falta.

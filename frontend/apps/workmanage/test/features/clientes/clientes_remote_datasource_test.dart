@@ -136,6 +136,7 @@ void main() {
           'marca': 'Fiat',
           'modelo': 'Uno',
           'cor': 'Prata',
+          'porte': 'carro',
           'criado_em': '2026-10-20T10:00:00-03:00',
         },
       ]
@@ -155,12 +156,13 @@ void main() {
     final cliente = ClienteModel.fromJson(json).toEntity();
 
     expect(cliente.veiculos.single.titulo, 'Fiat Uno');
-    expect(cliente.pets.single.porte, PortePet.pequeno);
+    expect(cliente.veiculos.single.porte, Porte.carro);
+    expect(cliente.pets.single.porte, Porte.pequeno);
     expect(cliente.pets.single.dataNascimento, DateTime(2020, 1, 5));
     expect(cliente.objetosDoTipo(TipoObjeto.pet).single.titulo, 'Rex');
     expect(
       cliente.objetosDoTipo(TipoObjeto.veiculo).single.detalhe,
-      'ABC1D23 · Prata',
+      'ABC1D23 · Prata · Carro',
     );
   });
 
@@ -198,6 +200,7 @@ void main() {
         marca: 'Fiat',
         modelo: 'Uno',
         cor: 'Prata',
+        porte: Porte.carro,
       ),
     );
     final pet = await datasource.atualizarPet(
@@ -218,6 +221,7 @@ void main() {
       'marca': 'Fiat',
       'modelo': 'Uno',
       'cor': 'Prata',
+      'porte': 'carro',
     });
     expect((adapter.requisicoes[1].data as Map)['porte'], '');
   });

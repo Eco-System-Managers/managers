@@ -96,8 +96,32 @@ class CobrancaSerializer(serializers.Serializer):
 
     Antes cada view fazia `Decimal(str(...))` direto no corpo: valor inválido
     virava 500 (InvalidOperation). Aqui vira 400 com o campo apontado.
+
+    O total a cobrar é o dos serviços (depois da troca, se houve) mais o
+    acréscimo menos o desconto, e pagamentos + crédito aplicado têm de bater
+    com ele (`conferir_total_da_cobranca`, em services.py).
     """
     desconto = serializers.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+    # O que se acerta na hora de cobrar, em comum acordo com o cliente: o que o
+    # atendimento custou a mais e o serviço feito de verdade. Sem os dois, cobra
+    # o combinado — nada é automático.
+    acrescimo = serializers.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal('0'), min_value=Decimal('0'),
+        help_text='Valor a mais no total, combinado com o cliente (ex.: tempo excedido). Zero sem acréscimo.',
+    )
+    acrescimo_motivo = serializers.CharField(
+        max_length=60, default='', allow_blank=True,
+        help_text='O motivo do acréscimo, que o cliente vê no app ("tempo excedido").',
+    )
+    servico_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, allow_empty=False,
+        help_text=(
+            'Troca o serviço pelo que foi feito de verdade, na hora de cobrar. Na esteira, um id só '
+            '(400 um_servico_so), conferido com o porte do veículo ou pet; na agenda, a lista substitui os '
+            'serviços do agendamento, com o preço atual de cada um. Inexistente ou inativo: 400 servico_invalido. '
+            'Sem o campo, cobra o serviço combinado.'
+        ),
+    )
     pagamentos = PagamentoCobrancaSerializer(many=True)
     credito_aplicado = serializers.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
     troco_credito = serializers.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))

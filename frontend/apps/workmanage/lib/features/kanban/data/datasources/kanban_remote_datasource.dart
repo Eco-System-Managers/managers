@@ -21,6 +21,8 @@ abstract class KanbanRemoteDataSource {
 
   Future<void> reordenarEtapas(List<int> ids);
 
+  Future<EtapaModel> marcarEtapaPronto(int id);
+
   // o dia inteiro, seguindo a paginação
   Future<List<AtendimentoKanbanModel>> listarDoDia(
     DateTime data, {
@@ -35,6 +37,12 @@ abstract class KanbanRemoteDataSource {
 
   Future<AtendimentoKanbanModel> mover(int id, int etapaId);
 
+  Future<AtendimentoKanbanModel> remarcar(
+    RemarcarAtendimentoKanbanParams params,
+  );
+
+  Future<AtendimentoKanbanModel> ajustarTempo(int id, int minutosExtras);
+
   Future<AtendimentoKanbanModel> cobrar(CobrancaParams params);
 
   Future<AtendimentoKanbanModel> desfazerCobranca(int id);
@@ -45,9 +53,18 @@ abstract class KanbanRemoteDataSource {
 
   Future<void> remover(int id);
 
-  // só as horas de entrada livres: a API manda a grade inteira, com
-  // {horario, disponivel}, como a da agenda
-  Future<List<Hora>> slots(DateTime data);
+  // só as horas de entrada livres: a API manda a grade com
+  // {horario, disponivel}, como a da agenda, já só com as horas em que o
+  // serviço cabe
+  Future<List<Hora>> slots(DateTime data, {int? servicoId, int? excluirId});
+
+  Future<CapacidadeDoDiaModel> capacidadeDoDia(DateTime data);
+
+  Future<CapacidadeDoDiaModel> ajustarCapacidade(
+    AjustarCapacidadeParams params,
+  );
+
+  Future<CapacidadeDoDiaModel> desfazerAjuste(DateTime data);
 }
 
 class KanbanRemoteDataSourceImpl implements KanbanRemoteDataSource {
@@ -57,6 +74,7 @@ class KanbanRemoteDataSourceImpl implements KanbanRemoteDataSource {
 
   static const _etapas = 'kanban/etapas/';
   static const _atendimentos = 'kanban/atendimentos/';
+  static const _capacidade = 'kanban/capacidade/';
 
   @override
   Future<List<EtapaModel>> listarEtapas() {
@@ -89,6 +107,14 @@ class KanbanRemoteDataSourceImpl implements KanbanRemoteDataSource {
   @override
   Future<void> reordenarEtapas(List<int> ids) async {
     await dio.post<void>('${_etapas}reordenar/', data: {'ordem': ids});
+  }
+
+  @override
+  Future<EtapaModel> marcarEtapaPronto(int id) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      '$_etapas$id/pronto/',
+    );
+    return EtapaModel.fromJson(response.data!);
   }
 
   @override
@@ -134,6 +160,15 @@ class KanbanRemoteDataSourceImpl implements KanbanRemoteDataSource {
       _acao(id, 'mover', data: {'etapa_id': etapaId});
 
   @override
+  Future<AtendimentoKanbanModel> remarcar(
+    RemarcarAtendimentoKanbanParams params,
+  ) => _patch(params.id, AtendimentoKanbanModel.corpoDeRemarcacao(params));
+
+  @override
+  Future<AtendimentoKanbanModel> ajustarTempo(int id, int minutosExtras) =>
+      _patch(id, {'minutos_extras': minutosExtras});
+
+  @override
   Future<AtendimentoKanbanModel> cobrar(CobrancaParams params) =>
       _acao(params.id, 'cobrar', data: corpoDeCobranca(params));
 
@@ -155,15 +190,59 @@ class KanbanRemoteDataSourceImpl implements KanbanRemoteDataSource {
   }
 
   @override
-  Future<List<Hora>> slots(DateTime data) async {
+  Future<List<Hora>> slots(
+    DateTime data, {
+    int? servicoId,
+    int? excluirId,
+  }) async {
     final response = await dio.get<List<dynamic>>(
       'kanban/slots/',
-      queryParameters: {'data': dataParaApi(data)},
+      queryParameters: {
+        'data': dataParaApi(data),
+        'servico': ?servicoId,
+        'excluir': ?excluirId,
+      },
     );
     return [
       for (final s in response.data!.cast<Map<String, dynamic>>())
         if (s['disponivel'] == true) horaDaApi(s['horario'] as String),
     ];
+  }
+
+  @override
+  Future<CapacidadeDoDiaModel> capacidadeDoDia(DateTime data) async {
+    final response = await dio.get<Map<String, dynamic>>(
+      _capacidade,
+      queryParameters: {'data': dataParaApi(data)},
+    );
+    return CapacidadeDoDiaModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<CapacidadeDoDiaModel> ajustarCapacidade(
+    AjustarCapacidadeParams params,
+  ) async {
+    final response = await dio.put<Map<String, dynamic>>(
+      _capacidade,
+      queryParameters: {'data': dataParaApi(params.data)},
+      data: CapacidadeDoDiaModel.corpoDeAjuste(params),
+    );
+    return CapacidadeDoDiaModel.fromJson(response.data!);
+  }
+
+  // a API devolve a capacidade já no padrão; se vier sem corpo (204), lê
+  // de novo
+  @override
+  Future<CapacidadeDoDiaModel> desfazerAjuste(DateTime data) async {
+    final response = await dio.delete<dynamic>(
+      _capacidade,
+      queryParameters: {'data': dataParaApi(data)},
+    );
+    final json = response.data;
+    if (json is Map<String, dynamic> && json.isNotEmpty) {
+      return CapacidadeDoDiaModel.fromJson(json);
+    }
+    return capacidadeDoDia(data);
   }
 
   // as ações do atendimento são todas POST em kanban/atendimentos/{id}/<acao>/
@@ -174,6 +253,18 @@ class KanbanRemoteDataSourceImpl implements KanbanRemoteDataSource {
   }) async {
     final response = await dio.post<Map<String, dynamic>>(
       '$_atendimentos$id/$acao/',
+      data: data,
+    );
+    return AtendimentoKanbanModel.fromJson(response.data!);
+  }
+
+  // remarcar e ajustar o tempo são PATCH no próprio atendimento
+  Future<AtendimentoKanbanModel> _patch(
+    int id,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await dio.patch<Map<String, dynamic>>(
+      '$_atendimentos$id/',
       data: data,
     );
     return AtendimentoKanbanModel.fromJson(response.data!);

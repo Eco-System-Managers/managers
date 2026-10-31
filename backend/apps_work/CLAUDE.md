@@ -78,7 +78,7 @@ Os demais são de tenant, e migram com `migrate_schemas` — não com `migrate`.
 A dependência anda **numa direção só**: o `apps_serv` conhece estes apps, e
 estes apps não conhecem o `apps_serv`.
 
-Quando algo daqui precisa aparecer no app do cliente, o caminho é sinal. Quatro
+Quando algo daqui precisa aparecer no app do cliente, o caminho é sinal. Cinco
 deles atravessam a fronteira, e todos são escutados em
 `apps_serv/vitrine/handlers.py`:
 
@@ -88,6 +88,7 @@ deles atravessam a fronteira, e todos são escutados em
 | `cliente_servicemanage_removido` | `clientes/signals.py` |
 | `agendamento_status_alterado` | `agenda/signals.py` |
 | `atendimento_kanban_falta_alterada` | `kanban/signals.py` |
+| `cobranca_registrada` | `financeiro/signals.py` (disparado pelo `cobrar` da agenda e do kanban) |
 
 ## O que é fácil errar aqui
 

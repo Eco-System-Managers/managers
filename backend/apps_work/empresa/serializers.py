@@ -121,11 +121,20 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = HorarioFuncionamento
-        fields = ['id', 'dia', 'dia_label', 'abertura', 'fechamento', 'ativo', 'capacidade']
+        fields = ['id', 'dia', 'dia_label', 'abertura', 'fechamento', 'ativo', 'capacidade', 'vagas']
+        extra_kwargs = {
+            'capacidade': {'help_text': 'Esteira: o máximo de atendimentos no dia, com ou sem hora. Nulo é sem máximo.'},
+            'vagas': {'help_text': 'Esteira: quantos atendimentos andam juntos (boxes, banhistas).'},
+        }
 
     def validate_capacidade(self, value):
         if value is not None and value < 1:
             raise serializers.ValidationError('A capacidade deve ser de pelo menos 1 atendimento por dia.')
+        return value
+
+    def validate_vagas(self, value):
+        if value < 1:
+            raise serializers.ValidationError('Cabe pelo menos 1 atendimento ao mesmo tempo.')
         return value
 
 

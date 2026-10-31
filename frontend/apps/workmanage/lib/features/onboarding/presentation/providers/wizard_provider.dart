@@ -64,8 +64,13 @@ class WizardProvider extends ChangeNotifier {
   // o step 1 só mostra o campo de número depois que o CEP achou o endereço
   bool get temEndereco => _config.endereco.isNotEmpty;
 
-  // o step 3 pede capacidade diária só para agenda kanban
+  // o step 3 pede o máximo no dia e o ao mesmo tempo só na esteira
   bool get isKanban => _config.tipoAgenda == TipoAgenda.kanban;
+
+  // o dia que dá nome ao "Repetir segunda nos outros dias"; null com a
+  // semana toda fechada
+  HorarioFuncionamento? get primeiroDiaAberto =>
+      validacao.primeiroDiaAbertoDe(_horarios);
 
   // abre o wizard: carrega o que já foi salvo e continua de onde parou
   Future<void> carregar() async {
@@ -172,6 +177,13 @@ class WizardProvider extends ChangeNotifier {
   // step 3: cada mudança num dia troca o horário daquele dia na lista
   void atualizarHorario(HorarioFuncionamento horario) {
     _horarios = [for (final h in _horarios) h.dia == horario.dia ? horario : h];
+    notifyListeners();
+  }
+
+  // step 3: copia os horários e os números do primeiro dia aberto para os
+  // outros, sem abrir nem fechar dia nenhum
+  void repetirPrimeiroDiaNosOutros() {
+    _horarios = validacao.repetirPrimeiroDiaAberto(_horarios);
     notifyListeners();
   }
 

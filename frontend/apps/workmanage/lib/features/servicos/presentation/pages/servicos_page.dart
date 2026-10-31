@@ -7,6 +7,7 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/estado_vazio.dart';
 import 'package:managers/core/widgets/selo_de_status.dart';
+import 'package:managers/features/clientes/domain/entities/porte.dart';
 import 'package:managers/features/empresa/domain/entities/nicho.dart';
 import 'package:managers/features/empresa/presentation/widgets/nicho_visual.dart';
 
@@ -227,10 +228,12 @@ class _ServicoTile extends StatelessWidget {
           ? null
           : textos.titleMedium?.copyWith(color: cores.inkMuted),
       title: Text(servico.nome),
-      // a duração é detalhe (inkMuted); o preço vai em ink
+      // o porte e a duração são detalhe (inkMuted); o preço vai em ink
       subtitle: Text.rich(
         TextSpan(
           children: [
+            if (servico.porte != null)
+              TextSpan(text: '${servico.porte!.nome} · '),
             TextSpan(text: '${servico.duracao} min · '),
             TextSpan(
               text: formatarDinheiro(servico.preco),

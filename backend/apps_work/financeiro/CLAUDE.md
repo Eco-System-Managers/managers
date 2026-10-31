@@ -11,9 +11,10 @@ negócio. O que existe é um saldo de crédito **dentro de cada negócio**.
 | Arquivo | O que faz |
 |---|---|
 | `models.py` | `TransacaoCredito` — o extrato da comanda, uma linha por movimento. `Despesa` — o custo do próprio negócio |
-| `services.py` | `SaldoService` (o saldo e seus lançamentos), `CaixaService` (o fechamento por período) e `DespesaService` (o resumo de despesas por categoria) |
+| `services.py` | `SaldoService` (o saldo e seus lançamentos), `CaixaService` (o fechamento por período), `DespesaService` (o resumo de despesas por categoria) e os ajudantes da cobrança dos dois modos (`conferir_total_da_cobranca`, `snapshot_do_servico`, `notificar_cobranca`) |
 | `views.py` | Saldo de um cliente, os dados de caixa e o CRUD de despesas |
-| `serializers.py` | Representação do extrato e da despesa |
+| `serializers.py` | Representação do extrato e da despesa, e o `CobrancaSerializer` — a entrada do `cobrar/` da agenda e do kanban |
+| `signals.py` | Declara `cobranca_registrada`, que a vitrine escuta |
 
 ## Tabela
 
@@ -84,17 +85,49 @@ Os kpis trazem `repasse` (a soma do que ficou congelado em cada pagamento como
 comissão do parceiro) e `casa` (`total - repasse`). Cada pagamento traz o
 próprio `repasse`.
 
+O **avulso** da esteira (atendimento sem veículo nem pet, só com a
+identificação; ver `kanban`) entra no caixa como qualquer outro, e a linha dele
+traz `cliente_nome` = identificação ("Hilux branca"). Ele não tem comanda: a
+cobrança recusa `credito_aplicado` e `troco_credito` (400 `avulso_sem_credito`,
+no `kanban`), então nenhuma `TransacaoCredito` nasce dele.
+
 Quem é o quê (`core/permissions.py`): o parceiro fecha **só o próprio caixa** (a
 view troca o `colaborador` pedido pelo dele, `colaborador_aplicado`) e recebe
 `casa` nulo — a parte da casa é assunto do dono. O colaborador comum não vê o
 caixa: 403 `sem_acesso_a_valores`. Sem perfil de colaborador, 404
 `sem_colaborador`.
 
+## A cobrança (agenda e kanban)
+
+O `cobrar/` dos dois modos recebe o mesmo `CobrancaSerializer`: `pagamentos`,
+`desconto`, `credito_aplicado`, `troco_credito` e, desde o modo esteira com
+horário, `acrescimo` (>= 0), `acrescimo_motivo` (até 60 caracteres) e
+`servico_ids` (opcional, nunca vazio). A regra do total mora aqui, em
+`conferir_total_da_cobranca`, para os dois modos fazerem a mesma conta:
+
+```
+total = serviços (depois da troca) + acrescimo − desconto
+pagamentos + credito_aplicado == total      (senão 400 soma_invalida)
+```
+
+Cada modo faz a troca de serviço do seu jeito (um serviço na esteira, a lista
+na agenda — ver o CLAUDE.md de cada um) e, no fim, chama `notificar_cobranca`,
+que dispara `cobranca_registrada` com o total, o acréscimo, o motivo e o
+retrato dos serviços (`snapshot_do_servico`: `{nome, nicho, duracao, preco,
+taxa_cancelamento}`, dinheiro em string — o formato do `AgendamentoConsumidor`).
+A esteira manda o mesmo sinal ao desfazer, com o acréscimo zerado.
+
 ## O que é fácil errar aqui
 
 - **Aplicar crédito valida saldo disponível** e levanta `ValidationError` com
   `code: saldo_insuficiente` — o frontend depende desse código.
+- **O acréscimo já está nos pagamentos.** Caixa e painel somam o `valor` dos
+  pagamentos, então o acréscimo entra sozinho e não há o que somar por fora; só
+  quem calcula por preço − desconto (as pendências, na `agenda`) precisa do
+  `+ acrescimo`.
 - **Taxa de cancelamento entra sem checar saldo.** É pendência, não consumo:
   pode deixar o saldo negativo, e é isso que se espera.
 - **O saldo é por tenant.** O mesmo cliente pode ter crédito num negócio e
   dívida em outro; não há nada global.
+- **`atendimento.objeto` pode ser nulo (o avulso da esteira).** No caixa, leia
+  `atendimento.rotulo` ou `atendimento.cliente`, nunca `objeto.cliente` direto.

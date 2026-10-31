@@ -34,6 +34,11 @@ class Agendamento(models.Model):
     data_hora = models.DateTimeField()
     status = models.CharField(max_length=20, choices=StatusAgendamento.choices, default=StatusAgendamento.AGENDADO)
     desconto = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    # O que o atendimento custou a mais, acertado com o cliente na hora de
+    # cobrar ("tempo excedido"); o motivo é o que ele vê no app. Só a cobrança
+    # mexe nos dois — preço é acordo, não ajuste de tela.
+    acrescimo = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    acrescimo_motivo = models.CharField(max_length=60, blank=True, default='')
     observacoes = models.TextField(blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -70,10 +75,16 @@ class Bloqueio(models.Model):
     as férias ou a pausa de todo dia (o almoço). É o que substitui pausa fixa
     no expediente: a agenda não reserva intervalo nenhum sozinha.
 
+    Sem colaborador é o **negócio inteiro** que fecha (o almoço de todos, o
+    dia que desandou): vale na agenda de todo profissional e na esteira, que
+    não tem agenda individual. Só o dono cria e exclui esse.
+
     "Uma semana" e "um mês" não ficam guardados: são a tela preenchendo a
     `data_fim`.
     """
-    colaborador = models.ForeignKey(Colaborador, on_delete=models.CASCADE, related_name='bloqueios')
+    colaborador = models.ForeignKey(
+        Colaborador, on_delete=models.CASCADE, related_name='bloqueios', null=True, blank=True,
+    )
     data_inicio = models.DateField()
     # Nulo é o bloqueio fixo: vale todos os dias a partir do início.
     data_fim = models.DateField(null=True, blank=True)
@@ -87,4 +98,4 @@ class Bloqueio(models.Model):
         ordering = ['data_inicio', 'hora_inicio']
 
     def __str__(self):
-        return f'{self.colaborador} — {self.data_inicio:%d/%m/%Y}'
+        return f'{self.colaborador or "Negócio"} — {self.data_inicio:%d/%m/%Y}'

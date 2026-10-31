@@ -15,6 +15,8 @@ class _MockRemover extends Mock implements RemoverEtapaUseCase {}
 
 class _MockReordenar extends Mock implements ReordenarEtapasUseCase {}
 
+class _MockMarcarPronto extends Mock implements MarcarEtapaProntoUseCase {}
+
 const _etapas = [
   Etapa(id: 1, nome: 'Aguardando', ordem: 0),
   Etapa(id: 2, nome: 'Lavando', ordem: 1),
@@ -26,6 +28,7 @@ void main() {
   late _MockSalvar salvar;
   late _MockRemover remover;
   late _MockReordenar reordenar;
+  late _MockMarcarPronto marcarPronto;
 
   setUpAll(() {
     registerFallbackValue(NoParams());
@@ -38,6 +41,7 @@ void main() {
     salvar: salvar,
     remover: remover,
     reordenar: reordenar,
+    marcarPronto: marcarPronto,
   );
 
   setUp(() {
@@ -45,7 +49,77 @@ void main() {
     salvar = _MockSalvar();
     remover = _MockRemover();
     reordenar = _MockReordenar();
+    marcarPronto = _MockMarcarPronto();
     when(() => listar(any())).thenAnswer((_) async => const Right(_etapas));
+  });
+
+  test('a etapa de pronto é a marcada; sem marcação, vale a última', () async {
+    final provider = montar();
+    await provider.carregar();
+
+    expect(provider.indiceDePronto, 2);
+    expect(provider.ehDePronto(_etapas[2]), isTrue);
+    expect(provider.ehDePronto(_etapas[1]), isFalse);
+
+    when(() => listar(any())).thenAnswer(
+      (_) async => const Right([
+        Etapa(id: 1, nome: 'Aguardando', ordem: 0),
+        Etapa(id: 2, nome: 'Pronto', ordem: 1, pronto: true),
+        Etapa(id: 3, nome: 'Entregue', ordem: 2),
+      ]),
+    );
+    await provider.carregar();
+
+    expect(provider.indiceDePronto, 1);
+    expect(provider.ehDePronto(provider.etapas[1]), isTrue);
+    expect(provider.ehDePronto(provider.etapas[2]), isFalse);
+    // depois de pronto também conta como pronto
+    expect(provider.ehDepoisDePronto(provider.etapas[2]), isTrue);
+    expect(provider.ehDepoisDePronto(provider.etapas[0]), isFalse);
+  });
+
+  test('marcarPronto manda o id e relê; erro vira mensagem', () async {
+    when(() => marcarPronto(2)).thenAnswer(
+      (_) async =>
+          const Right(Etapa(id: 2, nome: 'Lavando', ordem: 1, pronto: true)),
+    );
+    final provider = montar();
+    await provider.carregar();
+
+    await provider.marcarPronto(2);
+
+    verify(() => marcarPronto(2)).called(1);
+    verify(() => listar(any())).called(2);
+    expect(provider.errorMessage, isNull);
+
+    when(() => marcarPronto(3)).thenAnswer(
+      (_) async => const Left(
+        ServerFailure(message: 'Só o proprietário mexe nas etapas.'),
+      ),
+    );
+    await provider.marcarPronto(3);
+
+    expect(provider.errorMessage, 'Só o proprietário mexe nas etapas.');
+    expect(provider.isLoading, isFalse);
+  });
+
+  test('remover a etapa de pronto vira a mensagem da API', () async {
+    when(() => remover(3)).thenAnswer(
+      (_) async => const Left(
+        ServerFailure(
+          message: 'A etapa de pronto não pode ser removida.',
+          code: 'etapa_pronto',
+        ),
+      ),
+    );
+    final provider = montar();
+    await provider.carregar();
+
+    await provider.remover(3);
+
+    expect(provider.errorMessage, 'A etapa de pronto não pode ser removida.');
+    expect(provider.isLoading, isFalse);
+    expect(provider.etapas, _etapas);
   });
 
   test('salvar põe a etapa nova no fim e relê a lista', () async {

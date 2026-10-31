@@ -20,16 +20,20 @@ class VeiculoModel {
       marca: json['marca'] as String? ?? '',
       modelo: json['modelo'] as String? ?? '',
       cor: json['cor'] as String? ?? '',
+      // vem vazio em cadastro de antes do porte
+      porte: Porte.daApi(json['porte'] as String?),
     );
   }
 
-  // o corpo de criação e edição (VeiculoRequest)
+  // o corpo de criação e edição (VeiculoRequest). a API exige o porte; o
+  // formulário só salva com ele escolhido
   static Map<String, dynamic> toJson(Veiculo veiculo) => {
     'cliente': veiculo.clienteId,
     'placa': veiculo.placa,
     'marca': veiculo.marca,
     'modelo': veiculo.modelo,
     'cor': veiculo.cor,
+    'porte': veiculo.porte?.name ?? '',
   };
 }
 
@@ -48,8 +52,8 @@ class PetModel {
       nome: json['nome'] as String? ?? '',
       especie: json['especie'] as String? ?? '',
       raca: json['raca'] as String? ?? '',
-      // porte vem vazio quando não informado
-      porte: PortePet.values.asNameMap()[json['porte'] as String? ?? ''],
+      // vem vazio em cadastro de antes do porte obrigatório
+      porte: Porte.daApi(json['porte'] as String?),
       dataNascimento: nascimento == null ? null : dataDaApi(nascimento),
     );
   }
