@@ -198,11 +198,13 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
   }
 
   // a folha cadastrou ou corrigiu um veículo ou pet: o cliente vem da API de
-  // novo. o objeto escolhido continua (com o cadastro novo); sem ele, o mais
-  // novo fica escolhido
-  Future<void> recarregarCliente() async {
+  // novo. com escolherNovo (a folha cadastrou um), o que não existia antes
+  // fica escolhido; senão o escolhido continua (com o cadastro corrigido);
+  // sem escolha, o mais novo
+  Future<void> recarregarCliente({bool escolherNovo = false}) async {
     final cliente = _cliente;
     if (cliente == null) return;
+    final antes = {for (final o in objetos) o.id};
     final result = await _obterCliente(cliente.id);
     if (_disposed) return;
     result.fold((_) {}, (c) {
@@ -210,7 +212,10 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
       final objetos = this.objetos;
       _objeto = objetos.isEmpty
           ? null
-          : objetos.where((o) => o.id == _objeto?.id).firstOrNull ??
+          : (escolherNovo
+                    ? objetos.where((o) => !antes.contains(o.id)).firstOrNull
+                    : null) ??
+                objetos.where((o) => o.id == _objeto?.id).firstOrNull ??
                 objetos.reduce((a, b) => a.id >= b.id ? a : b);
       _soltarServicoQueNaoServe();
     });

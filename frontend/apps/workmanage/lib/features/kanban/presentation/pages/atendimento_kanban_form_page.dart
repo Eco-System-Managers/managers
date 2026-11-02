@@ -87,7 +87,7 @@ class _AtendimentoKanbanFormPageState
     final mudou = _provider.tipoObjeto == TipoObjeto.veiculo
         ? await VeiculoFormSheet.abrir(context, clienteId: cliente.id)
         : await PetFormSheet.abrir(context, clienteId: cliente.id);
-    if (mudou && mounted) await _provider.recarregarCliente();
+    if (mudou && mounted) await _provider.recarregarCliente(escolherNovo: true);
   }
 
   // cadastro de antes do porte: informar o porte filtra os serviços

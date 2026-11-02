@@ -170,10 +170,15 @@ void main() {
     provider.selecionarCliente(_ana);
     expect(provider.objeto, const ObjetoCliente.veiculo(_uno));
 
+    // a folha corrigiu um cadastro: o escolhido continua
     await provider.recarregarCliente();
     expect(provider.objetos, hasLength(2));
-    // o escolhido continua: ele ainda existe
     expect(provider.objeto, const ObjetoCliente.veiculo(_uno));
+
+    // a folha cadastrou: o novo fica escolhido, mesmo com outro antes
+    provider.selecionarCliente(_ana);
+    await provider.recarregarCliente(escolherNovo: true);
+    expect(provider.objeto, const ObjetoCliente.veiculo(_gol));
 
     provider.selecionarObjeto(null);
     await provider.recarregarCliente();
