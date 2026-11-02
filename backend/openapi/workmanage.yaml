@@ -972,7 +972,9 @@ paths:
       operationId: auth_cadastro_solicitar_create
       description: 'Valida os dados e envia um código para o e-mail. A empresa ainda
         não existe: ela é criada em `/auth/cadastro/confirmar/`. Pedir de novo com
-        o mesmo e-mail substitui os dados e invalida o código anterior.'
+        o mesmo e-mail substitui os dados e invalida o código anterior. Quem voltou
+        para corrigir o e-mail manda o errado em `email_anterior`: com a mesma senha,
+        o pendente dele sai.'
       summary: 'Cadastrar empresa e dono: envia o código de confirmação'
       tags:
       - auth
@@ -980,13 +982,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CadastroRequest'
+              $ref: '#/components/schemas/SolicitarCadastroRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/CadastroRequest'
+              $ref: '#/components/schemas/SolicitarCadastroRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/CadastroRequest'
+              $ref: '#/components/schemas/SolicitarCadastroRequest'
         required: true
       security:
       - {}
@@ -11307,6 +11309,36 @@ components:
       required:
       - disponivel
       - horario
+    SolicitarCadastroRequest:
+      type: object
+      properties:
+        nome_empresa:
+          type: string
+          minLength: 1
+          maxLength: 255
+        nome:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+        senha:
+          type: string
+          writeOnly: true
+          minLength: 1
+        email_anterior:
+          type: string
+          format: email
+          minLength: 1
+          description: O e-mail do pedido anterior, quando a pessoa voltou para corrigir
+            o e-mail. O cadastro pendente dele é descartado se a senha for a mesma.
+      required:
+      - email
+      - nome
+      - nome_empresa
+      - senha
     StatusAgendamentoEnum:
       enum:
       - agendado

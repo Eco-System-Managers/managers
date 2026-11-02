@@ -11,7 +11,8 @@ from core.sessao import COOKIE_WORK
 from core.throttling import CadastroPorEmailThrottle, RecuperacaoPorEmailThrottle
 from .serializers import (
     CadastroSerializer, ConfirmarCadastroSerializer, EmailSerializer, ExcluirContaSerializer, ExclusaoContaSerializer,
-    LoginSerializer, NovaSenhaSerializer, RefreshSerializer, SessaoSerializer, VerificarCodigoSerializer,
+    LoginSerializer, NovaSenhaSerializer, RefreshSerializer, SessaoSerializer, SolicitarCadastroSerializer,
+    VerificarCodigoSerializer,
 )
 from core.excecoes import erro
 
@@ -59,17 +60,18 @@ class CadastroSolicitarView(APIView):
     throttle_scope = 'auth_cadastro'
 
     @extend_schema(
-        request=CadastroSerializer, responses={202: MensagemSerializer},
+        request=SolicitarCadastroSerializer, responses={202: MensagemSerializer},
         summary='Cadastrar empresa e dono: envia o código de confirmação',
         description=(
             'Valida os dados e envia um código para o e-mail. A empresa ainda não existe: '
             'ela é criada em `/auth/cadastro/confirmar/`. Pedir de novo com o mesmo e-mail '
-            'substitui os dados e invalida o código anterior.'
+            'substitui os dados e invalida o código anterior. Quem voltou para corrigir o '
+            'e-mail manda o errado em `email_anterior`: com a mesma senha, o pendente dele sai.'
         ),
     )
     def post(self, request):
         from .services import ConfirmacaoCadastroService
-        serializer = CadastroSerializer(data=request.data)
+        serializer = SolicitarCadastroSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ConfirmacaoCadastroService().solicitar(**serializer.validated_data)
         return Response({'detail': ConfirmacaoCadastroService.MENSAGEM}, status=status.HTTP_202_ACCEPTED)

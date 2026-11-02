@@ -260,6 +260,27 @@ class TestCadastroComConfirmacao:
         assert response.status_code == 201
         assert response.data['empresa'] == 'Salão Corrigido'
 
+    def test_trocar_o_email_descarta_o_pendente_do_errado(self, api, mailoutbox):
+        api.post('/api/v1/auth/cadastro/solicitar/', {**CADASTRO, 'email': 'duda@errado.com'})
+        do_errado = _codigo_do_email(mailoutbox)
+        response = api.post('/api/v1/auth/cadastro/solicitar/', {**CADASTRO, 'email_anterior': 'Duda@Errado.com'})
+        assert response.status_code == 202
+
+        assert list(CadastroPendente.objects.values_list('email', flat=True)) == ['duda@teste.com']
+        # O código que foi para o e-mail errado não cria mais a empresa.
+        recusado = api.post('/api/v1/auth/cadastro/confirmar/', {'email': 'duda@errado.com', 'codigo': do_errado})
+        assert recusado.status_code == 400
+        assert recusado.data['code'] == 'codigo_invalido'
+
+    def test_email_anterior_com_outra_senha_nao_apaga_o_pendente(self, api, mailoutbox):
+        # Sem a senha de quem pediu, saber o e-mail não basta para apagar o cadastro.
+        api.post('/api/v1/auth/cadastro/solicitar/', {**CADASTRO, 'email': 'outra@pessoa.com'})
+        api.post('/api/v1/auth/cadastro/solicitar/', {
+            **CADASTRO, 'senha': 'OutraSenha456!', 'email_anterior': 'outra@pessoa.com',
+        })
+        assert CadastroPendente.objects.filter(email='outra@pessoa.com').exists()
+        assert CadastroPendente.objects.filter(email='duda@teste.com').exists()
+
     def test_reenviar_manda_codigo_novo(self, api, mailoutbox):
         api.post('/api/v1/auth/cadastro/solicitar/', CADASTRO)
         response = api.post('/api/v1/auth/cadastro/reenviar/', {'email': 'duda@teste.com'})

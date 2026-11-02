@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from django.conf import settings
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
@@ -90,13 +90,25 @@ class ConfirmacaoCadastroService:
     # já expira em 15 minutos, então um dia é folga de sobra para reenviar.
     VALIDADE_PENDENTE = timedelta(days=1)
 
-    def solicitar(self, nome_empresa: str, nome: str, email: str, senha: str) -> None:
+    def solicitar(
+        self, nome_empresa: str, nome: str, email: str, senha: str, email_anterior: str | None = None,
+    ) -> None:
         """Guarda o cadastro e envia o código. Pedir de novo com o mesmo e-mail
-        substitui os dados e invalida o código anterior."""
+        substitui os dados e invalida o código anterior.
+
+        Com `email_anterior` (a pessoa errou o e-mail e voltou para corrigir), o
+        pendente dele sai, para o código mandado ao e-mail errado não criar a
+        empresa. Só com a mesma senha: sem ela, qualquer um apagaria o cadastro
+        de outra pessoa sabendo o e-mail."""
+        email = email.strip().lower()
         with schema_context(get_public_schema_name()):
             CadastroPendente.objects.filter(criado_em__lt=timezone.now() - self.VALIDADE_PENDENTE).delete()
+            if email_anterior and email_anterior.strip().lower() != email:
+                anterior = CadastroPendente.objects.filter(email=email_anterior.strip().lower()).first()
+                if anterior is not None and check_password(senha, anterior.senha_hash):
+                    anterior.delete()
             pendente, _ = CadastroPendente.objects.update_or_create(
-                email=email.strip().lower(),
+                email=email,
                 defaults={'nome_empresa': nome_empresa, 'nome': nome, 'senha_hash': make_password(senha)},
             )
             self._enviar_codigo(pendente)

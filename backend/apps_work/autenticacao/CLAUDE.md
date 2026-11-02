@@ -117,8 +117,12 @@ frontend mandar o usuário para o wizard em vez do painel.
 Três rotas, e a empresa só nasce na última:
 
 1. `POST /auth/cadastro/solicitar/` — mesmos 4 campos e mesma validação do
-   cadastro direto (`CadastroSerializer`). Grava o `CadastroPendente`, manda o
-   código por e-mail e responde **202** sem sessão.
+   cadastro direto (`SolicitarCadastroSerializer`, filho do `CadastroSerializer`).
+   Grava o `CadastroPendente`, manda o código por e-mail e responde **202** sem
+   sessão. O opcional `email_anterior` é o "trocar e-mail" do app: o pendente
+   do e-mail errado é apagado, para o código mandado a ele não criar a empresa,
+   mas só se a senha conferir com o `senha_hash` dele (saber o e-mail de alguém
+   não basta para apagar o cadastro dessa pessoa).
 2. `POST /auth/cadastro/confirmar/` — `{email, codigo}`. Código certo chama o
    `OnboardingService` com o `senha_hash` do pendente e responde **201 com a
    sessão**, como o cadastro direto. Erros: `codigo_invalido` (errado, expirado
