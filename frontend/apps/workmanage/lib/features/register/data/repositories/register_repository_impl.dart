@@ -22,6 +22,7 @@ class RegisterRepositoryImpl implements RegisterRepository {
         nome: params.nome,
         email: params.email,
         senha: params.senha,
+        emailAnterior: params.emailAnterior,
       ),
     );
   }
