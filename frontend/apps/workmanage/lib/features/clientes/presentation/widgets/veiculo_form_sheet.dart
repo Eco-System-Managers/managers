@@ -78,20 +78,30 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
   }
 
   Future<void> _salvar() async {
-    if (!_formKey.currentState!.validate()) return;
-    await ref
-        .read(objetoFormProvider)
-        .salvarVeiculo(
-          Veiculo(
-            id: widget.veiculo?.id ?? 0,
-            clienteId: widget.clienteId,
-            placa: _placaController.text.trim().toUpperCase(),
-            marca: _marcaController.text.trim(),
-            modelo: _modeloController.text.trim(),
-            cor: _corController.text.trim(),
-            porte: _porte,
-          ),
-        );
+    final provider = ref.read(objetoFormProvider);
+    // o "concluir" do teclado não espera o botão travar
+    if (provider.isLoading || !_formKey.currentState!.validate()) return;
+    await provider.salvarVeiculo(
+      Veiculo(
+        id: widget.veiculo?.id ?? 0,
+        clienteId: widget.clienteId,
+        placa: _placaController.text.trim().toUpperCase(),
+        marca: _marcaController.text.trim(),
+        modelo: _modeloController.text.trim(),
+        cor: _corController.text.trim(),
+        porte: _porte,
+      ),
+    );
+    _fecharSeConcluiu();
+  }
+
+  // fecha uma vez, aqui, e não no build: o build roda de novo enquanto a
+  // folha sai (o teclado fechando muda o recuo), e cada pop a mais fechava
+  // a tela de baixo
+  void _fecharSeConcluiu() {
+    if (!mounted) return;
+    final provider = ref.read(objetoFormProvider);
+    if (provider.salvo || provider.removido) Navigator.of(context).pop(true);
   }
 
   Future<void> _remover() async {
@@ -107,6 +117,7 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
     );
     if (!ok || !mounted) return;
     await ref.read(objetoFormProvider).removerVeiculo(veiculo.id);
+    _fecharSeConcluiu();
   }
 
   @override
@@ -119,12 +130,6 @@ class _VeiculoFormSheetState extends ConsumerState<VeiculoFormSheet> {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
-        if (provider.salvo || provider.removido) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) Navigator.of(context).pop(true);
-          });
-        }
-
         return Form(
           key: _formKey,
           child: ListView(
