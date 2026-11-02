@@ -143,6 +143,9 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
     );
     if (!ok || !mounted) return;
     await _provider.remover();
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // tela sai, e cada pop a mais fechava a tela de baixo
+    if (mounted && _provider.removido) context.pop(true);
   }
 
   // o tempo a mais previsto: os atalhos somam ao que já tem; "sem tempo a
@@ -262,12 +265,6 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
-        if (provider.removido) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) context.pop(true);
-          });
-        }
-
         return Scaffold(
           appBar: AppBar(title: const Text('Atendimento')),
           body: _corpo(context, provider),

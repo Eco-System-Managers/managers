@@ -17,6 +17,17 @@ class DadosNegocioPage extends ConsumerStatefulWidget {
 }
 
 class _DadosNegocioPageState extends ConsumerState<DadosNegocioPage> {
+  // salvou: avisa e fecha, aqui e não no build. o build roda de novo
+  // enquanto a tela sai, e cada pop a mais fechava a tela de baixo
+  Future<void> _salvar(DadosNegocio dados) async {
+    final provider = ref.read(dadosNegocioProvider);
+    await provider.salvar(dados);
+    if (!mounted || !provider.salvo) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Dados salvos')));
+    context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
@@ -27,16 +38,6 @@ class _DadosNegocioPageState extends ConsumerState<DadosNegocioPage> {
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          // salvou: avisa e fecha
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Dados salvos')));
-              context.pop();
-            });
-          }
-
           return SingleChildScrollView(
             padding: paddingDaPagina(context),
             child: Column(
@@ -52,7 +53,7 @@ class _DadosNegocioPageState extends ConsumerState<DadosNegocioPage> {
                   cepErro: provider.cepErrorMessage,
                   enabled: !provider.isLoading,
                   onBuscarCep: provider.buscarCep,
-                  onSubmit: provider.salvar,
+                  onSubmit: _salvar,
                   textoBotao: 'Salvar',
                 ),
               ],

@@ -203,6 +203,9 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     );
     if (!ok || !mounted) return;
     await _provider.remover();
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // tela sai, e cada pop a mais fechava a tela de baixo
+    if (mounted && _provider.removido) context.pop(true);
   }
 
   void _avisar(String texto) {
@@ -223,11 +226,6 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
-        if (provider.removido) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) context.pop(true);
-          });
-        }
         if (provider.salvo) _avisar('Ficha salva.');
         if (provider.convidado) _avisar('Convite enviado por e-mail.');
         provider.avisosMostrados();

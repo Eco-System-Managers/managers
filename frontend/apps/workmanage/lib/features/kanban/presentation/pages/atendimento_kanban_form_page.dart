@@ -122,6 +122,7 @@ class _AtendimentoKanbanFormPageState
       identificacao: identificacao,
     );
     if (!mounted) return;
+    if (_provider.salvo) return _fechar();
 
     final aviso = _provider.limiteEstourado;
     if (aviso == null) return;
@@ -138,10 +139,15 @@ class _AtendimentoKanbanFormPageState
         identificacao: identificacao,
         ignorarLimite: true,
       );
+      if (mounted && _provider.salvo) _fechar();
     } else {
       _provider.desistirDoLimite();
     }
   }
+
+  // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+  // tela sai, e cada pop a mais fechava a tela de baixo
+  void _fechar() => context.pop(true);
 
   @override
   Widget build(BuildContext context) {
@@ -156,12 +162,6 @@ class _AtendimentoKanbanFormPageState
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.pop(true);
-            });
-          }
-
           if (!provider.carregado) {
             final erro = provider.erroAoCarregar;
             if (erro != null) {

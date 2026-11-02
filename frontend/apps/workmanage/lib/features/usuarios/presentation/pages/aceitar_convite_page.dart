@@ -49,6 +49,9 @@ class _AceitarConvitePageState extends ConsumerState<AceitarConvitePage> {
   Future<void> _entrar() async {
     if (!_formKey.currentState!.validate()) return;
     await _provider.aceitar(_senhaController.text);
+    // navega aqui, uma vez, e não no build, que roda de novo a cada
+    // redesenho
+    if (mounted && _provider.aceito) context.go('/home');
   }
 
   @override
@@ -64,12 +67,6 @@ class _AceitarConvitePageState extends ConsumerState<AceitarConvitePage> {
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          if (provider.aceito) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.go('/home');
-            });
-          }
-
           final info = provider.info;
           if (info == null) {
             final erro = provider.erroAoCarregar;

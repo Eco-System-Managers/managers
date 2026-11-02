@@ -28,6 +28,17 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
     });
   }
 
+  // salvou: avisa e fecha, aqui e não no build. o build roda de novo
+  // enquanto a tela sai, e cada pop a mais fechava a tela de baixo
+  Future<void> _salvar() async {
+    final provider = ref.read(horariosProvider);
+    await provider.salvar();
+    if (!mounted || !provider.salvo) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Horários salvos')));
+    context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
@@ -40,24 +51,12 @@ class _HorariosPageState extends ConsumerState<HorariosPage> {
         listenable: provider,
         builder: (context, _) => BotaoDeRodape(
           texto: 'Salvar',
-          onPressed: provider.isLoading || !provider.carregado
-              ? null
-              : provider.salvar,
+          onPressed: provider.isLoading || !provider.carregado ? null : _salvar,
         ),
       ),
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Horários salvos')));
-              context.pop();
-            });
-          }
-
           if (!provider.carregado) {
             final erro = provider.erroAoCarregar;
             if (erro != null) {

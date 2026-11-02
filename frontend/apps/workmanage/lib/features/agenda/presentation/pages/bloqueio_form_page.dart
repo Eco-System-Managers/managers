@@ -65,6 +65,9 @@ class _BloqueioFormPageState extends ConsumerState<BloqueioFormPage> {
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
     await _provider.salvar(motivo: _motivoController.text.trim());
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // tela sai, e cada pop a mais fechava a tela de baixo
+    if (mounted && _provider.salvo) context.pop(true);
   }
 
   @override
@@ -74,19 +77,11 @@ class _BloqueioFormPageState extends ConsumerState<BloqueioFormPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          provider.doNegocio ? 'Fechar horário' : 'Bloquear horário',
-        ),
+        title: Text(provider.doNegocio ? 'Fechar horário' : 'Bloquear horário'),
       ),
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.pop(true);
-            });
-          }
-
           if (!provider.carregado) {
             final erro = provider.erroAoCarregar;
             if (erro != null) {

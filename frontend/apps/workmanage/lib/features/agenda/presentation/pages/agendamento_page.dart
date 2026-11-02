@@ -107,6 +107,9 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
     );
     if (!ok || !mounted) return;
     await _provider.cancelar();
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // tela sai, e cada pop a mais fechava a tela de baixo
+    if (mounted && _provider.cancelado) context.pop(true);
   }
 
   @override
@@ -117,12 +120,6 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
-        if (provider.cancelado) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) context.pop(true);
-          });
-        }
-
         return Scaffold(
           appBar: AppBar(title: const Text('Agendamento')),
           body: _corpo(context, provider),
