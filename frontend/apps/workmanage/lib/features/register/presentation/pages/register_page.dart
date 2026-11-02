@@ -36,6 +36,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  // volta da verificação pelo "Trocar e-mail": o foco vem para o e-mail
+  final _emailFocus = FocusNode();
+
   // cada campo de senha tem o seu próprio "olhinho"
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -48,6 +51,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _emailFocus.dispose();
     super.dispose();
   }
 
@@ -67,12 +71,20 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     if (success) {
       // o código foi para o e-mail: a próxima tela confere e cria a empresa.
-      // go, não push: o cadastro não fica no histórico para o "voltar"
+      // push, não go: o cadastro fica embaixo, preenchido, para o "Trocar
+      // e-mail" (e o voltar) só corrigir o e-mail. confirmado, a verificação
+      // vai com go para o onboarding e a pilha some
       final verificar = Uri(
         path: '/register/verificar',
         queryParameters: {'email': _emailController.text.trim()},
       );
-      context.go(verificar.toString());
+      await context.push(verificar.toString());
+      if (!mounted) return;
+      _emailFocus.requestFocus();
+      _emailController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _emailController.text.length,
+      );
     } else if (provider.errorMessage != null) {
       // erro de campo aparece embaixo do campo; aqui só o que não tem campo
       ScaffoldMessenger.of(context)
@@ -163,6 +175,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         // e-mail
                         TextFormField(
                           controller: _emailController,
+                          focusNode: _emailFocus,
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           validator: Validatorless.multiple([
