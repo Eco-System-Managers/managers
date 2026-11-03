@@ -86,8 +86,9 @@ Exigência da Apple e do Google, e direito da LGPD. Pede a senha.
 - **No fim do prazo**, o comando `excluir_contas_vencidas` (cron diário)
   apaga de vez. O do negócio derruba o schema inteiro, cancela os horários
   futuros no app do cliente (o histórico dele fica), tira o negócio da lista
-  dos clientes e apaga os logins de quem só estava ali. Um pedido que falha
-  não segura os outros: fica para a rodada seguinte.
+  dos clientes e apaga os logins de quem só estava ali. Os eventos de uso
+  (`apps_work/uso`) vão junto: os do negócio inteiro, ou só os da pessoa.
+  Um pedido que falha não segura os outros: fica para a rodada seguinte.
 - **Apagar `User` tem que rodar dentro de um schema de negócio:** ele tem
   relação com tabelas dos tenants (`Colaborador`), e no schema público o
   Django não enxerga essas tabelas.

@@ -80,6 +80,36 @@ python manage.py shell -c "from django.core.cache import cache; cache.set('t', 1
 
 O esperado: nenhum problema, `tudo migrado` e `1 RedisCache`.
 
+## Acompanhar o uso e os erros
+
+**O relatório**, no terminal do servidor (com o venv ativo):
+
+```bash
+python manage.py relatorio_uso              # os últimos 7 dias
+python manage.py relatorio_uso --dias 30
+python manage.py relatorio_uso --empresa barbearia_do_ze
+```
+
+Ele mostra quem usou por dia, até onde cada negócio chegou (do onboarding à
+primeira cobrança), há quantos dias cada um não abre o app, as ações mais
+usadas, os erros de regra mais comuns, os 500 e as rotas mais lentas. Os
+eventos, um por um, ficam no `/admin/` › Uso do app (ver
+`apps_work/uso/CLAUDE.md`).
+
+**Os logs** (aba Observability › Logs, ou Deployments › View logs): cada
+requisição da API é uma linha de JSON, e o Railway deixa filtrar pelos campos:
+
+| Filtro | O que acha |
+|---|---|
+| `@level:error` | Os 500, com o traceback na linha de `django.request` |
+| `@status:500` | As requisições que deram 500 |
+| `@codigo:horario_conflito` | Um erro de regra específico |
+| `@schema_name:barbearia_do_ze` | Tudo de um negócio |
+| `@user_id:12` | Tudo de uma pessoa |
+
+O log do Railway guarda poucos dias (depende do plano); o que precisa durar
+está nos eventos do banco.
+
 ## O que é fácil errar
 
 - **Referência com nome de serviço errado vira valor vazio, sem aviso.**
