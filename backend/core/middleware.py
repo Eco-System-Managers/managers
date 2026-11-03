@@ -31,7 +31,8 @@ _INACTIVITY_SKIP = {
 
 
 class RequisicaoMiddleware:
-    """Escreve uma linha de log por requisição da API (core/requisicao.py).
+    """Escreve uma linha de log por requisição da API (core/requisicao.py) e,
+    no Work Manage, grava o evento de uso (apps_work/uso).
 
     Fica por fora dos middlewares que respondem sozinhos (o 402 da assinatura,
     o 401 da inatividade), para eles também aparecerem. O que der errado aqui
@@ -50,7 +51,12 @@ class RequisicaoMiddleware:
         duracao_ms = int((time.monotonic() - inicio) * 1000)
 
         try:
-            requisicao.logar(requisicao.retrato(request, response, duracao_ms))
+            dados = requisicao.retrato(request, response, duracao_ms)
+            requisicao.logar(dados)
+            if request.path.startswith(rotas.WORK):
+                from apps_work.uso.registro import registrar
+
+                registrar(dados)
         except Exception:
             logger.warning('Falha ao registrar a requisição', exc_info=True)
         return response

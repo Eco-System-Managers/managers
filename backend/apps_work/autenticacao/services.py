@@ -415,6 +415,7 @@ class ExclusaoContaService:
 
     @transaction.atomic
     def _apagar_login(self, user) -> None:
+        from apps_work.uso.models import EventoDeUso
         from tenants.models import Membro
 
         membros = list(Membro.objects.filter(user=user).select_related('tenant'))
@@ -422,6 +423,7 @@ class ExclusaoContaService:
             with schema_context(membro.tenant.schema_name):
                 self._desligar_da_equipe(user, membro.tenant.schema_name)
         Membro.objects.filter(user=user).delete()
+        EventoDeUso.objects.filter(user_id=user.pk).delete()
         # O User tem relação com tabelas dos tenants (Colaborador): apagar
         # dentro de um schema de negócio deixa o Django enxergar essa tabela.
         if membros:
@@ -435,6 +437,7 @@ class ExclusaoContaService:
         from apps_serv.consumidores.models import AgendamentoConsumidor, VinculoConsumidor
         from apps_serv.vitrine.models import NegocioPublico
         from apps_work.agenda.models import StatusAgendamento
+        from apps_work.uso.models import EventoDeUso
         from tenants.models import ConviteIndex, Membro, Tenant
 
         from .models import ExclusaoConta
@@ -461,6 +464,7 @@ class ExclusaoContaService:
         VinculoConsumidor.objects.filter(schema_name=schema_name).delete()
         NegocioPublico.objects.filter(schema_name=schema_name).delete()
         ConviteIndex.objects.filter(schema_name=schema_name).delete()
+        EventoDeUso.objects.filter(schema_name=schema_name).delete()
         # O dono que está em outro negócio continua com o login: o pedido sai
         # daqui, senão voltaria na próxima rodada.
         ExclusaoConta.objects.filter(schema_name=schema_name).delete()

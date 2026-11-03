@@ -16,6 +16,7 @@ from apps_work.autenticacao.models import ExclusaoConta
 from apps_work.autenticacao.services import ExclusaoContaService
 from apps_work.clientes.models import Cliente
 from apps_work.usuarios.models import Colaborador
+from apps_work.uso.models import EventoDeUso
 from tenants.models import Membro, Tenant
 
 URL = '/api/v1/colaboradores/me/excluir/'
@@ -119,10 +120,12 @@ class TestExclusaoVencida:
         )
         _client(leo).post(URL, {'senha': 'SenhaForte123!'}, format='json')
         self._vencer()
+        assert EventoDeUso.objects.filter(user_id=leo.pk).exists()
 
         assert ExclusaoContaService().excluir_vencidas() == 1
 
         assert not User.objects.filter(pk=leo.pk).exists()
+        assert not EventoDeUso.objects.filter(user_id=leo.pk).exists()
         assert not Membro.objects.filter(user_id=leo.pk).exists()
         colaborador.refresh_from_db()
         assert colaborador.user is None
@@ -142,7 +145,10 @@ class TestExclusaoVencida:
         self._vencer()
 
         connection.set_schema_to_public()
+        assert EventoDeUso.objects.filter(schema_name=schema).exists()
         assert ExclusaoContaService().excluir_vencidas() == 1
+
+        assert not EventoDeUso.objects.filter(schema_name=schema).exists()
 
         assert not Tenant.objects.filter(schema_name=schema).exists()
         assert not User.objects.filter(pk__in=[dono.pk, leo.pk]).exists()

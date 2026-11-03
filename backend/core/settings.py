@@ -58,6 +58,8 @@ SHARED_APPS = [
     'apps_work.billing',
     'apps_work.autenticacao',
     'apps_work.paginas',
+    # Os eventos de uso de todos os negócios, para o relatório ler de uma vez.
+    'apps_work.uso',
     'apps_serv.autenticacao',
     'apps_serv.consumidores',
     'apps_serv.vitrine',
