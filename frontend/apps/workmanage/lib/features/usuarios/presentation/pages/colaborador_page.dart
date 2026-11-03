@@ -83,6 +83,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
         comissao: _comissaoController,
         tipo: _tipo,
         podeCobrar: _podeCobrar,
+        naEsteira: ref.read(negocioAtualProvider).isKanban,
       ),
     );
   }
@@ -232,13 +233,21 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
 
         return Scaffold(
           appBar: AppBar(title: const Text('Colaborador')),
-          body: _corpo(provider, negocio.ehProprietario),
+          body: _corpo(
+            provider,
+            souProprietario: negocio.ehProprietario,
+            naEsteira: negocio.isKanban,
+          ),
         );
       },
     );
   }
 
-  Widget _corpo(ColaboradorProvider provider, bool souProprietario) {
+  Widget _corpo(
+    ColaboradorProvider provider, {
+    required bool souProprietario,
+    required bool naEsteira,
+  }) {
     final c = provider.colaborador;
     if (c == null) {
       final erro = provider.erroAoCarregar;
@@ -350,6 +359,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
               limparErroDoCampo: provider.limparErroDoCampo,
               habilitado: souProprietario,
               temAcesso: c.temAcesso || provider.convite != null,
+              naEsteira: naEsteira,
             ),
           if (souProprietario) ...[
             const SizedBox(height: BrandSpacing.space4),

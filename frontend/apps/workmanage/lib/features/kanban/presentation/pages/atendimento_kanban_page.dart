@@ -29,7 +29,9 @@ import '../widgets/remarcar_kanban_sheet.dart';
 // a ficha de um card da esteira e as ações sobre ele: mover de etapa,
 // ajustar o tempo previsto, remarcar (e avisar pelo WhatsApp), cobrar e
 // desfazer, marcar falta e desfazer, excluir. atrasado, mostra quem vem
-// depois, para avisar. o avulso (sem cadastro) é só a identificação
+// depois, para avisar. o avulso (sem cadastro) é só a identificação. para o
+// colaborador comum a ficha é só leitura: sem telefone, sem valores e só
+// mover e ajustar o tempo (a API já manda o resto nulo)
 class AtendimentoKanbanPage extends ConsumerStatefulWidget {
   const AtendimentoKanbanPage({super.key, required this.id});
 
@@ -289,6 +291,9 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
     final colors = Theme.of(context).colorScheme;
     final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
+    // o colaborador comum da esteira só lê a ficha (sem telefone, sem
+    // valores, sem abrir o cliente nem corrigir o cadastro)
+    final soLeitura = ref.read(negocioAtualProvider).soMoveOsCards;
     final etapaAtual = provider.etapas
         .where((e) => e.id == a.etapaId)
         .firstOrNull;
@@ -521,8 +526,12 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                   leading: const Icon(Icons.person_outline_rounded),
                   title: Text(a.clienteNome),
                   subtitle: telefone.isEmpty ? null : Text(telefone),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/clientes/${objeto.clienteId}'),
+                  trailing: soLeitura
+                      ? null
+                      : const Icon(Icons.chevron_right_rounded),
+                  onTap: soLeitura
+                      ? null
+                      : () => context.push('/clientes/${objeto.clienteId}'),
                 ),
                 // na chegada o dono confere o cadastro: o porte errado
                 // ("veio uma caminhonete, não um carro") se corrige daqui
@@ -536,17 +545,13 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                   subtitle: objeto.detalhe.isEmpty
                       ? null
                       : Text(objeto.detalhe),
-                  trailing: const Icon(Icons.mode_edit_outline_rounded),
-                  onTap: () => _corrigirObjeto(objeto),
+                  trailing: soLeitura
+                      ? null
+                      : const Icon(Icons.mode_edit_outline_rounded),
+                  onTap: soLeitura ? null : () => _corrigirObjeto(objeto),
                 ),
                 const Divider(),
               ],
-              if (a.colaboradorNome.isNotEmpty)
-                ListTile(
-                  leading: const Icon(Icons.badge_rounded),
-                  title: Text(a.colaboradorNome),
-                  subtitle: const Text('Profissional'),
-                ),
               // a duração prevista é do pátio: o serviço mais o tempo a mais
               ListTile(
                 leading: const Icon(Icons.design_services_rounded),
@@ -554,7 +559,9 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                 subtitle: _duracaoPrevista(a) == null
                     ? null
                     : Text(_duracaoPrevista(a)!),
-                trailing: Text(formatarDinheiro(a.servicoPreco)),
+                trailing: soLeitura
+                    ? null
+                    : Text(formatarDinheiro(a.servicoPreco)),
               ),
               if (a.prontoEm != null)
                 ListTile(
@@ -564,39 +571,42 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                   ),
                   title: Text('Pronto às ${formatarHora(horaDe(a.prontoEm!))}'),
                 ),
-              // o que foi acertado com o cliente na cobrança
-              if (a.acrescimo > Decimal.fromInt(0))
-                ListTile(
-                  leading: const Icon(Icons.add_circle_outline_rounded),
-                  title: Text(
-                    a.acrescimoMotivo.isEmpty
-                        ? 'Acréscimo'
-                        : 'Acréscimo (${a.acrescimoMotivo})',
-                  ),
-                  trailing: Text('+ ${formatarDinheiro(a.acrescimo)}'),
-                ),
-              if (a.desconto > Decimal.fromInt(0))
-                ListTile(
-                  leading: const Icon(Icons.discount_rounded),
-                  title: const Text('Desconto'),
-                  trailing: Text('- ${formatarDinheiro(a.desconto)}'),
-                ),
-              ListTile(
-                title: Text('Total', style: textos.titleMedium),
-                trailing: Text(
-                  formatarDinheiro(a.valorTotal),
-                  style: textos.titleMedium,
-                ),
-              ),
-              if (a.pagamentos.isNotEmpty) ...[
-                const Divider(),
-                for (final p in a.pagamentos)
+              // o dinheiro é de quem cobra: o colaborador comum não vê
+              if (!soLeitura) ...[
+                // o que foi acertado com o cliente na cobrança
+                if (a.acrescimo > Decimal.fromInt(0))
                   ListTile(
-                    leading: const Icon(Icons.payments_rounded),
-                    title: Text(p.forma.nome),
-                    subtitle: const Text('Pago'),
-                    trailing: Text(formatarDinheiro(p.valor)),
+                    leading: const Icon(Icons.add_circle_outline_rounded),
+                    title: Text(
+                      a.acrescimoMotivo.isEmpty
+                          ? 'Acréscimo'
+                          : 'Acréscimo (${a.acrescimoMotivo})',
+                    ),
+                    trailing: Text('+ ${formatarDinheiro(a.acrescimo)}'),
                   ),
+                if (a.desconto > Decimal.fromInt(0))
+                  ListTile(
+                    leading: const Icon(Icons.discount_rounded),
+                    title: const Text('Desconto'),
+                    trailing: Text('- ${formatarDinheiro(a.desconto)}'),
+                  ),
+                ListTile(
+                  title: Text('Total', style: textos.titleMedium),
+                  trailing: Text(
+                    formatarDinheiro(a.valorTotal),
+                    style: textos.titleMedium,
+                  ),
+                ),
+                if (a.pagamentos.isNotEmpty) ...[
+                  const Divider(),
+                  for (final p in a.pagamentos)
+                    ListTile(
+                      leading: const Icon(Icons.payments_rounded),
+                      title: Text(p.forma.nome),
+                      subtitle: const Text('Pago'),
+                      trailing: Text(formatarDinheiro(p.valor)),
+                    ),
+                ],
               ],
               if (a.observacao.isNotEmpty) ...[
                 const Divider(),
@@ -612,7 +622,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
                 padding: const EdgeInsets.symmetric(
                   horizontal: BrandSpacing.space5,
                 ),
-                child: _acoes(a, provider),
+                child: _acoes(a, provider, soLeitura: soLeitura),
               ),
             ],
           ),
@@ -621,10 +631,51 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
     );
   }
 
-  Widget _acoes(AtendimentoKanban a, AtendimentoKanbanProvider provider) {
+  // as ações do card. para o colaborador comum só mover e ajustar o tempo:
+  // receber, remarcar, cobrar, falta e excluir são do dono e do parceiro
+  Widget _acoes(
+    AtendimentoKanban a,
+    AtendimentoKanbanProvider provider, {
+    required bool soLeitura,
+  }) {
     final colors = Theme.of(context).colorScheme;
     final ocupado = provider.isLoading;
     final outras = provider.etapas.where((e) => e.id != a.etapaId).toList();
+
+    if (soLeitura) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (outras.isNotEmpty) ...[
+            Text('Mover para', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: BrandSpacing.space2),
+            Wrap(
+              spacing: BrandSpacing.space2,
+              runSpacing: BrandSpacing.space2,
+              children: [
+                for (final e in outras)
+                  ActionChip(
+                    avatar: CircleAvatar(
+                      backgroundColor: corDaEtapa(e.cor, colors),
+                      radius: 6,
+                    ),
+                    label: Text(e.nome),
+                    onPressed: ocupado ? null : () => provider.mover(e.id),
+                  ),
+              ],
+            ),
+            const SizedBox(height: BrandSpacing.space5),
+          ],
+          // o tempo a mais acaba quando o card fica pronto
+          if (!a.pronto)
+            TextButton.icon(
+              onPressed: ocupado ? null : () => _ajustarTempo(a),
+              icon: const Icon(Icons.more_time_rounded),
+              label: const Text('Ajustar tempo'),
+            ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -649,8 +700,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
           ),
           const SizedBox(height: BrandSpacing.space5),
         ],
-        // o colaborador comum só cobra com a flag ligada (a API recusa com
-        // sem_permissao_cobrar)
+        // na esteira cobra o dono e o parceiro (a API recusa os outros)
         if (ref.read(negocioAtualProvider).podeCobrar) ...[
           if (!a.pago)
             FilledButton.icon(

@@ -33,8 +33,11 @@ final resumoProvider = Provider.autoDispose<ResumoProvider>((ref) {
     obterResumo: ref.watch(obterResumoUseCaseProvider),
     listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
     listarPendencias: ref.watch(listarPendenciasUseCaseProvider),
-    // a casca só monta as abas com o negócio (e o papel) carregados
-    filtraPorProfissional: ref.watch(negocioAtualProvider).ehProprietario,
+    // a casca só monta as abas com o negócio (e o papel) carregados. o
+    // filtro é da agenda: na esteira não há recorte por pessoa
+    filtraPorProfissional:
+        ref.watch(negocioAtualProvider).ehProprietario &&
+        !ref.watch(negocioAtualProvider).isKanban,
   );
   ref.onDispose(provider.dispose);
   return provider;

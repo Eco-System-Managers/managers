@@ -406,32 +406,36 @@ class _ServicoFormPageState extends ConsumerState<ServicoFormPage> {
             ),
           ],
 
-          const SizedBox(height: BrandSpacing.space5),
+          // "quem executa" é da agenda: na esteira a fila é do negócio
+          // inteiro, sem profissional no atendimento
+          if (!provider.naEsteira) ...[
+            const SizedBox(height: BrandSpacing.space5),
 
-          Text('Quem executa', style: textos.titleSmall),
-          const SizedBox(height: BrandSpacing.space1),
-          Text(
-            provider.colaboradores.isEmpty
-                ? 'Sem equipe cadastrada: qualquer um executa.'
-                : 'Sem ninguém marcado, qualquer um executa.',
-            style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
-          ),
-          for (final colaborador in provider.colaboradores)
-            CheckboxListTile(
-              value: _colaboradores.contains(colaborador.id),
-              title: Text(colaborador.nome),
-              subtitle: colaborador.funcao.isEmpty
-                  ? null
-                  : Text(colaborador.funcao),
-              contentPadding: EdgeInsets.zero,
-              onChanged: (marcado) => setState(() {
-                if (marcado == true) {
-                  _colaboradores.add(colaborador.id);
-                } else {
-                  _colaboradores.remove(colaborador.id);
-                }
-              }),
+            Text('Quem executa', style: textos.titleSmall),
+            const SizedBox(height: BrandSpacing.space1),
+            Text(
+              provider.colaboradores.isEmpty
+                  ? 'Sem equipe cadastrada: qualquer um executa.'
+                  : 'Sem ninguém marcado, qualquer um executa.',
+              style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             ),
+            for (final colaborador in provider.colaboradores)
+              CheckboxListTile(
+                value: _colaboradores.contains(colaborador.id),
+                title: Text(colaborador.nome),
+                subtitle: colaborador.funcao.isEmpty
+                    ? null
+                    : Text(colaborador.funcao),
+                contentPadding: EdgeInsets.zero,
+                onChanged: (marcado) => setState(() {
+                  if (marcado == true) {
+                    _colaboradores.add(colaborador.id);
+                  } else {
+                    _colaboradores.remove(colaborador.id);
+                  }
+                }),
+              ),
+          ],
 
           const SizedBox(height: BrandSpacing.space5),
 

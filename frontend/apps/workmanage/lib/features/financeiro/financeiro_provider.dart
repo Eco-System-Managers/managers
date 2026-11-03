@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/network/dio_client.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/usuarios/usuarios_provider.dart';
 
 import 'data/datasources/financeiro_remote_datasource.dart';
@@ -34,6 +35,12 @@ final caixaProvider = Provider<CaixaProvider>((ref) {
   final provider = CaixaProvider(
     obterCaixa: ref.watch(obterCaixaUseCaseProvider),
     listarColaboradores: ref.watch(listarColaboradoresUseCaseProvider),
+    // o filtro é da agenda, e só do dono: na esteira não há recorte por
+    // pessoa. lido na hora: o provider vive o app inteiro
+    filtraPorProfissional: () {
+      final negocio = ref.read(negocioAtualProvider);
+      return negocio.ehProprietario && !negocio.isKanban;
+    },
   );
   ref.onDispose(provider.dispose);
   return provider;

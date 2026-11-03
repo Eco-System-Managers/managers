@@ -6,6 +6,12 @@ devolve (lava-rápido, banho & tosa).
 É o outro modo de agenda, alternativo ao app `agenda`. Aqui não existe "horário
 do profissional": existe uma fila de etapas, e o atendimento anda por ela.
 
+**A esteira é de operação compartilhada.** O quadro é um só, do negócio: quem é
+convidado não ganha quadro, etapas nem agenda próprios, o card não tem
+profissional, e o Início, o quadro e o caixa não têm recorte por pessoa. O
+vínculo (`usuarios`) diz o que cada um pode fazer, não de quem é o atendimento
+(ver "Quem pode o quê").
+
 ## Arquivos
 
 | Arquivo | O que faz |
@@ -39,7 +45,7 @@ Ordenação padrão por `ordem`.
 | `objeto` | `FK → clientes.ObjetoCliente` `PROTECT`, nulo | O pet ou veículo — o cliente vem por ele. Nulo no **avulso** |
 | `identificacao` | `CharField(80)` vazio | O avulso: o texto que diz de quem é o carro ou o pet no pátio ("Hilux branca", "ABC-1234"). Ou ele ou o `objeto` |
 | `servico` | `FK → servicos.Servico` `PROTECT` | Um só, diferente da agenda, que aceita vários |
-| `colaborador` | `FK → usuarios.Colaborador` `PROTECT`, nulo | Quem pegou o carro ou o pet. Opcional; com ele o quadro, o caixa e o painel filtram por profissional |
+| `colaborador` | `FK → usuarios.Colaborador` `PROTECT`, nulo | **Não é mais escrito nem lido pela API**: a esteira não tem profissional no card. A coluna fica porque tirar coluna é migration em todos os schemas, sem nada a ganhar |
 | `observacao` | `TextField` vazio | |
 | `data` | `DateField` nulo | Opcional: dá para receber sem hora marcada |
 | `horario_entrada` | `TimeField` nulo | Idem |
@@ -73,7 +79,7 @@ Apagar o ajuste volta a data ao `HorarioFuncionamento` do dia da semana.
 | `atendimento` | `FK → AtendimentoKanban` `CASCADE` | Aceita vários pagamentos |
 | `forma` | `CharField(20)` | `dinheiro`, `pix`, `credito`, `debito`, `qr_code` |
 | `valor` | `Decimal(8,2)` | |
-| `comissao_percentual` · `repasse` | `Decimal` nulo · `Decimal(8,2)` = 0 | A comissão do parceiro congelada na cobrança (ver `usuarios`) |
+| `comissao_percentual` · `repasse` | `Decimal` nulo · `Decimal(8,2)` = 0 | Sempre nulo e zero: na esteira não há comissão, o caixa é do negócio inteiro. As colunas ficam pelo contrato comum com a agenda, onde a comissão congela |
 | `criado_em` | `DateTime` `auto_now_add` | |
 
 ## Como o status é derivado
@@ -115,9 +121,10 @@ card do primeiro com os outros em `minutos_extras`.
 
 **Fechar horários do negócio** (regra 13: almoço, imprevisto, o dia que
 desandou) é um `Bloqueio` da `agenda` **sem colaborador**
-(`agenda/bloqueios/`, só o dono cria e exclui; 403 `sem_permissao`). Na
-esteira não há agenda individual, então o bloqueio de um profissional não
-vale aqui: só o do negócio. `ocupacoes` soma cada trecho fechado
+(`agenda/bloqueios/`; o dono e o parceiro criam e excluem; 403 `sem_permissao`
+para o colaborador comum). Na esteira não há agenda individual: o bloqueio
+com `colaborador` é recusado (400 `bloqueio_individual_na_esteira`), só
+existe o do negócio. `ocupacoes` soma cada trecho fechado
 (`BloqueioService.intervalos_do_negocio`) repetido `vagas` vezes — ocupa
 todas as vagas, e a grade não oferece nada ali (o dia inteiro fechado zera a
 grade; o fim do trecho vira início oferecido, como o de qualquer ocupação).
@@ -138,9 +145,9 @@ formato da agenda (`{horario, disponivel}`): só as horas em que a duração do
 `nao_encontrado`**, não a grade de 30 min em silêncio), e `excluir` é o card
 que está sendo remarcado, que a grade não conta (senão ele barraria a si
 mesmo). `kanban/capacidade/?data=` lê `{capacidade, vagas, ajustado,
-ocupados}`; o `PUT` (dono) grava o ajuste da data e exige **os dois números**
-(`capacidade: null` é "sem máximo" de propósito; omitida é 400), o `DELETE`
-(dono) volta ao padrão.
+ocupados}`; o `PUT` (dono e parceiro) grava o ajuste da data e exige **os dois
+números** (`capacidade: null` é "sem máximo" de propósito; omitida é 400), o
+`DELETE` (dono e parceiro) volta ao padrão.
 
 **A etapa de pronto** (`EtapaService`): `POST kanban/etapas/{id}/pronto/`
 (dono) marca uma e desmarca a anterior; `pronto` é só leitura no PATCH da
@@ -177,15 +184,39 @@ lançado. Ele não tem comanda: `cobrar` recusa `credito_aplicado` e
 caixa igual. Fora do quadro (caixa, painel, pendências) ele aparece pelo
 `rotulo` do model: o nome do cliente ou, no avulso, a identificação.
 
+## Quem pode o quê
+
+A fila é do negócio; o vínculo diz o que cada um faz (`core/permissions.py`):
+
+| | Dono | Parceiro | Colaborador comum |
+|---|---|---|---|
+| Ler etapas, quadro, capacidade e os horários fechados | ✅ | ✅ | ✅ |
+| Mover o card (`mover/`) e ajustar o tempo (`PATCH minutos_extras`) | ✅ | ✅ | ✅ |
+| Ficha do card | inteira | inteira | sem `cliente_telefone` nem valores (`servico_preco`, `desconto`, `acrescimo`, `acrescimo_motivo` nulos; `pagamentos` vazio) |
+| Receber (`POST`), remarcar e o resto do `PATCH`, `PUT`, excluir, falta | ✅ | ✅ | 403 `sem_permissao` |
+| Cobrar e desfazer | ✅ | ✅ | 403 `sem_permissao` (`pode_cobrar` não pesa aqui) |
+| Capacidade do dia (`PUT`/`DELETE`) e fechar horário | ✅ | ✅ | 403 |
+| Etapas (criar, editar, reordenar, pronto, remover) | ✅ | 403 | 403 |
+
+A trava das ações é `IsProprietarioOuParceiro` no `AtendimentoKanbanViewSet`
+e na `CapacidadeView`: nos endpoints do kanban o vínculo basta, porque a
+esteira é o próprio modo. O `PATCH` do colaborador comum com qualquer campo
+além de `minutos_extras` é 403 (`perform_update`). O serializer esconde os
+campos reservados pelo `request` do contexto, então as ações respondem com
+`self.get_serializer(...)`, nunca com o serializer solto. Fora do quadro, o
+colaborador comum da esteira recebe 403 em clientes, veículos e pets, serviços,
+contratos, painel, saldo do cliente, pendências e na agenda por horário
+(`agendamentos/`, slots e dias com registro: `NaoEhColaboradorDaEsteira` /
+`exigir_nao_ser_colaborador_da_esteira`); o caixa já era 403 para ele
+(`exigir_ver_valores`), e a equipe é só do dono na esteira (`usuarios`).
+
 ## Filtros e ações
 
-`kanban/atendimentos/?data=` é o quadro de um dia, `?cliente=` o histórico de
-um cliente (pelos objetos dele; o avulso, sem objeto, fica de fora) e
-`?colaborador=` só os cards de um profissional; os três estão no OpenAPI. `cobrar/` e `desfazer_cobranca/`
-passam por `exigir_poder_cobrar` (colaborador comum com `pode_cobrar` desligado
-recebe 403). As ações do card
-são `POST .../{id}/mover/` (`{etapa_id}`), `cobrar/`, `desfazer_cobranca/`,
-`marcar_falta/` e `desfazer_falta/`.
+`kanban/atendimentos/?data=` é o quadro de um dia e `?cliente=` o histórico de
+um cliente (pelos objetos dele; o avulso, sem objeto, fica de fora); os dois
+estão no OpenAPI. Não há filtro por profissional: o card não tem um. As ações
+do card são `POST .../{id}/mover/` (`{etapa_id}`), `cobrar/`,
+`desfazer_cobranca/`, `marcar_falta/` e `desfazer_falta/`.
 
 **Cobrar** recebe o `CobrancaSerializer` do `financeiro`. O total é **o preço
 do serviço mais o `acrescimo` menos o `desconto`**, e pagamentos +
@@ -205,6 +236,11 @@ Remover etapa com atendimentos dentro responde 400 `etapa_com_atendimentos`
 
 ## O que é fácil errar aqui
 
+- **O card não tem profissional, e a cobrança não tem comissão.** `colaborador`
+  não está no serializer (mandar no POST ou no PATCH é ignorado), e `cobrar`
+  grava cada `PagamentoAtendimento` com `repasse` zero, mesmo que o parceiro
+  tenha `comissao_percentual` cadastrada. O caixa e o painel não recortam a
+  esteira por pessoa (`colaborador_aplicado` devolve todos).
 - **O quadro do dia também vem paginado**, como a agenda: o front pede
   `?data=...&page_size=100` e segue o `next`. Página que não chega faria card
   sumir da coluna sem erro.

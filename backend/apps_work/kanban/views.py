@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
-from core.permissions import IsProprietario
+from core.permissions import IsProprietario, IsProprietarioOuParceiro, eh_colaborador_comum
 from .models import AtendimentoKanban, EtapaKanban
 from .serializers import (
     AjusteDoDiaRequestSerializer, AtendimentoKanbanSerializer, CapacidadeDoDiaSerializer, EtapaKanbanSerializer,
@@ -16,8 +16,7 @@ from .serializers import (
 from .services import AtendimentoKanbanService, CapacidadeService, EtapaService, SlotService
 from apps_work.agenda.serializers import SlotSerializer
 from apps_work.financeiro.serializers import CobrancaSerializer
-from core.excecoes import erro
-from core.permissions import exigir_poder_cobrar
+from core.excecoes import ErroDeNegocio, erro
 
 
 class EtapaKanbanViewSet(viewsets.ModelViewSet):
@@ -65,29 +64,35 @@ class EtapaKanbanViewSet(viewsets.ModelViewSet):
                 description='Só os atendimentos dos objetos deste cliente (o histórico). O avulso não tem cliente '
                             'e fica de fora.',
             ),
-            OpenApiParameter('colaborador', OpenApiTypes.INT, description='Só os atendimentos deste profissional.'),
         ],
     ),
 )
 class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
+    """O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+    colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+    `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+    e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+    vem sem o telefone do cliente e sem valores (ver o serializer)."""
+
     serializer_class = AtendimentoKanbanSerializer
 
+    _ACOES_DE_TODOS = ('list', 'retrieve', 'mover', 'partial_update')
+
     def get_permissions(self):
-        return [IsAuthenticated()]
+        if self.action in self._ACOES_DE_TODOS:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsProprietarioOuParceiro()]
 
     def get_queryset(self):
         qs = AtendimentoKanban.objects.select_related(
-            'etapa', 'objeto__cliente', 'objeto__veiculo', 'objeto__pet', 'servico', 'colaborador__user',
+            'etapa', 'objeto__cliente', 'objeto__veiculo', 'objeto__pet', 'servico',
         )
         data = self.request.query_params.get('data')
         cliente = self.request.query_params.get('cliente')
-        colaborador = self.request.query_params.get('colaborador')
         if data:
             qs = qs.filter(data=data)
         if cliente:
             qs = qs.filter(objeto__cliente_id=cliente)
-        if colaborador:
-            qs = qs.filter(colaborador_id=colaborador)
         return qs
 
     def perform_create(self, serializer):
@@ -100,7 +105,6 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
             observacao=serializer.validated_data.get('observacao', ''),
             horario_entrada=serializer.validated_data.get('horario_entrada'),
             data=serializer.validated_data.get('data'),
-            colaborador=serializer.validated_data.get('colaborador'),
             ignorar_limite=serializer.validated_data.get('ignorar_limite', False),
             identificacao=serializer.validated_data.get('identificacao', ''),
             minutos_extras=serializer.validated_data.get('minutos_extras', 0),
@@ -112,6 +116,12 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
         # ignorar_limite não é campo do model: sai antes do save. As regras
         # (avulso, porte, capacidade, pronto) são do service.
         ignorar_limite = serializer.validated_data.pop('ignorar_limite', False)
+        # O colaborador comum só ajusta o tempo a mais previsto: o resto do
+        # card (dia, hora, serviço, etapa por PATCH) é do dono e do parceiro.
+        if eh_colaborador_comum(self.request) and set(serializer.validated_data) - {'minutos_extras'}:
+            raise ErroDeNegocio(
+                'Você só pode ajustar o tempo previsto do atendimento.', 'sem_permissao', status.HTTP_403_FORBIDDEN,
+            )
         AtendimentoKanbanService().conferir_alteracao(serializer.instance, serializer.validated_data, ignorar_limite)
         serializer.save()
 
@@ -130,7 +140,7 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
         except EtapaKanban.DoesNotExist:
             return erro('Etapa não encontrada.', status_code=status.HTTP_404_NOT_FOUND)
         atendimento = AtendimentoKanbanService().mover(atendimento, etapa)
-        return Response(AtendimentoKanbanSerializer(atendimento).data)
+        return Response(self.get_serializer(atendimento).data)
 
     @extend_schema(
         request=CobrancaSerializer, responses=AtendimentoKanbanSerializer, summary='Cobrar o atendimento',
@@ -144,7 +154,6 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=['post'])
     def cobrar(self, request, pk=None):
-        exigir_poder_cobrar(request)
         atendimento = self.get_object()
         entrada = CobrancaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -159,7 +168,7 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
             servico_ids=dados.get('servico_ids'),
         )
 
-        return Response(AtendimentoKanbanSerializer(atendimento).data)
+        return Response(self.get_serializer(atendimento).data)
 
     @extend_schema(
         request=None, responses={200: AtendimentoKanbanSerializer}, summary='Desfazer cobrança',
@@ -167,26 +176,25 @@ class AtendimentoKanbanViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=['post'])
     def desfazer_cobranca(self, request, pk=None):
-        exigir_poder_cobrar(request)
         atendimento = self.get_object()
         if not atendimento.pago:
             return erro('Este atendimento não está marcado como pago.', 'nao_pago', status.HTTP_400_BAD_REQUEST)
         atendimento = AtendimentoKanbanService().desfazer_cobranca(atendimento)
-        return Response(AtendimentoKanbanSerializer(atendimento).data)
+        return Response(self.get_serializer(atendimento).data)
 
     @extend_schema(request=None, responses={200: AtendimentoKanbanSerializer}, summary='Marcar falta')
     @action(detail=True, methods=['post'])
     def marcar_falta(self, request, pk=None):
         atendimento = self.get_object()
         atendimento = AtendimentoKanbanService().marcar_falta(atendimento)
-        return Response(AtendimentoKanbanSerializer(atendimento).data)
+        return Response(self.get_serializer(atendimento).data)
 
     @extend_schema(request=None, responses={200: AtendimentoKanbanSerializer}, summary='Desfazer falta')
     @action(detail=True, methods=['post'])
     def desfazer_falta(self, request, pk=None):
         atendimento = self.get_object()
         atendimento = AtendimentoKanbanService().desfazer_falta(atendimento)
-        return Response(AtendimentoKanbanSerializer(atendimento).data)
+        return Response(self.get_serializer(atendimento).data)
 
 
 class SlotsView(APIView):
@@ -239,11 +247,12 @@ def _data_da_query(request) -> date_type | None:
 
 class CapacidadeView(APIView):
     """Quanto cabe num dia da esteira: o padrão da semana ou o ajuste da data
-    ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono."""
+    ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono e
+    do parceiro, que toca o negócio com ele."""
 
     def get_permissions(self):
         if self.request.method in ('PUT', 'DELETE'):
-            return [IsAuthenticated(), IsProprietario()]
+            return [IsAuthenticated(), IsProprietarioOuParceiro()]
         return [IsAuthenticated()]
 
     @extend_schema(

@@ -52,15 +52,9 @@ class KanbanRepositoryImpl implements KanbanRepository {
   );
 
   @override
-  Future<Either<Failure, List<AtendimentoKanban>>> listarDoDia(
-    DateTime data, {
-    int? colaboradorId,
-  }) {
+  Future<Either<Failure, List<AtendimentoKanban>>> listarDoDia(DateTime data) {
     return _executar(() async {
-      final models = await _remoteDataSource.listarDoDia(
-        data,
-        colaboradorId: colaboradorId,
-      );
+      final models = await _remoteDataSource.listarDoDia(data);
       return models.map((m) => m.toEntity()).toList();
     });
   }

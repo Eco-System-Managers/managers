@@ -15,14 +15,14 @@ import 'package:managers/features/clientes/presentation/widgets/pet_form_sheet.d
 import 'package:managers/features/clientes/presentation/widgets/veiculo_form_sheet.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
 import 'package:managers/features/servicos/presentation/widgets/itens_de_servico.dart';
-import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../kanban_provider.dart';
 import '../providers/atendimento_kanban_form_provider.dart';
 
 // recebe um atendimento na esteira: cliente, o veículo ou pet dele, serviço,
-// dia e uma hora de entrada opcional (a grade segue a duração do serviço);
+// dia e uma hora de entrada opcional (a grade segue a duração do serviço),
+// sem profissional: a fila é do negócio inteiro;
 // ou o avulso, quem chegou sem cadastro, só com uma identificação e o
 // serviço. o dia lotado ou a hora sem vaga é aviso: o dono pode receber
 // mesmo assim. fecha com true quando entrou
@@ -350,33 +350,6 @@ class _AtendimentoKanbanFormPageState
               errorText: provider.erroDoCampo('servico'),
             ),
           ),
-
-          // o profissional é opcional na esteira: só aparece com equipe
-          if (provider.colaboradores.isNotEmpty) ...[
-            const SizedBox(height: BrandSpacing.space4),
-            DropdownButtonFormField<Colaborador?>(
-              key: ValueKey('colaborador-${provider.colaborador?.id}'),
-              initialValue: provider.colaborador,
-              isExpanded: true,
-              items: [
-                const DropdownMenuItem<Colaborador?>(
-                  value: null,
-                  child: Text('Sem profissional'),
-                ),
-                for (final c in provider.colaboradores)
-                  DropdownMenuItem<Colaborador?>(
-                    value: c,
-                    child: Text(c.nome, overflow: TextOverflow.ellipsis),
-                  ),
-              ],
-              onChanged: provider.selecionarColaborador,
-              decoration: InputDecoration(
-                labelText: 'Profissional (opcional)',
-                prefixIcon: const Icon(Icons.badge_rounded),
-                errorText: provider.erroDoCampo('colaborador'),
-              ),
-            ),
-          ],
 
           const SizedBox(height: BrandSpacing.space4),
 

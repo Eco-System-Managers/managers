@@ -8,8 +8,9 @@ import '../../domain/entities/colaborador.dart';
 import '../../domain/params/equipe_params.dart';
 
 // os campos de alguém da equipe, iguais no cadastro e na ficha: nome,
-// função, vínculo e, conforme o vínculo, a comissão (parceiro) ou a flag de
-// cobrar (colaborador). quem usa guarda os controllers e monta os dados
+// função, vínculo e, na agenda, conforme o vínculo, a comissão (parceiro)
+// ou a flag de cobrar (colaborador). na esteira o vínculo é só o acesso:
+// não há comissão nem flag. quem usa guarda os controllers e monta os dados
 class CamposColaborador extends StatelessWidget {
   const CamposColaborador({
     super.key,
@@ -24,6 +25,7 @@ class CamposColaborador extends StatelessWidget {
     required this.limparErroDoCampo,
     this.habilitado = true,
     this.temAcesso = false,
+    this.naEsteira = false,
   });
 
   // o required do Validatorless aceita só espaços; isto exige um caractere
@@ -44,24 +46,48 @@ class CamposColaborador extends StatelessWidget {
   // convite a caminho) a permissão não aparece
   final bool temAcesso;
 
-  // os dados a partir dos campos, já validados
+  // o negócio é de esteira: o parceiro toca o negócio com o dono e o
+  // colaborador move os cards; sem comissão e sem a flag de cobrar
+  final bool naEsteira;
+
+  // os dados a partir dos campos, já validados. na esteira a comissão não
+  // existe: vai nula
   static DadosColaborador dados({
     required TextEditingController nome,
     required TextEditingController funcao,
     required TextEditingController comissao,
     required VinculoColaborador tipo,
     required bool podeCobrar,
+    bool naEsteira = false,
   }) {
     final pct = comissao.text.trim().replaceAll(',', '.');
     return DadosColaborador(
       nome: nome.text.trim(),
       funcao: funcao.text.trim(),
       tipo: tipo,
-      comissaoPercentual: tipo == VinculoColaborador.parceiro && pct.isNotEmpty
+      comissaoPercentual:
+          !naEsteira && tipo == VinculoColaborador.parceiro && pct.isNotEmpty
           ? Decimal.tryParse(pct)
           : null,
       podeCobrar: podeCobrar,
     );
+  }
+
+  // o que o vínculo significa, explicado pelo que a pessoa pode
+  String get _descricaoDoVinculo {
+    if (naEsteira) {
+      return tipo == VinculoColaborador.parceiro
+          ? 'Toca o negócio com você: recebe, cobra, mexe em serviços e '
+                'contratos e fecha o caixa. Não mexe em equipe, assinatura '
+                'e estrutura.'
+          : 'Move os cards no quadro e ajusta o tempo. Não vê telefone de '
+                'cliente nem valores.';
+    }
+    return tipo == VinculoColaborador.parceiro
+        ? 'Agenda e faturamento próprios. Vê os próprios números e recebe '
+              'a comissão combinada.'
+        : 'Executa os atendimentos. Não vê valores; o dinheiro é do '
+              'negócio.';
   }
 
   @override
@@ -102,14 +128,7 @@ class CamposColaborador extends StatelessWidget {
         const SizedBox(height: BrandSpacing.space5),
         Text('Vínculo', style: textos.titleSmall),
         const SizedBox(height: BrandSpacing.space1),
-        Text(
-          tipo == VinculoColaborador.parceiro
-              ? 'Agenda e faturamento próprios. Vê os próprios números e '
-                    'recebe a comissão combinada.'
-              : 'Executa os atendimentos. Não vê valores; o dinheiro é do '
-                    'negócio.',
-          style: textos.bodySmall,
-        ),
+        Text(_descricaoDoVinculo, style: textos.bodySmall),
         const SizedBox(height: BrandSpacing.space2),
         SegmentedButton<VinculoColaborador>(
           segments: [
@@ -120,7 +139,8 @@ class CamposColaborador extends StatelessWidget {
           onSelectionChanged: habilitado ? (s) => onTipo(s.first) : null,
         ),
 
-        if (tipo == VinculoColaborador.parceiro) ...[
+        // na esteira não há comissão nem a flag de cobrar: o vínculo basta
+        if (!naEsteira && tipo == VinculoColaborador.parceiro) ...[
           const SizedBox(height: BrandSpacing.space4),
           TextFormField(
             controller: comissaoController,
@@ -151,7 +171,7 @@ class CamposColaborador extends StatelessWidget {
               prefixIcon: Icon(Icons.percent_rounded),
             ),
           ),
-        ] else if (temAcesso)
+        ] else if (!naEsteira && temAcesso)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Pode registrar cobranças'),

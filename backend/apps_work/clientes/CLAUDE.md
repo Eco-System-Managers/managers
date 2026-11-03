@@ -13,7 +13,7 @@ Service Manage. A diferença muda o que o painel pode fazer com ele.
 | `validators.py` | Validação de CPF, telefone brasileiro (com lista de DDDs válidos) e placa (formato antigo e Mercosul) |
 | `serializers.py` | Representação e validação. Trava campos quando o cadastro pertence ao consumidor |
 | `services.py` | `RemocaoClienteService` — remoção que respeita a origem |
-| `views.py` | ViewSets de cliente, veículo e pet. Busca por nome, telefone, e-mail ou CPF |
+| `views.py` | ViewSets de cliente, veículo e pet. Busca por nome, telefone, e-mail ou CPF. Os três recusam o colaborador comum da esteira (403 `sem_permissao`, `NaoEhColaboradorDaEsteira`): ele só move os cards do quadro |
 | `signals.py` | Declara `cliente_servicemanage_removido`, escutado pela vitrine |
 
 ## Tabelas

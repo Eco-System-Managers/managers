@@ -55,6 +55,9 @@ class ServicoFormProvider extends ChangeNotifier {
 
   List<Nicho> get nichos => _negocio.config?.nichos ?? const [];
 
+  // o negócio é de esteira: o serviço não tem "quem executa"
+  bool get naEsteira => _negocio.isKanban;
+
   // com um nicho só não há o que escolher: o serviço fica nele
   bool get escolheNicho => nichos.length > 1;
 
@@ -89,12 +92,18 @@ class ServicoFormProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
-    final equipe = await _listarColaboradores(NoParams());
-    if (_disposed) return;
-    equipe.fold(
-      (failure) => _erroAoCarregar = failure,
-      (lista) => _colaboradores = lista,
-    );
+    // "quem executa" é da agenda: na esteira a fila é do negócio inteiro, e
+    // a equipe nem é pedida (lá a API só a dá ao dono)
+    if (naEsteira) {
+      _colaboradores = [];
+    } else {
+      final equipe = await _listarColaboradores(NoParams());
+      if (_disposed) return;
+      equipe.fold(
+        (failure) => _erroAoCarregar = failure,
+        (lista) => _colaboradores = lista,
+      );
+    }
 
     final id = this.id;
     if (_erroAoCarregar == null && id != null) {

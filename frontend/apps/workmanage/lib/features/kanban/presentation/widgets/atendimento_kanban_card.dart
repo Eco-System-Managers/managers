@@ -8,8 +8,9 @@ import '../../domain/entities/atendimento_kanban.dart';
 import '../../domain/entities/etapa.dart';
 
 // um card do quadro: hora de entrada, cliente, o veículo ou pet (ou a
-// identificação do avulso), o serviço, as marcas de pago e falta e, quando
-// passou do tempo previsto, o atraso. o menu move para outra coluna
+// identificação do avulso), o serviço (com o valor para quem vê valores), as
+// marcas de pago e falta e, quando passou do tempo previsto, o atraso. o
+// menu move para outra coluna
 class AtendimentoKanbanCard extends StatelessWidget {
   const AtendimentoKanbanCard({
     super.key,
@@ -17,6 +18,7 @@ class AtendimentoKanbanCard extends StatelessWidget {
     required this.etapas,
     required this.onTap,
     required this.onMover,
+    this.mostraValores = true,
     this.agora,
   });
 
@@ -24,6 +26,9 @@ class AtendimentoKanbanCard extends StatelessWidget {
   final List<Etapa> etapas;
   final VoidCallback onTap;
   final ValueChanged<Etapa> onMover;
+
+  // false para o colaborador comum da esteira: o card sai sem o valor
+  final bool mostraValores;
 
   // o momento para contar o atraso; null é agora mesmo
   final DateTime? agora;
@@ -115,10 +120,9 @@ class AtendimentoKanbanCard extends StatelessWidget {
                       ),
                     const SizedBox(height: BrandSpacing.space1),
                     Text(
-                      [
-                        '${a.servicoNome} · ${formatarDinheiro(a.valorTotal)}',
-                        if (a.colaboradorNome.isNotEmpty) a.colaboradorNome,
-                      ].join(' · '),
+                      mostraValores
+                          ? '${a.servicoNome} · ${formatarDinheiro(a.valorTotal)}'
+                          : a.servicoNome,
                       style: textos.bodySmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

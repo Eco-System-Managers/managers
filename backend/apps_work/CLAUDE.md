@@ -107,9 +107,14 @@ deles atravessam a fronteira, e todos são escutados em
   intermediário.
 - **Regra de negócio vai em `services.py`**, não em view nem serializer. Views
   recebem, delegam e devolvem.
-- **Escrita sensível exige `IsProprietario`** — serviços, etapas do kanban,
-  configuração, billing e gestão da equipe. Estar autenticado não basta. O papel
-  vem do `Membro.papel` — o `Colaborador` não tem papel.
+- **Escrita sensível exige `IsProprietario`** — etapas do kanban, configuração,
+  billing e gestão da equipe. Estar autenticado não basta. O papel vem do
+  `Membro.papel` — o `Colaborador` não tem papel. **Na esteira o parceiro toca
+  o negócio com o dono** (`IsProprietarioOuParceiroDaEsteira` em serviços e
+  modelos de contrato, a função `eh_proprietario_ou_parceiro_da_esteira` no
+  bloqueio do negócio; `IsProprietarioOuParceiro` nas ações do quadro e na
+  capacidade do dia) e o colaborador comum só move os cards
+  (`NaoEhColaboradorDaEsteira`). A tabela inteira está em `usuarios/CLAUDE.md`.
 - **Autenticado significa autenticado neste tenant.** A autenticação padrão é a
   `core.authentication.TenantJWTAuthentication`, que recusa token de outro
   schema e usuário sem `Membro` no tenant atual. A checagem não pode ir

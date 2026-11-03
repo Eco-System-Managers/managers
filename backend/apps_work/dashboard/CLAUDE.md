@@ -35,11 +35,16 @@ que os outros apps já registraram.
 
 ## A trava do colaborador
 
-Quem não é proprietário (`Membro.papel`) vê **só os próprios números**: a view
-troca o `colaborador` pedido pelo `request.user.colaborador.id`, seja o que for
-que veio na query (`core.permissions.colaborador_aplicado`, a mesma trava do
-caixa). Usuário sem `Colaborador` → 404 `sem_colaborador`. A trava fica no
-backend porque na tela bastaria trocar o parâmetro.
+No modo horário, quem não é proprietário (`Membro.papel`) vê **só os próprios
+números**: a view troca o `colaborador` pedido pelo
+`request.user.colaborador.id`, seja o que for que veio na query
+(`core.permissions.colaborador_aplicado`, a mesma trava do caixa). Usuário sem
+`Colaborador` → 404 `sem_colaborador`. A trava fica no backend porque na tela
+bastaria trocar o parâmetro.
+
+Na esteira não há recorte: o painel é do negócio inteiro para o dono e para o
+parceiro (`colaborador` devolve nulo e o parâmetro é ignorado), e o colaborador
+comum nem entra — 403 `sem_permissao`, ele só vê o quadro.
 
 ## Por que não tem `models.py` nem `apps.py`
 
@@ -62,9 +67,10 @@ só as `urls` são incluídas no `core/urls.py`.
   `PagamentoAgendamento` contava o pagamento provisório da vitrine, e contar por
   data do pagamento fazia painel e caixa divergirem. `test_bugs_inventario.py`
   garante que os dois concordam.
-- **Com filtro por profissional só entra o que é dele nos dois modos** (na
-  esteira, os cards atribuídos a ele), como no caixa. E `clientes_novos` sai
-  `null`: cliente novo é do negócio, não de alguém.
+- **Com filtro por profissional só entra a agenda dele**, como no caixa; a
+  esteira não tem profissional no card e fica de fora com o filtro (na
+  esteira o filtro nem chega lá). E `clientes_novos` sai `null`: cliente
+  novo é do negócio, não de alguém.
 - **O colaborador comum não vê dinheiro:** `faturamento`, `ticket_medio` e
   `repasse` saem nulos (`com_valores=False`, por `core.permissions.ve_valores`).
   O parceiro vê os próprios, e `repasse` é o que ele tem a receber.

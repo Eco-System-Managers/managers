@@ -11,8 +11,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../home_provider.dart';
 
 // a aba "Mais": configurações, serviços, financeiro, contratos, equipe,
-// assinatura (só quando dá para assinar), a política de privacidade, sair e
-// excluir a conta
+// assinatura (só para o dono, e só quando dá para assinar), a política de
+// privacidade, sair e excluir a conta. cada item segue o que a pessoa pode
+// (negocioAtualProvider): o colaborador comum da esteira fica só com a
+// privacidade, sair e excluir a conta
 class MaisPage extends ConsumerStatefulWidget {
   const MaisPage({super.key});
 
@@ -70,26 +72,27 @@ class _MaisPageState extends ConsumerState<MaisPage> {
                     ),
                   ),
                   title: Text(negocio.nome),
-                  subtitle: Text(
-                    negocio.ehProprietario ? 'Proprietário' : 'Colaborador',
-                  ),
+                  subtitle: Text(negocio.papelExibido),
                 ),
                 const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.settings_rounded),
-                  title: const Text('Configurações'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/mais/configuracoes'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.design_services_rounded),
-                  title: const Text('Serviços'),
-                  subtitle: const Text(
-                    'O catálogo: o que você vende e por quanto',
+                // a estrutura do negócio: na esteira, só o dono
+                if (negocio.veEstrutura)
+                  ListTile(
+                    leading: const Icon(Icons.settings_rounded),
+                    title: const Text('Configurações'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/mais/configuracoes'),
                   ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/mais/servicos'),
-                ),
+                if (negocio.veServicos)
+                  ListTile(
+                    leading: const Icon(Icons.design_services_rounded),
+                    title: const Text('Serviços'),
+                    subtitle: const Text(
+                      'O catálogo: o que você vende e por quanto',
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/mais/servicos'),
+                  ),
                 // o colaborador comum não vê dinheiro (a API também nega)
                 if (negocio.veValores)
                   ListTile(
@@ -99,20 +102,23 @@ class _MaisPageState extends ConsumerState<MaisPage> {
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/mais/financeiro'),
                   ),
-                ListTile(
-                  leading: const Icon(Icons.description_rounded),
-                  title: const Text('Contratos'),
-                  subtitle: const Text('Modelos, contratos gerados e o PDF'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/mais/contratos'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.group_rounded),
-                  title: const Text('Equipe'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/mais/equipe'),
-                ),
-                if (mais.mostraAssinatura)
+                if (negocio.veContratos)
+                  ListTile(
+                    leading: const Icon(Icons.description_rounded),
+                    title: const Text('Contratos'),
+                    subtitle: const Text('Modelos, contratos gerados e o PDF'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/mais/contratos'),
+                  ),
+                if (negocio.veEstrutura)
+                  ListTile(
+                    leading: const Icon(Icons.group_rounded),
+                    title: const Text('Equipe'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/mais/equipe'),
+                  ),
+                // a assinatura é do dono (a API recusa os outros)
+                if (mais.mostraAssinatura && negocio.ehProprietario)
                   ListTile(
                     leading: const Icon(Icons.workspace_premium_rounded),
                     title: const Text('Assinatura'),

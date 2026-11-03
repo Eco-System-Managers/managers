@@ -29,9 +29,10 @@ import '../widgets/grafico_barras.dart';
 
 // a aba Início: o que vem agora primeiro (o próximo atendimento e a linha
 // do dia), os números do período depois, em tom mais baixo. o período e o
-// profissional são dois chips iguais que abrem uma folha. o proprietário
-// filtra por profissional; quem não é vê só os próprios números, travado
-// pela API
+// profissional são dois chips iguais que abrem uma folha. na agenda o
+// proprietário filtra por profissional, e quem não é vê só os próprios
+// números, travado pela API; na esteira não há recorte por pessoa (o
+// colaborador comum nem tem a aba)
 class InicioPage extends ConsumerStatefulWidget {
   const InicioPage({super.key});
 
@@ -227,7 +228,10 @@ class _InicioPageState extends ConsumerState<InicioPage> {
         ? 'vs. ontem'
         : 'vs. período anterior';
     final ehProprietario = negocio.ehProprietario;
+    // o repasse é da agenda: na esteira não há comissão, e o número é do
+    // negócio inteiro para todo mundo
     final mostraRepasse =
+        !resumo.isKanban &&
         resumo.repasse != null &&
         (!ehProprietario ||
             resumo.repasse! > Decimal.zero ||
@@ -661,9 +665,10 @@ class _ProximoCard extends StatelessWidget {
     final (corDaContagem, iconeDaContagem) = _perto
         ? (cores.warning, Icons.bolt_rounded)
         : (cores.inkMuted, null);
+    // na esteira não há profissional no card
     final detalhe = [
       if (a.servicoNome.isNotEmpty) a.servicoNome,
-      if (a.colaboradorNome.isNotEmpty) a.colaboradorNome,
+      if (!isKanban && a.colaboradorNome.isNotEmpty) a.colaboradorNome,
     ].join(' · ');
 
     return Material(

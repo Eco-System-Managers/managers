@@ -37,6 +37,7 @@ class AtendimentoKanbanProvider extends ChangeNotifier {
     required this._remover,
     required this._obterSaldo,
     this._listarServicos,
+    this.soMoveOsCards = false,
     DateTime Function()? agora,
   }) : _agora = agora ?? DateTime.now;
 
@@ -57,6 +58,11 @@ class AtendimentoKanbanProvider extends ChangeNotifier {
   // o catálogo, para a cobrança trocar o serviço pelo que foi feito de
   // verdade. opcional: sem ele a cobrança não oferece a troca
   final ListarServicosUseCase? _listarServicos;
+
+  // quem entrou só move os cards (o colaborador comum da esteira): não
+  // cobra, então o saldo do cliente e o catálogo nem são pedidos (a API
+  // recusaria com 403)
+  final bool soMoveOsCards;
 
   // o relógio, trocável nos testes
   final DateTime Function() _agora;
@@ -216,7 +222,7 @@ class AtendimentoKanbanProvider extends ChangeNotifier {
   // a ficha segue sem a troca
   Future<void> _carregarServicos() async {
     final listar = _listarServicos;
-    if (listar == null) return;
+    if (listar == null || soMoveOsCards) return;
     final result = await listar(const ListarServicosParams(ativo: true));
     result.fold((_) {}, (lista) => _servicos = lista);
   }
@@ -224,7 +230,7 @@ class AtendimentoKanbanProvider extends ChangeNotifier {
   // a comanda é do cliente: o avulso não tem
   Future<void> _carregarSaldo(AtendimentoKanban a) async {
     final clienteId = a.clienteId;
-    if (clienteId == null) {
+    if (clienteId == null || soMoveOsCards) {
       _saldo = null;
       return;
     }

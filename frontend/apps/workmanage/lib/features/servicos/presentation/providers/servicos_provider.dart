@@ -55,8 +55,8 @@ class ServicosProvider extends ChangeNotifier {
   String get busca => _busca;
   bool get mostrarInativos => _mostrarInativos;
 
-  // só o proprietário cria, edita e inativa
-  bool get ehProprietario => _negocio.ehProprietario;
+  // cria, edita e inativa o proprietário e, na esteira, o parceiro
+  bool get podeEditar => _negocio.podeEditarServicos;
 
   List<Nicho> get nichos => _negocio.config?.nichos ?? const [];
 

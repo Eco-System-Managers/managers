@@ -43,8 +43,9 @@ class AtendimentoKanban(models.Model):
     # "ABC-1234"). É o que identifica o avulso; com objeto costuma ficar vazio.
     identificacao = models.CharField(max_length=80, blank=True, default='')
     servico = models.ForeignKey(Servico, on_delete=models.PROTECT, related_name='atendimentos_kanban')
-    # Quem pegou o carro ou o pet. Opcional: a esteira funciona sem dono do
-    # card; com ele, o quadro, o caixa e o painel filtram por profissional.
+    # Coluna de antes da agenda única: a esteira não tem profissional no
+    # card, e a API não a escreve nem a lê mais. Fica porque tirar coluna é
+    # migration em todos os schemas, sem nada a ganhar.
     colaborador = models.ForeignKey(
         Colaborador, on_delete=models.PROTECT, related_name='atendimentos_kanban', null=True, blank=True,
     )

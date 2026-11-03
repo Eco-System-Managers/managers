@@ -1,6 +1,6 @@
-from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps_work.clientes.serializers import ObjetoClienteSerializer
+from core.permissions import eh_colaborador_comum
 from .models import AtendimentoKanban, EtapaKanban, PagamentoAtendimento
 
 
@@ -32,16 +32,21 @@ class AtendimentoKanbanSerializer(serializers.ModelSerializer):
         source='objeto.cliente.nome', read_only=True, allow_null=True, help_text='Nulo no avulso.',
     )
     cliente_telefone = serializers.CharField(
-        source='objeto.cliente.telefone', read_only=True, allow_null=True, help_text='Nulo no avulso.',
+        source='objeto.cliente.telefone', read_only=True, allow_null=True,
+        help_text='Nulo no avulso e para o colaborador comum, que não fala com o cliente.',
     )
     avulso = serializers.BooleanField(
         read_only=True, help_text='true quando não há veículo nem pet: o atendimento é só a identificação.',
     )
     servico_nome = serializers.CharField(source='servico.nome', read_only=True)
-    servico_preco = serializers.DecimalField(source='servico.preco', max_digits=8, decimal_places=2, read_only=True)
+    servico_preco = serializers.DecimalField(
+        source='servico.preco', max_digits=8, decimal_places=2, read_only=True, allow_null=True,
+        help_text='Nulo para o colaborador comum, que não vê valores.',
+    )
     servico_duracao = serializers.IntegerField(source='servico.duracao', read_only=True)
-    colaborador_nome = serializers.SerializerMethodField()
-    pagamentos = PagamentoAtendimentoSerializer(many=True, read_only=True)
+    pagamentos = PagamentoAtendimentoSerializer(
+        many=True, read_only=True, help_text='Vazio para o colaborador comum, que não vê valores.',
+    )
     duracao_prevista = serializers.IntegerField(
         read_only=True, help_text='Minutos: a duração do serviço mais o tempo a mais previsto.',
     )
@@ -51,9 +56,24 @@ class AtendimentoKanbanSerializer(serializers.ModelSerializer):
         help_text='Recebe mesmo passando do máximo do dia ou sem vaga na hora (o limite é aviso para o negócio).',
     )
 
-    @extend_schema_field(serializers.CharField(allow_null=True))
-    def get_colaborador_nome(self, obj):
-        return obj.colaborador.nome_exibido if obj.colaborador else None
+    # O que o colaborador comum não vê: o telefone do cliente e o dinheiro.
+    # Ele só move os cards; falar com o cliente e cobrar é do dono e do parceiro.
+    _RESERVADOS = ('cliente_telefone', 'servico_preco', 'desconto', 'acrescimo', 'acrescimo_motivo', 'pagamentos')
+
+    def _esconde_reservados(self) -> bool:
+        # Calculado uma vez por serializer: na lista o filho é o mesmo objeto
+        # para todos os cards, e o vínculo não muda no meio da resposta.
+        if not hasattr(self, '_esconde'):
+            request = self.context.get('request')
+            self._esconde = request is not None and eh_colaborador_comum(request)
+        return self._esconde
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if self._esconde_reservados():
+            for campo in self._RESERVADOS:
+                data[campo] = [] if campo == 'pagamentos' else None
+        return data
 
     class Meta:
         model = AtendimentoKanban
@@ -62,16 +82,28 @@ class AtendimentoKanbanSerializer(serializers.ModelSerializer):
             'objeto', 'objeto_detalhe', 'cliente_nome',
             'cliente_telefone', 'identificacao', 'avulso',
             'servico', 'servico_nome', 'servico_preco', 'servico_duracao',
-            'colaborador', 'colaborador_nome',
             'observacao', 'data', 'horario_entrada', 'pago', 'faltou', 'desconto', 'acrescimo', 'acrescimo_motivo',
             'pagamentos', 'minutos_extras', 'duracao_prevista', 'pronto_em', 'ignorar_limite', 'criado_em',
         ]
-        # acrescimo e o motivo só mudam pela cobrança (cobrar/), em comum
-        # acordo com o cliente: por PATCH seriam ignorados.
-        read_only_fields = ['acrescimo', 'acrescimo_motivo', 'pronto_em', 'criado_em']
+        # desconto, acrescimo e o motivo só mudam pela cobrança (cobrar/), em
+        # comum acordo com o cliente: por PATCH seriam ignorados. Os três são
+        # anuláveis no contrato porque saem nulos para o colaborador comum.
+        read_only_fields = ['desconto', 'acrescimo', 'acrescimo_motivo', 'pronto_em', 'criado_em']
         extra_kwargs = {
-            'acrescimo': {'help_text': 'O que o atendimento custou a mais, acertado na cobrança. Zero sem acréscimo.'},
-            'acrescimo_motivo': {'help_text': 'O motivo do acréscimo, que o cliente vê no app ("tempo excedido").'},
+            'desconto': {
+                'allow_null': True,
+                'help_text': 'O desconto dado na cobrança. Zero sem desconto; nulo para o colaborador comum.',
+            },
+            'acrescimo': {
+                'allow_null': True,
+                'help_text': 'O que o atendimento custou a mais, acertado na cobrança. Zero sem acréscimo; nulo '
+                             'para o colaborador comum.',
+            },
+            'acrescimo_motivo': {
+                'allow_null': True,
+                'help_text': 'O motivo do acréscimo, que o cliente vê no app ("tempo excedido"); nulo para o '
+                             'colaborador comum.',
+            },
             'objeto': {
                 'help_text': 'O veículo ou pet. Opcional: sem ele o atendimento é avulso e a identificação '
                              'é obrigatória (400 avulso_sem_identificacao com os dois vazios).',

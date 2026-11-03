@@ -11,7 +11,7 @@ cliente final.
 |---|---|
 | `models.py` | `Servico` — nome, duração, preço, quais colaboradores executam, e a taxa de cancelamento |
 | `serializers.py` | Validação de preço, duração, o teto da taxa e o nicho do serviço |
-| `views.py` | ViewSet. Escrita restrita ao proprietário; leitura liberada para colaborador. A lista filtra por `?search=`, `?ativo=`, `?colaborador=` e `?porte=` (os do porte e os sem porte), documentados no OpenAPI |
+| `views.py` | ViewSet. Escrita do proprietário e, na esteira, do parceiro; leitura da equipe, menos o colaborador comum da esteira (403: o catálogo tem preço). A lista filtra por `?search=`, `?ativo=`, `?colaborador=` e `?porte=` (os do porte e os sem porte), documentados no OpenAPI |
 | `services.py` | `conferir_porte`: a trava do serviço de um porte só (`servico_de_outro_porte`), usada pelo kanban e pelo agendamento do app do cliente. `servicos_ativos`: os serviços de uma lista de ids, ativos, na ordem pedida e sem repetição (`servico_invalido`), usado pela troca de serviço na cobrança dos dois modos |
 | `urls.py` | Rotas sob `/api/v1/servicos/` |
 
@@ -53,8 +53,10 @@ e está em `apps_serv/vitrine/services.py`.
 - **`duracao` é o que define conflito de horário na agenda.** Alterar a duração
   de um serviço não reescreve agendamentos já feitos — o `AgendamentoServico`
   congela o preço, mas a duração é lida do serviço atual.
-- **Só o proprietário edita.** `get_permissions` libera leitura para colaborador
-  e exige `IsProprietario` para escrita.
+- **Edita o proprietário e, na esteira, o parceiro** (`get_permissions` com
+  `IsProprietarioOuParceiroDaEsteira`). A leitura é da equipe, menos do
+  colaborador comum da esteira (`NaoEhColaboradorDaEsteira`): ele só move os
+  cards, e o catálogo tem preço.
 - **`DELETE` apaga de verdade** e estoura se o serviço já foi agendado
   (`AgendamentoServico` protege). O app inativa por `PATCH ativo=false` e não
   chama o `DELETE`.

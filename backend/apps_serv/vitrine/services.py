@@ -102,7 +102,13 @@ class CrossTenantQueryService:
 
     def listar_colaboradores(self, schema_name: str) -> list:
         with schema_context(schema_name):
+            from apps_work.empresa.models import EmpresaConfig, TipoAgenda
             from apps_work.usuarios.models import Colaborador
+
+            # Na esteira a operação é do negócio inteiro: o cliente não escolhe
+            # profissional, e a equipe não é pública.
+            if EmpresaConfig.objects.filter(pk=1, tipo_agenda=TipoAgenda.KANBAN).exists():
+                return []
             colaboradores = (
                 Colaborador.objects
                 .filter(ativo=True)

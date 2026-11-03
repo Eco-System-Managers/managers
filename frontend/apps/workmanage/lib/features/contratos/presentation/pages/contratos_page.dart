@@ -77,7 +77,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('Gerar contrato'),
                 )
-              : modelos.ehProprietario
+              : modelos.podeEditar
               ? FloatingActionButton.extended(
                   onPressed: () => _abrirModelo('/mais/contratos/modelos/novo'),
                   icon: const Icon(Icons.add_rounded),
@@ -277,11 +277,11 @@ class _ModelosView extends StatelessWidget {
       return EstadoVazio(
         icone: Icons.article_rounded,
         titulo: 'Nenhum modelo ainda',
-        mensagem: provider.ehProprietario
+        mensagem: provider.podeEditar
             ? 'O modelo é o texto do contrato, com as variáveis que viram '
                   'os dados do cliente ao gerar.'
             : 'Peça ao proprietário para cadastrar os modelos.',
-        acao: provider.ehProprietario
+        acao: provider.podeEditar
             ? FilledButton.icon(
                 onPressed: () => onAbrir('/mais/contratos/modelos/novo'),
                 icon: const Icon(Icons.add_rounded),
@@ -300,7 +300,7 @@ class _ModelosView extends StatelessWidget {
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final ModeloContrato m = provider.modelos[index];
-          final podeEditar = provider.ehProprietario;
+          final podeEditar = provider.podeEditar;
           return ListTile(
             onTap: podeEditar
                 ? () => onAbrir('/mais/contratos/modelos/${m.id}')

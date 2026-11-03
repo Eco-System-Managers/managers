@@ -38,8 +38,8 @@ class ModelosProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get mostrarInativos => _mostrarInativos;
 
-  // só o proprietário cria, edita e inativa modelo
-  bool get ehProprietario => _negocio.ehProprietario;
+  // cria, edita e inativa modelo o proprietário e, na esteira, o parceiro
+  bool get podeEditar => _negocio.podeEditarModelos;
 
   Future<void> carregar() async {
     _isLoading = true;

@@ -116,8 +116,8 @@ class _GerarContratoPageState extends ConsumerState<GerarContratoPage> {
             'variáveis que viram os dados do cliente.',
             style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
           ),
-          // o modelo é escrita do proprietário
-          if (ref.read(negocioAtualProvider).ehProprietario)
+          // o modelo é escrita do proprietário (e do parceiro, na esteira)
+          if (ref.read(negocioAtualProvider).podeEditarModelos)
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(

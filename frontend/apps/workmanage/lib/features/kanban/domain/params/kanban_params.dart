@@ -11,7 +11,6 @@ class NovoAtendimentoParams {
     required this.servicoId,
     required this.data,
     this.horarioEntrada,
-    this.colaboradorId,
     this.observacao = '',
     this.ignorarLimite = false,
   });
@@ -27,9 +26,6 @@ class NovoAtendimentoParams {
   final int servicoId;
   final DateTime data;
   final Hora? horarioEntrada;
-
-  // quem pega o carro ou o pet; opcional
-  final int? colaboradorId;
   final String observacao;
 
   // o dono recebendo mesmo com o dia lotado (dia_lotado) ou sem vaga na
@@ -46,19 +42,17 @@ class NovoAtendimentoParams {
       servicoId: servicoId,
       data: data,
       horarioEntrada: horarioEntrada,
-      colaboradorId: colaboradorId,
       observacao: observacao,
       ignorarLimite: ignorarLimite ?? this.ignorarLimite,
     );
   }
 }
 
-// o quadro de um dia, inteiro ou só os cards de um profissional
+// o quadro de um dia, inteiro: a esteira não tem recorte por pessoa
 class ListarDoDiaParams {
-  const ListarDoDiaParams({required this.data, this.colaboradorId});
+  const ListarDoDiaParams({required this.data});
 
   final DateTime data;
-  final int? colaboradorId;
 }
 
 class MoverAtendimentoParams {

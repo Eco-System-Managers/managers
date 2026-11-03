@@ -60,7 +60,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(title: const Text('Serviços')),
-          floatingActionButton: provider.ehProprietario
+          floatingActionButton: provider.podeEditar
               ? FloatingActionButton(
                   onPressed: () => _abrir('/mais/servicos/novo'),
                   tooltip: 'Novo serviço',
@@ -141,7 +141,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
         mensagem: buscando
             ? 'Tente outro nome.'
             : 'Cadastre o que o seu negócio oferece: nome, duração e preço.',
-        acao: provider.ehProprietario && !buscando
+        acao: provider.podeEditar && !buscando
             ? FilledButton.icon(
                 onPressed: () => _abrir('/mais/servicos/novo'),
                 icon: const Icon(Icons.add_rounded),
@@ -164,7 +164,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
           final servico = provider.servicos[index];
           return _ServicoTile(
             servico: servico,
-            onTap: provider.ehProprietario
+            onTap: provider.podeEditar
                 ? () => _abrir('/mais/servicos/${servico.id}')
                 : null,
           );
@@ -187,7 +187,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
               recolhida: provider.recolhida(pasta.nicho),
               onAlternar: () => provider.alternarPasta(pasta.nicho),
               // a pasta dos nichos removidos não recebe serviço novo
-              onNovo: provider.ehProprietario && pasta.nicho != null
+              onNovo: provider.podeEditar && pasta.nicho != null
                   ? () =>
                         _abrir('/mais/servicos/novo?nicho=${pasta.nicho!.slug}')
                   : null,
@@ -197,7 +197,7 @@ class _ServicosPageState extends ConsumerState<ServicosPage> {
               for (final servico in pasta.servicos)
                 _ServicoTile(
                   servico: servico,
-                  onTap: provider.ehProprietario
+                  onTap: provider.podeEditar
                       ? () => _abrir('/mais/servicos/${servico.id}')
                       : null,
                 ),

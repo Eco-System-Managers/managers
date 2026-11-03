@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.excecoes import erro
-from core.permissions import colaborador_aplicado, ve_valores
+from core.permissions import colaborador_aplicado, exigir_nao_ser_colaborador_da_esteira, ve_valores
 
 from .serializers import DashboardResumoSerializer
 from .services import DashboardService
@@ -22,14 +22,17 @@ class DashboardResumoView(APIView):
             OpenApiParameter('data_fim', OpenApiTypes.DATE, description='Padrão: hoje.'),
             OpenApiParameter(
                 'colaborador', OpenApiTypes.INT,
-                description='Só a agenda deste profissional (a esteira fica de fora). '
-                            'Quem não é proprietário vê sempre os próprios números, ignorando este parâmetro.',
+                description='Só no modo horário: a agenda deste profissional, e quem não é proprietário vê '
+                            'sempre os próprios números, ignorando este parâmetro. Na esteira o painel é do '
+                            'negócio inteiro e o parâmetro é ignorado.',
             ),
         ],
         responses=DashboardResumoSerializer,
         summary='Resumo do painel por período',
+        description='O colaborador comum da esteira só vê o quadro: 403 sem_permissao.',
     )
     def get(self, request):
+        exigir_nao_ser_colaborador_da_esteira(request)
         try:
             data_inicio = self._data(request.query_params.get('data_inicio'))
             data_fim = self._data(request.query_params.get('data_fim'))
@@ -45,7 +48,8 @@ class DashboardResumoView(APIView):
                 return erro('colaborador deve ser um id numérico.', 'parametros_invalidos')
             colaborador_id = int(colaborador_str)
 
-        # quem não é proprietário vê só o próprio (ErroDeNegocio 404 sem perfil)
+        # na agenda, quem não é proprietário vê só o próprio (ErroDeNegocio
+        # 404 sem perfil); na esteira ninguém tem recorte
         colaborador_id = colaborador_aplicado(request, colaborador_id)
 
         return Response(DashboardService().obter_resumo(

@@ -9,8 +9,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps_work.agenda.models import Agendamento, AgendamentoServico
-from apps_work.clientes.models import Cliente, ObjetoCliente, Veiculo
-from apps_work.kanban.models import AtendimentoKanban, EtapaKanban
+from apps_work.clientes.models import Cliente
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador, ConviteColaborador
 from apps_work.usuarios.services import AceitarConviteService
@@ -218,35 +217,3 @@ class TestTravasDoColaboradorComum:
         leo = Colaborador.objects.create(user=user, nome='Léo', tipo='parceiro', pode_cobrar=False)
         ag = _agendamento(ana, corte, leo)
         assert _client(user).post(f'/api/v1/agendamentos/{ag.id}/cobrar/', COBRANCA, format='json').status_code == 200
-
-
-@pytest.mark.django_db
-class TestProfissionalNaEsteira:
-    @pytest.fixture
-    def esteira(self, patch_tenant_middleware, ana, corte):
-        etapa = EtapaKanban.objects.create(nome='Aguardando', ordem=0)
-        veiculo = Veiculo.objects.create(cliente=ana, modelo='Uno', placa='ABC1D23')
-        objeto = ObjetoCliente.objects.get(veiculo=veiculo)
-        return {'etapa': etapa, 'objeto': objeto}
-
-    def test_card_com_profissional_filtra_e_entra_no_caixa_dele(self, dono, esteira, corte):
-        joao = Colaborador.objects.create(nome='João', tipo='parceiro', comissao_percentual=Decimal('30'))
-        criado = dono.post('/api/v1/kanban/atendimentos/', {
-            'etapa': esteira['etapa'].id, 'objeto': esteira['objeto'].id, 'servico': corte.id, 'colaborador': joao.id,
-        }, format='json')
-        assert criado.status_code == 201
-        assert criado.json()['colaborador_nome'] == 'João'
-        sem_dono = dono.post('/api/v1/kanban/atendimentos/', {
-            'etapa': esteira['etapa'].id, 'objeto': esteira['objeto'].id, 'servico': corte.id,
-        }, format='json')
-        assert sem_dono.status_code == 201
-
-        quadro = dono.get(f'/api/v1/kanban/atendimentos/?colaborador={joao.id}').json()
-        assert [a['id'] for a in quadro['results']] == [criado.json()['id']]
-
-        dono.post(f"/api/v1/kanban/atendimentos/{criado.json()['id']}/cobrar/", COBRANCA, format='json')
-        hoje = timezone.localdate().isoformat()
-        caixa = dono.get(f'/api/v1/financeiro/caixa/?data_inicio={hoje}&data_fim={hoje}&colaborador={joao.id}').json()
-        assert caixa['kpis']['total'] == '100.00'
-        assert caixa['kpis']['repasse'] == '30.00'
-        assert caixa['pagamentos'][0]['colaborador_nome'] == 'João'

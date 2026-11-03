@@ -42,9 +42,10 @@ void main() {
     registerFallbackValue(NoParams());
   });
 
-  CaixaProvider montar() => CaixaProvider(
+  CaixaProvider montar({bool filtraPorProfissional = true}) => CaixaProvider(
     obterCaixa: obterCaixa,
     listarColaboradores: listarColaboradores,
+    filtraPorProfissional: () => filtraPorProfissional,
     hoje: _hoje,
   );
 
@@ -135,4 +136,14 @@ void main() {
       expect(todos.colaboradorId, isNull);
     },
   );
+
+  test('sem o filtro por profissional (a esteira, ou quem não é dono) a '
+      'equipe nem é carregada', () async {
+    final provider = montar(filtraPorProfissional: false);
+
+    await provider.carregar();
+
+    expect(provider.colaboradores, isEmpty);
+    verifyNever(() => listarColaboradores(any()));
+  });
 }

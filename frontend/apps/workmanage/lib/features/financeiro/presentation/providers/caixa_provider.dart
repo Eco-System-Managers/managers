@@ -17,6 +17,7 @@ class CaixaProvider extends ChangeNotifier {
   CaixaProvider({
     required this._obterCaixa,
     required this._listarColaboradores,
+    required this._filtraPorProfissional,
     DateTime? hoje,
   }) : _hoje = somenteData(hoje ?? DateTime.now()) {
     _inicio = _hoje;
@@ -25,6 +26,13 @@ class CaixaProvider extends ChangeNotifier {
 
   final ObterCaixaUseCase _obterCaixa;
   final ListarColaboradoresUseCase _listarColaboradores;
+
+  // só o proprietário da agenda escolhe o profissional. na esteira o caixa
+  // é do negócio inteiro, e para quem não é dono a API já devolve o
+  // próprio: a equipe nem é carregada. lido na hora, porque este provider
+  // vive o app inteiro e outra pessoa pode entrar sem fechar o app
+  final bool Function() _filtraPorProfissional;
+  bool get filtraPorProfissional => _filtraPorProfissional();
   final DateTime _hoje;
 
   // a equipe ativa, para o filtro; null em colaboradorId é todos
@@ -77,6 +85,11 @@ class CaixaProvider extends ChangeNotifier {
   }
 
   Future<void> _carregarColaboradores() async {
+    // sem o filtro a equipe sai: quem entrou depois do dono não a vê
+    if (!filtraPorProfissional) {
+      _colaboradores = const [];
+      return;
+    }
     final result = await _listarColaboradores(NoParams());
     // sem a equipe o caixa continua útil: só fica sem o filtro
     result.fold((_) {}, (lista) {

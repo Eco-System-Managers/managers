@@ -8,10 +8,12 @@ import 'package:managers/features/agenda/agenda_provider.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/kanban/kanban_provider.dart';
 
-// a casca do app: a barra inferior flutuante com as quatro abas (Início,
+// a casca do app: a barra inferior flutuante com as abas (Início,
 // Agenda/Quadro, Clientes e Mais), cada uma com a própria pilha
 // (StatefulShellRoute). antes de mostrar as abas, carrega o negócio atual:
-// é ele que diz o modo de agenda e o papel de quem entrou
+// é ele que diz o modo de agenda e o papel de quem entrou. o colaborador
+// comum da esteira só tem o Quadro e o Mais (o router leva as outras rotas
+// ao quadro)
 class HomeShellPage extends ConsumerStatefulWidget {
   const HomeShellPage({super.key, required this.navigationShell});
 
@@ -56,41 +58,56 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
     return ListenableBuilder(
       listenable: negocio,
       builder: (context, _) {
-        if (!negocio.carregado) {
-          final erro = negocio.erro;
-          if (erro != null) {
-            return Scaffold(
-              body: EstadoErro(
-                mensagem: erro.message,
-                onTentarDeNovo: () => negocio.carregar(forcar: true),
-              ),
-            );
-          }
-          return const Scaffold(body: Carregando());
+        // sem o negócio não há abas; sem o papel (o perfil falhou por rede)
+        // não há como saber o que a pessoa pode, e mostrar o menor acesso ao
+        // dono seria errado: a tela de erro, com o tentar de novo
+        if (negocio.carregando) return const Scaffold(body: Carregando());
+        final erro = negocio.erro;
+        if (erro != null) {
+          return Scaffold(
+            body: EstadoErro(
+              mensagem: erro.message,
+              onTentarDeNovo: () => negocio.carregar(forcar: true),
+            ),
+          );
         }
+        if (!negocio.carregado) return const Scaffold(body: Carregando());
+
+        // cada aba aponta para a própria pilha (o branch do shell): as
+        // escondidas saem da barra, mas o índice do branch não muda
+        final abas = [
+          if (negocio.veInicio)
+            const _Aba(
+              branch: 0,
+              icone: Icons.grid_view_rounded,
+              rotulo: 'Início',
+            ),
+          _Aba(
+            branch: 1,
+            icone: negocio.isKanban
+                ? Icons.view_kanban_rounded
+                : Icons.calendar_month_rounded,
+            // o rótulo segue o modo de agenda do negócio
+            rotulo: negocio.isKanban ? 'Quadro' : 'Agenda',
+          ),
+          if (negocio.veClientes)
+            const _Aba(
+              branch: 2,
+              icone: Icons.people_outline_rounded,
+              rotulo: 'Clientes',
+            ),
+          const _Aba(branch: 3, icone: Icons.menu_rounded, rotulo: 'Mais'),
+        ];
 
         return Scaffold(
           // o conteúdo das abas termina acima da barra, não por baixo dela;
           // a sombra branca encostada nela é de cada aba (comSombraEmBaixo)
           body: shell,
           bottomNavigationBar: _BarraFlutuante(
-            indice: shell.currentIndex,
-            onSelecionar: _selecionarAba,
-            abas: [
-              const _Aba(icone: Icons.grid_view_rounded, rotulo: 'Início'),
-              _Aba(
-                icone: negocio.isKanban
-                    ? Icons.view_kanban_rounded
-                    : Icons.calendar_month_rounded,
-                // o rótulo segue o modo de agenda do negócio
-                rotulo: negocio.isKanban ? 'Quadro' : 'Agenda',
-              ),
-              const _Aba(
-                icone: Icons.people_outline_rounded,
-                rotulo: 'Clientes',
-              ),
-              const _Aba(icone: Icons.menu_rounded, rotulo: 'Mais'),
-            ],
+            // -1 (nenhuma) enquanto a rota atual é de uma aba escondida
+            indice: abas.indexWhere((a) => a.branch == shell.currentIndex),
+            onSelecionar: (i) => _selecionarAba(abas[i].branch),
+            abas: abas,
           ),
         );
       },
@@ -99,8 +116,10 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
 }
 
 class _Aba {
-  const _Aba({required this.icone, required this.rotulo});
+  const _Aba({required this.branch, required this.icone, required this.rotulo});
 
+  // o índice da pilha no StatefulShellRoute
+  final int branch;
   final IconData icone;
   final String rotulo;
 }

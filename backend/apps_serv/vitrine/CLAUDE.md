@@ -21,7 +21,7 @@ passa por aqui.
 
 | Classe | Responsabilidade |
 |---|---|
-| `CrossTenantQueryService` | Lê dados **dentro** do tenant: serviços, equipe, horários, disponibilidade. Só leitura — agendar, cancelar e vincular também entram no schema do negócio, cada um no próprio service, sempre por `schema_context` |
+| `CrossTenantQueryService` | Lê dados **dentro** do tenant: serviços, equipe (vazia num negócio de esteira: lá o cliente não escolhe profissional), horários, disponibilidade. Só leitura — agendar, cancelar e vincular também entram no schema do negócio, cada um no próprio service, sempre por `schema_context` |
 | `StatusKanbanAgendamentosService` | Descobre em que coluna do quadro cada atendimento está. Agrupa por schema para trocar de schema uma vez por negócio, não uma por agendamento |
 | `AgendamentoTenantService` | Cria o agendamento nos dois lados. O método mais delicado do backend |
 | `CancelarAgendamentoService` | Cancela e, fora do prazo, lança a taxa como pendência na comanda do cliente dentro do tenant |

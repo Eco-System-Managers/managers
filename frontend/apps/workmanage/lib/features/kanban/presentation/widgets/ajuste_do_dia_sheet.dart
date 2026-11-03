@@ -137,7 +137,7 @@ class _AjusteDoDiaSheetState extends State<AjusteDoDiaSheet> {
         Text(
           widget.podeEditar
               ? 'Vale só para este dia. O padrão da semana continua igual.'
-              : 'Só o proprietário muda o ajuste do dia.',
+              : 'Só o dono e o parceiro mudam o ajuste do dia.',
           style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
         ),
         const SizedBox(height: BrandSpacing.space4),

@@ -40,10 +40,14 @@ class CaixaKpisSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
     ticket_medio = serializers.DecimalField(max_digits=12, decimal_places=2)
     atendimentos = serializers.IntegerField()
-    repasse = serializers.DecimalField(max_digits=12, decimal_places=2, help_text='A parte dos parceiros, congelada em cada pagamento.')
+    repasse = serializers.DecimalField(
+        max_digits=12, decimal_places=2,
+        help_text='A parte dos parceiros, congelada em cada pagamento da agenda. Zero na esteira, que não tem comissão.',
+    )
     casa = serializers.DecimalField(
         max_digits=12, decimal_places=2, allow_null=True,
-        help_text='total - repasse. Nulo para o parceiro: ele vê só a parte dele.',
+        help_text='total - repasse. Nulo para o parceiro na agenda, que vê só a parte dele; na esteira ele vê a casa, '
+                  'como o dono.',
     )
 
 
@@ -57,7 +61,9 @@ class CaixaPagamentoSerializer(serializers.Serializer):
     origem = serializers.ChoiceField(choices=OrigemAtendimento.choices)
     cliente_nome = serializers.CharField()
     servico_nome = serializers.CharField()
-    colaborador_nome = serializers.CharField(help_text='Vazio quando o atendimento não tem profissional.')
+    colaborador_nome = serializers.CharField(
+        help_text='Vazio quando o atendimento não tem profissional (sempre, na esteira).',
+    )
     forma = serializers.CharField()
     valor = serializers.DecimalField(max_digits=10, decimal_places=2)
     repasse = serializers.DecimalField(max_digits=10, decimal_places=2)

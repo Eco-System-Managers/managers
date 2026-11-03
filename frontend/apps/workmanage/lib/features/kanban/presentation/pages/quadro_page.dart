@@ -11,7 +11,6 @@ import 'package:managers/core/widgets/selo_de_status.dart';
 import 'package:managers/core/widgets/sombra_de_borda.dart';
 import 'package:managers/features/agenda/domain/entities/bloqueio.dart';
 import 'package:managers/features/agenda/presentation/widgets/bloqueio_sheet.dart';
-import 'package:managers/features/usuarios/presentation/widgets/filtro_profissionais.dart';
 
 import '../../domain/entities/capacidade_do_dia.dart';
 import '../../domain/entities/etapa.dart';
@@ -23,7 +22,10 @@ import '../widgets/cor_da_etapa.dart';
 
 // o quadro da esteira: um dia por vez, quanto cabe nele, as etapas em
 // colunas e os cards em cada uma. receber e a ficha abrem por cima; ao
-// voltar, o dia é relido
+// voltar, o dia é relido. o quadro é um só, do negócio, sem filtro por
+// pessoa: o dono e o parceiro recebem, ajustam o dia e fecham horários; o
+// colaborador comum só move os cards (sem receber, sem pendências e sem os
+// valores nos cards)
 class QuadroPage extends ConsumerStatefulWidget {
   const QuadroPage({super.key});
 
@@ -50,28 +52,28 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
     if (mounted) _provider.recarregar();
   }
 
-  // o ajuste do dia aberto: só o proprietário mexe, os outros só leem.
+  // o ajuste do dia aberto: o dono e o parceiro mexem, os outros só leem.
   // salvou ou voltou ao padrão, o dia é relido inteiro (a capacidade junto)
   Future<void> _ajustarDia(CapacidadeDoDia capacidade) async {
     final provider = _provider;
     final mudou = await AjusteDoDiaSheet.abrir(
       context,
       capacidade: capacidade,
-      podeEditar: provider.ehProprietario,
+      podeEditar: provider.operaComODono,
       onSalvar: provider.ajustarCapacidade,
       onVoltarAoPadrao: provider.voltarAoPadrao,
     );
     if (mudou == true && mounted) await provider.recarregar();
   }
 
-  // a faixa fechada do negócio: a mesma ficha da agenda, só o dono exclui
-  // (o provider já relê o dia ao excluir)
+  // a faixa fechada do negócio: a mesma ficha da agenda, o dono e o
+  // parceiro excluem (o provider já relê o dia ao excluir)
   void _abrirBloqueio(Bloqueio bloqueio) {
     final provider = _provider;
     BloqueioSheet.abrir(
       context,
       bloqueio: bloqueio,
-      excluir: provider.ehProprietario
+      excluir: provider.operaComODono
           ? () => provider.excluirBloqueio(bloqueio.id)
           : null,
     );
@@ -119,8 +121,8 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
               ),
             ),
             actions: [
-              // fechar um horário do negócio inteiro: só o dono
-              if (provider.ehProprietario)
+              // fechar um horário do negócio inteiro: o dono e o parceiro
+              if (provider.operaComODono)
                 IconButton(
                   tooltip: 'Fechar horário',
                   onPressed: () => _abrir(
@@ -133,27 +135,32 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
                   onPressed: provider.irParaHoje,
                   child: const Text('Hoje'),
                 ),
-              IconButton(
-                tooltip: 'Cobranças pendentes',
-                onPressed: () => _abrir('/agenda/pendencias'),
-                // pendente é atenção: o contador em warning, como na agenda e
-                // no Início (o badge do tema é danger)
-                icon: Badge(
-                  isLabelVisible: provider.pendencias > 0,
-                  backgroundColor: cores.warning,
-                  textColor: cores.bg,
-                  label: Text('${provider.pendencias}'),
-                  child: const Icon(Icons.pending_actions_rounded),
+              // pendência de cobrança é de quem cobra
+              if (!provider.soMoveOsCards)
+                IconButton(
+                  tooltip: 'Cobranças pendentes',
+                  onPressed: () => _abrir('/agenda/pendencias'),
+                  // pendente é atenção: o contador em warning, como na agenda
+                  // e no Início (o badge do tema é danger)
+                  icon: Badge(
+                    isLabelVisible: provider.pendencias > 0,
+                    backgroundColor: cores.warning,
+                    textColor: cores.bg,
+                    label: Text('${provider.pendencias}'),
+                    child: const Icon(Icons.pending_actions_rounded),
+                  ),
                 ),
-              ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () =>
-                _abrir('/quadro/novo?data=${dataParaApi(provider.dia)}'),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Receber'),
-          ),
+          // receber é do dono e do parceiro
+          floatingActionButton: provider.soMoveOsCards
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: () =>
+                      _abrir('/quadro/novo?data=${dataParaApi(provider.dia)}'),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Receber'),
+                ),
           body: comSombraEmBaixo(
             Column(
               children: [
@@ -167,12 +174,6 @@ class _QuadroPageState extends ConsumerState<QuadroPage> {
                   expandido: _mesAberto,
                   onExpandir: (aberto) => setState(() => _mesAberto = aberto),
                 ),
-                if (provider.colaboradores.isNotEmpty)
-                  FiltroProfissionais(
-                    colaboradores: provider.colaboradores,
-                    selecionadoId: provider.colaboradorId,
-                    onSelecionar: provider.filtrarColaborador,
-                  ),
                 if (provider.capacidade != null)
                   _ResumoDaCapacidade(
                     capacidade: provider.capacidade!,
@@ -469,6 +470,8 @@ class _Coluna extends StatelessWidget {
                         AtendimentoKanbanCard(
                           atendimento: a,
                           etapas: etapas,
+                          // o colaborador comum não vê valores
+                          mostraValores: !provider.soMoveOsCards,
                           onTap: () => onAbrir(a.id),
                           onMover: (destino) =>
                               provider.mover(a.id, destino.id),

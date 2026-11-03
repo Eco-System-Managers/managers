@@ -159,18 +159,16 @@ class CaixaService:
     def obter_dados(self, data_inicio: date, data_fim: date, colaborador_id: int | None = None) -> dict:
         kanban_efetivados, agenda_efetivados = pagamentos_efetivados()
 
-        # Na esteira o profissional é opcional: filtrando por colaborador, só
-        # entram os atendimentos que foram atribuídos a ele.
+        # Na esteira a fila é do negócio inteiro: o card não tem profissional.
+        # O filtro por colaborador é da agenda, e com ele a esteira fica de
+        # fora (na esteira o filtro nem chega aqui: `colaborador_aplicado`
+        # devolve todos).
         pk_qs = kanban_efetivados.filter(
             atendimento__criado_em__date__gte=data_inicio,
             atendimento__criado_em__date__lte=data_fim,
-        ).select_related(
-            'atendimento__objeto__cliente',
-            'atendimento__servico',
-            'atendimento__colaborador__user',
-        )
+        ).select_related('atendimento__objeto__cliente', 'atendimento__servico')
         if colaborador_id is not None:
-            pk_qs = pk_qs.filter(atendimento__colaborador_id=colaborador_id)
+            pk_qs = pk_qs.none()
 
         pa_qs = agenda_efetivados.filter(
             agendamento__data_hora__date__gte=data_inicio,
@@ -185,13 +183,12 @@ class CaixaService:
         sessoes: set[str] = set()
 
         for p in pk_qs:
-            colaborador = p.atendimento.colaborador
             pagamentos.append({
                 'origem': OrigemAtendimento.KANBAN,
                 # o avulso não tem cliente: entra pela identificação ("Hilux branca")
                 'cliente_nome': p.atendimento.rotulo,
                 'servico_nome': p.atendimento.servico.nome,
-                'colaborador_nome': colaborador.nome_exibido if colaborador else '',
+                'colaborador_nome': '',
                 'forma': p.forma,
                 'valor': str(p.valor),
                 'repasse': str(p.repasse),
