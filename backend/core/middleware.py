@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import timedelta
 
 from django.conf import settings
@@ -8,7 +9,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 
-from core import rotas
+from core import requisicao, rotas
 from core.cache import TTL_ASSINATURA_SEGUNDOS, chave_assinatura_bloqueada
 from core.sessao import cliente_mobile
 
@@ -27,6 +28,32 @@ _INACTIVITY_SKIP = {
     f'{rotas.SERVICEMANAGE_AUTH}refresh/',
     f'{rotas.SERVICEMANAGE_AUTH}logout/',
 }
+
+
+class RequisicaoMiddleware:
+    """Escreve uma linha de log por requisição da API (core/requisicao.py).
+
+    Fica por fora dos middlewares que respondem sozinhos (o 402 da assinatura,
+    o 401 da inatividade), para eles também aparecerem. O que der errado aqui
+    nunca derruba a resposta.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not request.path.startswith('/api/'):
+            return self.get_response(request)
+
+        inicio = time.monotonic()
+        response = self.get_response(request)
+        duracao_ms = int((time.monotonic() - inicio) * 1000)
+
+        try:
+            requisicao.logar(requisicao.retrato(request, response, duracao_ms))
+        except Exception:
+            logger.warning('Falha ao registrar a requisição', exc_info=True)
+        return response
 
 
 _TOKEN_NO_REQUEST = '_access_token_decodificado'

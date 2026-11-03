@@ -92,6 +92,9 @@ MIDDLEWARE = [
     # Serve os estáticos do admin com DEBUG=False, sem nginx na frente.
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    # Por fora de quem responde sozinho (402, 401 de inatividade), para essas
+    # respostas também entrarem no log (core/requisicao.py).
+    'core.middleware.RequisicaoMiddleware',
     'django_tenants.middleware.main.TenantMainMiddleware',
     'core.middleware.JWTTenantMiddleware',
     'core.middleware.AssinaturaBloqueadaMiddleware',
@@ -172,6 +175,38 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logs no stdout, que é o que o Railway guarda. Sem isto, com DEBUG=False, o
+# Django só manda o traceback de um 500 por e-mail aos ADMINS (que não
+# existem): o erro sumia. Em produção sai uma linha de JSON por registro
+# (core/logs.py); no runserver, texto, e sem a linha de cada requisição, que o
+# próprio runserver já escreve.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'json': {'()': 'core.logs.FormatoJson'},
+        'texto': {'format': '%(levelname)s %(name)s: %(message)s'},
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout',
+            'formatter': 'texto' if DEBUG else 'json',
+        },
+    },
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+        # Só o 500, com traceback: os 4xx já estão na linha da requisição.
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+        'workmanage.requisicao': {
+            'handlers': ['console'],
+            'level': 'WARNING' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Storage padrão do projeto: é por aqui que passam as imagens.
 #
