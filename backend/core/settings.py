@@ -181,6 +181,7 @@ LOGGING = {
     'formatters': {
         'json': {'()': 'core.logs.FormatoJson'},
         'texto': {'format': '%(levelname)s %(name)s: %(message)s'},
+        'servidor': {'()': 'django.utils.log.ServerFormatter', 'format': '[{server_time}] {message}', 'style': '{'},
     },
     'handlers': {
         'console': {
@@ -188,12 +189,16 @@ LOGGING = {
             'stream': 'ext://sys.stdout',
             'formatter': 'texto' if DEBUG else 'json',
         },
+        'servidor': {'class': 'logging.StreamHandler', 'formatter': 'servidor'},
     },
     'root': {'handlers': ['console'], 'level': 'WARNING'},
     'loggers': {
         'django': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
         # Só o 500, com traceback: os 4xx já estão na linha da requisição.
         'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+        # A linha de cada requisição do runserver, como o Django faz sem
+        # LOGGING. Sem isto ela herdaria o WARNING do 'django' e sumiria.
+        'django.server': {'handlers': ['servidor'], 'level': 'INFO', 'propagate': False},
         'workmanage.requisicao': {
             'handlers': ['console'],
             'level': 'WARNING' if DEBUG else 'INFO',
