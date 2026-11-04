@@ -12,6 +12,7 @@ from apps_work.clientes.models import TipoObjeto
 
 from .models import CodigoRecuperacaoConsumidor, Consumidor, ObjetoConsumidor
 from core.excecoes import ErroDeNegocio
+from core.tenant import com_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -180,10 +181,9 @@ class SincronizarClienteService:
         return sincronizados
 
     def _sincronizar_um(self, consumidor: Consumidor, schema_name: str) -> bool:
-        from django_tenants.utils import schema_context
 
         try:
-            with schema_context(schema_name):
+            with com_tenant(schema_name):
                 from apps_serv.identidade import cliente_do_consumidor
 
                 cliente = cliente_do_consumidor(consumidor)

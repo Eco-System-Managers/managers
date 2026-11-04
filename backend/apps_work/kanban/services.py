@@ -8,6 +8,7 @@ from apps_work.agenda.models import OrigemAtendimento
 from core.excecoes import ErroDeNegocio
 from core.grade import Intervalo, cabe, inicios_livres, proxima_marca
 from .models import AjusteDoDia, AtendimentoKanban, EtapaKanban, PagamentoAtendimento
+from core.tenant import schema_atual
 
 ERRO_HORARIO_OCUPADO = {
     'detail': 'Não cabe mais ninguém nesse horário. Escolha outro.',
@@ -429,12 +430,11 @@ class AtendimentoKanbanService:
         return atendimento
 
     def _notificar_falta(self, atendimento: AtendimentoKanban) -> None:
-        from django.db import connection
         from .signals import atendimento_kanban_falta_alterada
 
         atendimento_kanban_falta_alterada.send(
             sender=AtendimentoKanban,
-            schema_name=connection.schema_name,
+            schema_name=schema_atual(),
             atendimento_id=atendimento.pk,
             faltou=atendimento.faltou,
         )
@@ -498,7 +498,7 @@ class CapacidadeService:
         dois dentro de um `atomic()`."""
         with connection.cursor() as cursor:
             cursor.execute(
-                'SELECT pg_advisory_xact_lock(hashtext(%s))', [f'{connection.schema_name}:{data.isoformat()}'],
+                'SELECT pg_advisory_xact_lock(hashtext(%s))', [f'{schema_atual()}:{data.isoformat()}'],
             )
 
     def conferir(

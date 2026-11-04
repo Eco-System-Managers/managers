@@ -24,12 +24,10 @@ def api(patch_tenant_middleware):
 def negocio_do_tenant(patch_tenant_middleware, tenant):
     """O tenant de teste publicado na vitrine, com um serviço."""
     Servico.objects.create(nome='Corte', duracao=30, preco='45.50')
-    connection.set_schema_to_public()
     negocio = NegocioPublico.objects.create(
         schema_name=tenant.schema_name, nome='Empresa Teste', nichos=['barbearia'],
         latitude='-23.55', longitude='-46.63', ativo=True,
     )
-    connection.set_tenant(tenant)
     return negocio
 
 

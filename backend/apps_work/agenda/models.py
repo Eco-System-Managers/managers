@@ -2,6 +2,7 @@ from django.db import models
 from apps_work.clientes.models import Cliente
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
+from core.tenant import TenantModel
 
 
 class FormaPagamento(models.TextChoices):
@@ -28,7 +29,7 @@ class OrigemAtendimento(models.TextChoices):
     KANBAN = 'kanban', 'Kanban'
 
 
-class Agendamento(models.Model):
+class Agendamento(TenantModel):
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='agendamentos')
     colaborador = models.ForeignKey(Colaborador, on_delete=models.PROTECT, related_name='agendamentos', null=True, blank=True)
     data_hora = models.DateTimeField()
@@ -46,7 +47,7 @@ class Agendamento(models.Model):
         return f'{self.cliente} — {self.data_hora:%d/%m/%Y %H:%M}'
 
 
-class AgendamentoServico(models.Model):
+class AgendamentoServico(TenantModel):
     agendamento = models.ForeignKey(Agendamento, on_delete=models.CASCADE, related_name='servicos')
     servico = models.ForeignKey(Servico, on_delete=models.PROTECT)
     preco_cobrado = models.DecimalField(max_digits=8, decimal_places=2)
@@ -56,7 +57,7 @@ class AgendamentoServico(models.Model):
         return f'{self.agendamento} — {self.servico}'
 
 
-class PagamentoAgendamento(models.Model):
+class PagamentoAgendamento(TenantModel):
     agendamento = models.ForeignKey(Agendamento, on_delete=models.CASCADE, related_name='pagamentos')
     forma = models.CharField(max_length=20, choices=FormaPagamento.choices)
     valor = models.DecimalField(max_digits=8, decimal_places=2)
@@ -70,7 +71,7 @@ class PagamentoAgendamento(models.Model):
         return f'{self.agendamento} — {self.forma}: R${self.valor}'
 
 
-class Bloqueio(models.Model):
+class Bloqueio(TenantModel):
     """Um período em que o profissional não atende: um imprevisto, uma folga,
     as férias ou a pausa de todo dia (o almoço). É o que substitui pausa fixa
     no expediente: a agenda não reserva intervalo nenhum sozinha.

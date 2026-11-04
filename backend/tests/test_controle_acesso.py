@@ -43,12 +43,8 @@ def colaborador(patch_tenant_middleware, tenant):
 
 @pytest.fixture
 def outra_empresa(patch_tenant_middleware, tenant):
-    # Só a linha do tenant: o schema não é necessário para testar o vínculo.
-    connection.set_schema_to_public()
     outra = Tenant(schema_name='outra_empresa', nome='Outra Empresa')
-    outra.auto_create_schema = False
     outra.save()
-    connection.set_tenant(tenant)
     return outra
 
 

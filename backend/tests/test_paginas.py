@@ -9,7 +9,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.test import Client
 from django.utils import timezone
-from django_tenants.utils import schema_context
+from core.tenant import com_tenant
 
 from apps_work.clientes.models import Cliente
 from apps_work.contratos.models import Contrato, StatusContrato
@@ -54,7 +54,7 @@ class TestPaginaConvite:
         assert resposta.status_code == 200
         assert 'Conta criada' in resposta.text
         assert User.objects.get(email='ana@email.com').check_password('SenhaForte@2024!')
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             assert ConviteColaborador.objects.get(pk=convite.pk).aceito
 
     def test_senhas_diferentes_nao_criam_conta(self, navegador, convite):
@@ -74,7 +74,7 @@ class TestPaginaConvite:
         assert not User.objects.filter(email='ana@email.com').exists()
 
     def test_convite_ja_aceito_nao_abre_o_formulario(self, navegador, convite, tenant):
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             ConviteColaborador.objects.filter(pk=convite.pk).update(aceito=True)
 
         resposta = navegador.get(f'/convite/{convite.token}')
@@ -110,7 +110,7 @@ class TestPaginaContrato:
 
         assert resposta.status_code == 302
         assert resposta.url == url
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             contrato.refresh_from_db()
         assert contrato.status == StatusContrato.ASSINADO
         assert contrato.nome_assinante == 'Ana Souza'
@@ -122,14 +122,14 @@ class TestPaginaContrato:
         )
 
         assert resposta.status_code == 400
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             contrato.refresh_from_db()
         assert contrato.status == StatusContrato.ENVIADO
 
     def test_recusar(self, navegador, contrato, tenant):
         navegador.post(f'/contrato/{tenant.schema_name}/{contrato.token}', {'acao': 'recusar'})
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             contrato.refresh_from_db()
         assert contrato.status == StatusContrato.RECUSADO
 

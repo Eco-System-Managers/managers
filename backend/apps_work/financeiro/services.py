@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from apps_work.agenda.models import OrigemAtendimento, StatusAgendamento
 
 from .models import CategoriaDespesa, Despesa, OrigemTransacao, TipoTransacao, TransacaoCredito
+from core.tenant import schema_atual
 
 
 class SaldoService:
@@ -124,12 +125,11 @@ def notificar_cobranca(
     """Avisa quem acompanha o atendimento de fora do tenant (o app do cliente)
     do que a cobrança decidiu. Roda no fim do `cobrar` dos dois modos, e no
     desfazer da esteira com o acréscimo zerado."""
-    from django.db import connection
     from .signals import cobranca_registrada
 
     cobranca_registrada.send(
         sender=sender,
-        schema_name=connection.schema_name,
+        schema_name=schema_atual(),
         agendamento_id=agendamento_id,
         origem=origem,
         valor_total=valor_total,

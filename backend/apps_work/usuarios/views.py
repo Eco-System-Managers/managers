@@ -6,7 +6,6 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
-from django.db import connection
 from django.db.models import F, Q
 from django.utils import timezone
 from apps_work.autenticacao.serializers import SessaoSerializer
@@ -22,6 +21,7 @@ from .serializers import (
 )
 from .services import AceitarConviteService, ColaboradorService, ConviteService
 from core.excecoes import erro
+from core.tenant import schema_atual, tenant_atual
 
 
 @extend_schema_view(
@@ -60,9 +60,9 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search)
             )
-        # O papel vem do Membro (schema público), anotado na mesma consulta.
+        # O papel vem do Membro (tabela pública), anotado na mesma consulta.
         # Quem não tem login não tem papel.
-        qs = qs.annotate(papel=Membro.papel_subquery(connection.schema_name))
+        qs = qs.annotate(papel=Membro.papel_subquery(schema_atual()))
         # o dono primeiro; quem não tem login (papel nulo) não pode vir na frente
         return qs.order_by(F('papel').desc(nulls_last=True), 'nome', 'user__first_name', 'user__last_name')
 
@@ -72,11 +72,10 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=['post'], url_path='convidar')
     def convidar(self, request, pk=None):
-        from tenants.models import Tenant
         colaborador = self.get_object()
         entrada = ConvidarColaboradorSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
-        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        tenant = tenant_atual()
         convite = ConviteService().criar_e_enviar(
             nome=colaborador.nome_exibido,
             email=entrada.validated_data['email'],
@@ -168,9 +167,7 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
         ConviteService().cancelar(instance)
 
     def perform_create(self, serializer):
-        from django.db import connection
-        from tenants.models import Tenant
-        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        tenant = tenant_atual()
         # Regra violada levanta ErroDeNegocio, que o handler transforma em 400.
         serializer.instance = ConviteService().criar_e_enviar(
             nome=serializer.validated_data.get('nome', ''),

@@ -1,5 +1,4 @@
 from rest_framework import status
-from django.db import connection
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -14,6 +13,7 @@ from .serializers import (
     LoginSerializer, NovaSenhaSerializer, RefreshSerializer, SessaoSerializer, VerificarCodigoSerializer,
 )
 from core.excecoes import erro
+from core.tenant import schema_atual
 
 def responder_sessao(request, refresh, status_code=status.HTTP_200_OK) -> Response:
     """Resposta de login, cadastro, renovação e aceite de convite."""
@@ -265,7 +265,7 @@ class ExcluirContaView(APIView):
         entrada = ExcluirContaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         exclusao = ExclusaoContaService().solicitar(
-            request.user, connection.schema_name, entrada.validated_data['senha'],
+            request.user, schema_atual(), entrada.validated_data['senha'],
         )
         response = Response(
             ExclusaoContaSerializer(exclusao).data, status=status.HTTP_202_ACCEPTED,

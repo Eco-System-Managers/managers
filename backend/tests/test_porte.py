@@ -18,7 +18,7 @@ def api(patch_tenant_middleware, proprietario):
 
 @pytest.fixture
 def lava_rapido(patch_tenant_middleware):
-    return EmpresaConfig.objects.create(pk=1, nichos=['lava_rapido'], tipo_agenda='kanban', tipo_objeto='veiculo')
+    return EmpresaConfig.objects.create(nichos=['lava_rapido'], tipo_agenda='kanban', tipo_objeto='veiculo')
 
 
 @pytest.fixture
@@ -113,7 +113,7 @@ class TestServicoDeUmPorte:
         assert 'porte' in resposta.data['fields']
 
     def test_modo_horario_nao_tem_porte(self, api, patch_tenant_middleware):
-        EmpresaConfig.objects.create(pk=1, nichos=['barbearia'])
+        EmpresaConfig.objects.create(nichos=['barbearia'])
 
         resposta = api.post('/api/v1/servicos/', {'nome': 'Corte', 'duracao': 30, 'preco': '50.00', 'porte': 'moto'})
 

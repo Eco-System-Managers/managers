@@ -1,4 +1,5 @@
 from django.db import models
+from core.tenant import TenantModel
 
 
 class OrigemCliente(models.TextChoices):
@@ -42,7 +43,7 @@ def portes_do_tipo(tipo: str) -> list[str]:
     return []
 
 
-class Cliente(models.Model):
+class Cliente(TenantModel):
     nome = models.CharField(max_length=255)
     # Obrigatório: é por ele que o negócio fala com o cliente (WhatsApp,
     # confirmação, cobrança). blank=False vale para formulário e serializer —
@@ -85,17 +86,22 @@ class Cliente(models.Model):
     # consumidor-cliente: antes disso o par era encontrado pelo e-mail, o que
     # amarrava a ligacao a um dado que a pessoa pode querer trocar.
     #
-    # Referencia solta, sem ForeignKey, de proposito: um FK de verdade
-    # atravessaria schemas (tenant apontando para public) e amarraria a
-    # migration de cada tenant a tabela publica. Mesmo padrao que
-    # AgendamentoConsumidor.agendamento_id usa na direcao contraria.
+    # Referencia solta, sem ForeignKey, de proposito: o consumidor e do app
+    # do cliente, e o cadastro no negocio nao pode sumir junto com ele. Mesmo
+    # padrao que AgendamentoConsumidor.agendamento_id usa na direcao contraria.
     #
     # Nulo no cadastro feito na mao pelo negocio. Se o mesmo e-mail depois se
     # vincula pelo app, o cadastro passa a ser do consumidor (ver
     # apps_serv/identidade.py).
-    consumidor_id = models.PositiveIntegerField(null=True, blank=True, unique=True, db_index=True)
+    consumidor_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
 
     criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            # Um consumidor é um cliente só em cada negócio.
+            models.UniqueConstraint(fields=['tenant', 'consumidor_id'], name='clientes_consumidor_por_tenant'),
+        ]
 
     # Cliente vindo do Service Manage espelha estes campos do Consumidor: a
     # ficha vive no schema publico e o negocio recebe uma copia. Lista unica —
@@ -124,7 +130,7 @@ class Cliente(models.Model):
         return list(self.CAMPOS_PESSOAIS)
 
 
-class ObjetoCliente(models.Model):
+class ObjetoCliente(TenantModel):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='objetos')
     tipo = models.CharField(max_length=20, choices=TipoObjeto.choices)
     criado_em = models.DateTimeField(auto_now_add=True)

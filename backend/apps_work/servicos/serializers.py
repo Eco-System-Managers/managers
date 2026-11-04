@@ -78,7 +78,7 @@ class ServicoSerializer(serializers.ModelSerializer):
         porte = attrs.get('porte')
         if not porte:
             return
-        tipo_objeto = EmpresaConfig.objects.filter(pk=1).values_list('tipo_objeto', flat=True).first() or ''
+        tipo_objeto = EmpresaConfig.objects.values_list('tipo_objeto', flat=True).first() or ''
         if porte not in portes_do_tipo(tipo_objeto):
             raise serializers.ValidationError({'porte': 'Este porte não é do que o negócio atende.'})
 
@@ -89,7 +89,7 @@ class ServicoSerializer(serializers.ModelSerializer):
         guardado lá; o que não pode é ser reativado ou movido para fora dos
         nichos atuais.
         """
-        nichos_do_negocio = EmpresaConfig.objects.filter(pk=1).values_list('nichos', flat=True).first() or []
+        nichos_do_negocio = EmpresaConfig.objects.values_list('nichos', flat=True).first() or []
         nicho = attrs.get('nicho', getattr(self.instance, 'nicho', ''))
 
         if not nicho:

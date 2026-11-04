@@ -3,7 +3,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
 from django.db import connection
-from django_tenants.utils import schema_context
+from core.tenant import com_tenant
 
 from apps_work.billing.models import Assinatura, Plano
 from tenants.models import Membro, Papel, Tenant
@@ -24,10 +24,9 @@ class TestPopularDev:
 
         from apps_work.empresa.models import EmpresaConfig
         from apps_work.usuarios.models import Colaborador
-        with schema_context(membro.tenant.schema_name):
-            assert EmpresaConfig.objects.get(pk=1).onboarding_concluido is True
+        with com_tenant(membro.tenant.schema_name):
+            assert EmpresaConfig.objects.get().onboarding_concluido is True
             assert Colaborador.objects.filter(user=user).exists()
-        connection.set_schema_to_public()
 
     def test_rodar_de_novo_nao_duplica(self, settings):
         settings.DEBUG = True
@@ -50,10 +49,9 @@ class TestPopularDev:
 
         from apps_work.empresa.models import EmpresaConfig
         from apps_work.kanban.models import EtapaKanban
-        with schema_context(membro.tenant.schema_name):
-            config = EmpresaConfig.objects.get(pk=1)
+        with com_tenant(membro.tenant.schema_name):
+            config = EmpresaConfig.objects.get()
             assert config.nichos == ['lava_rapido']
             assert config.tipo_agenda == 'kanban'
             assert config.tipo_objeto == 'veiculo'
             assert EtapaKanban.objects.count() == 3
-        connection.set_schema_to_public()

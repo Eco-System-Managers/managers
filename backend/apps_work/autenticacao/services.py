@@ -5,7 +5,6 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
-from django_tenants.utils import get_public_schema_name, schema_context
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
@@ -19,6 +18,7 @@ from core.recuperacao import RecuperacaoSenhaBase
 
 from .serializers import gerar_schema_name
 from .models import CadastroPendente, CodigoCadastro, CodigoRecuperacao, UltimaAtividade
+from core.tenant import com_tenant, sem_isolamento
 
 
 def dominio_do_schema(schema_name: str) -> str:
@@ -39,15 +39,13 @@ class OnboardingService:
     ):
         """Cria a empresa e o dono. A senha vem em claro (cadastro direto) ou
         já em hash (confirmação de cadastro, que nunca guardou a senha em claro)."""
-        from django.db import connection
         from tenants.models import Domain, Papel, Tenant, Membro
 
-        # schema_context volta ao schema de quem chamou ao sair, inclusive em
-        # erro. Dentro, a criação do tenant deixa a conexão no schema novo (ao
-        # rodar as migrations dele) — daí a volta explícita ao público.
-        with schema_context(get_public_schema_name()), transaction.atomic():
+        # Tudo aqui é público (Tenant, Domain, User, Membro, Assinatura):
+        # `com_tenant(None)` garante isso mesmo se quem chamou estiver num
+        # negócio, e volta ao anterior ao sair, inclusive em erro.
+        with com_tenant(None), transaction.atomic():
             tenant = Tenant.objects.create(schema_name=schema_name, nome=nome_empresa)
-            connection.set_schema_to_public()
             Domain.objects.create(
                 domain=dominio_do_schema(schema_name),
                 tenant=tenant,
@@ -81,8 +79,7 @@ class ConfirmacaoCadastroService:
     o e-mail é dele com o código enviado para lá.
 
     Só a confirmação cria a empresa (`OnboardingService`). Sem ela, qualquer um
-    criaria empresas em nome de e-mails de terceiros, e cada tentativa custaria
-    um schema inteiro.
+    criaria empresas em nome de e-mails de terceiros.
     """
 
     MENSAGEM = 'Enviamos um código de confirmação para o seu e-mail.'
@@ -93,7 +90,7 @@ class ConfirmacaoCadastroService:
     def solicitar(self, nome_empresa: str, nome: str, email: str, senha: str) -> None:
         """Guarda o cadastro e envia o código. Pedir de novo com o mesmo e-mail
         substitui os dados e invalida o código anterior."""
-        with schema_context(get_public_schema_name()):
+        with com_tenant(None):
             CadastroPendente.objects.filter(criado_em__lt=timezone.now() - self.VALIDADE_PENDENTE).delete()
             pendente, _ = CadastroPendente.objects.update_or_create(
                 email=email.strip().lower(),
@@ -104,7 +101,7 @@ class ConfirmacaoCadastroService:
     def reenviar(self, email: str) -> None:
         """Novo código para um cadastro pendente. Sem pendente, não faz nada —
         e responde igual, para não dizer quem está se cadastrando."""
-        with schema_context(get_public_schema_name()):
+        with com_tenant(None):
             pendente = CadastroPendente.objects.filter(email=email.strip().lower()).first()
             if pendente is not None:
                 self._enviar_codigo(pendente)
@@ -112,7 +109,7 @@ class ConfirmacaoCadastroService:
     def confirmar(self, email: str, codigo: str):
         """Confere o código e cria a empresa. Devolve (user, tenant)."""
         email = email.strip().lower()
-        with schema_context(get_public_schema_name()):
+        with com_tenant(None):
             # A tentativa errada precisa ficar gravada, por isso o erro sai
             # depois da transação — senão o limite de tentativas nunca chegaria.
             with transaction.atomic():
@@ -286,7 +283,7 @@ class ExclusaoContaService:
 
     O pedido trava a conta na hora e marca a exclusão para daqui a
     `PRAZO_DIAS`. Do dono, é o negócio inteiro: a vitrine sai do ar, a equipe
-    perde o acesso e, no fim do prazo, o schema é apagado. Da equipe, é só o
+    perde o acesso e, no fim do prazo, o negócio é apagado. Da equipe, é só o
     login: o nome continua nos atendimentos e no caixa, que são do negócio.
     Entrar de novo dentro do prazo desiste do pedido.
     """
@@ -337,9 +334,9 @@ class ExclusaoContaService:
             return False
         exclusao.delete()
         if exclusao.apaga_negocio:
-            with schema_context(exclusao.schema_name):
+            with com_tenant(exclusao.schema_name):
                 from apps_work.empresa.models import EmpresaConfig
-                config = EmpresaConfig.objects.filter(pk=1).first()
+                config = EmpresaConfig.objects.first()
             if config is not None:
                 SincronizarVitrineService().sincronizar(exclusao.schema_name, config)
         return True
@@ -407,15 +404,12 @@ class ExclusaoContaService:
 
         membros = list(Membro.objects.filter(user=user).select_related('tenant'))
         for membro in membros:
-            with schema_context(membro.tenant.schema_name):
+            with com_tenant(membro.tenant):
                 self._desligar_da_equipe(user, membro.tenant.schema_name)
         Membro.objects.filter(user=user).delete()
-        # O User tem relação com tabelas dos tenants (Colaborador): apagar
-        # dentro de um schema de negócio deixa o Django enxergar essa tabela.
-        if membros:
-            with schema_context(membros[0].tenant.schema_name):
-                user.delete()
-        else:
+        # A cascata do User alcança tabelas de negócio (UltimaAtividade não,
+        # mas um Colaborador que sobrou sim): sem isolamento para ela ver tudo.
+        with sem_isolamento():
             user.delete()
 
     @transaction.atomic
@@ -430,12 +424,13 @@ class ExclusaoContaService:
         tenant = Tenant.objects.get(schema_name=schema_name)
         usuarios = [m.user for m in Membro.objects.filter(tenant=tenant).select_related('user')]
 
-        with schema_context(schema_name):
+        with com_tenant(tenant):
             from apps_work.usuarios.models import Colaborador
             Colaborador.objects.update(user=None)
-            Membro.objects.filter(tenant=tenant).delete()
-            # Quem só estava neste negócio perde o login junto; quem está em
-            # outro continua lá.
+        Membro.objects.filter(tenant=tenant).delete()
+        # Quem só estava neste negócio perde o login junto; quem está em
+        # outro continua lá. A cascata do User atravessa negócios.
+        with sem_isolamento():
             for user in usuarios:
                 if not Membro.objects.filter(user=user).exists():
                     user.delete()
@@ -453,5 +448,7 @@ class ExclusaoContaService:
         # daqui, senão voltaria na próxima rodada.
         ExclusaoConta.objects.filter(schema_name=schema_name).delete()
 
-        with schema_context(get_public_schema_name()):
-            tenant.delete(force_drop=True)
+        # Apaga em cascata tudo que é do negócio (tenant_id em cada tabela);
+        # a cascata roda fora de `com_tenant`, por isso sem isolamento.
+        with sem_isolamento():
+            tenant.delete()

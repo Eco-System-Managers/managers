@@ -3,14 +3,15 @@ import uuid
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils import timezone
-from django_tenants.utils import schema_context
 from datetime import timedelta
 from tenants.models import Papel, Tenant, Membro
 from apps_work.autenticacao.models import UltimaAtividade
 from core.email import enviar_email
 from core.links import link_convite
+from core.tenant import com_tenant, schema_atual
+from core.tenant import com_tenant, schema_atual
 from .models import Colaborador, ConviteColaborador
 from core.excecoes import ErroDeNegocio
 
@@ -29,7 +30,7 @@ class ColaboradorService:
         # sem ninguém capaz de reativá-lo.
         if colaborador.user_id is None:
             return
-        if Membro.papel_no_schema(colaborador.user, connection.schema_name) == Papel.PROPRIETARIO:
+        if Membro.papel_no_schema(colaborador.user, schema_atual()) == Papel.PROPRIETARIO:
             raise ErroDeNegocio('O proprietário não pode ser desativado nem removido.', 'proprietario_protegido')
 
     def desativar(self, colaborador: Colaborador) -> None:
@@ -79,7 +80,7 @@ class ConviteService:
         """Acha o convite pelo token, sem saber de antemão em que tenant ele está.
 
         O ConviteIndex (schema público) diz o schema; a leitura do convite roda
-        num `schema_context`, que volta ao schema anterior mesmo se falhar.
+        num `com_tenant`, que volta ao tenant anterior mesmo se falhar.
         Devolve (tenant, convite) ou levanta 404.
         """
         from tenants.models import ConviteIndex
@@ -95,7 +96,7 @@ class ConviteService:
         tenant = Tenant.objects.filter(schema_name=index.schema_name).first() if index else None
         if tenant is None:
             raise ErroDeNegocio('Convite não encontrado.', 'convite_nao_encontrado', 404)
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             convite = ConviteColaborador.objects.filter(token=token).first()
         if convite is None:
             raise ErroDeNegocio('Convite não encontrado.', 'convite_nao_encontrado', 404)
@@ -131,7 +132,7 @@ class ConviteService:
         convite = ConviteColaborador.objects.create(
             nome=nome, email=email, expira_em=expira_em, colaborador=colaborador,
         )
-        ConviteIndex.objects.create(token=convite.token, schema_name=connection.schema_name)
+        ConviteIndex.objects.create(token=convite.token, schema_name=schema_atual())
         self._enviar_email(convite, tenant_nome)
         return convite
 
@@ -155,7 +156,7 @@ class AceitarConviteService:
     def aceitar(self, token, senha: str):
         """Cria a conta do convidado e devolve a sessão (RefreshToken).
 
-        Tudo roda no schema do tenant do convite (`schema_context` restaura o
+        Tudo roda no tenant do convite (`com_tenant` restaura o
         anterior, inclusive em erro). As tabelas compartilhadas — User, Membro,
         UltimaAtividade, ConviteIndex — ficam no público, que está no
         search_path de todo tenant, então não é preciso trocar de schema.
@@ -166,7 +167,7 @@ class AceitarConviteService:
         if not senha.strip():
             raise ErroDeNegocio('A senha é obrigatória.', 'senha_obrigatoria')
 
-        with schema_context(tenant.schema_name), transaction.atomic():
+        with com_tenant(tenant.schema_name), transaction.atomic():
             # Trava o convite: dois aceites simultâneos passariam pela checagem
             # de `aceito` e o segundo terminaria em IntegrityError no User.
             convite = ConviteColaborador.objects.select_for_update().get(token=token)

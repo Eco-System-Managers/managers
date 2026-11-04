@@ -5,7 +5,6 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-from django_tenants.utils import schema_context
 
 from apps_serv.identidade import cliente_do_consumidor
 from apps_serv.vitrine.models import NegocioPublico
@@ -16,6 +15,7 @@ from apps_work.clientes.models import OrigemCliente, PorteVeiculo, TipoObjeto
 from apps_work.clientes.validators import normalizar_porte
 from apps_work.empresa.models import TipoAgenda
 from apps_work.notificacoes.models import TipoNotificacao
+from core.tenant import com_tenant
 
 
 def _dinheiro(valor) -> str:
@@ -77,7 +77,7 @@ class CrossTenantQueryService:
     def listar_servicos(self, schema_name: str, porte: str = '') -> list:
         """Os serviços ativos. Com `porte`, só os que servem para ele: os do
         porte e os sem porte, que valem para qualquer um."""
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             from apps_work.servicos.models import Servico
             servicos = Servico.objects.filter(ativo=True)
             if porte:
@@ -101,7 +101,7 @@ class CrossTenantQueryService:
             ]
 
     def listar_colaboradores(self, schema_name: str) -> list:
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             from apps_work.usuarios.models import Colaborador
             colaboradores = (
                 Colaborador.objects
@@ -122,7 +122,7 @@ class CrossTenantQueryService:
             ]
 
     def listar_horarios(self, schema_name: str) -> list:
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             from apps_work.empresa.models import HorarioFuncionamento
             horarios_map = {h.dia: h for h in HorarioFuncionamento.objects.all()}
             return [
@@ -141,7 +141,7 @@ class CrossTenantQueryService:
         if not atendimento_ids:
             return {}
 
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             from apps_work.kanban.models import AtendimentoKanban
             from apps_work.kanban.services import StatusClienteService
 
@@ -171,11 +171,11 @@ class CrossTenantQueryService:
         fuso = timezone.get_current_timezone()
         nao_antes_de = _nao_antes_de()
 
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             from apps_work.empresa.models import EmpresaConfig
             from apps_work.servicos.models import Servico
 
-            config = EmpresaConfig.objects.filter(pk=1).first()
+            config = EmpresaConfig.objects.first()
             servicos = list(Servico.objects.filter(id__in=servico_ids, ativo=True))
             if not servicos:
                 return []
@@ -256,7 +256,7 @@ class AgendamentoTenantService:
             if origem == OrigemAtendimento.KANBAN and not objeto_dados:
                 raise ErroDeNegocio('Selecione um pet ou veículo para agendar.', 'objeto_obrigatorio')
 
-            with schema_context(schema_name):
+            with com_tenant(schema_name):
                 from apps_work.servicos.models import Servico
                 from apps_work.clientes.models import Cliente
 
@@ -469,7 +469,7 @@ class CancelarAgendamentoService:
         taxa = Decimal('0') if dentro_prazo else agendamento_consumidor.valor_taxa_cancelamento
 
         with transaction.atomic():
-            with schema_context(agendamento_consumidor.schema_name):
+            with com_tenant(agendamento_consumidor.schema_name):
                 if agendamento_consumidor.origem == OrigemAtendimento.KANBAN:
                     from apps_work.kanban.models import AtendimentoKanban
                     AtendimentoKanban.objects.filter(id=agendamento_consumidor.agendamento_id).delete()
@@ -531,7 +531,7 @@ class VincularNegocioService:
         aqui dentro é desfeito.
         """
         try:
-            with schema_context(schema_name):
+            with com_tenant(schema_name):
                 with transaction.atomic():
                     from apps_work.clientes.models import Cliente
                     from apps_work.notificacoes.models import Notificacao

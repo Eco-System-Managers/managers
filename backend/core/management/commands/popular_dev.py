@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
-from django_tenants.utils import schema_context
+from core.tenant import com_tenant
 
 
 class Command(BaseCommand):
@@ -69,8 +69,8 @@ class Command(BaseCommand):
         from apps_work.empresa.services import ConfiguracaoEmpresaService, ModoAgendaService
 
         user = User.objects.get(username=email.lower())
-        with schema_context(tenant.schema_name):
-            config, _ = EmpresaConfig.objects.get_or_create(pk=1)
+        with com_tenant(tenant.schema_name):
+            config, _ = EmpresaConfig.objects.get_or_create()
             config.nome = empresa
             # O nicho decide o modo de agenda e o objeto, como no onboarding.
             modo = ModoAgendaService().resolver([nicho], '', '', '')

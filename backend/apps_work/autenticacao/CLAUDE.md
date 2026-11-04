@@ -84,20 +84,20 @@ Exigência da Apple e do Google, e direito da LGPD. Pede a senha.
 - **Entrar de novo dentro do prazo desiste** (`desistir_ao_entrar`, no
   login). O dono que desiste volta para a vitrine e devolve o acesso à equipe.
 - **No fim do prazo**, o comando `excluir_contas_vencidas` (cron diário)
-  apaga de vez. O do negócio derruba o schema inteiro, cancela os horários
+  apaga de vez. O do negócio apaga o `Tenant` (e, em cascata, tudo que tem o
+  `tenant_id` dele), cancela os horários
   futuros no app do cliente (o histórico dele fica), tira o negócio da lista
   dos clientes e apaga os logins de quem só estava ali. Um pedido que falha
   não segura os outros: fica para a rodada seguinte.
-- **Apagar `User` tem que rodar dentro de um schema de negócio:** ele tem
-  relação com tabelas dos tenants (`Colaborador`), e no schema público o
-  Django não enxerga essas tabelas.
+- **Apagar `User` e apagar `Tenant` rodam em `sem_isolamento()`:** a cascata
+  alcança tabelas de negócio de mais de um tenant (um `User` pode ser
+  colaborador em dois), e com o RLS ligado ela só enxergaria o tenant atual.
 
 ## O cadastro cria um tenant inteiro
 
-`OnboardingService.registrar_empresa` é a operação mais pesada do app: cria o
-`Tenant` (o django-tenants materializa o schema no Postgres e roda as
-migrations nele), o `Domain`, o `User`, o `Membro` e uma `Assinatura` em
-trial.
+`OnboardingService.registrar_empresa` cria o `Tenant` (uma linha: as tabelas
+de negócio são compartilhadas, separadas por `tenant_id`), o `Domain`, o
+`User`, o `Membro` e uma `Assinatura` em trial.
 
 O `schema_name` sai de `gerar_schema_name` (`serializers.py`): só `[a-z0-9_]`,
 prefixo `e_` quando começaria por dígito, por `pg_` ou seria um nome reservado,
@@ -147,7 +147,7 @@ calcula um hash fictício. Sem isso o tempo de resposta revelaria quem tem conta
 A recuperação nunca diz se o e-mail existe, e o e-mail sai por task
 (`core/email.py`), fora da requisição: nem o tempo do SMTP nem um erro dele
 aparecem na resposta. A lógica do código fica em `RecuperacaoSenhaService`. O JWT sai com dois claims customizados, `schema_name` e `empresa`, e é
-por eles que o `JWTTenantMiddleware` descobre em qual schema trabalhar quando o
+por eles que o `TenantMiddleware` descobre em qual negócio trabalhar quando o
 domínio não resolve (desenvolvimento e app mobile).
 
 ## Sessões

@@ -33,9 +33,7 @@ def user_auth(db):
 def user_com_tenant(db):
     from django.db import connection
 
-    connection.set_schema_to_public()
     tenant = Tenant.objects.create(schema_name='login_test', nome='Login Test')
-    connection.set_schema_to_public()
     Domain.objects.create(domain='login-test.localhost', tenant=tenant, is_primary=True)
     user = User.objects.create_user(
         username='login@teste.com',
@@ -83,9 +81,7 @@ class TestCadastro:
     def test_empresa_com_nome_repetido_ganha_sufixo(self, api, db):
         # Duas empresas podem ter o mesmo nome; o schema é que precisa ser único.
         from django.db import connection
-        connection.set_schema_to_public()
         Tenant.objects.create(schema_name='salao_existente', nome='Salão Existente')
-        connection.set_schema_to_public()
         payload = {
             'nome_empresa': 'Salão Existente',
             'nome': 'Ana Silva',
@@ -121,7 +117,6 @@ class TestCadastro:
         from django.db import connection
         from apps_work.billing.models import Assinatura, Plano
 
-        connection.set_schema_to_public()
         # patch_tenant_middleware (via a fixture `api`) já cria uma Assinatura pro
         # tenant de teste 'test_empresa' presa ao Plano 'pro' (PROTECT) — precisa
         # ser removida antes de recriar o Plano do zero.
@@ -138,7 +133,6 @@ class TestCadastro:
         response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 201
 
-        connection.set_schema_to_public()
         assinatura = Assinatura.objects.get(tenant__schema_name=response.data['schema_name'])
         assert assinatura.status == 'trial'
         assert assinatura.trial_fim == date.today() + timedelta(days=28)
@@ -149,7 +143,6 @@ class TestCadastro:
         from django.db import connection
         from apps_work.billing.models import Assinatura, Plano
 
-        connection.set_schema_to_public()
         # Idem: precisa desfazer a Assinatura que patch_tenant_middleware cria
         # pro tenant de teste antes de conseguir apagar o Plano 'pro' (PROTECT).
         Assinatura.objects.filter(plano__nome='pro').delete()
@@ -164,7 +157,6 @@ class TestCadastro:
         response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 201
 
-        connection.set_schema_to_public()
         assinatura = Assinatura.objects.get(tenant__schema_name=response.data['schema_name'])
         assert assinatura.status == 'trial'
         assert assinatura.plano.nome == 'pro'

@@ -2,6 +2,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from apps_work.clientes.models import TipoObjeto
+from core.tenant import TenantModel
 
 
 class TipoAgenda(models.TextChoices):
@@ -49,7 +50,7 @@ class DiaSemana(models.IntegerChoices):
     DOMINGO = 6, 'Domingo'
 
 
-class EmpresaConfig(models.Model):
+class EmpresaConfig(TenantModel):
     nome = models.CharField(max_length=255, blank=True)
     telefone = models.CharField(max_length=20, blank=True)
     # Guardado só com os dígitos; a formatação fica na interface. Fica blank
@@ -90,6 +91,9 @@ class EmpresaConfig(models.Model):
 
     class Meta:
         verbose_name = 'Configuração da empresa'
+        constraints = [
+            models.UniqueConstraint(fields=['tenant'], name='empresa_config_uma_por_tenant'),
+        ]
 
     def __str__(self):
         return self.nome or 'Empresa sem nome'
@@ -100,8 +104,8 @@ class EmpresaConfig(models.Model):
         return ', '.join(parte for parte in (self.endereco, self.numero) if parte)
 
 
-class HorarioFuncionamento(models.Model):
-    dia = models.IntegerField(choices=DiaSemana.choices, unique=True)
+class HorarioFuncionamento(TenantModel):
+    dia = models.IntegerField(choices=DiaSemana.choices)
     abertura = models.TimeField(null=True, blank=True)
     fechamento = models.TimeField(null=True, blank=True)
     ativo = models.BooleanField(default=True)
@@ -117,6 +121,9 @@ class HorarioFuncionamento(models.Model):
 
     class Meta:
         ordering = ['dia']
+        constraints = [
+            models.UniqueConstraint(fields=['tenant', 'dia'], name='empresa_horario_dia_por_tenant'),
+        ]
 
     def __str__(self):
         return self.get_dia_display()

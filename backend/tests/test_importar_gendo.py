@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 from django.core.management import CommandError, call_command
-from django_tenants.utils import schema_context
+from core.tenant import com_tenant
 
 from apps_work.clientes.models import Cliente
 from apps_work.financeiro.models import TransacaoCredito
@@ -51,7 +51,7 @@ class TestImportarGendo:
     def test_importa_mapeando_a_ficha(self, tenant, csv_gendo):
         saida = _rodar(csv_gendo)
 
-        with schema_context('test_empresa'):
+        with com_tenant('test_empresa'):
             assert Cliente.objects.count() == 5
             ana = Cliente.objects.get(nome='Ana Completa')
             assert ana.telefone == '11951068838'
@@ -96,7 +96,7 @@ class TestImportarGendo:
         _rodar(csv_gendo)
         saida = _rodar(csv_gendo)
 
-        with schema_context('test_empresa'):
+        with com_tenant('test_empresa'):
             assert Cliente.objects.count() == 5
             assert TransacaoCredito.objects.count() == 1
         assert 'Importados: 0' in saida
@@ -105,7 +105,7 @@ class TestImportarGendo:
     def test_dry_run_nao_grava(self, tenant, csv_gendo):
         saida = _rodar(csv_gendo, '--dry-run')
 
-        with schema_context('test_empresa'):
+        with com_tenant('test_empresa'):
             assert Cliente.objects.count() == 0
         assert 'Ensaio: nada foi gravado' in saida
         assert 'Importados: 5' in saida
@@ -119,14 +119,14 @@ class TestImportarGendo:
         assert 'Empresas cadastradas:' in texto
         assert '1) Empresa Teste  [test_empresa]' in texto
         assert 'Importando para Empresa Teste' in texto
-        with schema_context('test_empresa'):
+        with com_tenant('test_empresa'):
             assert Cliente.objects.count() == 5
 
     def test_resposta_vazia_ou_invalida_cancela(self, tenant, csv_gendo):
         for resposta in ('', '9', 'x'):
             with patch('builtins.input', return_value=resposta), pytest.raises(CommandError):
                 call_command('importar_gendo', csv_gendo, stdout=StringIO())
-        with schema_context('test_empresa'):
+        with com_tenant('test_empresa'):
             assert Cliente.objects.count() == 0
 
     def test_recusa_tenant_e_arquivo_errados(self, tenant, csv_gendo, tmp_path):

@@ -70,7 +70,7 @@ class TestConviteService:
     def test_criar_e_enviar_vale_tambem_para_a_esteira(self, mock_mail, patch_tenant_middleware):
         # a esteira ganhou profissional opcional no card: a equipe existe nos dois modos
         from apps_work.empresa.models import EmpresaConfig
-        EmpresaConfig.objects.create(pk=1, tipo_agenda='kanban')
+        EmpresaConfig.objects.create(tipo_agenda='kanban')
         convite = ConviteService().criar_e_enviar(nome='Ana', email='ana@email.com', tenant_nome='Empresa')
         assert convite.pk is not None
 

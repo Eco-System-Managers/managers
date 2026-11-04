@@ -233,7 +233,6 @@ class TestMercadoPagoGatewayConfirmar:
             inicio=datetime.date.today(), proximo_vencimento=datetime.date.today(),
         )
 
-        connection.set_schema_to_public()
         outro_tenant = Tenant.objects.create(schema_name='outro_negocio_confirmar', nome='Outro Negócio')
         Assinatura.objects.create(
             tenant=outro_tenant, plano=plano, status='ativa',
@@ -585,7 +584,6 @@ class TestPagamentosListView:
         assinatura = Assinatura.objects.get(tenant=tenant)  # já criada por patch_tenant_middleware
         PagamentoAssinatura.objects.create(assinatura=assinatura, valor='69.90', status='pago', data=datetime.date.today())
 
-        connection.set_schema_to_public()
         plano = Plano.objects.get(nome='pro')
         outro_tenant = Tenant.objects.create(schema_name='outro_negocio_pagamentos', nome='Outro Negócio')
         outra_assinatura = Assinatura.objects.create(

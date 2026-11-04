@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 from django.db import connection
 from django.test import override_settings
-from django_tenants.middleware.main import TenantMainMiddleware
-from django_tenants.utils import schema_context
+from core.middleware import TenantMiddleware
+from core.tenant import com_tenant
 from rest_framework.test import APIClient
 
 from apps_serv.autenticacao.authentication import gerar_tokens
@@ -20,10 +20,10 @@ EMAIL = 'carlos@sm.com'
 def patch_public_middleware():
     """Mantém a conexão no schema público, como nas outras rotas do app."""
     def _process_request(_self, request):
-        connection.set_schema_to_public()
+        return None
 
     with override_settings(ALLOWED_HOSTS=['*']):
-        with patch.object(TenantMainMiddleware, 'process_request', _process_request):
+        with patch.object(TenantMiddleware, '_por_host', _process_request):
             yield
 
 
@@ -45,12 +45,11 @@ def app_consumidor(patch_public_middleware, consumidor):
 @pytest.fixture
 def cliente_do_negocio(tenant, consumidor):
     """Cliente já existente no schema do negócio, espelho do consumidor."""
-    with schema_context(tenant.schema_name):
+    with com_tenant(tenant.schema_name):
         cliente = Cliente.objects.create(
             nome='Carlos', email=EMAIL, telefone='11888880000',
             origem=OrigemCliente.SERVICEMANAGE,
         )
-    connection.set_schema_to_public()
     return cliente
 
 
@@ -63,7 +62,7 @@ def vinculado(consumidor, tenant, cliente_do_negocio):
 
 
 def _reler(tenant, cliente) -> Cliente:
-    with schema_context(tenant.schema_name):
+    with com_tenant(tenant.schema_name):
         return Cliente.objects.get(pk=cliente.pk)
 
 
@@ -153,7 +152,7 @@ class TestSincronizacaoComOTenant:
         assert _reler(tenant, vinculado).nome == 'Carlos'
 
     def test_tenant_fora_do_ar_nao_derruba_o_salvamento(self, app_consumidor, tenant, vinculado):
-        alvo = 'django_tenants.utils.schema_context'
+        alvo = 'apps_serv.consumidores.services.com_tenant'
         with patch(alvo, side_effect=Exception('schema fora do ar')):
             response = app_consumidor.patch('/api/sm/v1/me/', {'nome': 'Carlos Silva'}, format='json')
 

@@ -1,9 +1,10 @@
 import uuid
 
 from django.db import models
+from core.tenant import TenantModel
 
 
-class ModeloContrato(models.Model):
+class ModeloContrato(TenantModel):
     titulo = models.CharField(max_length=255)
     corpo = models.TextField(
         help_text=(
@@ -31,7 +32,7 @@ class StatusContrato(models.TextChoices):
     RECUSADO = 'recusado', 'Recusado'
 
 
-class Contrato(models.Model):
+class Contrato(TenantModel):
     modelo = models.ForeignKey(
         ModeloContrato,
         on_delete=models.SET_NULL,

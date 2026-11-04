@@ -3,6 +3,8 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+
+from core.tenant import schema_atual
 from django.db import IntegrityError, connection
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -91,11 +93,9 @@ def test_falha_ao_ligar_cliente_nao_aborta_a_transacao(patch_tenant_middleware):
     from apps_serv.consumidores.services import RegistroConsumidorService
     from apps_serv.identidade import cliente_do_consumidor
 
-    connection.set_schema_to_public()
     consumidor = RegistroConsumidorService().registrar(
         nome='Carla', email='carla@sm.com', senha='SenhaForte123!', telefone='11999990000',
     )
-    connection.set_tenant(patch_tenant_middleware)
     Cliente.objects.create(nome='Outra', telefone='11988887777', consumidor_id=consumidor.id)
     por_email = Cliente.objects.create(nome='Carla', telefone='11999990000', email='carla@sm.com')
 
@@ -118,8 +118,8 @@ def test_falha_ao_ligar_cliente_nao_aborta_a_transacao(patch_tenant_middleware):
 
 @pytest.mark.django_db
 def test_aceite_de_convite_que_falha_nao_deixa_a_conexao_no_tenant(patch_tenant_middleware):
-    """As views faziam connection.set_tenant() e nunca voltavam: a conexão
-    ficava no schema do convite para o que viesse depois."""
+    """As views trocavam de tenant e nunca voltavam: o contexto ficava no
+    negócio do convite para o que viesse depois."""
     from datetime import timedelta
 
     from apps_work.usuarios.models import ConviteColaborador
@@ -130,10 +130,9 @@ def test_aceite_de_convite_que_falha_nao_deixa_a_conexao_no_tenant(patch_tenant_
     convite = ConviteColaborador.objects.create(
         email='novo@x.com', expira_em=timezone.now() - timedelta(days=1),
     )
-    connection.set_schema_to_public()
     ConviteIndex.objects.create(token=convite.token, schema_name=patch_tenant_middleware.schema_name)
 
     with pytest.raises(ErroDeNegocio):
         AceitarConviteService().aceitar(convite.token, 'SenhaForte@2024!')
 
-    assert connection.schema_name == 'public'
+    assert schema_atual() == patch_tenant_middleware.schema_name

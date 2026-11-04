@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.db import connection
 from django.utils import timezone
-from django_tenants.utils import schema_context
+from core.tenant import com_tenant
 
 from apps_serv.consumidores.models import AgendamentoConsumidor, VinculoConsumidor
 from apps_serv.consumidores.services import RegistroConsumidorService
@@ -34,7 +34,6 @@ def consumidor_registrado(db):
 
 @pytest.fixture
 def negocio_publico(db, tenant):
-    connection.set_schema_to_public()
     NegocioPublico.objects.filter(schema_name=tenant.schema_name).delete()
     return NegocioPublico.objects.create(
         schema_name=tenant.schema_name,
@@ -48,7 +47,7 @@ def negocio_publico(db, tenant):
 
 @pytest.fixture
 def servico_no_tenant(tenant):
-    with schema_context(tenant.schema_name):
+    with com_tenant(tenant.schema_name):
         from apps_work.servicos.models import Servico
         return Servico.objects.create(
             nome='Corte',
@@ -60,7 +59,7 @@ def servico_no_tenant(tenant):
 
 @pytest.fixture
 def dois_servicos_no_tenant(tenant):
-    with schema_context(tenant.schema_name):
+    with com_tenant(tenant.schema_name):
         from apps_work.servicos.models import Servico
         s1 = Servico.objects.create(nome='Corte', duracao=30, preco=Decimal('50.00'), ativo=True)
         s2 = Servico.objects.create(nome='Barba', duracao=20, preco=Decimal('30.00'), ativo=True)
@@ -71,7 +70,7 @@ def dois_servicos_no_tenant(tenant):
 def profissional(tenant):
     """O profissional que o cliente escolhe, num negócio aberto o dia inteiro:
     o cliente só marca horário que esteja na grade, e a grade sai do expediente."""
-    with schema_context(tenant.schema_name):
+    with com_tenant(tenant.schema_name):
         from apps_work.empresa.models import HorarioFuncionamento
         from apps_work.usuarios.models import Colaborador
         for dia in range(7):
@@ -93,7 +92,6 @@ def _horario_livre(horas: int):
 
 @pytest.fixture
 def negocio_publico_kanban(db, tenant):
-    connection.set_schema_to_public()
     NegocioPublico.objects.filter(schema_name=tenant.schema_name).delete()
     return NegocioPublico.objects.create(
         schema_name=tenant.schema_name,
@@ -108,7 +106,7 @@ def negocio_publico_kanban(db, tenant):
 
 @pytest.fixture
 def etapa_no_tenant(tenant):
-    with schema_context(tenant.schema_name):
+    with com_tenant(tenant.schema_name):
         from apps_work.kanban.models import EtapaKanban
         return EtapaKanban.objects.create(nome='Aguardando', ordem=0)
 
@@ -117,7 +115,7 @@ def etapa_no_tenant(tenant):
 def esteira_aberta(tenant):
     """A esteira aberta o dia inteiro, todo dia: como na agenda, o cliente só
     marca horário que esteja na grade (a lista é a regra)."""
-    with schema_context(tenant.schema_name):
+    with com_tenant(tenant.schema_name):
         from apps_work.empresa.models import HorarioFuncionamento
         for dia in range(7):
             HorarioFuncionamento.objects.update_or_create(
@@ -182,7 +180,7 @@ class TestAgendamentoTenantServiceCriar:
             data_hora=_horario_livre(2), colaborador_id=profissional.id,
         )
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.clientes.models import Cliente
             assert Cliente.objects.filter(email=consumidor_registrado.email).exists()
 
@@ -204,7 +202,7 @@ class TestAgendamentoTenantServiceCriar:
             data_hora=_horario_livre(4), colaborador_id=profissional.id,
         )
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.clientes.models import Cliente
             assert Cliente.objects.filter(email=consumidor_registrado.email).count() == 1
 
@@ -227,7 +225,7 @@ class TestAgendamentoTenantServiceCriar:
     def test_registra_snapshot_com_taxa_cancelamento_configurada(
         self, tenant, consumidor_registrado, negocio_publico, profissional
     ):
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.servicos.models import Servico
             servico = Servico.objects.create(
                 nome='Corte com taxa', duracao=30, preco=Decimal('100.00'),
@@ -259,7 +257,7 @@ class TestAgendamentoTenantServiceCriar:
     def test_servico_inativo_nao_e_incluido(
         self, tenant, consumidor_registrado, negocio_publico, profissional
     ):
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.servicos.models import Servico
             inativo = Servico.objects.create(
                 nome='Inativo', duracao=30, preco=Decimal('50.00'), ativo=False
@@ -362,7 +360,7 @@ class TestAgendamentoDoClienteConfereOHorario:
     def test_dia_fechado_e_recusado(
         self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.empresa.models import HorarioFuncionamento
             HorarioFuncionamento.objects.update(ativo=False)
 
@@ -382,7 +380,7 @@ class TestAgendamentoDoClienteConfereOHorario:
     def test_profissional_inativo_e_recusado(
         self, tenant, consumidor_registrado, negocio_publico, profissional, servico_no_tenant
     ):
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             profissional.ativo = False
             profissional.save(update_fields=['ativo'])
 
@@ -417,7 +415,7 @@ class TestListarDisponibilidadeHorario:
 
     def test_passo_de_15_minutos(self, tenant, profissional, servico_no_tenant):
         amanha = timezone.localdate() + timedelta(days=1)
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.empresa.models import HorarioFuncionamento
             HorarioFuncionamento.objects.filter(dia=amanha.weekday()).update(abertura=time(8, 0), fechamento=time(9, 30))
 
@@ -486,7 +484,7 @@ class TestGarantirVinculo:
     def test_cria_cliente_visivel_e_notificacao(self, tenant, consumidor_registrado):
         VincularNegocioService().garantir_vinculo(tenant.schema_name, consumidor_registrado)
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.clientes.models import Cliente
             from apps_work.notificacoes.models import Notificacao
 
@@ -508,14 +506,14 @@ class TestVincularDesvincular:
     def test_vincular_cria_cliente_visivel_no_tenant(self, tenant, consumidor_registrado):
         VincularNegocioService().vincular(tenant.schema_name, consumidor_registrado)
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.clientes.models import Cliente
             cliente = Cliente.objects.get(email=consumidor_registrado.email)
             assert cliente.visivel is True
             assert cliente.telefone == consumidor_registrado.telefone
 
     def test_vincular_de_novo_sincroniza_dados_do_consumidor(self, tenant, consumidor_registrado):
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.clientes.models import Cliente
             Cliente.objects.create(
                 nome='Nome Antigo', email=consumidor_registrado.email,
@@ -524,7 +522,7 @@ class TestVincularDesvincular:
 
         VincularNegocioService().garantir_vinculo(tenant.schema_name, consumidor_registrado)
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             cliente = Cliente.objects.get(email=consumidor_registrado.email)
             assert cliente.nome == consumidor_registrado.nome
             assert cliente.telefone == consumidor_registrado.telefone
@@ -536,7 +534,7 @@ class TestVincularDesvincular:
         VincularNegocioService().vincular(tenant.schema_name, consumidor_registrado)
         VincularNegocioService().desvincular(tenant.schema_name, consumidor_registrado)
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.clientes.models import Cliente
             from apps_work.notificacoes.models import Notificacao
 
@@ -566,7 +564,7 @@ class TestCancelarPrazoDinamico:
 
     def _criar_ag(self, consumidor, data_hora, duracao, valor_taxa_cancelamento=Decimal('0')):
         from unittest.mock import patch
-        with patch('apps_serv.vitrine.services.schema_context'), \
+        with patch('apps_serv.vitrine.services.com_tenant'), \
              patch('apps_work.agenda.models.Agendamento'):
             return consumidor.agendamentos.create(
                 schema_name='fake',
@@ -585,7 +583,7 @@ class TestCancelarPrazoDinamico:
         ag = self._criar_ag(consumidor, timezone.now() + timedelta(hours=10), duracao=30)
 
         from unittest.mock import patch
-        with patch('apps_serv.vitrine.services.schema_context'), \
+        with patch('apps_serv.vitrine.services.com_tenant'), \
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
@@ -597,7 +595,7 @@ class TestCancelarPrazoDinamico:
         ag = self._criar_ag(consumidor, timezone.now() + timedelta(hours=13), duracao=60)
 
         from unittest.mock import patch
-        with patch('apps_serv.vitrine.services.schema_context'), \
+        with patch('apps_serv.vitrine.services.com_tenant'), \
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
@@ -609,7 +607,7 @@ class TestCancelarPrazoDinamico:
         ag = self._criar_ag(consumidor, timezone.now() + timedelta(hours=25), duracao=120)
 
         from unittest.mock import patch
-        with patch('apps_serv.vitrine.services.schema_context'), \
+        with patch('apps_serv.vitrine.services.com_tenant'), \
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
@@ -622,7 +620,7 @@ class TestCancelarPrazoDinamico:
         ag = self._criar_ag(consumidor, timezone.now() + timedelta(hours=3), duracao=30)
 
         from unittest.mock import patch
-        with patch('apps_serv.vitrine.services.schema_context'), \
+        with patch('apps_serv.vitrine.services.com_tenant'), \
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
@@ -649,7 +647,7 @@ class TestCancelarComTaxaConfigurada:
     def test_cancela_fora_do_prazo_registra_pendencia_no_tenant(
         self, tenant, consumidor_registrado, negocio_publico, profissional
     ):
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.servicos.models import Servico
             servico = Servico.objects.create(
                 nome='Corte com taxa', duracao=30, preco=Decimal('100.00'),
@@ -670,7 +668,7 @@ class TestCancelarComTaxaConfigurada:
 
         assert resultado['taxa'] == '20.00'
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.financeiro.models import TransacaoCredito
             from apps_work.clientes.models import Cliente
 
@@ -700,7 +698,7 @@ class TestAgendamentoTenantServiceCriarKanban:
         )
         assert ag.origem == 'kanban'
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.kanban.models import AtendimentoKanban
             atendimento = AtendimentoKanban.objects.get(id=ag.agendamento_id)
             assert atendimento.etapa == etapa_no_tenant
@@ -720,7 +718,7 @@ class TestAgendamentoTenantServiceCriarKanban:
             data_hora=_horario_livre(5),
             objeto_id=objeto_consumidor_pet.id,
         )
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.clientes.models import Pet
             pet = Pet.objects.get(nome='Rex')
             assert pet.especie == 'Cachorro'
@@ -767,7 +765,7 @@ class TestAgendamentoTenantServiceCriarKanban:
             )
 
         assert erro.value.code == 'um_servico_so'
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.kanban.models import AtendimentoKanban
             assert not AtendimentoKanban.objects.exists()
 
@@ -812,7 +810,7 @@ class TestAgendamentoTenantServiceCriarKanban:
             objeto_id=objeto_consumidor_pet.id,
         )
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.kanban.models import AtendimentoKanban
             atendimento = AtendimentoKanban.objects.get(id=ag.agendamento_id)
             assert atendimento.data == local.date()
@@ -839,7 +837,7 @@ class TestPorteNaEsteiraDoCliente:
     """O cliente só marca serviço do porte que declarou no pet ou no veículo."""
 
     def _servico(self, tenant, nome, porte):
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.servicos.models import Servico
             return Servico.objects.create(nome=nome, duracao=40, preco=Decimal('60.00'), porte=porte)
 
@@ -854,7 +852,7 @@ class TestPorteNaEsteiraDoCliente:
 
     def _pet_no_negocio(self, tenant, consumidor, porte):
         """O Rex já conhecido pelo negócio, como o negócio cadastrou."""
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.clientes.models import Cliente, Pet
             cliente = Cliente.objects.create(
                 nome=consumidor.nome, telefone='11999990000', origem='servicemanage', consumidor_id=consumidor.id,
@@ -872,7 +870,7 @@ class TestPorteNaEsteiraDoCliente:
             self._agendar(tenant, consumidor_registrado, grande, objeto_consumidor_pet)
 
         assert erro.value.code == 'servico_de_outro_porte'
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.kanban.models import AtendimentoKanban
             assert not AtendimentoKanban.objects.exists()
 
@@ -895,7 +893,7 @@ class TestPorteNaEsteiraDoCliente:
 
         self._agendar(tenant, consumidor_registrado, medio, objeto_consumidor_pet)
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             pet.refresh_from_db()
             assert pet.porte == 'grande'
 
@@ -908,7 +906,7 @@ class TestPorteNaEsteiraDoCliente:
 
         self._agendar(tenant, consumidor_registrado, qualquer, objeto_consumidor_pet)
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             pet.refresh_from_db()
             assert pet.porte == 'medio'
 
@@ -931,10 +929,10 @@ class TestPorteNaEsteiraDoCliente:
 class TestListarDisponibilidadeKanban:
     def test_retorna_datetimes_iso_disponiveis(self, tenant, negocio_publico_kanban):
         hoje = timezone.now().date() + timedelta(days=1)
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.empresa.models import EmpresaConfig, HorarioFuncionamento
             from apps_work.servicos.models import Servico
-            EmpresaConfig.objects.create(pk=1, tipo_agenda='kanban')
+            EmpresaConfig.objects.create(tipo_agenda='kanban')
             HorarioFuncionamento.objects.create(
                 dia=hoje.weekday(), abertura='08:00', fechamento='11:00', ativo=True, capacidade=3,
             )
@@ -952,12 +950,12 @@ class TestListarDisponibilidadeKanban:
 
     def test_nao_retorna_slot_ocupado(self, tenant, negocio_publico_kanban):
         hoje = timezone.now().date() + timedelta(days=1)
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.empresa.models import EmpresaConfig, HorarioFuncionamento
             from apps_work.servicos.models import Servico
             from apps_work.kanban.models import AtendimentoKanban, EtapaKanban
             from apps_work.clientes.models import Cliente, Pet
-            EmpresaConfig.objects.create(pk=1, tipo_agenda='kanban')
+            EmpresaConfig.objects.create(tipo_agenda='kanban')
             HorarioFuncionamento.objects.create(
                 dia=hoje.weekday(), abertura='08:00', fechamento='11:00', ativo=True, capacidade=3,
             )
@@ -981,12 +979,12 @@ class TestListarDisponibilidadeKanban:
         esteira_aberta,
     ):
         amanha = timezone.localdate() + timedelta(days=1)
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.empresa.models import EmpresaConfig, HorarioFuncionamento
             from apps_work.servicos.models import Servico
             from apps_work.kanban.models import AtendimentoKanban
             from apps_work.clientes.models import Cliente, Pet
-            EmpresaConfig.objects.create(pk=1, tipo_agenda='kanban')
+            EmpresaConfig.objects.create(tipo_agenda='kanban')
             HorarioFuncionamento.objects.update_or_create(
                 dia=amanha.weekday(),
                 defaults={'abertura': '08:00', 'fechamento': '18:00', 'ativo': True, 'capacidade': 1},
@@ -1031,7 +1029,7 @@ class TestCancelarAgendamentoKanban:
 
         CancelarAgendamentoService().cancelar(ag, consumidor_registrado)
 
-        with schema_context(tenant.schema_name):
+        with com_tenant(tenant.schema_name):
             from apps_work.kanban.models import AtendimentoKanban
             assert not AtendimentoKanban.objects.filter(id=atendimento_id).exists()
 

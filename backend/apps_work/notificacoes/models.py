@@ -1,4 +1,5 @@
 from django.db import models
+from core.tenant import TenantModel
 
 
 class TipoNotificacao(models.TextChoices):
@@ -6,7 +7,7 @@ class TipoNotificacao(models.TextChoices):
     CLIENTE_DESVINCULADO = 'cliente_desvinculado', 'Cliente desvinculado'
 
 
-class Notificacao(models.Model):
+class Notificacao(TenantModel):
     tipo = models.CharField(max_length=30, choices=TipoNotificacao.choices)
     titulo = models.CharField(max_length=255)
     mensagem = models.CharField(max_length=500, blank=True)

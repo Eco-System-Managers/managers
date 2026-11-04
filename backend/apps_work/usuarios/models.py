@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.contrib.auth.models import User
+from core.tenant import TenantModel
 
 
 class VinculoColaborador(models.TextChoices):
@@ -13,7 +14,7 @@ class VinculoColaborador(models.TextChoices):
     COLABORADOR = 'colaborador', 'Colaborador'
 
 
-class Colaborador(models.Model):
+class Colaborador(TenantModel):
     # O login é opcional: o dono cadastra quem trabalha sem convite e, se um
     # dia quiser dar acesso, convida — o mesmo registro ganha o user.
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='colaborador', null=True, blank=True)
@@ -54,7 +55,7 @@ class Colaborador(models.Model):
         return (Decimal(valor) * self.comissao_percentual / Decimal('100')).quantize(Decimal('0.01'))
 
 
-class ConviteColaborador(models.Model):
+class ConviteColaborador(TenantModel):
     nome = models.CharField(max_length=150, blank=True, default='')
     email = models.EmailField()
     token = models.UUIDField(default=uuid.uuid4, unique=True)

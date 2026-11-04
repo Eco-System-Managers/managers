@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.db import connection
 from django.test import override_settings
-from django_tenants.middleware.main import TenantMainMiddleware
+from core.middleware import TenantMiddleware
 from rest_framework.test import APIClient
 
 from apps_serv.autenticacao.authentication import gerar_tokens
@@ -17,10 +17,10 @@ from apps_work.kanban.services import EtapaService, StatusClienteService
 @pytest.fixture
 def patch_public_middleware():
     def _process_request(_self, request):
-        connection.set_schema_to_public()
+        return None
 
     with override_settings(ALLOWED_HOSTS=['*']):
-        with patch.object(TenantMainMiddleware, 'process_request', _process_request):
+        with patch.object(TenantMiddleware, '_por_host', _process_request):
             yield
 
 

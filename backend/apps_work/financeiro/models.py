@@ -1,4 +1,5 @@
 from django.db import models
+from core.tenant import TenantModel
 
 
 class CategoriaDespesa(models.TextChoices):
@@ -27,7 +28,7 @@ class OrigemTransacao(models.TextChoices):
     TAXA_CANCELAMENTO = 'taxa_cancelamento', 'Taxa de cancelamento'
 
 
-class TransacaoCredito(models.Model):
+class TransacaoCredito(TenantModel):
     cliente = models.ForeignKey(
         'clientes.Cliente', on_delete=models.CASCADE, related_name='transacoes_credito'
     )
@@ -58,7 +59,7 @@ class TransacaoCredito(models.Model):
         return f'{self.get_tipo_display()} R${self.valor} — {self.cliente}'
 
 
-class Despesa(models.Model):
+class Despesa(TenantModel):
     descricao = models.CharField(max_length=255)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     categoria = models.CharField(max_length=30, choices=CategoriaDespesa.choices, default=CategoriaDespesa.OUTROS)

@@ -1,4 +1,6 @@
 import pytest
+
+from core.tenant import schema_atual
 from unittest.mock import patch
 from rest_framework.test import APIClient
 
@@ -440,7 +442,7 @@ class TestLocalizacaoEmpresa:
                 format='json',
             )
         assert geo.called
-        config = EmpresaConfig.objects.get(pk=1)
+        config = EmpresaConfig.objects.get()
         assert str(config.latitude) == '-22.340747'
         assert config.localizacao_confirmada is False
 
@@ -503,7 +505,7 @@ class TestLocalizacaoEmpresa:
             )
 
         assert not geo.called
-        config = EmpresaConfig.objects.get(pk=1)
+        config = EmpresaConfig.objects.get()
         assert str(config.latitude) == '-22.350592'
         assert str(config.longitude) == '-47.377324'
 
@@ -514,7 +516,7 @@ class TestLocalizacaoEmpresa:
             '/api/v1/empresa/config/', {'localizacao_confirmada': True}, format='json'
         )
         assert response.status_code == 200
-        assert EmpresaConfig.objects.get(pk=1).localizacao_confirmada is False
+        assert EmpresaConfig.objects.get().localizacao_confirmada is False
 
     def test_cep_e_uf_sao_normalizados(self, client_autenticado):
         response = client_autenticado.patch(
@@ -664,7 +666,7 @@ class TestUploadLogoAPI:
         with patch(SALVAR_LOGO, return_value='logos/x.webp'),              patch(URL_LOGO, return_value='https://cdn.exemplo/logos/x.webp'):
             response = client_autenticado.post(self.URL, {'logo': _imagem()}, format='multipart')
         assert response.status_code == 200
-        assert EmpresaConfig.objects.get(pk=1).logo_url == 'https://cdn.exemplo/logos/x.webp'
+        assert EmpresaConfig.objects.get().logo_url == 'https://cdn.exemplo/logos/x.webp'
 
     def test_chave_no_bucket_segue_o_padrao(self, client_autenticado):
         """Trava o endereço das imagens.
@@ -678,7 +680,7 @@ class TestUploadLogoAPI:
             storage.url.return_value = 'https://bucket/logos/x.webp'
             client_autenticado.post(self.URL, {'logo': _imagem_png()}, format='multipart')
 
-        assert storage.save.call_args.args[0] == f'logos/{connection.schema_name}.webp'
+        assert storage.save.call_args.args[0] == f'logos/{schema_atual()}.webp'
 
     def test_imagem_e_reduzida_e_convertida_para_webp(self):
         """O redimensionamento saiu do Cloudinary e passou a ser nosso."""

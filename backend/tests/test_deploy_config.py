@@ -22,8 +22,7 @@ def test_security_e_cors_vem_antes_de_quem_responde_sozinho():
     cors = ordem.index('corsheaders.middleware.CorsMiddleware')
     assert ordem.index('django.middleware.security.SecurityMiddleware') < cors
     for middleware in (
-        'django_tenants.middleware.main.TenantMainMiddleware',
-        'core.middleware.JWTTenantMiddleware',
+        'core.middleware.TenantMiddleware',
         'core.middleware.AssinaturaBloqueadaMiddleware',
         'core.middleware.InactivityMiddleware',
     ):

@@ -37,8 +37,8 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.localhost').spl
 if os.getenv('RAILWAY_PUBLIC_DOMAIN'):
     ALLOWED_HOSTS.append(os.getenv('RAILWAY_PUBLIC_DOMAIN'))
 
-SHARED_APPS = [
-    'django_tenants',
+INSTALLED_APPS = [
+    # `tenants` antes dos apps de negócio: todos eles têm FK para Tenant.
     'tenants',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -61,9 +61,8 @@ SHARED_APPS = [
     'apps_serv.autenticacao',
     'apps_serv.consumidores',
     'apps_serv.vitrine',
-]
-
-TENANT_APPS = [
+    # Apps de negócio: os modelos herdam de core.tenant.TenantModel e vivem
+    # nas mesmas tabelas, separados pela coluna tenant_id (manager + RLS).
     'apps_work.usuarios',
     'apps_work.clientes',
     'apps_work.agenda',
@@ -75,11 +74,6 @@ TENANT_APPS = [
     'apps_work.notificacoes',
 ]
 
-INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
-
-TENANT_MODEL = 'tenants.Tenant'
-TENANT_DOMAIN_MODEL = 'tenants.Domain'
-SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
 # Sufixo do subdomínio de cada empresa: <slug>.<sufixo>
 TENANT_DOMAIN_SUFFIX = os.getenv('TENANT_DOMAIN_SUFFIX', 'localhost')
 
@@ -87,13 +81,13 @@ MIDDLEWARE = [
     # Security e CORS antes de tudo que pode responder sozinho: assim as
     # respostas 401/402 dos middlewares abaixo saem com cabeçalho CORS (o front
     # consegue ler o erro), e o preflight (OPTIONS) é respondido pelo CORS antes
-    # de cair no bloqueio de assinatura. Nenhum dos dois depende do schema.
+    # de cair no bloqueio de assinatura. Nenhum dos dois depende do tenant.
     'django.middleware.security.SecurityMiddleware',
     # Serve os estáticos do admin com DEBUG=False, sem nginx na frente.
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
-    'django_tenants.middleware.main.TenantMainMiddleware',
-    'core.middleware.JWTTenantMiddleware',
+    # Resolve o tenant (Host ou JWT) antes de tudo que toca dado de negócio.
+    'core.middleware.TenantMiddleware',
     'core.middleware.AssinaturaBloqueadaMiddleware',
     'core.middleware.InactivityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -144,7 +138,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django_tenants.postgresql_backend',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', 'workmanage'),
         'USER': os.getenv('DB_USER', 'postgres'),
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
@@ -152,8 +146,6 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
-
-DATABASE_ROUTERS = ['django_tenants.routers.TenantSyncRouter']
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

@@ -4,9 +4,10 @@ from apps_work.agenda.models import FormaPagamento
 from apps_work.clientes.models import ObjetoCliente
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
+from core.tenant import TenantModel
 
 
-class EtapaKanban(models.Model):
+class EtapaKanban(TenantModel):
     nome = models.CharField(max_length=100)
     ordem = models.PositiveIntegerField(default=0)
     cor = models.CharField(max_length=7, blank=True, default='')
@@ -22,14 +23,16 @@ class EtapaKanban(models.Model):
         verbose_name = 'Etapa'
         verbose_name_plural = 'Etapas'
         constraints = [
-            UniqueConstraint(fields=['pronto'], condition=Q(pronto=True), name='kanban_uma_etapa_pronto'),
+            UniqueConstraint(
+                fields=['tenant', 'pronto'], condition=Q(pronto=True), name='kanban_uma_etapa_pronto',
+            ),
         ]
 
     def __str__(self):
         return self.nome
 
 
-class AtendimentoKanban(models.Model):
+class AtendimentoKanban(TenantModel):
     etapa = models.ForeignKey(EtapaKanban, on_delete=models.PROTECT, related_name='atendimentos')
     # O pet ou veículo; o cliente vem por ele. Nulo no avulso: quem chegou e
     # pediu "lava aí" sem cadastro. Cadastrar cliente e carro nessa hora é
@@ -103,11 +106,11 @@ class AtendimentoKanban(models.Model):
         return self.servico.duracao + self.minutos_extras
 
 
-class AjusteDoDia(models.Model):
+class AjusteDoDia(TenantModel):
     """A capacidade de uma data que foge do padrão da semana: a funcionária
     faltou, um freelancer veio. Substitui os dois números do horário daquele
     dia da semana só nesta data; apagar volta ao padrão."""
-    data = models.DateField(unique=True)
+    data = models.DateField()
     # Nulo é sem máximo, como no horário.
     capacidade = models.PositiveIntegerField(null=True, blank=True)
     vagas = models.PositiveIntegerField(default=1)
@@ -116,12 +119,15 @@ class AjusteDoDia(models.Model):
     class Meta:
         verbose_name = 'Ajuste do dia'
         verbose_name_plural = 'Ajustes do dia'
+        constraints = [
+            UniqueConstraint(fields=['tenant', 'data'], name='kanban_ajuste_data_por_tenant'),
+        ]
 
     def __str__(self):
         return f'Ajuste de {self.data:%d/%m/%Y}'
 
 
-class PagamentoAtendimento(models.Model):
+class PagamentoAtendimento(TenantModel):
     atendimento = models.ForeignKey(AtendimentoKanban, on_delete=models.CASCADE, related_name='pagamentos')
     forma = models.CharField(max_length=20, choices=FormaPagamento.choices)
     valor = models.DecimalField(max_digits=8, decimal_places=2)

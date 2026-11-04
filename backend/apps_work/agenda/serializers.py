@@ -10,7 +10,8 @@ class AgendamentoServicoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AgendamentoServico
-        fields = '__all__'
+        # O tenant é de quem está logado, nunca do contrato da API.
+        exclude = ['tenant']
 
 
 class PagamentoAgendamentoSerializer(serializers.ModelSerializer):
@@ -50,7 +51,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Agendamento
-        fields = '__all__'
+        exclude = ['tenant']
         # Os dois só mudam pela cobrança (cobrar/), em comum acordo com o
         # cliente: por PATCH seriam ignorados.
         read_only_fields = ['acrescimo', 'acrescimo_motivo']

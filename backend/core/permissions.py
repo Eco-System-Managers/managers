@@ -1,7 +1,7 @@
-from django.db import connection
 from rest_framework.permissions import BasePermission
 
 from core.excecoes import ErroDeNegocio
+from core.tenant import schema_atual
 from tenants.models import Membro, Papel
 
 
@@ -16,7 +16,7 @@ def eh_proprietario(request) -> bool:
     if hasattr(request.user, 'papel_no_tenant'):
         papel = request.user.papel_no_tenant
     else:
-        papel = Membro.papel_no_schema(request.user, connection.schema_name)
+        papel = Membro.papel_no_schema(request.user, schema_atual())
     return papel == Papel.PROPRIETARIO
 
 
