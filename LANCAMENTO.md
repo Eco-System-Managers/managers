@@ -93,9 +93,13 @@ testes, o mínimo é:
 
 ## 3. iPhone (TestFlight)
 
+O passo a passo enxuto, do teste interno à loja, está em
+`PUBLICACAO_IPHONE.md`.
+
 O app nunca foi compilado para iOS: a primeira compilação no Mac pode pedir
 algum ajuste (versão mínima de um pacote, CocoaPods). O projeto já tem o
-bundle `br.com.workmanage.app`, iOS mínimo 15, os textos de permissão
+bundle `br.com.workmanage.app`, iOS mínimo 15, só iPhone (o iPad instala em
+modo de compatibilidade; publicado com iPad, não dá para tirar depois), os textos de permissão
 (câmera e fotos) e a criptografia declarada; o `Podfile` o Flutter cria no
 primeiro build.
 
@@ -150,7 +154,7 @@ primeiro build.
     Acesso no App Store Connect; sem revisão da Apple): TestFlight › Testes
     internos, criar o grupo e adicionar a versão.
 11. **Testadores externos** (até 10.000, com a revisão do beta, de horas a 1
-    dia):
+    dia). Os textos prontos, do beta e da loja, estão em `TEXTOS_DA_LOJA.md`:
     - Informações de teste: descrição do beta, e-mail de feedback e o link
       `https://api.workmanage.com.br/privacidade`.
     - Revisão do beta: contato e uma **conta de teste** que funcione na
