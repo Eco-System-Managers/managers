@@ -79,11 +79,12 @@ paths:
     post:
       operationId: agenda_bloqueios_create
       description: 'Com `colaborador`, a agenda de um profissional: o dono bloqueia
-        a de qualquer um; o parceiro, só a própria (403 sem_permissao_bloquear). Sem
-        `colaborador` (nulo ou omitido), o negócio inteiro fecha no período — a agenda
-        de todos e a esteira —, e só o proprietário faz isso (403 sem_permissao).
-        Recusado com 400 bloqueio_com_cliente quando há atendimento marcado dentro
-        do período.'
+        a de qualquer um; o parceiro, só a própria (403 sem_permissao_bloquear). Na
+        esteira não há agenda por profissional: com `colaborador` é 400 bloqueio_individual_na_esteira.
+        Sem `colaborador` (nulo ou omitido), o negócio inteiro fecha no período —
+        a agenda de todos e a esteira —: o proprietário e, na esteira, o parceiro
+        (403 sem_permissao para os outros). Recusado com 400 bloqueio_com_cliente
+        quando há atendimento marcado dentro do período.'
       summary: Bloquear um período da agenda ou do negócio
       tags:
       - agenda
@@ -141,7 +142,8 @@ paths:
   /api/v1/agenda/bloqueios/{id}/:
     delete:
       operationId: agenda_bloqueios_destroy
-      description: O do negócio (colaborador nulo) só o proprietário exclui (403 sem_permissao).
+      description: O do negócio (colaborador nulo) é do proprietário e, na esteira,
+        do parceiro (403 sem_permissao).
       summary: Excluir um bloqueio
       parameters:
       - in: path
@@ -250,6 +252,7 @@ paths:
   /api/v1/agenda/pendencias/:
     get:
       operationId: agenda_pendencias_list
+      description: 'Para quem cobra: o colaborador comum da esteira recebe 403 sem_permissao.'
       summary: Atendimentos passados ainda não cobrados (agenda e kanban)
       tags:
       - agenda
@@ -972,7 +975,9 @@ paths:
       operationId: auth_cadastro_solicitar_create
       description: 'Valida os dados e envia um código para o e-mail. A empresa ainda
         não existe: ela é criada em `/auth/cadastro/confirmar/`. Pedir de novo com
-        o mesmo e-mail substitui os dados e invalida o código anterior.'
+        o mesmo e-mail substitui os dados e invalida o código anterior. Quem voltou
+        para corrigir o e-mail manda o errado em `email_anterior`: com a mesma senha,
+        o pendente dele sai.'
       summary: 'Cadastrar empresa e dono: envia o código de confirmação'
       tags:
       - auth
@@ -980,13 +985,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CadastroRequest'
+              $ref: '#/components/schemas/SolicitarCadastroRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/CadastroRequest'
+              $ref: '#/components/schemas/SolicitarCadastroRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/CadastroRequest'
+              $ref: '#/components/schemas/SolicitarCadastroRequest'
         required: true
       security:
       - {}
@@ -4190,14 +4195,16 @@ paths:
   /api/v1/dashboard/resumo/:
     get:
       operationId: dashboard_resumo_retrieve
+      description: 'O colaborador comum da esteira só vê o quadro: 403 sem_permissao.'
       summary: Resumo do painel por período
       parameters:
       - in: query
         name: colaborador
         schema:
           type: integer
-        description: Só a agenda deste profissional (a esteira fica de fora). Quem
-          não é proprietário vê sempre os próprios números, ignorando este parâmetro.
+        description: 'Só no modo horário: a agenda deste profissional, e quem não
+          é proprietário vê sempre os próprios números, ignorando este parâmetro.
+          Na esteira o painel é do negócio inteiro e o parâmetro é ignorado.'
       - in: query
         name: data_fim
         schema:
@@ -4909,8 +4916,9 @@ paths:
         name: colaborador
         schema:
           type: integer
-        description: Filtra pelo colaborador (exclui o kanban). Quem não é proprietário
-          vê sempre o próprio, ignorando este parâmetro.
+        description: 'Só no modo horário: filtra pelo colaborador, e quem não é proprietário
+          vê sempre o próprio, ignorando este parâmetro. Na esteira o caixa é do negócio
+          inteiro e o parâmetro é ignorado.'
       - in: query
         name: data_fim
         schema:
@@ -4967,6 +4975,7 @@ paths:
   /api/v1/financeiro/clientes/{cliente_id}/saldo/:
     get:
       operationId: financeiro_clientes_saldo_retrieve
+      description: 'O colaborador comum da esteira não vê valores: 403 sem_permissao.'
       summary: Saldo de crédito e extrato do cliente
       parameters:
       - in: path
@@ -5408,6 +5417,12 @@ paths:
   /api/v1/kanban/atendimentos/:
     get:
       operationId: kanban_atendimentos_list
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       parameters:
       - in: query
         name: cliente
@@ -5415,11 +5430,6 @@ paths:
           type: integer
         description: Só os atendimentos dos objetos deste cliente (o histórico). O
           avulso não tem cliente e fica de fora.
-      - in: query
-        name: colaborador
-        schema:
-          type: integer
-        description: Só os atendimentos deste profissional.
       - in: query
         name: data
         schema:
@@ -5481,6 +5491,12 @@ paths:
                 $ref: '#/components/schemas/Erro'
     post:
       operationId: kanban_atendimentos_create
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       tags:
       - kanban
       requestBody:
@@ -5537,6 +5553,12 @@ paths:
   /api/v1/kanban/atendimentos/{id}/:
     get:
       operationId: kanban_atendimentos_retrieve
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       parameters:
       - in: path
         name: id
@@ -5587,6 +5609,12 @@ paths:
                 $ref: '#/components/schemas/Erro'
     put:
       operationId: kanban_atendimentos_update
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       parameters:
       - in: path
         name: id
@@ -5649,6 +5677,12 @@ paths:
                 $ref: '#/components/schemas/Erro'
     patch:
       operationId: kanban_atendimentos_partial_update
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       parameters:
       - in: path
         name: id
@@ -5710,6 +5744,12 @@ paths:
                 $ref: '#/components/schemas/Erro'
     delete:
       operationId: kanban_atendimentos_destroy
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       parameters:
       - in: path
         name: id
@@ -5881,6 +5921,12 @@ paths:
   /api/v1/kanban/atendimentos/{id}/desfazer_falta/:
     post:
       operationId: kanban_atendimentos_desfazer_falta_create
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       summary: Desfazer falta
       parameters:
       - in: path
@@ -5933,6 +5979,12 @@ paths:
   /api/v1/kanban/atendimentos/{id}/marcar_falta/:
     post:
       operationId: kanban_atendimentos_marcar_falta_create
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       summary: Marcar falta
       parameters:
       - in: path
@@ -5985,6 +6037,12 @@ paths:
   /api/v1/kanban/atendimentos/{id}/mover/:
     post:
       operationId: kanban_atendimentos_mover_create
+      description: |-
+        O quadro é um só, do negócio: todo mundo lê os mesmos cards. O
+        colaborador comum só lê, move o card e ajusta o tempo (PATCH de
+        `minutos_extras`); receber, remarcar, falta, excluir e cobrar são do dono
+        e do parceiro (403 `sem_permissao`). Para o colaborador comum a resposta
+        vem sem o telefone do cliente e sem valores (ver o serializer).
       summary: Mover atendimento de etapa
       parameters:
       - in: path
@@ -6051,7 +6109,8 @@ paths:
       operationId: kanban_capacidade_retrieve
       description: |-
         Quanto cabe num dia da esteira: o padrão da semana ou o ajuste da data
-        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono.
+        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono e
+        do parceiro, que toca o negócio com ele.
       summary: Capacidade e ocupação de um dia
       parameters:
       - in: query
@@ -6105,7 +6164,8 @@ paths:
       operationId: kanban_capacidade_update
       description: |-
         Quanto cabe num dia da esteira: o padrão da semana ou o ajuste da data
-        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono.
+        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono e
+        do parceiro, que toca o negócio com ele.
       summary: Ajustar a capacidade só desta data
       parameters:
       - in: query
@@ -6171,7 +6231,8 @@ paths:
       operationId: kanban_capacidade_destroy
       description: |-
         Quanto cabe num dia da esteira: o padrão da semana ou o ajuste da data
-        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono.
+        ("hoje somos 2", "hoje sou só eu"). Ler é de todos; ajustar é do dono e
+        do parceiro, que toca o negócio com ele.
       summary: Voltar a data ao padrão da semana
       parameters:
       - in: query
@@ -8286,7 +8347,8 @@ components:
           type: string
           readOnly: true
           nullable: true
-          description: Nulo no avulso.
+          description: Nulo no avulso e para o colaborador comum, que não fala com
+            o cliente.
         identificacao:
           type: string
           description: O texto que identifica o avulso no pátio ("Hilux branca", "ABC-1234").
@@ -8305,15 +8367,10 @@ components:
           format: decimal
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
           readOnly: true
+          nullable: true
+          description: Nulo para o colaborador comum, que não vê valores.
         servico_duracao:
           type: integer
-          readOnly: true
-        colaborador:
-          type: integer
-          nullable: true
-        colaborador_nome:
-          type: string
-          nullable: true
           readOnly: true
         observacao:
           type: string
@@ -8333,22 +8390,30 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: O desconto dado na cobrança. Zero sem desconto; nulo para o
+            colaborador comum.
         acrescimo:
           type: string
           format: decimal
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
           readOnly: true
+          nullable: true
           description: O que o atendimento custou a mais, acertado na cobrança. Zero
-            sem acréscimo.
+            sem acréscimo; nulo para o colaborador comum.
         acrescimo_motivo:
           type: string
           readOnly: true
-          description: O motivo do acréscimo, que o cliente vê no app ("tempo excedido").
+          nullable: true
+          description: O motivo do acréscimo, que o cliente vê no app ("tempo excedido");
+            nulo para o colaborador comum.
         pagamentos:
           type: array
           items:
             $ref: '#/components/schemas/PagamentoAtendimento'
           readOnly: true
+          description: Vazio para o colaborador comum, que não vê valores.
         minutos_extras:
           type: integer
           maximum: 2147483647
@@ -8375,8 +8440,8 @@ components:
       - avulso
       - cliente_nome
       - cliente_telefone
-      - colaborador_nome
       - criado_em
+      - desconto
       - duracao_prevista
       - etapa
       - etapa_nome
@@ -8405,9 +8470,6 @@ components:
           maxLength: 80
         servico:
           type: integer
-        colaborador:
-          type: integer
-          nullable: true
         observacao:
           type: string
         data:
@@ -8422,10 +8484,6 @@ components:
           type: boolean
         faltou:
           type: boolean
-        desconto:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
         minutos_extras:
           type: integer
           maximum: 2147483647
@@ -8454,8 +8512,8 @@ components:
           type: integer
           nullable: true
           description: 'De quem é a agenda bloqueada. Nulo (ou omitido) é o negócio
-            inteiro: vale para todos os profissionais e para a esteira. Só o proprietário
-            cria e exclui esse.'
+            inteiro: vale para todos os profissionais e para a esteira. O proprietário
+            e, na esteira, o parceiro criam e excluem esse.'
         colaborador_nome:
           type: string
           nullable: true
@@ -8496,8 +8554,8 @@ components:
           type: integer
           nullable: true
           description: 'De quem é a agenda bloqueada. Nulo (ou omitido) é o negócio
-            inteiro: vale para todos os profissionais e para a esteira. Só o proprietário
-            cria e exclui esse.'
+            inteiro: vale para todos os profissionais e para a esteira. O proprietário
+            e, na esteira, o parceiro criam e excluem esse.'
         data_inicio:
           type: string
           format: date
@@ -8578,13 +8636,15 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: A parte dos parceiros, congelada em cada pagamento.
+          description: A parte dos parceiros, congelada em cada pagamento da agenda.
+            Zero na esteira, que não tem comissão.
         casa:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
           nullable: true
-          description: 'total - repasse. Nulo para o parceiro: ele vê só a parte dele.'
+          description: total - repasse. Nulo para o parceiro na agenda, que vê só
+            a parte dele; na esteira ele vê a casa, como o dono.
       required:
       - atendimentos
       - casa
@@ -8602,7 +8662,8 @@ components:
           type: string
         colaborador_nome:
           type: string
-          description: Vazio quando o atendimento não tem profissional.
+          description: Vazio quando o atendimento não tem profissional (sempre, na
+            esteira).
         forma:
           type: string
         valor:
@@ -10446,9 +10507,6 @@ components:
           maxLength: 80
         servico:
           type: integer
-        colaborador:
-          type: integer
-          nullable: true
         observacao:
           type: string
         data:
@@ -10463,10 +10521,6 @@ components:
           type: boolean
         faltou:
           type: boolean
-        desconto:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
         minutos_extras:
           type: integer
           maximum: 2147483647
@@ -11307,6 +11361,36 @@ components:
       required:
       - disponivel
       - horario
+    SolicitarCadastroRequest:
+      type: object
+      properties:
+        nome_empresa:
+          type: string
+          minLength: 1
+          maxLength: 255
+        nome:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+        senha:
+          type: string
+          writeOnly: true
+          minLength: 1
+        email_anterior:
+          type: string
+          format: email
+          minLength: 1
+          description: O e-mail do pedido anterior, quando a pessoa voltou para corrigir
+            o e-mail. O cadastro pendente dele é descartado se a senha for a mesma.
+      required:
+      - email
+      - nome
+      - nome_empresa
+      - senha
     StatusAgendamentoEnum:
       enum:
       - agendado

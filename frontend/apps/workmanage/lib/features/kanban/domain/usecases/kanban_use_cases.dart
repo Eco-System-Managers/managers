@@ -72,8 +72,7 @@ class ListarAtendimentosDoDiaUseCase
   @override
   Future<Either<Failure, List<AtendimentoKanban>>> call(
     ListarDoDiaParams params,
-  ) =>
-      _repository.listarDoDia(params.data, colaboradorId: params.colaboradorId);
+  ) => _repository.listarDoDia(params.data);
 }
 
 class ListarAtendimentosKanbanDoClienteUseCase

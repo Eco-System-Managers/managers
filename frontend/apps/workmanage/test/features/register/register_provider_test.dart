@@ -40,6 +40,44 @@ void main() {
     expect(params.email, 'dono@demo.com');
   });
 
+  test('cadastrar de novo com outro e-mail manda o que recebeu o código; '
+      'com o mesmo, não manda', () async {
+    when(() => register(any())).thenAnswer((_) async => const Right(null));
+    Future<RegisterParam> enviar(String email) async {
+      await provider.register(
+        nomeEmpresa: 'Barbearia Central',
+        nome: 'Wilson',
+        email: email,
+        senha: 'SenhaForte123!',
+      );
+      return verify(() => register(captureAny())).captured.single
+          as RegisterParam;
+    }
+
+    expect((await enviar('dono@errado.com')).emailAnterior, isNull);
+    expect((await enviar('dono@demo.com')).emailAnterior, 'dono@errado.com');
+    // reenviar o mesmo (com outra caixa) não é troca
+    expect((await enviar('Dono@Demo.com')).emailAnterior, isNull);
+  });
+
+  test('cadastro recusado não conta como e-mail com código', () async {
+    when(() => register(any()))
+        .thenAnswer((_) async => const Left(ServerFailure(message: 'Erro')));
+    await cadastrar();
+
+    when(() => register(any())).thenAnswer((_) async => const Right(null));
+    await provider.register(
+      nomeEmpresa: 'Barbearia Central',
+      nome: 'Wilson',
+      email: 'outro@demo.com',
+      senha: 'SenhaForte123!',
+    );
+
+    final params =
+        verify(() => register(captureAny())).captured.last as RegisterParam;
+    expect(params.emailAnterior, isNull);
+  });
+
   test(
     'erro de validação vai para o campo, não para a mensagem geral',
     () async {

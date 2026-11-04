@@ -45,6 +45,14 @@ class _GerarContratoPageState extends ConsumerState<GerarContratoPage> {
     _provider.selecionarCliente(cliente);
   }
 
+  // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+  // tela sai, e cada pop a mais fechava a tela de baixo
+  Future<void> _gerar() async {
+    await _provider.gerar();
+    final gerado = _provider.gerado;
+    if (mounted && gerado != null) context.pop(gerado.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     // watch: mantém o provider vivo enquanto a tela estiver aberta
@@ -55,13 +63,6 @@ class _GerarContratoPageState extends ConsumerState<GerarContratoPage> {
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          final gerado = provider.gerado;
-          if (gerado != null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.pop(gerado.id);
-            });
-          }
-
           if (!provider.carregado) {
             final erro = provider.erroAoCarregar;
             if (erro != null) {
@@ -115,8 +116,8 @@ class _GerarContratoPageState extends ConsumerState<GerarContratoPage> {
             'variáveis que viram os dados do cliente.',
             style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
           ),
-          // o modelo é escrita do proprietário
-          if (ref.read(negocioAtualProvider).ehProprietario)
+          // o modelo é escrita do proprietário (e do parceiro, na esteira)
+          if (ref.read(negocioAtualProvider).podeEditarModelos)
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
@@ -203,7 +204,7 @@ class _GerarContratoPageState extends ConsumerState<GerarContratoPage> {
 
         const SizedBox(height: BrandSpacing.space5),
         FilledButton(
-          onPressed: provider.isLoading ? null : provider.gerar,
+          onPressed: provider.isLoading ? null : _gerar,
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
           child: const Text('Gerar'),
         ),

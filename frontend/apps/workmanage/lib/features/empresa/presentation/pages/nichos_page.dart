@@ -33,6 +33,12 @@ class NichosPage extends ConsumerWidget {
     }
 
     await provider.salvar();
+    // salvou: avisa e fecha, aqui e não no build. o build roda de novo
+    // enquanto a tela sai, e cada pop a mais fechava a tela de baixo
+    if (!context.mounted || !provider.salvo) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Nichos salvos')));
+    context.pop();
   }
 
   String _avisoDeRemocao(int afetados, String nichos) {
@@ -65,16 +71,6 @@ class NichosPage extends ConsumerWidget {
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          // salvou: avisa e fecha
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Nichos salvos')));
-              context.pop();
-            });
-          }
-
           final area = provider.area;
 
           return comBotaoDeRodape(

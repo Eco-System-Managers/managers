@@ -19,7 +19,7 @@ from .serializers import (
 )
 from .services import ContratoService, contrato_publico
 from core.excecoes import erro
-from core.permissions import IsProprietario
+from core.permissions import IsProprietarioOuParceiroDaEsteira, NaoEhColaboradorDaEsteira
 from core.tenant import com_tenant, schema_atual
 
 
@@ -30,15 +30,16 @@ from core.tenant import com_tenant, schema_atual
 )
 class ModeloContratoViewSet(viewsets.ModelViewSet):
     serializer_class = ModeloContratoSerializer
-    permission_classes = [IsAuthenticated]
+    # contrato não é assunto do colaborador comum da esteira
+    permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
 
-    # o modelo é texto do negócio: qualquer um da equipe gera contrato com
-    # ele, mas só o proprietário escreve
-    _ACOES_DO_PROPRIETARIO = ('create', 'update', 'partial_update', 'destroy')
+    # o modelo é texto do negócio: a equipe gera contrato com ele, mas quem
+    # escreve é o proprietário e, na esteira, o parceiro
+    _ACOES_DE_ESCRITA = ('create', 'update', 'partial_update', 'destroy')
 
     def get_permissions(self):
-        if self.action in self._ACOES_DO_PROPRIETARIO:
-            return [IsAuthenticated(), IsProprietario()]
+        if self.action in self._ACOES_DE_ESCRITA:
+            return [IsAuthenticated(), IsProprietarioOuParceiroDaEsteira()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -59,7 +60,7 @@ class ModeloContratoViewSet(viewsets.ModelViewSet):
 )
 class ContratoViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
 
     def perform_destroy(self, instance):
         ContratoService().remover(instance)

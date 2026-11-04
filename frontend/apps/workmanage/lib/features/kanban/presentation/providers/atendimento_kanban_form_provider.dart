@@ -10,8 +10,6 @@ import 'package:managers/features/clientes/domain/usecases/obter_cliente_use_cas
 import 'package:managers/features/servicos/domain/entities/servico.dart';
 import 'package:managers/features/servicos/domain/params/listar_servicos_params.dart';
 import 'package:managers/features/servicos/domain/usecases/listar_servicos_use_case.dart';
-import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
-import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 
 import '../../domain/entities/atendimento_kanban.dart';
 import '../../domain/entities/capacidade_do_dia.dart';
@@ -32,7 +30,6 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     required this._listarClientes,
     required this._obterCliente,
     required this._listarSlots,
-    required this._listarColaboradores,
     required this._criar,
     required this.tipoObjeto,
     DateTime? dataInicial,
@@ -43,7 +40,6 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
   final ListarClientesUseCase _listarClientes;
   final ObterClienteUseCase _obterCliente;
   final ListarSlotsKanbanUseCase _listarSlots;
-  final ListarColaboradoresUseCase _listarColaboradores;
   final CriarAtendimentoKanbanUseCase _criar;
 
   // o que o negócio recebe: veículo ou pet
@@ -51,8 +47,6 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
 
   List<Etapa> _etapas = const [];
   List<Servico> _servicos = const [];
-  List<Colaborador> _colaboradores = const [];
-  Colaborador? _colaborador;
   bool _carregado = false;
   Failure? _erroAoCarregar;
 
@@ -113,10 +107,6 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
 
   ObjetoCliente? get objeto => _objeto;
   Servico? get servico => _servico;
-
-  // a equipe ativa; o profissional é opcional na esteira
-  List<Colaborador> get colaboradores => _colaboradores;
-  Colaborador? get colaborador => _colaborador;
   DateTime get data => _data;
 
   // null: sem hora marcada
@@ -145,10 +135,9 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
-    final (etapas, servicos, colaboradores) = await (
+    final (etapas, servicos) = await (
       _listarEtapas(NoParams()),
       _listarServicos(const ListarServicosParams(ativo: true)),
-      _listarColaboradores(NoParams()),
     ).wait;
     if (_disposed) return;
 
@@ -157,10 +146,6 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
     });
     servicos.fold((failure) => _erroAoCarregar ??= failure, (lista) {
       _servicos = lista;
-    });
-    // sem a equipe o formulário continua útil: só fica sem o profissional
-    colaboradores.fold((_) {}, (lista) {
-      _colaboradores = lista.where((c) => c.ativo).toList();
     });
 
     _carregado = _erroAoCarregar == null;
@@ -198,11 +183,13 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
   }
 
   // a folha cadastrou ou corrigiu um veículo ou pet: o cliente vem da API de
-  // novo. o objeto escolhido continua (com o cadastro novo); sem ele, o mais
-  // novo fica escolhido
-  Future<void> recarregarCliente() async {
+  // novo. com escolherNovo (a folha cadastrou um), o que não existia antes
+  // fica escolhido; senão o escolhido continua (com o cadastro corrigido);
+  // sem escolha, o mais novo
+  Future<void> recarregarCliente({bool escolherNovo = false}) async {
     final cliente = _cliente;
     if (cliente == null) return;
+    final antes = {for (final o in objetos) o.id};
     final result = await _obterCliente(cliente.id);
     if (_disposed) return;
     result.fold((_) {}, (c) {
@@ -210,7 +197,10 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
       final objetos = this.objetos;
       _objeto = objetos.isEmpty
           ? null
-          : objetos.where((o) => o.id == _objeto?.id).firstOrNull ??
+          : (escolherNovo
+                    ? objetos.where((o) => !antes.contains(o.id)).firstOrNull
+                    : null) ??
+                objetos.where((o) => o.id == _objeto?.id).firstOrNull ??
                 objetos.reduce((a, b) => a.id >= b.id ? a : b);
       _soltarServicoQueNaoServe();
     });
@@ -234,12 +224,6 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
       _servico = null;
       _carregarSlots();
     }
-  }
-
-  void selecionarColaborador(Colaborador? colaborador) {
-    _colaborador = colaborador;
-    _fieldErrors = {..._fieldErrors}..remove('colaborador');
-    notifyListeners();
   }
 
   // a grade é do serviço: só as horas em que a duração dele cabe. a hora
@@ -330,7 +314,6 @@ class AtendimentoKanbanFormProvider extends ChangeNotifier {
         servicoId: servico.id,
         data: _data,
         horarioEntrada: _hora,
-        colaboradorId: _colaborador?.id,
         observacao: observacao,
         ignorarLimite: ignorarLimite,
       ),

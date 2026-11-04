@@ -2,6 +2,7 @@ from datetime import date as date_type
 from django.db.models import Q
 from rest_framework import mixins, viewsets, status as drf_status
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
@@ -18,17 +19,21 @@ from .services import (
 )
 from apps_work.financeiro.serializers import CobrancaSerializer
 from core.excecoes import ErroDeNegocio, erro
-from core.permissions import eh_proprietario, exigir_poder_bloquear, exigir_poder_cobrar
+from core.permissions import (
+    NaoEhColaboradorDaEsteira, eh_esteira, eh_proprietario_ou_parceiro_da_esteira,
+    exigir_nao_ser_colaborador_da_esteira, exigir_poder_bloquear, exigir_poder_cobrar,
+)
 
 
 def exigir_poder_bloquear_em(request, colaborador_id: int | None) -> None:
     """Quem pode criar ou excluir um bloqueio. Sem colaborador é o do negócio
-    inteiro — fecha a agenda de todos e a esteira —, então só o dono (403
-    sem_permissao). Com colaborador vale a regra da agenda individual
+    inteiro — fecha a agenda de todos e a esteira —: o dono e, na esteira, o
+    parceiro, que toca o negócio com ele (403 sem_permissao para os outros).
+    Com colaborador vale a regra da agenda individual
     (`exigir_poder_bloquear`)."""
     if colaborador_id is None:
-        if not eh_proprietario(request):
-            raise ErroDeNegocio('Só o proprietário fecha horários do negócio.', 'sem_permissao', 403)
+        if not eh_proprietario_ou_parceiro_da_esteira(request):
+            raise ErroDeNegocio('Você não pode fechar horários do negócio.', 'sem_permissao', 403)
         return
     exigir_poder_bloquear(request, colaborador_id)
 
@@ -48,14 +53,16 @@ def exigir_poder_bloquear_em(request, colaborador_id: int | None) -> None:
         summary='Bloquear um período da agenda ou do negócio',
         description=(
             'Com `colaborador`, a agenda de um profissional: o dono bloqueia a de qualquer um; o parceiro, só a '
-            'própria (403 sem_permissao_bloquear). Sem `colaborador` (nulo ou omitido), o negócio inteiro fecha '
-            'no período — a agenda de todos e a esteira —, e só o proprietário faz isso (403 sem_permissao). '
-            'Recusado com 400 bloqueio_com_cliente quando há atendimento marcado dentro do período.'
+            'própria (403 sem_permissao_bloquear). Na esteira não há agenda por profissional: com `colaborador` '
+            'é 400 bloqueio_individual_na_esteira. Sem `colaborador` (nulo ou omitido), o negócio inteiro fecha '
+            'no período — a agenda de todos e a esteira —: o proprietário e, na esteira, o parceiro (403 '
+            'sem_permissao para os outros). Recusado com 400 bloqueio_com_cliente quando há atendimento marcado '
+            'dentro do período.'
         ),
     ),
     destroy=extend_schema(
         summary='Excluir um bloqueio',
-        description='O do negócio (colaborador nulo) só o proprietário exclui (403 sem_permissao).',
+        description='O do negócio (colaborador nulo) é do proprietário e, na esteira, do parceiro (403 sem_permissao).',
     ),
 )
 class BloqueioViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
@@ -78,7 +85,17 @@ class BloqueioViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.Des
 
     def perform_create(self, serializer):
         colaborador = serializer.validated_data.get('colaborador')
-        exigir_poder_bloquear_em(self.request, colaborador.pk if colaborador else None)
+        if eh_esteira(self.request):
+            # na esteira só existe o bloqueio do negócio: quem não pode fechá-lo
+            # é 403 antes de tudo, e ninguém tem agenda própria para fechar
+            exigir_poder_bloquear_em(self.request, None)
+            if colaborador is not None:
+                raise ErroDeNegocio(
+                    'Na esteira não há agenda por profissional: feche o horário do negócio inteiro.',
+                    'bloqueio_individual_na_esteira',
+                )
+        else:
+            exigir_poder_bloquear_em(self.request, colaborador.pk if colaborador else None)
         serializer.instance = BloqueioService().criar(**serializer.validated_data)
 
     def perform_destroy(self, instance):
@@ -90,12 +107,18 @@ class PendenciasCobrancaView(APIView):
     @extend_schema(
         responses=PendenciaCobrancaSerializer(many=True),
         summary='Atendimentos passados ainda não cobrados (agenda e kanban)',
+        description='Para quem cobra: o colaborador comum da esteira recebe 403 sem_permissao.',
     )
     def get(self, request):
+        # pendência de cobrança é assunto de quem cobra
+        exigir_nao_ser_colaborador_da_esteira(request)
         return Response(PendenciasCobrancaService().listar())
 
 
 class SlotsAgendaView(APIView):
+    # a agenda individual não é do colaborador comum da esteira
+    permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
+
     @extend_schema(
         responses=SlotSerializer(many=True), summary='Horários do dia de um colaborador para um serviço',
         parameters=[
@@ -117,6 +140,8 @@ class SlotsAgendaView(APIView):
 
 
 class DiasComRegistroView(APIView):
+    permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
+
     @extend_schema(
         responses={200: build_array_type(build_basic_type(OpenApiTypes.DATE))},
         summary='Dias do mês com algum agendamento',
@@ -149,6 +174,10 @@ class DiasComRegistroView(APIView):
 )
 class AgendamentoViewSet(viewsets.ModelViewSet):
     serializer_class = AgendamentoSerializer
+    # a agenda por horário não é do colaborador comum da esteira: ele só move
+    # os cards do quadro (receber, ver telefone e valores e cobrar por aqui
+    # seria uma porta lateral; 403 `sem_permissao`)
+    permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
 
     def get_queryset(self):
         qs = Agendamento.objects.select_related(

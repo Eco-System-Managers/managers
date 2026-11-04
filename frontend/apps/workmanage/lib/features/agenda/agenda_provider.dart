@@ -99,8 +99,8 @@ final agendaDiaProvider = Provider<AgendaDiaProvider>((ref) {
 
 // family: com o que o formulário abre (o dia e o profissional da agenda). o
 // parceiro só bloqueia a própria agenda: o profissional fica fixo nele. o
-// bloqueio do negócio inteiro é só do proprietário: para os outros, a tela
-// cai no modo por profissional
+// bloqueio do negócio inteiro é do proprietário (e do parceiro, na esteira):
+// para os outros, a tela cai no modo por profissional
 final bloqueioFormProvider = Provider.autoDispose
     .family<BloqueioFormProvider, BloqueioFormArgs>((ref, args) {
       final negocio = ref.watch(negocioAtualProvider);
@@ -110,7 +110,7 @@ final bloqueioFormProvider = Provider.autoDispose
         criar: ref.watch(criarBloqueioUseCaseProvider),
         somenteColaboradorId: negocio.ehProprietario ? null : perfilId,
         colaboradorInicialId: args.colaboradorId ?? perfilId,
-        doNegocio: args.doNegocio && negocio.ehProprietario,
+        doNegocio: args.doNegocio && negocio.podeFecharHorario,
         dataInicial: args.data,
       );
       ref.onDispose(provider.dispose);

@@ -15,14 +15,14 @@ import 'package:managers/features/clientes/presentation/widgets/pet_form_sheet.d
 import 'package:managers/features/clientes/presentation/widgets/veiculo_form_sheet.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
 import 'package:managers/features/servicos/presentation/widgets/itens_de_servico.dart';
-import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../kanban_provider.dart';
 import '../providers/atendimento_kanban_form_provider.dart';
 
 // recebe um atendimento na esteira: cliente, o veículo ou pet dele, serviço,
-// dia e uma hora de entrada opcional (a grade segue a duração do serviço);
+// dia e uma hora de entrada opcional (a grade segue a duração do serviço),
+// sem profissional: a fila é do negócio inteiro;
 // ou o avulso, quem chegou sem cadastro, só com uma identificação e o
 // serviço. o dia lotado ou a hora sem vaga é aviso: o dono pode receber
 // mesmo assim. fecha com true quando entrou
@@ -87,7 +87,7 @@ class _AtendimentoKanbanFormPageState
     final mudou = _provider.tipoObjeto == TipoObjeto.veiculo
         ? await VeiculoFormSheet.abrir(context, clienteId: cliente.id)
         : await PetFormSheet.abrir(context, clienteId: cliente.id);
-    if (mudou && mounted) await _provider.recarregarCliente();
+    if (mudou && mounted) await _provider.recarregarCliente(escolherNovo: true);
   }
 
   // cadastro de antes do porte: informar o porte filtra os serviços
@@ -122,6 +122,7 @@ class _AtendimentoKanbanFormPageState
       identificacao: identificacao,
     );
     if (!mounted) return;
+    if (_provider.salvo) return _fechar();
 
     final aviso = _provider.limiteEstourado;
     if (aviso == null) return;
@@ -138,10 +139,15 @@ class _AtendimentoKanbanFormPageState
         identificacao: identificacao,
         ignorarLimite: true,
       );
+      if (mounted && _provider.salvo) _fechar();
     } else {
       _provider.desistirDoLimite();
     }
   }
+
+  // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+  // tela sai, e cada pop a mais fechava a tela de baixo
+  void _fechar() => context.pop(true);
 
   @override
   Widget build(BuildContext context) {
@@ -156,12 +162,6 @@ class _AtendimentoKanbanFormPageState
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.pop(true);
-            });
-          }
-
           if (!provider.carregado) {
             final erro = provider.erroAoCarregar;
             if (erro != null) {
@@ -350,33 +350,6 @@ class _AtendimentoKanbanFormPageState
               errorText: provider.erroDoCampo('servico'),
             ),
           ),
-
-          // o profissional é opcional na esteira: só aparece com equipe
-          if (provider.colaboradores.isNotEmpty) ...[
-            const SizedBox(height: BrandSpacing.space4),
-            DropdownButtonFormField<Colaborador?>(
-              key: ValueKey('colaborador-${provider.colaborador?.id}'),
-              initialValue: provider.colaborador,
-              isExpanded: true,
-              items: [
-                const DropdownMenuItem<Colaborador?>(
-                  value: null,
-                  child: Text('Sem profissional'),
-                ),
-                for (final c in provider.colaboradores)
-                  DropdownMenuItem<Colaborador?>(
-                    value: c,
-                    child: Text(c.nome, overflow: TextOverflow.ellipsis),
-                  ),
-              ],
-              onChanged: provider.selecionarColaborador,
-              decoration: InputDecoration(
-                labelText: 'Profissional (opcional)',
-                prefixIcon: const Icon(Icons.badge_rounded),
-                errorText: provider.erroDoCampo('colaborador'),
-              ),
-            ),
-          ],
 
           const SizedBox(height: BrandSpacing.space4),
 

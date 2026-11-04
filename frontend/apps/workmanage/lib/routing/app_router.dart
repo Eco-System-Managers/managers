@@ -21,7 +21,9 @@ import 'package:managers/features/contratos/presentation/pages/gerar_contrato_pa
 import 'package:managers/features/contratos/presentation/pages/modelo_form_page.dart';
 import 'package:managers/features/dashboard/presentation/pages/inicio_page.dart';
 import 'package:managers/features/empresa/domain/entities/nicho.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/empresa/presentation/pages/configuracoes_page.dart';
+import 'package:managers/features/empresa/presentation/providers/negocio_atual_provider.dart';
 import 'package:managers/features/empresa/presentation/pages/dados_negocio_page.dart';
 import 'package:managers/features/empresa/presentation/pages/horarios_page.dart';
 import 'package:managers/features/empresa/presentation/pages/nichos_page.dart';
@@ -47,18 +49,21 @@ import 'package:managers/features/usuarios/presentation/pages/equipe_page.dart';
 // configurações) usam o navegador raiz, não o da aba
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-// o router é um provider para enxergar a sessão (ref)
+// o router é um provider para enxergar a sessão e o negócio atual (ref)
 final routerProvider = Provider<GoRouter>((ref) {
   final sessao = ref.watch(sessaoControllerProvider);
   final bloqueio = ref.watch(bloqueioAssinaturaProvider);
+  final negocio = ref.watch(negocioAtualProvider);
 
   final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
     // o app sempre abre pela splash, que decide para onde ir
     initialLocation: '/splash',
     // quando a sessão muda (login, logout, 401 definitivo no interceptor),
-    // o router reavalia o redirect: tela privada sem sessão volta ao login
-    refreshListenable: Listenable.merge([sessao, bloqueio]),
+    // o router reavalia o redirect: tela privada sem sessão volta ao login.
+    // o negócio também: ao carregar depois do login, a rota que a pessoa
+    // não tem (as abas do colaborador comum da esteira) é trocada na hora
+    refreshListenable: Listenable.merge([sessao, bloqueio, negocio]),
     redirect: (context, state) {
       // antes de a splash carregar a sessão guardada, não há o que decidir
       if (!sessao.carregada) return null;
@@ -73,6 +78,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           destino != '/mais/excluir-conta') {
         return '/mais/assinatura';
       }
+      if (sessao.autenticado) return _rotaFechada(negocio, destino);
       return null;
     },
     routes: <RouteBase>[
@@ -414,6 +420,31 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(router.dispose);
   return router;
 });
+
+// o que a casca esconde também não abre pela rota (a API recusa de todo
+// jeito; aqui é para a tela certa aparecer). o colaborador comum da esteira
+// só tem o quadro: as outras abas, os itens do Mais e as telas do quadro
+// que não são dele (receber, fechar horário, pendências) levam a ele. na
+// esteira, quem não é dono não tem a estrutura do negócio: equipe,
+// configurações e etapas levam ao Mais. antes de o negócio carregar (ou
+// enquanto recarrega) não há o que decidir
+String? _rotaFechada(NegocioAtualProvider negocio, String rota) {
+  if (!negocio.carregado || negocio.carregando) return null;
+  const doQuadro = [
+    '/inicio',
+    '/clientes',
+    '/mais/servicos',
+    '/mais/financeiro',
+    '/mais/contratos',
+    '/quadro/novo',
+    '/quadro/bloquear',
+    '/agenda/pendencias',
+  ];
+  if (negocio.soMoveOsCards && doQuadro.any(rota.startsWith)) return '/agenda';
+  const estrutura = ['/mais/equipe', '/mais/configuracoes', '/mais/etapas'];
+  if (!negocio.veEstrutura && estrutura.any(rota.startsWith)) return '/mais';
+  return null;
+}
 
 // as telas que abrem sem sessão: splash, login, recuperação e cadastro
 bool _publica(String rota) {

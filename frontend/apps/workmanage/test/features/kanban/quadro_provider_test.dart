@@ -13,8 +13,6 @@ import 'package:managers/features/kanban/domain/entities/etapa.dart';
 import 'package:managers/features/kanban/domain/params/kanban_params.dart';
 import 'package:managers/features/kanban/domain/usecases/kanban_use_cases.dart';
 import 'package:managers/features/kanban/presentation/providers/quadro_provider.dart';
-import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
-import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockListarEtapas extends Mock implements ListarEtapasUseCase {}
@@ -25,9 +23,6 @@ class _MockMover extends Mock implements MoverAtendimentoUseCase {}
 
 class _MockListarPendencias extends Mock implements ListarPendenciasUseCase {}
 
-class _MockListarColaboradores extends Mock
-    implements ListarColaboradoresUseCase {}
-
 class _MockObterCapacidade extends Mock
     implements ObterCapacidadeDoDiaUseCase {}
 
@@ -36,11 +31,10 @@ class _MockAjustarCapacidade extends Mock
 
 class _MockDesfazerAjuste extends Mock implements DesfazerAjusteDoDiaUseCase {}
 
-class _MockListarBloqueios extends Mock implements ListarBloqueiosDoDiaUseCase {}
+class _MockListarBloqueios extends Mock
+    implements ListarBloqueiosDoDiaUseCase {}
 
 class _MockExcluirBloqueio extends Mock implements ExcluirBloqueioUseCase {}
-
-const _joao = Colaborador(id: 2, nome: 'João');
 
 const _aguardando = Etapa(id: 1, nome: 'Aguardando', ordem: 0);
 const _lavando = Etapa(id: 2, nome: 'Lavando', ordem: 1);
@@ -95,7 +89,6 @@ void main() {
   late _MockListarDoDia listarDoDia;
   late _MockMover mover;
   late _MockListarPendencias listarPendencias;
-  late _MockListarColaboradores listarColaboradores;
   late _MockObterCapacidade obterCapacidade;
   late _MockAjustarCapacidade ajustarCapacidade;
   late _MockDesfazerAjuste desfazerAjuste;
@@ -116,7 +109,6 @@ void main() {
     listarDoDia: listarDoDia,
     mover: mover,
     listarPendencias: listarPendencias,
-    listarColaboradores: listarColaboradores,
     obterCapacidade: obterCapacidade,
     ajustarCapacidade: ajustarCapacidade,
     desfazerAjuste: desfazerAjuste,
@@ -130,7 +122,6 @@ void main() {
     listarDoDia = _MockListarDoDia();
     mover = _MockMover();
     listarPendencias = _MockListarPendencias();
-    listarColaboradores = _MockListarColaboradores();
     obterCapacidade = _MockObterCapacidade();
     ajustarCapacidade = _MockAjustarCapacidade();
     desfazerAjuste = _MockDesfazerAjuste();
@@ -140,8 +131,6 @@ void main() {
         .thenAnswer((_) async => Right(_capacidade));
     when(() => listarBloqueios(any()))
         .thenAnswer((_) async => Right([_almoco, _doJoao, _diaTodo]));
-    when(() => listarColaboradores(any()))
-        .thenAnswer((_) async => const Right([_joao]));
     when(() => listarEtapas(any()))
         .thenAnswer((_) async => const Right([_aguardando, _lavando]));
     when(() => listarDoDia(any())).thenAnswer(
@@ -172,7 +161,6 @@ void main() {
         verify(() => listarDoDia(captureAny())).captured.single
             as ListarDoDiaParams;
     expect(params.data, _hoje);
-    expect(params.colaboradorId, isNull);
     expect(verify(() => obterCapacidade(captureAny())).captured.single, _hoje);
   });
 
@@ -337,21 +325,35 @@ void main() {
   });
 
   test(
-    'filtrar por profissional manda o id e a equipe recarrega junto',
+    'quem só move os cards não pede as pendências: elas não são dele',
     () async {
-      final provider = montar();
+      when(() => listarPendencias(any()))
+          .thenAnswer((_) async => const Right([]));
+      final provider = QuadroProvider(
+        listarEtapas: listarEtapas,
+        listarDoDia: listarDoDia,
+        mover: mover,
+        listarPendencias: listarPendencias,
+        obterCapacidade: obterCapacidade,
+        ajustarCapacidade: ajustarCapacidade,
+        desfazerAjuste: desfazerAjuste,
+        listarBloqueios: listarBloqueios,
+        excluirBloqueio: excluirBloqueio,
+        soMoveOsCards: () => true,
+        hoje: _hoje,
+      );
+
       await provider.carregar();
-      expect(provider.colaboradores, [_joao]);
 
-      await provider.filtrarColaborador(2);
-
-      final params =
-          verify(() => listarDoDia(captureAny())).captured.last
-              as ListarDoDiaParams;
-      expect(params.colaboradorId, 2);
-      expect(provider.colaboradorId, 2);
-      // a equipe vem de novo a cada carga: quem entrou depois aparece no filtro
-      verify(() => listarColaboradores(any())).called(2);
+      expect(provider.carregado, isTrue);
+      expect(provider.pendencias, 0);
+      verifyNever(() => listarPendencias(any()));
     },
   );
+
+  test('sem ninguém informado, ninguém opera nem só move os cards', () async {
+    final provider = montar();
+    expect(provider.operaComODono, isFalse);
+    expect(provider.soMoveOsCards, isFalse);
+  });
 }

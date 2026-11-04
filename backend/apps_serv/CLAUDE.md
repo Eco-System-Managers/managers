@@ -2,7 +2,7 @@
 
 O lado **B2C**: tudo que o cliente final usa pelo app Service Manage.
 
-Três apps, ~2.100 linhas. Todos vivem no **schema público** (`SHARED_APPS`) —
+Três apps, ~2.100 linhas. Todos são **públicos** (modelos sem `tenant`) —
 uma conta de cliente não pertence a negócio nenhum, ela atravessa a plataforma
 inteira.
 

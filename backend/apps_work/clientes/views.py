@@ -2,8 +2,10 @@ from rest_framework import viewsets
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q, Prefetch
+from core.permissions import NaoEhColaboradorDaEsteira
 from .models import Cliente, ObjetoCliente, Pet, TipoObjeto, Veiculo
 from .serializers import ClienteSerializer, ObjetoClienteSerializer, PetSerializer, VeiculoSerializer
 from .services import RemocaoClienteService
@@ -16,6 +18,10 @@ from .services import RemocaoClienteService
 )
 class ClienteViewSet(viewsets.ModelViewSet):
     serializer_class = ClienteSerializer
+    # a ficha do cliente (e os veículos e pets dela) não é do colaborador
+    # comum da esteira: ele só move os cards
+    permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
+
     def perform_destroy(self, instance):
         RemocaoClienteService().remover(instance)
 
@@ -43,6 +49,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
 
 class VeiculoViewSet(viewsets.ModelViewSet):
     serializer_class = VeiculoSerializer
+    permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
 
     def get_queryset(self):
         qs = Veiculo.objects.select_related('cliente').all()
@@ -57,6 +64,7 @@ class VeiculoViewSet(viewsets.ModelViewSet):
 
 class PetViewSet(viewsets.ModelViewSet):
     serializer_class = PetSerializer
+    permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
 
     def get_queryset(self):
         qs = Pet.objects.select_related('cliente').all()

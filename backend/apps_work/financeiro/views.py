@@ -8,7 +8,10 @@ from rest_framework import status as http_status
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
-from core.permissions import IsProprietario, colaborador_aplicado, exigir_ver_valores, vinculo_do_usuario
+from core.permissions import (
+    IsProprietario, colaborador_aplicado, eh_esteira, eh_parceiro, exigir_nao_ser_colaborador_da_esteira,
+    exigir_ver_valores,
+)
 from apps_work.clientes.models import Cliente
 from .models import Despesa, TransacaoCredito
 from .serializers import (
@@ -22,8 +25,13 @@ from core.excecoes import ErroDeNegocio, erro
 class SaldoClienteView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(responses=SaldoClienteSerializer, summary='Saldo de crédito e extrato do cliente')
+    @extend_schema(
+        responses=SaldoClienteSerializer, summary='Saldo de crédito e extrato do cliente',
+        description='O colaborador comum da esteira não vê valores: 403 sem_permissao.',
+    )
     def get(self, request, cliente_id):
+        # o crédito é dinheiro do cliente: na esteira só quem cobra vê
+        exigir_nao_ser_colaborador_da_esteira(request)
         if not Cliente.objects.filter(id=cliente_id).exists():
             return erro('Cliente não encontrado.', status_code=http_status.HTTP_404_NOT_FOUND)
 
@@ -47,8 +55,9 @@ class CaixaView(APIView):
             OpenApiParameter('data_fim', OpenApiTypes.DATE, description='Padrão: hoje.'),
             OpenApiParameter(
                 'colaborador', OpenApiTypes.INT,
-                description='Filtra pelo colaborador (exclui o kanban). '
-                            'Quem não é proprietário vê sempre o próprio, ignorando este parâmetro.',
+                description='Só no modo horário: filtra pelo colaborador, e quem não é proprietário vê sempre o '
+                            'próprio, ignorando este parâmetro. Na esteira o caixa é do negócio inteiro e o '
+                            'parâmetro é ignorado.',
             ),
         ],
     )
@@ -71,13 +80,15 @@ class CaixaView(APIView):
             except ValueError:
                 return erro('Colaborador inválido.', status_code=http_status.HTTP_400_BAD_REQUEST)
 
-        # a mesma trava do painel: o colaborador fecha só o próprio caixa
+        # a mesma trava do painel: na agenda o parceiro fecha só o próprio
+        # caixa; na esteira ninguém tem recorte
         colaborador_id = colaborador_aplicado(request, colaborador_id)
 
         dados = CaixaService().obter_dados(data_inicio, data_fim, colaborador_id)
-        # o parceiro vê o próprio bruto e o próprio repasse; a parte da casa
-        # é assunto do dono
-        if vinculo_do_usuario(request) == 'parceiro':
+        # na agenda o parceiro vê o próprio bruto e o próprio repasse; a parte
+        # da casa é assunto do dono. na esteira ele fecha o caixa inteiro,
+        # com a casa, como o dono
+        if eh_parceiro(request) and not eh_esteira(request):
             dados['kpis']['casa'] = None
         return Response(dados)
 

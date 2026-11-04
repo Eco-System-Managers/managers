@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from django.conf import settings
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
@@ -87,13 +87,25 @@ class ConfirmacaoCadastroService:
     # já expira em 15 minutos, então um dia é folga de sobra para reenviar.
     VALIDADE_PENDENTE = timedelta(days=1)
 
-    def solicitar(self, nome_empresa: str, nome: str, email: str, senha: str) -> None:
+    def solicitar(
+        self, nome_empresa: str, nome: str, email: str, senha: str, email_anterior: str | None = None,
+    ) -> None:
         """Guarda o cadastro e envia o código. Pedir de novo com o mesmo e-mail
-        substitui os dados e invalida o código anterior."""
+        substitui os dados e invalida o código anterior.
+
+        Com `email_anterior` (a pessoa errou o e-mail e voltou para corrigir), o
+        pendente dele sai, para o código mandado ao e-mail errado não criar a
+        empresa. Só com a mesma senha: sem ela, qualquer um apagaria o cadastro
+        de outra pessoa sabendo o e-mail."""
+        email = email.strip().lower()
         with com_tenant(None):
             CadastroPendente.objects.filter(criado_em__lt=timezone.now() - self.VALIDADE_PENDENTE).delete()
+            if email_anterior and email_anterior.strip().lower() != email:
+                anterior = CadastroPendente.objects.filter(email=email_anterior.strip().lower()).first()
+                if anterior is not None and check_password(senha, anterior.senha_hash):
+                    anterior.delete()
             pendente, _ = CadastroPendente.objects.update_or_create(
-                email=email.strip().lower(),
+                email=email,
                 defaults={'nome_empresa': nome_empresa, 'nome': nome, 'senha_hash': make_password(senha)},
             )
             self._enviar_codigo(pendente)
@@ -400,6 +412,7 @@ class ExclusaoContaService:
 
     @transaction.atomic
     def _apagar_login(self, user) -> None:
+        from apps_work.uso.models import EventoDeUso
         from tenants.models import Membro
 
         membros = list(Membro.objects.filter(user=user).select_related('tenant'))
@@ -407,6 +420,7 @@ class ExclusaoContaService:
             with com_tenant(membro.tenant):
                 self._desligar_da_equipe(user, membro.tenant.schema_name)
         Membro.objects.filter(user=user).delete()
+        EventoDeUso.objects.filter(user_id=user.pk).delete()
         # A cascata do User alcança tabelas de negócio (UltimaAtividade não,
         # mas um Colaborador que sobrou sim): sem isolamento para ela ver tudo.
         with sem_isolamento():
@@ -417,6 +431,7 @@ class ExclusaoContaService:
         from apps_serv.consumidores.models import AgendamentoConsumidor, VinculoConsumidor
         from apps_serv.vitrine.models import NegocioPublico
         from apps_work.agenda.models import StatusAgendamento
+        from apps_work.uso.models import EventoDeUso
         from tenants.models import ConviteIndex, Membro, Tenant
 
         from .models import ExclusaoConta
@@ -444,6 +459,7 @@ class ExclusaoContaService:
         VinculoConsumidor.objects.filter(schema_name=schema_name).delete()
         NegocioPublico.objects.filter(schema_name=schema_name).delete()
         ConviteIndex.objects.filter(schema_name=schema_name).delete()
+        EventoDeUso.objects.filter(schema_name=schema_name).delete()
         # O dono que está em outro negócio continua com o login: o pedido sai
         # daqui, senão voltaria na próxima rodada.
         ExclusaoConta.objects.filter(schema_name=schema_name).delete()

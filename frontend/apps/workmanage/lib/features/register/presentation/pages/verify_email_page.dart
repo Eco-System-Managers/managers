@@ -205,11 +205,15 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // errou o e-mail: volta para o formulário
+                              // errou o e-mail: volta para o formulário, que
+                              // está embaixo com o que a pessoa digitou. aberta
+                              // sem ele embaixo, um cadastro novo
                               TextButton(
                                 onPressed: loading
                                     ? null
-                                    : () => context.go('/register'),
+                                    : () => context.canPop()
+                                          ? context.pop()
+                                          : context.go('/register'),
                                 child: const Text('Trocar e-mail'),
                               ),
                               TextButton(

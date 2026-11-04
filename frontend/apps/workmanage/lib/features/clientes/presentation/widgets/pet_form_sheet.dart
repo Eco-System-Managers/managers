@@ -75,20 +75,30 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
   }
 
   Future<void> _salvar() async {
-    if (!_formKey.currentState!.validate()) return;
-    await ref
-        .read(objetoFormProvider)
-        .salvarPet(
-          Pet(
-            id: widget.pet?.id ?? 0,
-            clienteId: widget.clienteId,
-            nome: _nomeController.text.trim(),
-            especie: _especieController.text.trim(),
-            raca: _racaController.text.trim(),
-            porte: _porte,
-            dataNascimento: _nascimento,
-          ),
-        );
+    final provider = ref.read(objetoFormProvider);
+    // o "concluir" do teclado não espera o botão travar
+    if (provider.isLoading || !_formKey.currentState!.validate()) return;
+    await provider.salvarPet(
+      Pet(
+        id: widget.pet?.id ?? 0,
+        clienteId: widget.clienteId,
+        nome: _nomeController.text.trim(),
+        especie: _especieController.text.trim(),
+        raca: _racaController.text.trim(),
+        porte: _porte,
+        dataNascimento: _nascimento,
+      ),
+    );
+    _fecharSeConcluiu();
+  }
+
+  // fecha uma vez, aqui, e não no build: o build roda de novo enquanto a
+  // folha sai (o teclado fechando muda o recuo), e cada pop a mais fechava
+  // a tela de baixo
+  void _fecharSeConcluiu() {
+    if (!mounted) return;
+    final provider = ref.read(objetoFormProvider);
+    if (provider.salvo || provider.removido) Navigator.of(context).pop(true);
   }
 
   Future<void> _remover() async {
@@ -104,6 +114,7 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
     );
     if (!ok || !mounted) return;
     await ref.read(objetoFormProvider).removerPet(pet.id);
+    _fecharSeConcluiu();
   }
 
   @override
@@ -116,12 +127,6 @@ class _PetFormSheetState extends ConsumerState<PetFormSheet> {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
-        if (provider.salvo || provider.removido) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) Navigator.of(context).pop(true);
-          });
-        }
-
         return Form(
           key: _formKey,
           child: ListView(

@@ -78,8 +78,10 @@ dessincroniza do histórico.
 `CaixaService.obter_dados` junta pagamentos dos **dois modos** de agenda
 (`PagamentoAgendamento` da agenda e `PagamentoAtendimento` da esteira) num período.
 
-Filtrar por colaborador vale nos dois modos: na esteira o profissional do card é
-opcional, então só entram os atendimentos atribuídos a ele.
+Filtrar por colaborador é só da agenda: o card da esteira não tem profissional,
+então com o filtro a esteira fica de fora. Na esteira o caixa é sempre do
+negócio inteiro (`colaborador_aplicado` devolve todos e o parâmetro é
+ignorado).
 
 Os kpis trazem `repasse` (a soma do que ficou congelado em cada pagamento como
 comissão do parceiro) e `casa` (`total - repasse`). Cada pagamento traz o
@@ -91,11 +93,13 @@ traz `cliente_nome` = identificação ("Hilux branca"). Ele não tem comanda: a
 cobrança recusa `credito_aplicado` e `troco_credito` (400 `avulso_sem_credito`,
 no `kanban`), então nenhuma `TransacaoCredito` nasce dele.
 
-Quem é o quê (`core/permissions.py`): o parceiro fecha **só o próprio caixa** (a
-view troca o `colaborador` pedido pelo dele, `colaborador_aplicado`) e recebe
-`casa` nulo — a parte da casa é assunto do dono. O colaborador comum não vê o
-caixa: 403 `sem_acesso_a_valores`. Sem perfil de colaborador, 404
-`sem_colaborador`.
+Quem é o quê (`core/permissions.py`): na agenda o parceiro fecha **só o próprio
+caixa** (a view troca o `colaborador` pedido pelo dele, `colaborador_aplicado`)
+e recebe `casa` nulo — a parte da casa é assunto do dono. Na esteira ele fecha
+o caixa inteiro, com a casa, como o dono (não há comissão: `repasse` é zero).
+O colaborador comum não vê o caixa: 403 `sem_acesso_a_valores`; na esteira ele
+também não vê o saldo do cliente (403 `sem_permissao`). Sem perfil de
+colaborador, 404 `sem_colaborador`.
 
 ## A cobrança (agenda e kanban)
 

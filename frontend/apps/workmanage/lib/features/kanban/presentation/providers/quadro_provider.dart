@@ -10,8 +10,6 @@ import 'package:managers/features/agenda/domain/usecases/agenda_use_cases.dart'
         ListarAgendamentosDoDiaParams,
         ListarBloqueiosDoDiaUseCase,
         ListarPendenciasUseCase;
-import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
-import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 
 import '../../domain/entities/atendimento_kanban.dart';
 import '../../domain/entities/capacidade_do_dia.dart';
@@ -20,47 +18,46 @@ import '../../domain/params/kanban_params.dart';
 import '../../domain/usecases/kanban_use_cases.dart';
 
 // estado do quadro (montado em kanban_provider.dart, na raiz da feature): o
-// dia escolhido, o profissional filtrado, as etapas e os cards de cada uma,
-// quanto cabe no dia, os horários fechados do negócio nele e quantas
-// cobranças estão pendentes (as pendências e os bloqueios são os da agenda:
-// a API junta os dois modos)
+// dia escolhido, as etapas e os cards de cada uma, quanto cabe no dia, os
+// horários fechados do negócio nele e quantas cobranças estão pendentes (as
+// pendências e os bloqueios são os da agenda: a API junta os dois modos). o
+// quadro é um só, do negócio: não há recorte por pessoa
 class QuadroProvider extends ChangeNotifier {
   QuadroProvider({
     required this._listarEtapas,
     required this._listarDoDia,
     required this._mover,
     required this._listarPendencias,
-    required this._listarColaboradores,
     required this._obterCapacidade,
     required this._ajustarCapacidade,
     required this._desfazerAjuste,
     required this._listarBloqueios,
     required this._excluirBloqueio,
-    bool Function()? ehProprietario,
+    bool Function()? operaComODono,
+    bool Function()? soMoveOsCards,
     DateTime? hoje,
-  }) : _ehProprietario = ehProprietario ?? (() => false),
+  }) : _operaComODono = operaComODono ?? (() => false),
+       _soMoveOsCards = soMoveOsCards ?? (() => false),
        _hoje = somenteData(hoje ?? DateTime.now()),
        _dia = somenteData(hoje ?? DateTime.now());
 
-  // quem entrou é o dono: lido na hora, porque o negócio atual carrega
-  // depois do login. só o dono ajusta o dia e fecha horários
-  final bool Function() _ehProprietario;
-  bool get ehProprietario => _ehProprietario();
+  // quem entrou, lido na hora, porque o negócio atual carrega depois do
+  // login. o dono e o parceiro operam o quadro (recebem, ajustam o dia e
+  // fecham horários); o colaborador comum só move os cards e ajusta o tempo
+  final bool Function() _operaComODono;
+  final bool Function() _soMoveOsCards;
+  bool get operaComODono => _operaComODono();
+  bool get soMoveOsCards => _soMoveOsCards();
 
   final ListarEtapasUseCase _listarEtapas;
   final ListarAtendimentosDoDiaUseCase _listarDoDia;
   final MoverAtendimentoUseCase _mover;
   final ListarPendenciasUseCase _listarPendencias;
-  final ListarColaboradoresUseCase _listarColaboradores;
   final ObterCapacidadeDoDiaUseCase _obterCapacidade;
   final AjustarCapacidadeDoDiaUseCase _ajustarCapacidade;
   final DesfazerAjusteDoDiaUseCase _desfazerAjuste;
   final ListarBloqueiosDoDiaUseCase _listarBloqueios;
   final ExcluirBloqueioUseCase _excluirBloqueio;
-
-  // a equipe ativa, para os chips; null em colaboradorId é todos
-  List<Colaborador> _colaboradores = const [];
-  int? _colaboradorId;
 
   final DateTime _hoje;
   DateTime _dia;
@@ -80,8 +77,6 @@ class QuadroProvider extends ChangeNotifier {
   DateTime get hoje => _hoje;
   DateTime get dia => _dia;
   bool get ehHoje => mesmoDia(_dia, _hoje);
-  List<Colaborador> get colaboradores => _colaboradores;
-  int? get colaboradorId => _colaboradorId;
   List<Etapa> get etapas => _etapas;
   List<AtendimentoKanban> get atendimentos => _atendimentos;
 
@@ -101,6 +96,7 @@ class QuadroProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   // atendimentos passados sem cobrança; 0 também quando a consulta falhou
+  // ou quando quem entrou não cobra (o colaborador comum da esteira)
   int get pendencias => _pendencias;
 
   // os cards de uma coluna: quem tem hora marcada primeiro, na ordem da
@@ -130,15 +126,12 @@ class QuadroProvider extends ChangeNotifier {
     _erroAoCarregar = null;
     notifyListeners();
 
-    final (etapas, dia, capacidade, bloqueios, pendencias, _) = await (
+    final (etapas, dia, capacidade, bloqueios, _) = await (
       _listarEtapas(NoParams()),
-      _listarDoDia(
-        ListarDoDiaParams(data: _dia, colaboradorId: _colaboradorId),
-      ),
+      _listarDoDia(ListarDoDiaParams(data: _dia)),
       _obterCapacidade(_dia),
       _listarBloqueios(ListarAgendamentosDoDiaParams(data: _dia)),
-      _listarPendencias(NoParams()),
-      _carregarColaboradores(),
+      _carregarPendencias(),
     ).wait;
     if (_disposed) return;
 
@@ -159,10 +152,17 @@ class QuadroProvider extends ChangeNotifier {
           if (b.doNegocio) b,
       ]);
     });
-    pendencias.fold((_) {}, (lista) => _pendencias = lista.length);
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  // o colaborador comum da esteira não cobra: as pendências não são dele (a
+  // API recusa), então nem são pedidas
+  Future<void> _carregarPendencias() async {
+    if (soMoveOsCards) return;
+    final result = await _listarPendencias(NoParams());
+    result.fold((_) {}, (lista) => _pendencias = lista.length);
   }
 
   Future<void> selecionarDia(DateTime data) async {
@@ -175,20 +175,6 @@ class QuadroProvider extends ChangeNotifier {
 
   Future<void> irParaHoje() => selecionarDia(_hoje);
 
-  Future<void> filtrarColaborador(int? id) async {
-    if (id == _colaboradorId) return;
-    _colaboradorId = id;
-    await carregar();
-  }
-
-  Future<void> _carregarColaboradores() async {
-    final result = await _listarColaboradores(NoParams());
-    // sem a equipe o quadro continua útil: só fica sem o filtro
-    result.fold((_) {}, (lista) {
-      _colaboradores = lista.where((c) => c.ativo).toList();
-    });
-  }
-
   // o dia todo antes das faixas; as faixas pela hora de início
   static List<Bloqueio> _ordenados(List<Bloqueio> lista) {
     int minutos(Bloqueio b) =>
@@ -199,7 +185,7 @@ class QuadroProvider extends ChangeNotifier {
   // ao voltar de uma tela que pode ter mudado o quadro
   Future<void> recarregar() => carregar();
 
-  // reabre um horário fechado do negócio (só o proprietário). devolve a
+  // reabre um horário fechado do negócio (o dono e o parceiro). devolve a
   // mensagem de erro para a folha mostrar, ou null quando excluiu (e o dia
   // recarrega: a grade de horas muda junto)
   Future<String?> excluirBloqueio(int id) async {
@@ -228,7 +214,7 @@ class QuadroProvider extends ChangeNotifier {
     }, (_) => carregar());
   }
 
-  // o ajuste do dia aberto (só o proprietário). devolve a mensagem de erro
+  // o ajuste do dia aberto (o dono e o parceiro). devolve a mensagem de erro
   // para a folha mostrar, ou null quando salvou; a capacidade já fica a
   // que a API devolveu
   Future<String?> ajustarCapacidade({int? capacidade, required int vagas}) {

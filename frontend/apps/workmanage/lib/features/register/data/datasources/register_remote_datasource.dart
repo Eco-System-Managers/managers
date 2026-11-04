@@ -9,6 +9,7 @@ abstract class RegisterRemoteDataSource {
     required String nome,
     required String email,
     required String senha,
+    String? emailAnterior,
   });
 
   // cria a empresa e devolve a sessão (access e refresh)
@@ -28,6 +29,7 @@ class RegisterRemoteDataSourceImpl implements RegisterRemoteDataSource {
     required String nome,
     required String email,
     required String senha,
+    String? emailAnterior,
   }) async {
     // a empresa ainda não é criada: o backend guarda os dados e manda o
     // código por e-mail. quem cria é o confirm
@@ -38,6 +40,7 @@ class RegisterRemoteDataSourceImpl implements RegisterRemoteDataSource {
         'nome': nome,
         'email': email,
         'senha': senha,
+        'email_anterior': ?emailAnterior,
       },
     );
   }

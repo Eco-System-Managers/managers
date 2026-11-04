@@ -170,8 +170,17 @@ não tem agenda individual (`kanban`, "A capacidade do dia").
 - **Só listar, criar e excluir.** Sem editar: para mudar, exclui e cria de novo.
 - **Quem pode** (`exigir_poder_bloquear`): o dono bloqueia a agenda de todos; o
   parceiro, só a própria; o colaborador comum só vê (403 `sem_permissao_bloquear`).
-  **O do negócio é só do dono** (`exigir_poder_bloquear_em`, em `views.py`):
-  criar e excluir por quem não é proprietário é 403 `sem_permissao`.
+  **O do negócio é do dono e, na esteira, do parceiro**
+  (`exigir_poder_bloquear_em`, em `views.py`): criar e excluir pelos outros é
+  403 `sem_permissao`. Na esteira não há agenda por profissional: o bloqueio
+  com `colaborador` é 400 `bloqueio_individual_na_esteira` (para quem nem
+  fecha o negócio, 403 antes).
+- **O colaborador comum da esteira não tem agenda por horário.**
+  `agendamentos/` (inclusive `cobrar/`), `agenda/slots/` e
+  `agenda/dias-com-registro/` são 403 `sem_permissao` para ele
+  (`NaoEhColaboradorDaEsteira`): marcar, ver telefone e valores ou cobrar por
+  aqui seria contornar a esteira. `agenda/bloqueios/` ele lê (o quadro mostra
+  os horários fechados) e `agenda/pendencias/` é 403.
 - **Não bloqueia em cima de cliente.** Criar procura atendimento ainda por
   acontecer (`agendado`/`confirmado`) dentro do período e da faixa; no fixo,
   em todas as datas a partir do início. Achou: 400 `bloqueio_com_cliente`. O

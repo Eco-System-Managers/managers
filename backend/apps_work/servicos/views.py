@@ -3,7 +3,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from core.permissions import IsProprietario
+from core.permissions import IsProprietarioOuParceiroDaEsteira, NaoEhColaboradorDaEsteira
 from .models import Servico
 from .serializers import ServicoSerializer
 
@@ -27,10 +27,13 @@ from .serializers import ServicoSerializer
 class ServicoViewSet(viewsets.ModelViewSet):
     serializer_class = ServicoSerializer
 
+    # escrita: o dono e, na esteira, o parceiro. leitura: a equipe, menos o
+    # colaborador comum da esteira (o catálogo tem preço, e ele só move os
+    # cards)
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAuthenticated(), IsProprietario()]
-        return [IsAuthenticated()]
+            return [IsAuthenticated(), IsProprietarioOuParceiroDaEsteira()]
+        return [IsAuthenticated(), NaoEhColaboradorDaEsteira()]
 
     def get_queryset(self):
         qs = Servico.objects.prefetch_related('colaboradores').all()

@@ -3,16 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/folha.dart';
+import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:validatorless/validatorless.dart';
 
 import '../../domain/entities/colaborador.dart';
 import '../../usuarios_provider.dart';
 import '../widgets/campos_colaborador.dart';
 
-// adiciona alguém à equipe num passo só: nome, função, vínculo (com a
-// comissão ou a permissão de cobrar) e, ligando o acesso ao app, o e-mail do
-// convite. a pessoa já aparece na agenda e nos filtros; com e-mail, recebe o
-// link para criar a senha. fecha com true quando terminou
+// adiciona alguém à equipe num passo só: nome, função, vínculo (na agenda,
+// com a comissão ou a permissão de cobrar) e, ligando o acesso ao app, o
+// e-mail do convite. a pessoa já aparece na agenda e nos filtros; com
+// e-mail, recebe o link para criar a senha. fecha com true quando terminou
 class ColaboradorFormPage extends ConsumerStatefulWidget {
   const ColaboradorFormPage({super.key});
 
@@ -42,18 +43,21 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
 
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref
-        .read(colaboradorFormProvider)
-        .salvar(
-          CamposColaborador.dados(
-            nome: _nomeController,
-            funcao: _funcaoController,
-            comissao: _comissaoController,
-            tipo: _tipo,
-            podeCobrar: _podeCobrar,
-          ),
-          email: _convidar ? _emailController.text : '',
-        );
+    final provider = ref.read(colaboradorFormProvider);
+    await provider.salvar(
+      CamposColaborador.dados(
+        nome: _nomeController,
+        funcao: _funcaoController,
+        comissao: _comissaoController,
+        tipo: _tipo,
+        podeCobrar: _podeCobrar,
+        naEsteira: ref.read(negocioAtualProvider).isKanban,
+      ),
+      email: _convidar ? _emailController.text : '',
+    );
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // tela sai, e cada pop a mais fechava a tela de baixo
+    if (mounted && provider.salvo) context.pop(true);
   }
 
   @override
@@ -69,11 +73,6 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.pop(true);
-            });
-          }
           // a pessoa já foi criada: os dados dela não vão de novo, só o
           // convite
           final soConvite = provider.criadoSemConvite;
@@ -121,6 +120,7 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
                   habilitado: !soConvite,
                   // com convite a caminho a pessoa vai entrar no app
                   temAcesso: _convidar,
+                  naEsteira: ref.read(negocioAtualProvider).isKanban,
                 ),
 
                 const SizedBox(height: BrandSpacing.space5),

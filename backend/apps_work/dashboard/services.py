@@ -38,8 +38,9 @@ class DashboardService:
 
     Receita e atendimentos seguem a definição do caixa (`pagamentos_efetivados`
     e a data do atendimento), para o painel nunca divergir do fechamento.
-    Com `colaborador_id`, só o que é daquele profissional entra, nos dois
-    modos (na esteira, os atendimentos atribuídos a ele), como no caixa.
+    Com `colaborador_id`, só a agenda daquele profissional entra, como no
+    caixa; a esteira não tem profissional no card, e lá o painel é sempre do
+    negócio inteiro (`colaborador_aplicado` devolve todos).
     `com_valores=False` (colaborador comum) zera os kpis de dinheiro.
     """
 
@@ -119,8 +120,9 @@ class DashboardService:
         if colaborador_id is not None:
             agenda_pagos = agenda_pagos.filter(agendamento__colaborador_id=colaborador_id)
             agenda_concluidos = agenda_concluidos.filter(colaborador_id=colaborador_id)
-            kanban_pagos = kanban_pagos.filter(atendimento__colaborador_id=colaborador_id)
-            kanban_concluidos = kanban_concluidos.filter(colaborador_id=colaborador_id)
+            # o filtro é da agenda: a esteira não tem profissional e fica de fora
+            kanban_pagos = kanban_pagos.none()
+            kanban_concluidos = kanban_concluidos.none()
 
         faturamento: dict[date, Decimal] = {}
         atendimentos: dict[date, int] = {}
@@ -164,13 +166,13 @@ class DashboardService:
         repasse = somas['r'] or Decimal('0')
         atendimentos = agenda_concluidos.count()
 
-        # na esteira o profissional é opcional: filtrando, só o que foi
-        # atribuído a ele entra
+        # a esteira não tem profissional no card: o filtro é da agenda, e com
+        # ele a esteira fica de fora (na esteira ele nem chega aqui)
         kanban_pagos = kanban_efetivados.filter(atendimento__criado_em__date__range=intervalo)
         kanban_concluidos = AtendimentoKanban.objects.filter(criado_em__date__range=intervalo, pago=True)
         if colaborador_id is not None:
-            kanban_pagos = kanban_pagos.filter(atendimento__colaborador_id=colaborador_id)
-            kanban_concluidos = kanban_concluidos.filter(colaborador_id=colaborador_id)
+            kanban_pagos = kanban_pagos.none()
+            kanban_concluidos = kanban_concluidos.none()
         somas = kanban_pagos.aggregate(t=Sum('valor'), r=Sum('repasse'))
         faturamento += somas['t'] or Decimal('0')
         repasse += somas['r'] or Decimal('0')
@@ -211,7 +213,7 @@ class DashboardService:
 
         kanban = AtendimentoKanban.objects.filter(criado_em__date__range=intervalo)
         if colaborador_id is not None:
-            kanban = kanban.filter(colaborador_id=colaborador_id)
+            kanban = kanban.none()
         somar(kanban.values('servico_id', 'servico__nome', 'servico__nicho').annotate(total=Count('id')))
 
         return sorted(servicos.values(), key=lambda x: -x['total'])[:5]
@@ -225,11 +227,9 @@ class DashboardService:
             kanban_qs = (
                 AtendimentoKanban.objects
                 .filter(criado_em__date=hoje, pago=False)
-                .select_related('objeto__cliente', 'servico', 'etapa', 'colaborador__user')
+                .select_related('objeto__cliente', 'servico', 'etapa')
                 .order_by('horario_entrada', 'criado_em')
             )
-            if colaborador_id is not None:
-                kanban_qs = kanban_qs.filter(colaborador_id=colaborador_id)
             kanban_qs = kanban_qs[:10]
             return [
                 {
@@ -238,7 +238,8 @@ class DashboardService:
                     'cliente_nome': at.rotulo,
                     'cliente_telefone': at.cliente.telefone if at.cliente is not None else '',
                     'servico_nome': at.servico.nome,
-                    'colaborador_nome': at.colaborador.nome_exibido if at.colaborador_id else '',
+                    # a esteira não tem profissional no card
+                    'colaborador_nome': '',
                     'hora': (
                         at.horario_entrada.strftime('%H:%M')
                         if at.horario_entrada

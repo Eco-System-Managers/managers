@@ -264,9 +264,15 @@ class _EtapaFormSheetState extends ConsumerState<_EtapaFormSheet> {
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
     final base = widget.etapa ?? const Etapa(nome: '');
-    await ref
-        .read(etapasProvider)
-        .salvar(base.copyWith(nome: _nomeController.text.trim(), cor: _cor));
+    final provider = ref.read(etapasProvider);
+    await provider.salvar(
+      base.copyWith(nome: _nomeController.text.trim(), cor: _cor),
+    );
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // folha sai, e cada pop a mais fechava a tela de baixo
+    if (!mounted || !provider.salvo) return;
+    provider.avisoDeSalvoMostrado();
+    Navigator.of(context).pop();
   }
 
   // a amostra é a mesma nos dois temas: o check é marinho sobre a cor clara
@@ -287,13 +293,6 @@ class _EtapaFormSheetState extends ConsumerState<_EtapaFormSheet> {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
-        if (provider.salvo) {
-          provider.avisoDeSalvoMostrado();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) Navigator.of(context).pop();
-          });
-        }
-
         return Form(
           key: _formKey,
           child: ListView(

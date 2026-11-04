@@ -87,8 +87,9 @@ Exigência da Apple e do Google, e direito da LGPD. Pede a senha.
   apaga de vez. O do negócio apaga o `Tenant` (e, em cascata, tudo que tem o
   `tenant_id` dele), cancela os horários
   futuros no app do cliente (o histórico dele fica), tira o negócio da lista
-  dos clientes e apaga os logins de quem só estava ali. Um pedido que falha
-  não segura os outros: fica para a rodada seguinte.
+  dos clientes e apaga os logins de quem só estava ali. Os eventos de uso
+  (`apps_work/uso`) vão junto: os do negócio inteiro, ou só os da pessoa.
+  Um pedido que falha não segura os outros: fica para a rodada seguinte.
 - **Apagar `User` e apagar `Tenant` rodam em `sem_isolamento()`:** a cascata
   alcança tabelas de negócio de mais de um tenant (um `User` pode ser
   colaborador em dois), e com o RLS ligado ela só enxergaria o tenant atual.
@@ -117,8 +118,12 @@ frontend mandar o usuário para o wizard em vez do painel.
 Três rotas, e a empresa só nasce na última:
 
 1. `POST /auth/cadastro/solicitar/` — mesmos 4 campos e mesma validação do
-   cadastro direto (`CadastroSerializer`). Grava o `CadastroPendente`, manda o
-   código por e-mail e responde **202** sem sessão.
+   cadastro direto (`SolicitarCadastroSerializer`, filho do `CadastroSerializer`).
+   Grava o `CadastroPendente`, manda o código por e-mail e responde **202** sem
+   sessão. O opcional `email_anterior` é o "trocar e-mail" do app: o pendente
+   do e-mail errado é apagado, para o código mandado a ele não criar a empresa,
+   mas só se a senha conferir com o `senha_hash` dele (saber o e-mail de alguém
+   não basta para apagar o cadastro dessa pessoa).
 2. `POST /auth/cadastro/confirmar/` — `{email, codigo}`. Código certo chama o
    `OnboardingService` com o `senha_hash` do pendente e responde **201 com a
    sessão**, como o cadastro direto. Erros: `codigo_invalido` (errado, expirado
@@ -202,7 +207,7 @@ Configuração em `REST_FRAMEWORK` (`core/settings.py`); classes em
 
 ## O que é fácil errar aqui
 
-- **Este app é compartilhado** (`SHARED_APPS`), não de tenant. Faz sentido: o
+- **Este app é público** (modelos sem `tenant`), não de negócio. Faz sentido: o
   `UltimaAtividade` precisa funcionar antes de o schema ser resolvido.
 - **Usuário inativo é barrado na autenticação, não na permissão.** Desativar
   colaborador sincroniza `User.is_active=False`, e o SimpleJWT recusa o token em

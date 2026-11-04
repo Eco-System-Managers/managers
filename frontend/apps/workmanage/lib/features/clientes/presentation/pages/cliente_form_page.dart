@@ -135,6 +135,9 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
         origem: atual?.origem ?? OrigemCliente.manual,
       ),
     );
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // tela sai, e cada pop a mais fechava a tela de baixo
+    if (mounted && _provider.salvo) context.pop(_provider.cliente);
   }
 
   // máscaras ficam na tela; o backend guarda só os dígitos
@@ -152,12 +155,6 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.pop(provider.cliente);
-            });
-          }
-
           if (!provider.carregado) {
             final erro = provider.erroAoCarregar;
             if (erro != null) {

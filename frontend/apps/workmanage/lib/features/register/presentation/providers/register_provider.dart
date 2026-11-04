@@ -23,6 +23,11 @@ class RegisterProvider extends ChangeNotifier {
   Map<String, String> _fieldErrors = const {};
   String? erroDoCampo(String campo) => _fieldErrors[campo];
 
+  // o e-mail que recebeu o último código. a tela de cadastro fica viva por
+  // baixo da verificação: voltando pelo "Trocar e-mail" e mandando outro, o
+  // pendente deste é descartado na API. só em memória, como o formulário
+  String? _emailComCodigo;
+
   // a tela pode ser fechada durante a requisição
   bool _disposed = false;
 
@@ -38,11 +43,15 @@ class RegisterProvider extends ChangeNotifier {
     _fieldErrors = const {};
     notifyListeners();
 
+    final anterior = _emailComCodigo;
     final params = RegisterParam(
       nomeEmpresa: nomeEmpresa,
       nome: nome,
       email: email,
       senha: senha,
+      emailAnterior: anterior != null && !_mesmoEmail(anterior, email)
+          ? anterior
+          : null,
     );
 
     final result = await _registerUseCase(params);
@@ -51,21 +60,31 @@ class RegisterProvider extends ChangeNotifier {
 
     _isLoading = false;
 
-    final success = result.fold((failure) {
-      if (failure is ValidationFailure && failure.fields.isNotEmpty) {
-        _fieldErrors = {
-          for (final e in failure.fields.entries)
-            if (e.value.isNotEmpty) e.key: e.value.first,
-        };
-      } else {
-        _errorMessage = failure.message;
-      }
-      return false;
-    }, (_) => true);
+    final success = result.fold(
+      (failure) {
+        if (failure is ValidationFailure && failure.fields.isNotEmpty) {
+          _fieldErrors = {
+            for (final e in failure.fields.entries)
+              if (e.value.isNotEmpty) e.key: e.value.first,
+          };
+        } else {
+          _errorMessage = failure.message;
+        }
+        return false;
+      },
+      (_) {
+        _emailComCodigo = email;
+        return true;
+      },
+    );
 
     notifyListeners();
     return success;
   }
+
+  // a API guarda o e-mail em minúsculas e sem espaços nas pontas
+  static bool _mesmoEmail(String a, String b) =>
+      a.trim().toLowerCase() == b.trim().toLowerCase();
 
   // a pessoa mexeu no campo: o erro que a API apontou nele não vale mais
   void limparErroDoCampo(String campo) {

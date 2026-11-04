@@ -20,8 +20,6 @@ class AtendimentoKanban extends Equatable {
     required this.servicoNome,
     required this.servicoPreco,
     this.servicoDuracao = 0,
-    this.colaboradorId,
-    this.colaboradorNome = '',
     this.observacao = '',
     this.data,
     this.horarioEntrada,
@@ -60,9 +58,7 @@ class AtendimentoKanban extends Equatable {
   final Decimal servicoPreco;
   final int servicoDuracao;
 
-  // quem pegou o carro ou o pet; opcional
-  final int? colaboradorId;
-  final String colaboradorNome;
+  // a esteira não tem profissional no card: a fila é do negócio inteiro
   final String observacao;
 
   // o dia do quadro; a API usa hoje quando não vem
@@ -166,8 +162,6 @@ class AtendimentoKanban extends Equatable {
     servicoNome,
     servicoPreco,
     servicoDuracao,
-    colaboradorId,
-    colaboradorNome,
     observacao,
     data,
     horarioEntrada,

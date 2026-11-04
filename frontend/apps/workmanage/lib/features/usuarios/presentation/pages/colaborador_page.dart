@@ -83,6 +83,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
         comissao: _comissaoController,
         tipo: _tipo,
         podeCobrar: _podeCobrar,
+        naEsteira: ref.read(negocioAtualProvider).isKanban,
       ),
     );
   }
@@ -203,6 +204,9 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     );
     if (!ok || !mounted) return;
     await _provider.remover();
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // tela sai, e cada pop a mais fechava a tela de baixo
+    if (mounted && _provider.removido) context.pop(true);
   }
 
   void _avisar(String texto) {
@@ -223,24 +227,27 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
-        if (provider.removido) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) context.pop(true);
-          });
-        }
         if (provider.salvo) _avisar('Ficha salva.');
         if (provider.convidado) _avisar('Convite enviado por e-mail.');
         provider.avisosMostrados();
 
         return Scaffold(
           appBar: AppBar(title: const Text('Colaborador')),
-          body: _corpo(provider, negocio.ehProprietario),
+          body: _corpo(
+            provider,
+            souProprietario: negocio.ehProprietario,
+            naEsteira: negocio.isKanban,
+          ),
         );
       },
     );
   }
 
-  Widget _corpo(ColaboradorProvider provider, bool souProprietario) {
+  Widget _corpo(
+    ColaboradorProvider provider, {
+    required bool souProprietario,
+    required bool naEsteira,
+  }) {
     final c = provider.colaborador;
     if (c == null) {
       final erro = provider.erroAoCarregar;
@@ -352,6 +359,7 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
               limparErroDoCampo: provider.limparErroDoCampo,
               habilitado: souProprietario,
               temAcesso: c.temAcesso || provider.convite != null,
+              naEsteira: naEsteira,
             ),
           if (souProprietario) ...[
             const SizedBox(height: BrandSpacing.space4),

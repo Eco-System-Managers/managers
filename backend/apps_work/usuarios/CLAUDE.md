@@ -26,8 +26,8 @@ um depois, pelo `POST colaboradores/{id}/convidar/`.
 | `nome` | `CharField(150)` vazio | O nome exibido (`nome_exibido` cai no `User` quando vazio: registros antigos) |
 | `funcao` | `CharField(100)` vazio | Cargo exibido (ex.: "Cabeleireiro") |
 | `tipo` | `CharField(20)` = `parceiro` | `parceiro` (agenda e faturamento próprios) ou `colaborador` (executa, não vê valores) |
-| `comissao_percentual` | `Decimal(5,2)` nulo | Só parceiro: a parte dele sobre cada pagamento. Congela em `PagamentoAgendamento`/`PagamentoAtendimento` na cobrança |
-| `pode_cobrar` | `Boolean` = `True` | Só pesa para o colaborador comum; parceiro e dono cobram sempre |
+| `comissao_percentual` | `Decimal(5,2)` nulo | Só parceiro, e só na agenda: a parte dele sobre cada pagamento, congelada em `PagamentoAgendamento` na cobrança. Na esteira não há comissão (o `PagamentoAtendimento` fica com repasse zero) |
+| `pode_cobrar` | `Boolean` = `True` | Só pesa para o colaborador comum, e só na agenda; parceiro e dono cobram sempre. Na esteira o colaborador comum não cobra |
 | `ativo` | `Boolean` = `True` | Mantido em sincronia com `User.is_active` pelo `ColaboradorService` |
 | `criado_em` | `DateTime` `auto_now_add` | |
 
@@ -50,7 +50,11 @@ cria convites, então o token não vaza; `info`/`aceitar` usam outro serializer.
 ## Vínculo: parceiro e colaborador
 
 O `tipo` decide o que a pessoa **vê**; o papel do `Membro` decide o que ela
-**administra**. `core/permissions.py` concentra a leitura:
+**administra**. O que o vínculo significa depende do modo do negócio
+(`EmpresaConfig.tipo_agenda`, lido por `core.permissions.eh_esteira`).
+`core/permissions.py` concentra a leitura.
+
+**No modo horário** (agenda individual):
 
 | | Proprietário | Parceiro | Colaborador |
 |---|---|---|---|
@@ -58,9 +62,33 @@ O `tipo` decide o que a pessoa **vê**; o papel do `Membro` decide o que ela
 | Cobrar | Sempre | Sempre | Só com `pode_cobrar` (403 `sem_permissao_cobrar`) |
 | Equipe | Cadastra, convida, edita | Vê | Vê |
 
-`vinculo_do_usuario`, `ve_valores`, `exigir_ver_valores` e
-`exigir_poder_cobrar` são os pontos de entrada. Sem perfil de colaborador, o
-usuário é tratado como colaborador comum: o menor acesso.
+**Na esteira** (operação compartilhada: a fila e o caixa são do negócio
+inteiro, o card não tem profissional e não há comissão):
+
+| | Proprietário | Parceiro | Colaborador |
+|---|---|---|---|
+| Quadro: ler, mover os cards e ajustar o tempo | ✅ | ✅ | ✅ |
+| Ficha do card | inteira | inteira | sem telefone do cliente e sem valores |
+| Receber, remarcar, falta, excluir, cobrar e desfazer | ✅ | ✅ | 403 (`pode_cobrar` não pesa) |
+| Capacidade do dia e fechar horário | ✅ | ✅ | 403 |
+| Início, caixa e saldo do cliente (a esteira inteira, com a casa) | ✅ | ✅ | 403 |
+| Clientes, veículos e pets, serviços, contratos e modelos | ✅ | ✅, inclusive escrever serviço e modelo | 403 |
+| Ler etapas, horários, dados do negócio e a assinatura (`GET billing/assinatura/`) | ✅ | ✅ | ✅ |
+| Escrever em etapas, horários, dados do negócio, nichos e na assinatura | ✅ | 403 | 403 |
+| Equipe e convites (listar, ver, cadastrar, convidar; `/colaboradores/me/` é de todos) | ✅ | 403 | 403 |
+| Agenda por horário (`agendamentos/`, `agenda/slots/`, `agenda/dias-com-registro/`) | — | — | 403 |
+| Comissão | — | não existe | — |
+
+Os pontos de entrada: `vinculo_do_usuario`, `ve_valores`, `exigir_ver_valores`
+e `exigir_poder_cobrar` (agenda); `eh_proprietario_ou_parceiro_da_esteira`
+(a classe `IsProprietarioOuParceiroDaEsteira` em serviços e modelos; a função
+no bloqueio do negócio), `IsProprietarioOuParceiro` (as ações do quadro),
+`SoOProprietarioNaEsteira` (ler a equipe e os convites: na esteira só o dono)
+e
+`eh_colaborador_da_esteira` (`NaoEhColaboradorDaEsteira` /
+`exigir_nao_ser_colaborador_da_esteira`, o 403 do colaborador comum fora do
+quadro). `colaborador_aplicado` devolve "todos" na esteira. Sem perfil de
+colaborador, o usuário é tratado como colaborador comum: o menor acesso.
 
 ## Papéis
 

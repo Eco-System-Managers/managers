@@ -78,7 +78,8 @@ class BloqueioSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'colaborador': {
                 'help_text': 'De quem é a agenda bloqueada. Nulo (ou omitido) é o negócio inteiro: vale para '
-                             'todos os profissionais e para a esteira. Só o proprietário cria e exclui esse.',
+                             'todos os profissionais e para a esteira. O proprietário e, na esteira, o parceiro '
+                             'criam e excluem esse.',
             },
             'data_fim': {'help_text': 'Nulo é o bloqueio fixo: vale todos os dias a partir do início.'},
             'hora_inicio': {'help_text': 'Nulo junto com hora_fim: o dia inteiro.'},

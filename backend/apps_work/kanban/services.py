@@ -184,7 +184,6 @@ class AtendimentoKanbanService:
         observacao: str = '',
         horario_entrada: time | None = None,
         data: date | None = None,
-        colaborador=None,
         conferir_porte: bool = True,
         ignorar_limite: bool = False,
         identificacao: str = '',
@@ -239,7 +238,6 @@ class AtendimentoKanbanService:
                 observacao=observacao,
                 horario_entrada=horario_entrada,
                 data=data,
-                colaborador=colaborador,
                 minutos_extras=minutos_extras,
                 pronto_em=pronto_em,
             )
@@ -361,15 +359,12 @@ class AtendimentoKanbanService:
         atendimento.pago = True
         atendimento.save(update_fields=['servico', 'desconto', 'acrescimo', 'acrescimo_motivo', 'pago'])
 
-        # a comissão do parceiro congela aqui (ver agenda)
-        colaborador = atendimento.colaborador
+        # Na esteira não há comissão: a fila e o caixa são do negócio inteiro,
+        # e cada pagamento fica com repasse zero (ver usuarios). A comissão
+        # congelada na cobrança é só da agenda.
         atendimento.pagamentos.all().delete()
         PagamentoAtendimento.objects.bulk_create([
-            PagamentoAtendimento(
-                atendimento=atendimento, forma=p['forma'], valor=p['valor'],
-                comissao_percentual=colaborador.comissao_percentual if colaborador and colaborador.eh_parceiro else None,
-                repasse=colaborador.comissao_para(p['valor']) if colaborador else Decimal('0.00'),
-            )
+            PagamentoAtendimento(atendimento=atendimento, forma=p['forma'], valor=p['valor'])
             for p in pagamentos
         ])
 

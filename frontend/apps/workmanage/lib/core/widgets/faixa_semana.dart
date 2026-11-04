@@ -216,14 +216,19 @@ class _FaixaSemanaState extends State<FaixaSemana> {
             alignment: Alignment.topCenter,
             child: SizedBox(
               height: widget.expandido ? 6 * 44.0 : 72,
+              // uma key para cada vista: sem ela o Flutter aproveita o
+              // Scrollable da outra, que herda os pixels de lá e ignora o
+              // initialPage (a semana 1400 lida como mês dá 2116)
               child: widget.expandido
                   ? PageView.builder(
+                      key: const ValueKey('meses'),
                       controller: _meses,
                       onPageChanged: _deslizouMes,
                       itemBuilder: (context, pagina) =>
                           _mes(_primeiroDoMesDaPagina(pagina)),
                     )
                   : PageView.builder(
+                      key: const ValueKey('semanas'),
                       controller: _semanas,
                       onPageChanged: _deslizouSemana,
                       itemBuilder: (context, pagina) =>

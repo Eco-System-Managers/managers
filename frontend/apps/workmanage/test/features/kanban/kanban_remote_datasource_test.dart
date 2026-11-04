@@ -251,7 +251,6 @@ void main() {
         objetoId: 10,
         servicoId: 3,
         data: DateTime(2026, 10, 25),
-        colaboradorId: 2,
         ignorarLimite: true,
       ),
     );
@@ -266,12 +265,11 @@ void main() {
       'observacao': 'Chaves no painel',
     });
     expect((adapter.requisicoes[1].data as Map)['horario_entrada'], isNull);
-    // o profissional só vai quando escolhido
+    // a esteira não tem profissional no card: nada de colaborador no corpo
     expect(
-      (adapter.requisicoes[0].data as Map).containsKey('colaborador'),
+      (adapter.requisicoes[1].data as Map).containsKey('colaborador'),
       isFalse,
     );
-    expect((adapter.requisicoes[1].data as Map)['colaborador'], 2);
     // ignorar_limite só vai quando o dono mandou receber mesmo assim
     expect((adapter.requisicoes[1].data as Map)['ignorar_limite'], isTrue);
   });
@@ -451,5 +449,28 @@ void main() {
       'cliente': '7',
       'page_size': '100',
     });
+  });
+
+  test('o card do colaborador comum vem sem telefone e sem valores (nulos) e '
+      'o model aguenta', () {
+    final json = <String, dynamic>{
+      ..._atendimentoJson(1),
+      'cliente_telefone': null,
+      'servico_preco': null,
+      'desconto': null,
+      'acrescimo': null,
+      'acrescimo_motivo': null,
+      'pagamentos': <Map<String, dynamic>>[],
+    };
+
+    final a = AtendimentoKanbanModel.fromJson(json).toEntity();
+
+    expect(a.clienteNome, 'Ana');
+    expect(a.clienteTelefone, '');
+    expect(a.servicoPreco, Decimal.zero);
+    expect(a.desconto, Decimal.zero);
+    expect(a.acrescimo, Decimal.zero);
+    expect(a.acrescimoMotivo, '');
+    expect(a.pagamentos, isEmpty);
   });
 }

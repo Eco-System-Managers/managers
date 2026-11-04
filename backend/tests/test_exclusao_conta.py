@@ -17,6 +17,7 @@ from apps_work.autenticacao.models import ExclusaoConta
 from apps_work.autenticacao.services import ExclusaoContaService
 from apps_work.clientes.models import Cliente
 from apps_work.usuarios.models import Colaborador
+from apps_work.uso.models import EventoDeUso
 from tenants.models import Membro, Tenant
 
 URL = '/api/v1/colaboradores/me/excluir/'
@@ -120,10 +121,12 @@ class TestExclusaoVencida:
         )
         _client(leo).post(URL, {'senha': 'SenhaForte123!'}, format='json')
         self._vencer()
+        assert EventoDeUso.objects.filter(user_id=leo.pk).exists()
 
         assert ExclusaoContaService().excluir_vencidas() == 1
 
         assert not User.objects.filter(pk=leo.pk).exists()
+        assert not EventoDeUso.objects.filter(user_id=leo.pk).exists()
         assert not Membro.objects.filter(user_id=leo.pk).exists()
         colaborador.refresh_from_db()
         assert colaborador.user is None
@@ -135,6 +138,7 @@ class TestExclusaoVencida:
     def test_do_dono_some_o_negocio_inteiro(self, dono, leo, tenant):
         schema = tenant.schema_name
         tenant_id = tenant.pk
+        tenant_id = tenant.pk
         consumidor = Consumidor.objects.create(nome='Bia', email='bia@x.com')
         marcado = AgendamentoConsumidor.objects.create(
             consumidor=consumidor, schema_name=schema, agendamento_id=1, negocio_nome='Empresa',
@@ -143,7 +147,10 @@ class TestExclusaoVencida:
         _client(dono).post(URL, {'senha': 'senha123'}, format='json')
         self._vencer()
 
+        assert EventoDeUso.objects.filter(schema_name=schema).exists()
         assert ExclusaoContaService().excluir_vencidas() == 1
+
+        assert not EventoDeUso.objects.filter(schema_name=schema).exists()
 
         assert not Tenant.objects.filter(schema_name=schema).exists()
         assert not User.objects.filter(pk__in=[dono.pk, leo.pk]).exists()

@@ -26,6 +26,23 @@ void main() {
     });
   });
 
+  test('solicitar depois de trocar o e-mail manda o anterior', () async {
+    final adapter = FakeAdapter((_) async => respostaJson(202, {}));
+    final datasource = RegisterRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    await datasource.register(
+      nomeEmpresa: 'Barbearia Central',
+      nome: 'Wilson',
+      email: 'dono@demo.com',
+      senha: 'SenhaForte123!',
+      emailAnterior: 'dono@errado.com',
+    );
+
+    final dados = adapter.requisicoes.single.data as Map;
+    expect(dados['email'], 'dono@demo.com');
+    expect(dados['email_anterior'], 'dono@errado.com');
+  });
+
   test('confirmar devolve a sessão que a API cria com a empresa', () async {
     final adapter = FakeAdapter(
       (_) async => respostaJson(201, sessaoJson(sessaoDeTeste)),

@@ -99,6 +99,16 @@ class VerificarCodigoSerializer(serializers.Serializer):
     codigo = serializers.CharField()
 
 
+class SolicitarCadastroSerializer(CadastroSerializer):
+    email_anterior = serializers.EmailField(
+        required=False,
+        help_text=(
+            'O e-mail do pedido anterior, quando a pessoa voltou para corrigir o e-mail. '
+            'O cadastro pendente dele é descartado se a senha for a mesma.'
+        ),
+    )
+
+
 class ConfirmarCadastroSerializer(serializers.Serializer):
     email = serializers.EmailField()
     codigo = serializers.CharField()

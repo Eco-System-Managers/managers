@@ -116,23 +116,26 @@ void main() {
     registerFallbackValue(const ListarServicosParams());
   });
 
-  AtendimentoKanbanProvider montar({bool comCatalogo = false}) =>
-      AtendimentoKanbanProvider(
-        id: 3,
-        obter: obter,
-        listarEtapas: listarEtapas,
-        listarDoDia: listarDoDia,
-        mover: mover,
-        remarcar: remarcar,
-        ajustarTempo: ajustarTempo,
-        listarSlots: listarSlots,
-        cobrar: cobrar,
-        desfazerCobranca: desfazerCobranca,
-        alterarFalta: alterarFalta,
-        remover: remover,
-        obterSaldo: obterSaldo,
-        listarServicos: comCatalogo ? listarServicos : null,
-      );
+  AtendimentoKanbanProvider montar({
+    bool comCatalogo = false,
+    bool soMoveOsCards = false,
+  }) => AtendimentoKanbanProvider(
+    id: 3,
+    obter: obter,
+    listarEtapas: listarEtapas,
+    listarDoDia: listarDoDia,
+    mover: mover,
+    remarcar: remarcar,
+    ajustarTempo: ajustarTempo,
+    listarSlots: listarSlots,
+    cobrar: cobrar,
+    desfazerCobranca: desfazerCobranca,
+    alterarFalta: alterarFalta,
+    remover: remover,
+    obterSaldo: obterSaldo,
+    listarServicos: comCatalogo ? listarServicos : null,
+    soMoveOsCards: soMoveOsCards,
+  );
 
   setUp(() {
     obter = _MockObter();
@@ -533,4 +536,19 @@ void main() {
         .thenAnswer((_) async => const Left(NetworkFailure()));
     expect(await provider.slotsParaRemarcar(_quinta), isEmpty);
   });
+
+  test(
+    'quem só move os cards não pede o saldo nem o catálogo: não cobra',
+    () async {
+      final provider = montar(comCatalogo: true, soMoveOsCards: true);
+
+      await provider.carregar();
+
+      expect(provider.atendimento, isNotNull);
+      expect(provider.saldo, isNull);
+      expect(provider.servicosParaTrocar, isEmpty);
+      verifyNever(() => obterSaldo(any()));
+      verifyNever(() => listarServicos(any()));
+    },
+  );
 }

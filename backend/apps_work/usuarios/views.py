@@ -11,7 +11,7 @@ from django.utils import timezone
 from apps_work.autenticacao.serializers import SessaoSerializer
 from apps_work.autenticacao.views import responder_sessao
 from core.openapi import PLATAFORMA
-from core.permissions import IsProprietario
+from core.permissions import IsProprietario, SoOProprietarioNaEsteira
 from tenants.models import Membro
 
 from .models import Colaborador, ConviteColaborador
@@ -41,7 +41,11 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in self._ACOES_DO_PROPRIETARIO:
             return [IsAuthenticated(), IsProprietario()]
-        return [IsAuthenticated()]
+        # /me/ é de todos: a casca o carrega para saber quem entrou. o resto
+        # da leitura, na esteira, é só do dono (a tela nem existe para os outros)
+        if self.action == 'me':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), SoOProprietarioNaEsteira()]
 
     def get_throttles(self):
         # mesmo limite do convite comum: a resposta revela se o e-mail já tem conta
@@ -146,9 +150,10 @@ class ConviteColaboradorViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ('aceitar_por_token', 'info'):
             return [AllowAny()]
-        if self.action in ('create', 'destroy'):
+        # escrever é do dono; na esteira ler também é
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
             return [IsAuthenticated(), IsProprietario()]
-        return [IsAuthenticated()]
+        return [IsAuthenticated(), SoOProprietarioNaEsteira()]
 
     def get_throttles(self):
         # Convidar revela se um e-mail já tem conta na plataforma — limitar

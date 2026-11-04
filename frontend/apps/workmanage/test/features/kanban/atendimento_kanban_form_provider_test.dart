@@ -17,7 +17,6 @@ import 'package:managers/features/kanban/presentation/providers/atendimento_kanb
 import 'package:managers/features/servicos/domain/entities/servico.dart';
 import 'package:managers/features/servicos/domain/params/listar_servicos_params.dart';
 import 'package:managers/features/servicos/domain/usecases/listar_servicos_use_case.dart';
-import 'package:managers/features/usuarios/domain/usecases/listar_colaboradores_use_case.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockListarEtapas extends Mock implements ListarEtapasUseCase {}
@@ -31,9 +30,6 @@ class _MockObterCliente extends Mock implements ObterClienteUseCase {}
 class _MockListarSlots extends Mock implements ListarSlotsKanbanUseCase {}
 
 class _MockCriar extends Mock implements CriarAtendimentoKanbanUseCase {}
-
-class _MockListarColaboradores extends Mock
-    implements ListarColaboradoresUseCase {}
 
 const _aguardando = Etapa(id: 1, nome: 'Aguardando', ordem: 0);
 const _lavando = Etapa(id: 2, nome: 'Lavando', ordem: 1);
@@ -87,7 +83,6 @@ void main() {
   late _MockObterCliente obterCliente;
   late _MockListarSlots listarSlots;
   late _MockCriar criar;
-  late _MockListarColaboradores listarColaboradores;
 
   setUpAll(() {
     registerFallbackValue(NoParams());
@@ -105,7 +100,6 @@ void main() {
     listarClientes: listarClientes,
     obterCliente: obterCliente,
     listarSlots: listarSlots,
-    listarColaboradores: listarColaboradores,
     criar: criar,
     tipoObjeto: TipoObjeto.veiculo,
     dataInicial: _dia,
@@ -118,9 +112,6 @@ void main() {
     obterCliente = _MockObterCliente();
     listarSlots = _MockListarSlots();
     criar = _MockCriar();
-    listarColaboradores = _MockListarColaboradores();
-    when(() => listarColaboradores(any()))
-        .thenAnswer((_) async => const Right([]));
     when(() => listarEtapas(any()))
         .thenAnswer((_) async => const Right([_aguardando, _lavando]));
     when(() => listarServicos(any()))
@@ -170,10 +161,15 @@ void main() {
     provider.selecionarCliente(_ana);
     expect(provider.objeto, const ObjetoCliente.veiculo(_uno));
 
+    // a folha corrigiu um cadastro: o escolhido continua
     await provider.recarregarCliente();
     expect(provider.objetos, hasLength(2));
-    // o escolhido continua: ele ainda existe
     expect(provider.objeto, const ObjetoCliente.veiculo(_uno));
+
+    // a folha cadastrou: o novo fica escolhido, mesmo com outro antes
+    provider.selecionarCliente(_ana);
+    await provider.recarregarCliente(escolherNovo: true);
+    expect(provider.objeto, const ObjetoCliente.veiculo(_gol));
 
     provider.selecionarObjeto(null);
     await provider.recarregarCliente();

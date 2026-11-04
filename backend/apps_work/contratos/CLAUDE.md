@@ -70,9 +70,11 @@ sistema o dono registra em `POST contratos/{id}/marcar/` com `status`:
 `DELETE contratos/{id}/` recusa contrato assinado (400 `contrato_assinado`).
 A lista filtra por `?cliente=` e `?status=`; modelos filtram por `?ativo=`.
 
-**Modelo só o proprietário escreve** (`IsProprietario` em criar, editar e
-apagar); qualquer um da equipe lista e gera contrato com ele. O app não apaga
-modelo: inativa por `PATCH ativo`, como faz com serviço.
+**Modelo escreve o proprietário e, na esteira, o parceiro**
+(`IsProprietarioOuParceiroDaEsteira` em criar, editar e apagar); a equipe lista
+e gera contrato com ele — menos o colaborador comum da esteira, que recebe 403
+em contratos e modelos (`NaoEhColaboradorDaEsteira`). O app não apaga modelo:
+inativa por `PATCH ativo`, como faz com serviço.
 
 ## A parte pública
 

@@ -49,7 +49,9 @@ class AtendimentoKanbanModel {
     final hora = json['horario_entrada'] as String?;
     final prontoEm = json['pronto_em'] as String?;
     final criadoEm = json['criado_em'] as String?;
-    // no avulso o objeto, o nome e o telefone do cliente vêm nulos
+    // no avulso o objeto, o nome e o telefone do cliente vêm nulos. para o
+    // colaborador comum o telefone e os valores (preço, desconto, acréscimo,
+    // pagamentos) também: ele não fala com o cliente nem cobra
     final objeto = json['objeto_detalhe'] as Map<String, dynamic>?;
     return AtendimentoKanban(
       id: json['id'] as int,
@@ -63,8 +65,6 @@ class AtendimentoKanbanModel {
       servicoNome: json['servico_nome'] as String? ?? '',
       servicoPreco: dinheiroDaApi(json['servico_preco'] as String? ?? '0'),
       servicoDuracao: json['servico_duracao'] as int? ?? 0,
-      colaboradorId: json['colaborador'] as int?,
-      colaboradorNome: json['colaborador_nome'] as String? ?? '',
       observacao: json['observacao'] as String? ?? '',
       data: data == null ? null : dataDaApi(data),
       horarioEntrada: hora == null ? null : horaDaApi(hora),
@@ -98,7 +98,6 @@ class AtendimentoKanbanModel {
       'horario_entrada': params.horarioEntrada == null
           ? null
           : horaParaApi(params.horarioEntrada!),
-      'colaborador': ?params.colaboradorId,
       'observacao': params.observacao,
       if (params.ignorarLimite) 'ignorar_limite': true,
     };

@@ -28,10 +28,7 @@ abstract class KanbanRepository {
   Future<Either<Failure, Etapa>> marcarEtapaPronto(int id);
 
   // o quadro de um dia, inteiro
-  Future<Either<Failure, List<AtendimentoKanban>>> listarDoDia(
-    DateTime data, {
-    int? colaboradorId,
-  });
+  Future<Either<Failure, List<AtendimentoKanban>>> listarDoDia(DateTime data);
 
   Future<Either<Failure, List<AtendimentoKanban>>> listarDoCliente(
     int clienteId,

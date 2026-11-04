@@ -2,12 +2,12 @@
 
 O lado **B2B**: o painel que o negócio usa para se gerenciar.
 
-Treze apps, ~4.900 linhas. Quase todos são **apps de negócio**: os modelos
+Quatorze apps, ~5.200 linhas. Quase todos são **apps de negócio**: os modelos
 herdam de `core.tenant.TenantModel` e cada linha carrega `tenant_id` — cada
 negócio tem os próprios clientes, agenda e caixa, isolados pelo manager (que
 filtra pelo tenant atual) e pelo Row Level Security do Postgres (`core/rls.py`).
 
-## Os treze apps
+## Os quatorze apps
 
 **Operação do dia a dia**
 
@@ -36,6 +36,7 @@ filtra pelo tenant atual) e pelo Row Level Security do Postgres (`core/rls.py`).
 | `dashboard` | Visão de leitura sobre os outros. Sem model próprio |
 | `notificacoes` | Avisos no painel. O menor app |
 | `paginas` | As páginas HTML dos links que abrem no navegador: convite, contrato e volta do checkout. Sem model; as regras são dos services de `usuarios`, `contratos` e `billing` |
+| `uso` | Os eventos de uso (cada escrita, cada erro, cada abertura do app) e o `relatorio_uso`, para acompanhar os testadores |
 
 ## Sobre as tabelas
 
@@ -63,14 +64,15 @@ pendências de cobrança e a agenda do cliente no app precisam ler os dois.
 
 ## Quais são públicos
 
-Nem todos são de negócio. `autenticacao`, `billing` e `paginas` têm modelos
-comuns, sem `tenant` (`paginas` porque responde fora de um negócio e entra no
-do token do link com `com_tenant`):
+Nem todos são de negócio. `autenticacao`, `billing`, `paginas` e `uso` têm
+modelos comuns, sem `tenant` (`paginas` porque responde fora de um negócio e
+entra no do token do link com `com_tenant`):
 
 - `autenticacao` porque o relógio de inatividade precisa funcionar antes de o
   tenant ser resolvido
 - `billing` porque a cobrança é da plataforma para o negócio, não um dado de
   dentro do negócio
+- `uso` porque o relatório lê os eventos de todos os negócios de uma vez
 
 Os demais são de negócio (`core.rls.APPS_DE_NEGOCIO`). O tenant atual vem do
 `TenantMiddleware` (Host ou JWT) numa requisição, e de `com_tenant(...)` em
@@ -114,9 +116,14 @@ deles atravessam a fronteira, e todos são escutados em
   `tenant_id` à mão (o RLS recusa a linha sem ele).
 - **Regra de negócio vai em `services.py`**, não em view nem serializer. Views
   recebem, delegam e devolvem.
-- **Escrita sensível exige `IsProprietario`** — serviços, etapas do kanban,
-  configuração, billing e gestão da equipe. Estar autenticado não basta. O papel
-  vem do `Membro.papel` — o `Colaborador` não tem papel.
+- **Escrita sensível exige `IsProprietario`** — etapas do kanban, configuração,
+  billing e gestão da equipe. Estar autenticado não basta. O papel vem do
+  `Membro.papel` — o `Colaborador` não tem papel. **Na esteira o parceiro toca
+  o negócio com o dono** (`IsProprietarioOuParceiroDaEsteira` em serviços e
+  modelos de contrato, a função `eh_proprietario_ou_parceiro_da_esteira` no
+  bloqueio do negócio; `IsProprietarioOuParceiro` nas ações do quadro e na
+  capacidade do dia) e o colaborador comum só move os cards
+  (`NaoEhColaboradorDaEsteira`). A tabela inteira está em `usuarios/CLAUDE.md`.
 - **Autenticado significa autenticado neste tenant.** A autenticação padrão é a
   `core.authentication.TenantJWTAuthentication`, que recusa token de outro
   negócio e usuário sem `Membro` no tenant atual. A checagem não pode ir

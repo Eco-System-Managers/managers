@@ -78,6 +78,9 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
         ativo: _provider.modelo?.ativo ?? true,
       ),
     );
+    // fecha aqui, uma vez, e não no build: o build roda de novo enquanto a
+    // tela sai, e cada pop a mais fechava a tela de baixo
+    if (mounted && _provider.salvo) context.pop(true);
   }
 
   Future<void> _alterarAtivo(bool ativo) async {
@@ -92,6 +95,7 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
     );
     if (!ok || !mounted) return;
     await _provider.alterarAtivo(ativo);
+    if (mounted && _provider.salvo) context.pop(true);
   }
 
   @override
@@ -106,12 +110,6 @@ class _ModeloFormPageState extends ConsumerState<ModeloFormPage> {
       body: ListenableBuilder(
         listenable: provider,
         builder: (context, _) {
-          if (provider.salvo) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.pop(true);
-            });
-          }
-
           if (!provider.carregado) {
             final erro = provider.erroAoCarregar;
             if (erro != null) {

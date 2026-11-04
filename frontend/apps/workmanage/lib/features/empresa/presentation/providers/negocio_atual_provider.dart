@@ -39,17 +39,67 @@ class NegocioAtualProvider extends ChangeNotifier {
   String get nome => _config?.nome ?? '';
   String get logoUrl => _config?.logoUrl ?? '';
 
-  // só o proprietário escreve. sem perfil (404 sem_colaborador), trata como
-  // colaborador: esconder é mais seguro que mostrar um botão que a API
-  // vai recusar
+  // só o proprietário mexe na estrutura do negócio. sem perfil (404
+  // sem_colaborador), trata como colaborador: esconder é mais seguro que
+  // mostrar um botão que a API vai recusar
   bool get ehProprietario => _perfil?.ehProprietario ?? false;
 
-  // o vínculo decide o que a pessoa vê (a API trava do lado dela; aqui só
-  // se esconde). sem perfil, o menor acesso
-  bool get veValores => _perfil?.veValores ?? false;
-  bool get podeCobrar => _perfil?.cobra ?? false;
+  // o vínculo de quem entrou. o dono também tem perfil (com o tipo padrão),
+  // mas o papel manda; sem perfil, o menor acesso: colaborador comum
+  bool get ehParceiro => !ehProprietario && (_perfil?.ehParceiro ?? false);
+  bool get ehColaboradorComum => !ehProprietario && !ehParceiro;
 
-  // o botão de bloquear: dono e parceiro (o parceiro, na própria agenda)
+  // o rótulo de quem entrou, para o Mais
+  String get papelExibido => ehProprietario
+      ? 'Proprietário'
+      : ehParceiro
+      ? 'Parceiro'
+      : 'Colaborador';
+
+  // ---- o que cada pessoa pode, pelo modo e pelo vínculo. a API trava do
+  // lado dela; aqui só se esconde ----
+
+  // na esteira a operação é do negócio inteiro: o parceiro toca o negócio
+  // com o dono (serviços, contratos, caixa, capacidade do dia, fechar
+  // horário). a estrutura (equipe, assinatura, horários, dados do negócio,
+  // nichos e etapas) continua só do dono. na agenda, só o dono opera
+  bool get operaComODono => ehProprietario || (isKanban && ehParceiro);
+
+  // o colaborador comum da esteira só vê o quadro: move os cards, ajusta o
+  // tempo e lê a ficha sem telefone nem valores
+  bool get soMoveOsCards => isKanban && ehColaboradorComum;
+
+  // dinheiro: na agenda, dono e parceiro (a API devolve a cada um só os
+  // próprios números); na esteira, quem opera com o dono, e o caixa inteiro
+  bool get veValores =>
+      isKanban ? operaComODono : (_perfil?.veValores ?? false);
+
+  // cobrar: na agenda, o colaborador comum só com a flag ligada; na esteira
+  // a flag não pesa, e ele nunca cobra
+  bool get podeCobrar => isKanban ? operaComODono : (_perfil?.cobra ?? false);
+
+  // o catálogo e os modelos de contrato: escreve o dono e, na esteira, o
+  // parceiro
+  bool get podeEditarServicos => operaComODono;
+  bool get podeEditarModelos => operaComODono;
+
+  // o quadro: receber, remarcar, falta, excluir, o ajuste do dia e fechar
+  // horário são de quem opera com o dono
+  bool get podeReceber => operaComODono;
+  bool get podeAjustarDia => operaComODono;
+  bool get podeFecharHorario => operaComODono;
+
+  // as abas e os itens do Mais que o colaborador comum da esteira não tem
+  bool get veInicio => !soMoveOsCards;
+  bool get veClientes => !soMoveOsCards;
+  bool get veServicos => !soMoveOsCards;
+  bool get veContratos => !soMoveOsCards;
+
+  // a estrutura do negócio (equipe, configurações e etapas): na agenda abre
+  // para todos, só para ler; na esteira é só do dono
+  bool get veEstrutura => ehProprietario || !isKanban;
+
+  // o botão de bloquear a agenda: dono e parceiro (o parceiro, na própria)
   bool get podeBloquear => ehProprietario || (_perfil?.ehParceiro ?? false);
   bool podeBloquearAgendaDe(int colaboradorId) =>
       _perfil?.bloqueiaAgendaDe(colaboradorId) ?? false;

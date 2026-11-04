@@ -19,8 +19,10 @@ import '../providers/caixa_provider.dart';
 // Mais › Caixa: o fechamento de um período, na linguagem do Início (chips
 // de filtro, painéis neutros, um número grande) mas com a cara de caixa: o
 // que entrou, como entrou (por forma de pagamento) e para onde vai (casa e
-// parceiros), e cada pagamento agrupado por dia. filtro por profissional
-// para o dono; o parceiro vê só a parte dele (casa vem nula)
+// parceiros), e cada pagamento agrupado por dia. na agenda, filtro por
+// profissional para o dono, e o parceiro vê só a parte dele (casa vem
+// nula); na esteira é o caixa do negócio inteiro para o dono e o parceiro,
+// sem divisão (não há comissão) e sem o nome de ninguém nos pagamentos
 class CaixaPage extends ConsumerStatefulWidget {
   const CaixaPage({super.key});
 

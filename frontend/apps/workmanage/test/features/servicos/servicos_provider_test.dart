@@ -85,7 +85,7 @@ void main() {
     expect(params.ativo, isTrue);
     expect(params.busca, isNull);
     expect(provider.servicos, [_corte]);
-    expect(provider.ehProprietario, isTrue);
+    expect(provider.podeEditar, isTrue);
   });
 
   test('buscar e mostrar inativos mudam os filtros e recarregam', () async {
