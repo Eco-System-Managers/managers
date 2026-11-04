@@ -2,9 +2,9 @@
 
 O que o cliente final enxerga da plataforma: **descobrir negócios e agendar**.
 
-É o app mais pesado do backend (~1.050 linhas) e o único que atravessa os dois
-schemas de propósito. Toda a fronteira entre o mundo público e o mundo do tenant
-passa por aqui.
+É o app mais pesado do backend (~1.050 linhas) e o único que entra nos
+negócios de propósito (`com_tenant`). Toda a fronteira entre o mundo público e
+o mundo do tenant passa por aqui.
 
 ## Arquivos
 
@@ -21,8 +21,8 @@ passa por aqui.
 
 | Classe | Responsabilidade |
 |---|---|
-| `CrossTenantQueryService` | Lê dados **dentro** do tenant: serviços, equipe, horários, disponibilidade. Só leitura — agendar, cancelar e vincular também entram no schema do negócio, cada um no próprio service, sempre por `schema_context` |
-| `StatusKanbanAgendamentosService` | Descobre em que coluna do quadro cada atendimento está. Agrupa por schema para trocar de schema uma vez por negócio, não uma por agendamento |
+| `CrossTenantQueryService` | Lê dados **dentro** do tenant: serviços, equipe, horários, disponibilidade. Só leitura — agendar, cancelar e vincular também entram no negócio, cada um no próprio service, sempre por `com_tenant` |
+| `StatusKanbanAgendamentosService` | Descobre em que coluna do quadro cada atendimento está. Agrupa por negócio para entrar nele uma vez, não uma por agendamento |
 | `AgendamentoTenantService` | Cria o agendamento nos dois lados. O método mais delicado do backend |
 | `CancelarAgendamentoService` | Cancela e, fora do prazo, lança a taxa como pendência na comanda do cliente dentro do tenant |
 | `VincularNegocioService` | Cria, reativa e desfaz o vínculo. Ao vincular, copia a ficha inteira (`Cliente.CAMPOS_ESPELHADOS`); ao desfazer, apaga os dados pessoais (`Cliente.CAMPOS_PESSOAIS`) e mantém nome, telefone e histórico |
@@ -84,7 +84,7 @@ aparecer aqui, o caminho é sinal:
 
 ## O que é fácil errar aqui
 
-- **`criar()` grava nos dois schemas dentro de um `atomic()`.** Efeito colateral
+- **`criar()` grava no público e no negócio dentro de um `atomic()`.** Efeito colateral
   que pode falhar (sincronizar perfil, notificar o negócio) precisa de savepoint
   próprio: engolir a exceção sem ele deixa a transação abortada e derruba o
   agendamento **depois** de já ter escrito no tenant.
@@ -93,7 +93,8 @@ aparecer aqui, o caminho é sinal:
   A cobrança (serviço trocado, acréscimo, total) é espelhada nos dois modos, e
   o filtro leva `origem` junto com `agendamento_id`: o id de um atendimento da
   esteira não pode bater num agendamento da agenda.
-- **Endpoint público recebe `schema_name` pela URL.** Sempre passar por
-  `_schema_valido` antes — ele vira troca de schema logo em seguida.
+- **Endpoint público recebe `schema_name` pela URL.** É o slug do negócio
+  (`Tenant.schema_name`; o nome vem da época de um schema por negócio). Sempre
+  passar por `schema_valido` antes — ele vira `com_tenant` logo em seguida.
 - **O recorte por área é caixa, não círculo.** Exagera nos cantos de propósito,
   para não trazer PostGIS só para filtrar pino de mapa.

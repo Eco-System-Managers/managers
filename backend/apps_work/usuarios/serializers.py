@@ -1,12 +1,11 @@
 from decimal import Decimal
-
-from django.db import connection
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from core.links import link_convite
 from tenants.models import Membro, Papel
 from .models import Colaborador, ConviteColaborador, VinculoColaborador
+from core.tenant import schema_atual
 
 
 class ColaboradorSerializer(serializers.ModelSerializer):
@@ -40,7 +39,7 @@ class ColaboradorSerializer(serializers.ModelSerializer):
             return obj.papel
         if not obj.user_id:
             return None
-        return Membro.papel_no_schema(obj.user, connection.schema_name)
+        return Membro.papel_no_schema(obj.user, schema_atual())
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

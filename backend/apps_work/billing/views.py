@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.db import connection
 from django.http import HttpResponseRedirect
 from rest_framework import status
 from rest_framework.generics import ListAPIView
@@ -23,6 +22,7 @@ from .services import (
 )
 from core.excecoes import erro
 from core.links import link_retorno_pagamento
+from core.tenant import tenant_atual
 
 
 def _assinatura_em_breve():
@@ -39,9 +39,7 @@ class MinhaAssinaturaView(APIView):
 
     @extend_schema(responses=AssinaturaSerializer, summary='Assinatura do negócio')
     def get(self, request):
-        from tenants.models import Tenant
-
-        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        tenant = tenant_atual()
         try:
             assinatura = tenant.assinatura
         except Assinatura.DoesNotExist:
@@ -102,9 +100,7 @@ class ConfirmarAssinaturaView(APIView):
         if not id_externo:
             return erro('id_externo é obrigatório.', 'parametros_invalidos')
 
-        from tenants.models import Tenant
-
-        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        tenant = tenant_atual()
         try:
             assinatura = gateway_de_pagamento().confirmar_assinatura(tenant, id_externo)
         except AssinaturaGatewayError as e:
@@ -118,9 +114,7 @@ class CancelarAssinaturaView(APIView):
 
     @extend_schema(request=None, responses=AssinaturaSerializer, summary='Cancelar a assinatura')
     def post(self, request):
-        from tenants.models import Tenant
-
-        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        tenant = tenant_atual()
         try:
             assinatura = gateway_de_pagamento().cancelar_assinatura(tenant)
         except AssinaturaGatewayError as e:
@@ -133,9 +127,7 @@ class PagamentosListView(ListAPIView):
     serializer_class = PagamentoAssinaturaSerializer
     permission_classes = [IsAuthenticated]
     def get_queryset(self):
-        from tenants.models import Tenant
-
-        tenant = Tenant.objects.get(schema_name=connection.schema_name)
+        tenant = tenant_atual()
         return PagamentoAssinatura.objects.filter(assinatura__tenant=tenant).order_by('-data')
 
 

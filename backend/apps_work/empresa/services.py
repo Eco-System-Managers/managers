@@ -13,6 +13,7 @@ from PIL import Image, ImageOps
 from apps_work.clientes.models import TipoObjeto
 from core.excecoes import ErroDeNegocio
 from .models import Nicho, TipoAgenda
+from core.tenant import schema_atual, tenant_atual
 
 logger = logging.getLogger(__name__)
 
@@ -276,18 +277,12 @@ class ConfiguracaoEmpresaService:
         que mora no Tenant: o onboarding abre com o campo preenchido em vez de
         pedir de novo o que a pessoa acabou de digitar.
 
-        O nome vem por consulta, e não de `connection.tenant`: quando o schema
-        é resolvido pelo token (app mobile), ali há só um FakeTenant sem nome.
         """
-        from django.db import connection
         from apps_work.empresa.models import EmpresaConfig
-        from tenants.models import Tenant
 
-        config, criada = EmpresaConfig.objects.get_or_create(pk=1)
+        config, criada = EmpresaConfig.objects.get_or_create()
         if criada and not config.nome:
-            config.nome = (
-                Tenant.objects.filter(schema_name=connection.schema_name).values_list('nome', flat=True).first() or ''
-            )
+            config.nome = tenant_atual().nome
             if config.nome:
                 config.save(update_fields=['nome'])
         return config
@@ -340,19 +335,18 @@ class ConfiguracaoEmpresaService:
         Levanta ImagemInvalidaError para arquivo recusado; falha do provedor de
         armazenamento sobe como está (a view responde 500 sem detalhe).
         """
-        from django.db import connection
         from apps_work.empresa.models import EmpresaConfig
 
         armazenamento = ArmazenamentoImagemService()
         armazenamento.validar(arquivo)
         caminho = armazenamento.salvar(
-            arquivo, prefixo=ArmazenamentoImagemService.PREFIXO_LOGOS, chave=connection.schema_name,
+            arquivo, prefixo=ArmazenamentoImagemService.PREFIXO_LOGOS, chave=schema_atual(),
         )
         # A logo é pública e a URL não expira, então dá para guardá-la pronta.
         # Imagem de pessoa não — ali guarda-se o caminho.
         url = armazenamento.url(caminho)
 
-        config, _ = EmpresaConfig.objects.get_or_create(pk=1)
+        config, _ = EmpresaConfig.objects.get_or_create()
         config.logo_url = url
         config.save(update_fields=['logo_url'])
         self.publicar(config)
@@ -360,14 +354,13 @@ class ConfiguracaoEmpresaService:
 
     def publicar(self, config) -> None:
         """Avisa quem espelha a configuração fora do tenant (a vitrine)."""
-        from django.db import connection
         from apps_work.empresa.models import EmpresaConfig
         from apps_work.empresa.signals import empresa_config_atualizada
 
         self._sem_derrubar(
             'publicar a configuração na vitrine',
             empresa_config_atualizada.send,
-            sender=EmpresaConfig, schema_name=connection.schema_name, instance=config,
+            sender=EmpresaConfig, schema_name=schema_atual(), instance=config,
         )
 
     def _precisa_geocodificar(self, config, endereco_anterior: tuple) -> bool:
@@ -383,10 +376,10 @@ class ConfiguracaoEmpresaService:
             config.save(update_fields=['latitude', 'longitude'])
 
     def _sem_derrubar(self, acao: str, funcao, *args, **kwargs):
-        from django.db import connection, transaction
+        from django.db import transaction
         try:
             with transaction.atomic():
                 return funcao(*args, **kwargs)
         except Exception:
-            logger.exception('Falha ao %s', acao, extra={'schema_name': connection.schema_name})
+            logger.exception('Falha ao %s', acao, extra={'schema_name': schema_atual()})
             return None

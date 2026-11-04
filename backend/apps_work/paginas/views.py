@@ -8,7 +8,6 @@ e mostram o resultado.
 """
 from django.shortcuts import redirect, render
 from django.views import View
-from django_tenants.utils import schema_context
 from rest_framework.throttling import BaseThrottle
 
 from apps_work.contratos.models import StatusContrato
@@ -16,6 +15,9 @@ from apps_work.contratos.serializers import AssinarContratoSerializer, ContratoP
 from apps_work.contratos.services import ContratoService, contrato_publico
 from apps_work.usuarios.services import AceitarConviteService, ConviteService
 from core.excecoes import ErroDeNegocio
+from core.tenant import com_tenant
+from core.tenant import com_tenant
+from core.tenant import com_tenant
 
 
 def _erro(request, mensagem: str, status: int):
@@ -60,7 +62,7 @@ class ContratoView(View):
 
         acao = request.POST.get('acao')
         service = ContratoService()
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             try:
                 if acao == 'assinar':
                     serializer = AssinarContratoSerializer(data=request.POST)
@@ -87,7 +89,7 @@ class ContratoView(View):
         contrato = contrato_publico(schema_name, token)
         if contrato is None:
             return _erro(request, 'Contrato não encontrado.', 404)
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             dados = ContratoPublicoSerializer(contrato).data
         contexto = {
             **dados,

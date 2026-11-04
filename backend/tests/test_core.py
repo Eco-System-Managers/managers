@@ -16,66 +16,67 @@ from apps_work.autenticacao.models import UltimaAtividade
 from core.middleware import (
     AssinaturaBloqueadaMiddleware,
     InactivityMiddleware,
-    JWTTenantMiddleware,
+    TenantMiddleware,
     _token_do_request,
 )
 from core.permissions import IsProprietario
+from core.tenant import com_tenant, tenant_atual
 from tenants.models import Membro
 
 
 # ---------------------------------------------------------------------------
-# JWTTenantMiddleware
+# TenantMiddleware
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-class TestJWTTenantMiddleware:
-    def test_seta_schema_do_token_quando_conexao_publica(self, usuario):
+class TestTenantMiddleware:
+    def _chamar(self, request):
+        visto = {}
+
+        def get_response(req):
+            visto['tenant'] = tenant_atual()
+            return MagicMock()
+
+        TenantMiddleware(get_response)(request)
+        return visto['tenant']
+
+    def test_resolve_o_tenant_pelo_token(self, usuario, tenant):
         from rest_framework_simplejwt.tokens import AccessToken
 
         token = AccessToken.for_user(usuario)
-        token['schema_name'] = 'empresa_abc'
+        token['schema_name'] = tenant.schema_name
+        request = RequestFactory().get('/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
 
-        factory = RequestFactory()
-        request = factory.get('/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
+        with com_tenant(None):
+            assert self._chamar(request) == tenant
+            assert request.tenant == tenant
+            # Ao sair da requisição o contexto volta ao que era.
+            assert tenant_atual() is None
 
-        get_response = MagicMock(return_value=MagicMock())
-        middleware = JWTTenantMiddleware(get_response)
-
-        with patch('core.middleware.connection') as mock_conn:
-            mock_conn.schema_name = 'public'
-            middleware(request)
-            mock_conn.set_schema.assert_called_once_with('empresa_abc')
-
-    def test_nao_age_nas_rotas_do_service_manage(self, usuario):
+    def test_nao_age_nas_rotas_do_service_manage(self, usuario, tenant):
         from rest_framework_simplejwt.tokens import AccessToken
 
         token = AccessToken.for_user(usuario)
-        token['schema_name'] = 'empresa_abc'
-
+        token['schema_name'] = tenant.schema_name
         request = RequestFactory().get('/api/sm/v1/me/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
-        middleware = JWTTenantMiddleware(MagicMock(return_value=MagicMock()))
 
-        with patch('core.middleware.connection') as mock_conn:
-            mock_conn.schema_name = 'public'
-            middleware(request)
-            mock_conn.set_schema.assert_not_called()
+        with com_tenant(None):
+            assert self._chamar(request) is None
 
-    def test_nao_age_quando_schema_ja_e_tenant(self, usuario):
+    def test_resolve_o_tenant_pelo_host(self, tenant):
+        request = RequestFactory().get('/', HTTP_HOST='test-empresa.localhost')
+
+        with com_tenant(None):
+            assert self._chamar(request) == tenant
+
+    def test_token_de_tenant_inexistente_fica_no_publico(self, usuario):
         from rest_framework_simplejwt.tokens import AccessToken
 
         token = AccessToken.for_user(usuario)
-        token['schema_name'] = 'empresa_abc'
+        token['schema_name'] = 'nao_existe'
+        request = RequestFactory().get('/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
 
-        factory = RequestFactory()
-        request = factory.get('/', HTTP_AUTHORIZATION=f'Bearer {str(token)}')
-
-        get_response = MagicMock(return_value=MagicMock())
-        middleware = JWTTenantMiddleware(get_response)
-
-        with patch('core.middleware.connection') as mock_conn:
-            mock_conn.schema_name = 'empresa_abc'
-            middleware(request)
-            mock_conn.set_schema.assert_not_called()
+        assert self._chamar(request) is None
 
 
 # ---------------------------------------------------------------------------
@@ -90,8 +91,7 @@ class TestAssinaturaBloqueadaMiddleware:
         factory = RequestFactory()
         request = factory.get(path)
 
-        with patch('core.middleware.connection') as mock_conn:
-            mock_conn.schema_name = schema_name
+        with com_tenant(None if schema_name == 'public' else schema_name):
             resposta = middleware(request)
 
         return resposta, get_response
@@ -276,8 +276,7 @@ class TestCacheDaAssinatura:
         get_response = MagicMock(return_value='ok')
         middleware = AssinaturaBloqueadaMiddleware(get_response)
         request = RequestFactory().get('/api/v1/servicos/')
-        with patch('core.middleware.connection') as mock_conn:
-            mock_conn.schema_name = schema_name
+        with com_tenant(schema_name):
             return middleware(request), get_response
 
     def test_segunda_chamada_nao_consulta_o_banco(self, tenant):

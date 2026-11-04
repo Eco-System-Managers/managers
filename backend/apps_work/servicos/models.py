@@ -4,6 +4,7 @@ from django.db import models
 
 from apps_work.clientes.models import PortePet, PorteVeiculo
 from apps_work.empresa.models import Nicho
+from core.tenant import TenantModel
 
 
 class TipoTaxaCancelamento(models.TextChoices):
@@ -16,7 +17,7 @@ class TipoTaxaCancelamento(models.TextChoices):
 # um enum à parte no OpenAPI (ENUM_NAME_OVERRIDES).
 PORTE_SERVICO_CHOICES = PorteVeiculo.choices + PortePet.choices
 
-class Servico(models.Model):
+class Servico(TenantModel):
     nome = models.CharField(max_length=255)
     # A pasta do serviço: um dos nichos do negócio. Gravado sempre, mesmo com
     # um nicho só — a interface é que esconde a pasta nesse caso.

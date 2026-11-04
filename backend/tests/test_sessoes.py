@@ -12,7 +12,7 @@ from django.conf import settings
 from django.db import connection
 from django.test import override_settings
 from django.utils import timezone
-from django_tenants.middleware.main import TenantMainMiddleware
+from core.middleware import TenantMiddleware
 from rest_framework.test import APIClient
 
 from apps_serv.autenticacao.authentication import gerar_tokens
@@ -176,10 +176,10 @@ def test_aplicacao_nao_sobe_sem_secret_key():
 @pytest.fixture
 def api_sm(db):
     def _publico(_self, request):
-        connection.set_schema_to_public()
+        return None
 
     with override_settings(ALLOWED_HOSTS=['*']):
-        with patch.object(TenantMainMiddleware, 'process_request', _publico):
+        with patch.object(TenantMiddleware, '_por_host', _publico):
             yield APIClient()
 
 

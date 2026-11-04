@@ -17,6 +17,7 @@ from .serializers import (
 from core.excecoes import erro
 
 from .services import ConfiguracaoEmpresaService
+from core.tenant import schema_atual
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +127,6 @@ class UploadLogoView(APIView):
         summary='Enviar a logo do negócio',
     )
     def post(self, request):
-        from django.db import connection
         from .services import ImagemInvalidaError
 
         arquivo = request.FILES.get('logo')
@@ -140,7 +140,7 @@ class UploadLogoView(APIView):
         except Exception:
             # A mensagem do provedor pode carregar detalhe de infraestrutura;
             # ela vai para o log, e o cliente recebe algo genérico.
-            logger.exception('Falha ao enviar a logo', extra={'schema_name': connection.schema_name})
+            logger.exception('Falha ao enviar a logo', extra={'schema_name': schema_atual()})
             return erro(
                 'Não foi possível enviar a imagem. Tente novamente.', 'armazenamento_indisponivel',
                 status.HTTP_503_SERVICE_UNAVAILABLE,

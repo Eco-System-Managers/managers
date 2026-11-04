@@ -2,9 +2,10 @@
 
 O lado **B2B**: o painel que o negócio usa para se gerenciar.
 
-Treze apps, ~4.900 linhas. Quase todos vivem no **schema do tenant**
-(`TENANT_APPS`) — cada negócio tem os próprios clientes, agenda e caixa, isolados
-no nível do banco.
+Treze apps, ~4.900 linhas. Quase todos são **apps de negócio**: os modelos
+herdam de `core.tenant.TenantModel` e cada linha carrega `tenant_id` — cada
+negócio tem os próprios clientes, agenda e caixa, isolados pelo manager (que
+filtra pelo tenant atual) e pelo Row Level Security do Postgres (`core/rls.py`).
 
 ## Os treze apps
 
@@ -60,18 +61,21 @@ onboarding, o modo não muda mais:
 Boa parte da complexidade do backend vem de os dois coexistirem: caixa, painel,
 pendências de cobrança e a agenda do cliente no app precisam ler os dois.
 
-## Quais são compartilhados
+## Quais são públicos
 
-Nem todos são de tenant. `autenticacao`, `billing` e `paginas` estão em
-`SHARED_APPS` (`paginas` porque responde no schema público e troca para o do
-tenant pelo token do link):
+Nem todos são de negócio. `autenticacao`, `billing` e `paginas` têm modelos
+comuns, sem `tenant` (`paginas` porque responde fora de um negócio e entra no
+do token do link com `com_tenant`):
 
 - `autenticacao` porque o relógio de inatividade precisa funcionar antes de o
-  schema ser resolvido
+  tenant ser resolvido
 - `billing` porque a cobrança é da plataforma para o negócio, não um dado de
   dentro do negócio
 
-Os demais são de tenant, e migram com `migrate_schemas` — não com `migrate`.
+Os demais são de negócio (`core.rls.APPS_DE_NEGOCIO`). O tenant atual vem do
+`TenantMiddleware` (Host ou JWT) numa requisição, e de `com_tenant(...)` em
+serviço, task ou comando. Fora de um tenant, consultar modelo de negócio é
+erro (`TenantIndefinido`), não lista vazia.
 
 ## A relação com o `apps_serv`
 
@@ -102,9 +106,12 @@ deles atravessam a fronteira, e todos são escutados em
   se os `.yaml` estiverem desatualizados.
 - **Alterar por `.update()` no queryset pula os sinais.** O registro muda no
   tenant e o app do cliente continua mostrando o estado antigo.
-- **Migration de app de tenant roda em todos os schemas.** Entre schemas ela
-  pode ficar parcialmente aplicada, então o código precisa tolerar o estado
-  intermediário.
+- **Modelo de negócio novo herda de `TenantModel`** e ganha política de RLS
+  na migration (chame `core.rls.aplicar_politicas` num `RunPython`). Unique
+  que é "por negócio" leva `tenant` junto (`UniqueConstraint`).
+- **`bulk_create` e SQL direto não passam pelo `save()`**: o queryset do
+  manager preenche o tenant no `bulk_create`; SQL direto precisa pôr
+  `tenant_id` à mão (o RLS recusa a linha sem ele).
 - **Regra de negócio vai em `services.py`**, não em view nem serializer. Views
   recebem, delegam e devolvem.
 - **Escrita sensível exige `IsProprietario`** — serviços, etapas do kanban,
@@ -112,7 +119,7 @@ deles atravessam a fronteira, e todos são escutados em
   vem do `Membro.papel` — o `Colaborador` não tem papel.
 - **Autenticado significa autenticado neste tenant.** A autenticação padrão é a
   `core.authentication.TenantJWTAuthentication`, que recusa token de outro
-  schema e usuário sem `Membro` no tenant atual. A checagem não pode ir
+  negócio e usuário sem `Membro` no tenant atual. A checagem não pode ir
   para `DEFAULT_PERMISSION_CLASSES`: quase toda view declara as próprias
   permissões e a ignoraria.
 - **`force_authenticate` nos testes pula a autenticação** — e com ela a

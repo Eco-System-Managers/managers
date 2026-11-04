@@ -1,5 +1,3 @@
-from django.db import connection
-from django_tenants.utils import schema_context
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -22,6 +20,7 @@ from .serializers import (
 from .services import ContratoService, contrato_publico
 from core.excecoes import erro
 from core.permissions import IsProprietario
+from core.tenant import com_tenant, schema_atual
 
 
 @extend_schema_view(
@@ -117,7 +116,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def enviar(self, request, pk=None):
         contrato = self.get_object()
-        schema_name = connection.schema_name
+        schema_name = schema_atual()
         try:
             ContratoService().enviar(contrato, schema_name)
         except ValueError as e:
@@ -141,7 +140,7 @@ class ContratoPublicoView(APIView):
         contrato = self._get_contrato(schema_name, token)
         if not contrato:
             return erro('Contrato não encontrado.', status_code=status.HTTP_404_NOT_FOUND)
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             data = ContratoPublicoSerializer(contrato).data
         return Response(data)
 
@@ -160,7 +159,7 @@ class ContratoPublicoView(APIView):
 
         service = ContratoService()
 
-        with schema_context(schema_name):
+        with com_tenant(schema_name):
             try:
                 if acao == 'assinar':
                     serializer = AssinarContratoSerializer(data=request.data)

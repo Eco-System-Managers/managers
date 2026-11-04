@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.db import connection
 from django.utils import timezone
-from django_tenants.middleware.main import TenantMainMiddleware
+from core.middleware import TenantMiddleware
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
@@ -21,12 +21,12 @@ from apps_serv.vitrine.models import NegocioPublico
 
 @pytest.fixture
 def patch_public_middleware():
-    """Patches TenantMainMiddleware to keep the connection in the public schema."""
+    """Sem tenant pelo Host: as rotas do app do cliente são públicas."""
     def _process_request(_self, request):
-        connection.set_schema_to_public()
+        return None
 
     with override_settings(ALLOWED_HOSTS=['*']):
-        with patch.object(TenantMainMiddleware, 'process_request', _process_request):
+        with patch.object(TenantMiddleware, '_por_host', _process_request):
             yield
 
 
@@ -510,7 +510,6 @@ class TestMeusVinculos:
 @pytest.mark.django_db
 class TestVincularNegocioAPI:
     def test_responde_com_o_negocio_no_formato_de_meus_negocios(self, tenant, api_autenticado):
-        connection.set_schema_to_public()
         NegocioPublico.objects.create(
             schema_name=tenant.schema_name, nome='Empresa Teste', nichos=['barbearia'],
             latitude='-23.550000', longitude='-46.633000', ativo=True,

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from django.db import connection
 from django.utils import timezone
-from django_tenants.middleware.main import TenantMainMiddleware
+from core.middleware import TenantMiddleware
 from django.test import override_settings
 from rest_framework.test import APIClient
 
@@ -21,10 +21,10 @@ from apps_serv.vitrine.models import NegocioPublico
 @pytest.fixture
 def patch_public_middleware():
     def _process_request(_self, request):
-        connection.set_schema_to_public()
+        return None
 
     with override_settings(ALLOWED_HOSTS=['*']):
-        with patch.object(TenantMainMiddleware, 'process_request', _process_request):
+        with patch.object(TenantMiddleware, '_por_host', _process_request):
             yield
 
 
@@ -531,8 +531,8 @@ class TestCancelarAgendamentoService:
             valor_taxa_cancelamento=Decimal('20.00'),
         )
 
-        # schema_context e Agendamento são mockados para evitar cross-schema em testes
-        with patch('apps_serv.vitrine.services.schema_context'), \
+        # com_tenant e Agendamento são mockados para não entrar no negócio nos testes
+        with patch('apps_serv.vitrine.services.com_tenant'), \
              patch('apps_work.agenda.models.Agendamento'):
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)
 
@@ -549,7 +549,7 @@ class TestCancelarAgendamentoService:
         )
 
         mock_cliente = MagicMock(id=1)
-        with patch('apps_serv.vitrine.services.schema_context'), \
+        with patch('apps_serv.vitrine.services.com_tenant'), \
              patch('apps_work.agenda.models.Agendamento'), \
              patch('apps_work.clientes.models.Cliente') as MockCliente, \
              patch('apps_work.financeiro.services.SaldoService') as MockSaldoService:
@@ -568,7 +568,7 @@ class TestCancelarAgendamentoService:
         consumidor = self._consumidor_registrado()
         ag = self._criar_agendamento(consumidor, timezone.now() + timedelta(hours=2), duracao=30)
 
-        with patch('apps_serv.vitrine.services.schema_context'), \
+        with patch('apps_serv.vitrine.services.com_tenant'), \
              patch('apps_work.agenda.models.Agendamento'), \
              patch('apps_work.financeiro.services.SaldoService') as MockSaldoService:
             resultado = CancelarAgendamentoService().cancelar(ag, consumidor)

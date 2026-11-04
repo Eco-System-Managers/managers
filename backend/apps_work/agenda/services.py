@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from core.excecoes import ErroDeNegocio
 from core.grade import inicios_livres
+from core.tenant import schema_atual
 from .models import (
     Agendamento, AgendamentoServico, Bloqueio, OrigemAtendimento, PagamentoAgendamento, StatusAgendamento,
 )
@@ -307,13 +308,11 @@ class AgendamentoService:
         mudança real — salvar o agendamento sem mexer no status não é evento."""
         if agendamento.status == status_anterior:
             return
-
-        from django.db import connection
         from .signals import agendamento_status_alterado
 
         agendamento_status_alterado.send(
             sender=Agendamento,
-            schema_name=connection.schema_name,
+            schema_name=schema_atual(),
             agendamento_id=agendamento.pk,
             status=agendamento.status,
         )

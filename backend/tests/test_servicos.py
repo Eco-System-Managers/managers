@@ -70,7 +70,7 @@ class TestServicoSerializerTaxaCancelamento:
     def negocio_de_um_nicho(self, tenant):
         # O serializer põe o serviço no único nicho do negócio.
         from apps_work.empresa.models import EmpresaConfig
-        EmpresaConfig.objects.create(pk=1, nichos=['barbearia'])
+        EmpresaConfig.objects.create(nichos=['barbearia'])
 
     def _payload(self, **overrides):
         payload = {

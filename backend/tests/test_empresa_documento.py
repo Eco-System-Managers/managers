@@ -81,7 +81,7 @@ class TestDocumentoNaConfigAPI:
             {'documento': CNPJ_FORMATADO, 'tipo_documento': 'cnpj'},
             format='json',
         )
-        assert EmpresaConfig.objects.get(pk=1).documento == CNPJ_VALIDO
+        assert EmpresaConfig.objects.get().documento == CNPJ_VALIDO
 
     def test_salvar_cpf_valido_retorna_200(self, client_autenticado):
         response = client_autenticado.patch(
@@ -144,14 +144,14 @@ class TestDocumentoNaConfigAPI:
     def test_editar_config_de_negocio_ja_concluido_sem_documento_retorna_400(self, client_autenticado):
         """Tenant antigo, criado antes da regra: continua lendo normalmente,
         mas a próxima alteração exige o documento."""
-        EmpresaConfig.objects.create(pk=1, nome='Antigo', onboarding_concluido=True)
+        EmpresaConfig.objects.create(nome='Antigo', onboarding_concluido=True)
         response = client_autenticado.patch(
             '/api/v1/empresa/config/', {'nome': 'Antigo Editado'}, format='json'
         )
         assert response.status_code == 400
 
     def test_negocio_ja_concluido_sem_documento_ainda_pode_ser_lido(self, client_autenticado):
-        EmpresaConfig.objects.create(pk=1, nome='Antigo', onboarding_concluido=True)
+        EmpresaConfig.objects.create(nome='Antigo', onboarding_concluido=True)
         response = client_autenticado.get('/api/v1/empresa/config/')
         assert response.status_code == 200
 
@@ -183,7 +183,7 @@ class TestNegocioConcluidoSemDocumento:
 
     @pytest.fixture
     def legado(self, patch_tenant_middleware):
-        config, _ = EmpresaConfig.objects.get_or_create(pk=1)
+        config, _ = EmpresaConfig.objects.get_or_create()
         config.onboarding_concluido = True
         config.documento = ''
         config.tipo_documento = ''

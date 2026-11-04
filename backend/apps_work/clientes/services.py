@@ -1,10 +1,10 @@
-from django.db import connection
 from django.db.models import ProtectedError
 
 from core.excecoes import ErroDeNegocio
 
 from .models import Cliente, OrigemCliente
 from .signals import cliente_servicemanage_removido
+from core.tenant import schema_atual
 
 
 class RemocaoClienteService:
@@ -38,6 +38,6 @@ class RemocaoClienteService:
 
         cliente_servicemanage_removido.send(
             sender=Cliente,
-            schema_name=connection.schema_name,
+            schema_name=schema_atual(),
             consumidor_id=cliente.consumidor_id,
         )

@@ -21,15 +21,18 @@ serviço que nunca usou não consegue mais ativar.
 |---|---|---|
 | Source | Root Directory | `/backend` |
 | Build | Custom Build Command | `python manage.py collectstatic --noinput` |
-| Deploy | Pre-deploy Command | `python manage.py migrate_schemas` |
+| Deploy | Pre-deploy Command | `python manage.py migrate` |
 | Deploy | Custom Start Command | `gunicorn core.wsgi:application` |
 | Deploy | Restart Policy | On Failure, 5 tentativas |
 | Networking | Custom Domain | `api.workmanage.com.br` (porta 8080) |
 
 - O builder é o Railpack; ele lê a versão do Python de `.python-version`.
-- O **pre-deploy** roda antes de cada deploy entrar no ar e migra o `public` e
-  todos os tenants. Se falhar, o deploy é abortado e a versão anterior continua
+- O **pre-deploy** roda antes de cada deploy entrar no ar e aplica as
+  migrations. Se falhar, o deploy é abortado e a versão anterior continua
   servindo. Sem ele, migration nova não chega ao banco.
+- O usuário do banco **não pode ser superusuário**: superusuário ignora o Row
+  Level Security (`core/rls.py`), que é a rede de segurança do isolamento
+  entre negócios. Um role comum, dono das tabelas, basta.
 - O gunicorn escuta em `0.0.0.0:$PORT` sozinho e lê o número de workers de
   `WEB_CONCURRENCY`.
 - O **build** gera os estáticos do `/admin/`, servidos pelo WhiteNoise. Sem

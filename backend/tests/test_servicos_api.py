@@ -17,7 +17,7 @@ def client_autenticado(patch_tenant_middleware, proprietario, config):
 @pytest.fixture
 def config(patch_tenant_middleware):
     """Todo serviço fica num dos nichos do negócio; com um nicho só, é ele."""
-    return EmpresaConfig.objects.create(pk=1, nichos=['cabeleireiro'])
+    return EmpresaConfig.objects.create(nichos=['cabeleireiro'])
 
 
 @pytest.fixture

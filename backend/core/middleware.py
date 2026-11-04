@@ -3,7 +3,6 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db import connection
 from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
@@ -11,6 +10,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from core import rotas
 from core.cache import TTL_ASSINATURA_SEGUNDOS, chave_assinatura_bloqueada
 from core.sessao import cliente_mobile
+from core.tenant import com_tenant, schema_atual, tenant_atual
 
 logger = logging.getLogger(__name__)
 
@@ -126,30 +126,50 @@ class InactivityMiddleware:
             return None
 
 
-class JWTTenantMiddleware:
-    """
-    Em desenvolvimento (localhost), o TenantMainMiddleware não encontra um tenant
-    pelo domínio e permanece no schema public. Este middleware lê o schema_name
-    do JWT e troca para o schema correto do tenant.
+class TenantMiddleware:
+    """Descobre o negócio da requisição e o deixa ativo até a resposta sair.
 
-    Em produção, o TenantMainMiddleware já setou o schema correto via subdomínio,
-    então connection.schema_name != 'public' e este middleware não age.
+    Dois caminhos, na ordem: o subdomínio da empresa (`Domain`), quando a
+    requisição chega por ele; senão o `schema_name` do JWT. Sem nenhum dos
+    dois a requisição é pública (cadastro, login, Service Manage).
+
+    Ativo quer dizer `com_tenant`: o manager dos modelos de negócio filtra por
+    ele e a conexão recebe o `app.tenant_id` que as políticas de RLS leem.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # O Service Manage vive no schema público: um token do Work Manage
-        # mandado para lá não pode puxar a requisição para dentro de um tenant.
-        if connection.schema_name == 'public' and not request.path.startswith(_PREFIXO_SERVICEMANAGE):
-            token = _token_do_request(request)
-            if token is not None:
-                schema_name = token.get('schema_name')
-                if schema_name and schema_name != 'public':
-                    connection.set_schema(schema_name)
+        tenant = self._por_host(request)
+        # O Service Manage é público: um token do Work Manage mandado para lá
+        # não pode puxar a requisição para dentro de um negócio.
+        if tenant is None and not request.path.startswith(_PREFIXO_SERVICEMANAGE):
+            tenant = self._por_token(request)
 
-        return self.get_response(request)
+        request.tenant = tenant
+        with com_tenant(tenant):
+            return self.get_response(request)
+
+    def _por_host(self, request):
+        from tenants.models import Domain
+
+        host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
+        if not host.endswith('.' + settings.TENANT_DOMAIN_SUFFIX.lower()):
+            return None
+        dominio = Domain.objects.filter(domain=host).select_related('tenant').first()
+        return dominio.tenant if dominio is not None else None
+
+    def _por_token(self, request):
+        from tenants.models import Tenant
+
+        token = _token_do_request(request)
+        if token is None:
+            return None
+        schema_name = token.get('schema_name')
+        if not schema_name or schema_name == 'public':
+            return None
+        return Tenant.objects.filter(schema_name=schema_name).first()
 
 
 _BLOQUEIO_ISENTOS = (
@@ -186,11 +206,11 @@ class AssinaturaBloqueadaMiddleware:
 
     def __call__(self, request):
         if (
-            connection.schema_name != 'public'
+            tenant_atual() is not None
             and request.path.startswith(rotas.WORK)
             and not any(request.path.startswith(p) for p in _BLOQUEIO_ISENTOS)
         ):
-            if self._bloqueada(connection.schema_name):
+            if self._bloqueada(schema_atual()):
                 return JsonResponse(
                     {
                         'detail': 'Assinatura inativa. Assine um plano para continuar.',

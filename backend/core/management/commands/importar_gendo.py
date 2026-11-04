@@ -7,6 +7,7 @@ vira crédito na comanda. O código do GENDO fica na observação e serve de
 chave: rodar de novo não duplica.
 """
 import csv
+from core.tenant import com_tenant
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -14,7 +15,6 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django_tenants.utils import schema_context
 from rest_framework import serializers
 
 from apps_work.clientes.validators import validar_cpf, validar_telefone_br
@@ -70,7 +70,7 @@ class Command(BaseCommand):
 
         resultado = {'importados': 0, 'ja_importados': 0, 'pulados': 0, 'creditos': 0, 'avisos': 0}
         try:
-            with schema_context(schema), transaction.atomic():
+            with com_tenant(schema), transaction.atomic():
                 self._importar(linhas, resultado)
                 if dry_run:
                     raise _DryRun
@@ -94,7 +94,7 @@ class Command(BaseCommand):
         self.stdout.write('Empresas cadastradas:')
         for i, tenant in enumerate(empresas, start=1):
             dono = Membro.objects.filter(tenant=tenant, papel=Papel.PROPRIETARIO).select_related('user').first()
-            with schema_context(tenant.schema_name):
+            with com_tenant(tenant.schema_name):
                 from apps_work.clientes.models import Cliente
                 clientes = Cliente.objects.count()
             email = dono.user.email if dono else 'sem dono'

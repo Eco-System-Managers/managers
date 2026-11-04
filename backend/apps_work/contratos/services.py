@@ -4,6 +4,7 @@ from .models import Contrato, ModeloContrato, StatusContrato
 from core.email import enviar_email
 from core.links import link_contrato
 from core.excecoes import ErroDeNegocio
+from core.tenant import com_tenant
 
 
 _VARIAVEIS = {
@@ -143,14 +144,15 @@ def contrato_publico(schema_name: str, token) -> Contrato | None:
     """O contrato aberto pelo link do e-mail, ou None se o link não leva a um.
 
     Usado pela API pública e pela página de assinatura (apps_work/paginas). O
-    schema vem da URL: sem checar, schema inexistente dava 500 e o público era
-    alcançável.
+    slug do negócio vem da URL: sem checar, negócio inexistente dava 500.
     """
-    from django_tenants.utils import schema_context
     from core.schemas import schema_valido
     from tenants.models import Tenant
 
-    if not schema_valido(schema_name) or not Tenant.objects.filter(schema_name=schema_name).exists():
+    if not schema_valido(schema_name):
         return None
-    with schema_context(schema_name):
+    tenant = Tenant.objects.filter(schema_name=schema_name).first()
+    if tenant is None:
+        return None
+    with com_tenant(tenant):
         return Contrato.objects.select_related('cliente').filter(token=token).first()

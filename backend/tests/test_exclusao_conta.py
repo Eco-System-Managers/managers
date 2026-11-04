@@ -5,8 +5,9 @@ from datetime import datetime, timedelta
 import pytest
 from django.contrib.auth.models import User
 from django.db import connection
+from core.tenant import sem_isolamento
 from django.utils import timezone
-from django_tenants.utils import schema_context
+from core.tenant import com_tenant
 from rest_framework.test import APIClient
 
 from apps_serv.consumidores.models import AgendamentoConsumidor, Consumidor
@@ -133,6 +134,7 @@ class TestExclusaoVencida:
 
     def test_do_dono_some_o_negocio_inteiro(self, dono, leo, tenant):
         schema = tenant.schema_name
+        tenant_id = tenant.pk
         consumidor = Consumidor.objects.create(nome='Bia', email='bia@x.com')
         marcado = AgendamentoConsumidor.objects.create(
             consumidor=consumidor, schema_name=schema, agendamento_id=1, negocio_nome='Empresa',
@@ -141,14 +143,13 @@ class TestExclusaoVencida:
         _client(dono).post(URL, {'senha': 'senha123'}, format='json')
         self._vencer()
 
-        connection.set_schema_to_public()
         assert ExclusaoContaService().excluir_vencidas() == 1
 
         assert not Tenant.objects.filter(schema_name=schema).exists()
         assert not User.objects.filter(pk__in=[dono.pk, leo.pk]).exists()
-        with connection.cursor() as cursor:
-            cursor.execute('SELECT 1 FROM information_schema.schemata WHERE schema_name = %s', [schema])
-            assert cursor.fetchone() is None
+        # As linhas do negócio foram junto (tenant_id em cascata).
+        with sem_isolamento():
+            assert not Colaborador.todos.filter(tenant_id=tenant_id).exists()
         marcado.refresh_from_db()
         assert marcado.status == 'cancelado'
         assert not ExclusaoConta.objects.exists()

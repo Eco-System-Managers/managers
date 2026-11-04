@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 from django.db import connection
 from django.test import override_settings
-from django_tenants.middleware.main import TenantMainMiddleware
+from core.middleware import TenantMiddleware
 from rest_framework.test import APIClient
 
 from apps_serv.autenticacao.authentication import gerar_tokens
@@ -17,7 +17,7 @@ URL = '/api/sm/v1/objetos/'
 @pytest.fixture
 def api(db):
     def _publico(_self, request):
-        connection.set_schema_to_public()
+        return None
 
     consumidor = RegistroConsumidorService().registrar(
         nome='Carla', email='carla@sm.com', senha='SenhaForte123!', telefone='11999990000',
@@ -26,7 +26,7 @@ def api(db):
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
     with override_settings(ALLOWED_HOSTS=['*']):
-        with patch.object(TenantMainMiddleware, 'process_request', _publico):
+        with patch.object(TenantMiddleware, '_por_host', _publico):
             yield client
 
 

@@ -2,38 +2,11 @@ import pytest
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.core.management import call_command
-from django.db import connection
-from django.test import TransactionTestCase, override_settings
-from django_tenants.middleware.main import TenantMainMiddleware
+from django.test import override_settings
+
+from core.middleware import TenantMiddleware
+from core.tenant import com_tenant
 from tenants.models import Tenant, Domain, Membro
-
-
-@pytest.fixture(autouse=True, scope='session')
-def _patch_transactional_flush():
-    """Força TRUNCATE ... CASCADE no teardown de testes transacionais.
-
-    O schema PUBLIC contém tabelas de TENANT apps criadas pelo manage.py migrate
-    (ex: usuarios_colaborador, agenda_agendamento, …). Essas tabelas têm FKs para
-    auth_user, mas Django não as inclui no TRUNCATE (por não serem SHARED apps) e
-    o Django 6 não adiciona CASCADE por padrão. Sem CASCADE o flush falha.
-    """
-    def _fixture_teardown_with_cascade(self):
-        for db in self._databases_names(include_mirrors=False):
-            call_command(
-                'flush',
-                verbosity=0,
-                interactive=False,
-                database=db,
-                reset_sequences=False,
-                allow_cascade=True,
-                inhibit_post_migrate=True,
-            )
-
-    original = TransactionTestCase._fixture_teardown
-    TransactionTestCase._fixture_teardown = _fixture_teardown_with_cascade
-    yield
-    TransactionTestCase._fixture_teardown = original
 
 
 @pytest.fixture(autouse=True)
@@ -54,45 +27,31 @@ def tasks_imediatas(settings):
     settings.TASKS = {'default': {'BACKEND': 'django.tasks.backends.immediate.ImmediateBackend'}}
 
 
-def _drop_tenant_schema(schema_name: str) -> None:
-    """Derruba o schema PostgreSQL do tenant e remove as linhas de tenant/domain."""
-    connection.set_schema_to_public()
-    with connection.cursor() as cursor:
-        # Força triggers deferidos a disparar agora; sem isso, DROP falha com
-        # "cannot execute DROP TABLE because of pending trigger events"
-        cursor.execute('SET CONSTRAINTS ALL IMMEDIATE')
-        cursor.execute(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE')
-    Tenant.objects.filter(schema_name=schema_name).delete()
-
-
 @pytest.fixture
 def tenant(db):
-    connection.set_schema_to_public()
+    """O negócio de teste, ativo durante o teste inteiro.
 
-    # Limpa estado residual de runs anteriores que falharam no teardown.
-    # auto_drop_schema=False no modelo, então usamos SQL direto para garantir
-    # que o schema antigo (com tabelas legadas) não bloqueie o flush posterior.
-    _drop_tenant_schema('test_empresa')
-
-    tenant = Tenant.objects.create(
-        schema_name='test_empresa',
-        nome='Empresa Teste',
-    )
-    connection.set_schema_to_public()
+    Dentro do `with` o manager dos modelos de negócio filtra por ele e a
+    conexão carrega o `app.tenant_id` das políticas de RLS — o mesmo estado
+    de uma requisição que passou pelo TenantMiddleware. Nada de schema físico:
+    a linha do tenant e as tabelas vivem todas no `public`.
+    """
+    tenant = Tenant.objects.create(schema_name='test_empresa', nome='Empresa Teste')
     Domain.objects.get_or_create(
         domain='test-empresa.localhost',
         defaults={'tenant': tenant, 'is_primary': True},
     )
-    connection.set_tenant(tenant)
-    yield tenant
-    # Teardown: drop schema + linhas antes do flush do pytest-django.
-    # Sem isso, o TRUNCATE do auth_user falharia por FK vindo do schema do tenant.
-    _drop_tenant_schema('test_empresa')
+    with com_tenant(tenant):
+        yield tenant
 
 
 @pytest.fixture
 def patch_tenant_middleware(tenant):
-    """Simula requisições reais de HTTP passando pelo TenantMainMiddleware.
+    """Simula requisições reais de HTTP chegando ao negócio de teste.
+
+    O TenantMiddleware resolve o tenant pelo Host ou pelo JWT; o cliente de
+    teste não manda nenhum dos dois, então a resolução pelo Host é substituída
+    pelo tenant de teste.
 
     Como essas requisições passam pela stack de middleware completa (incluindo
     o AssinaturaBloqueadaMiddleware), o tenant de teste precisa de uma
@@ -104,12 +63,6 @@ def patch_tenant_middleware(tenant):
 
     from apps_work.billing.models import Assinatura, Plano
 
-    def _process_request(_self, request):
-        connection.set_schema_to_public()
-        connection.set_tenant(tenant)
-        request.tenant = tenant
-
-    connection.set_schema_to_public()
     plano, _ = Plano.objects.get_or_create(nome='pro', defaults={'preco_mensal': '69.90'})
     Assinatura.objects.get_or_create(
         tenant=tenant,
@@ -120,10 +73,9 @@ def patch_tenant_middleware(tenant):
             'proximo_vencimento': datetime.date.today() + datetime.timedelta(days=30),
         },
     )
-    connection.set_tenant(tenant)
 
     with override_settings(ALLOWED_HOSTS=['*']):
-        with patch.object(TenantMainMiddleware, 'process_request', _process_request):
+        with patch.object(TenantMiddleware, '_por_host', lambda _self, request: tenant):
             yield tenant
 
 
