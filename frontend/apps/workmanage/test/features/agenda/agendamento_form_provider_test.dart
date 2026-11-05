@@ -156,7 +156,8 @@ void main() {
   });
 
   test('com serviços e profissional a grade é buscada; incluir um serviço que '
-      'ele não faz limpa a hora e o profissional', () async {
+      'ele não faz tira o profissional, e a hora fica até a grade nova '
+      'conferir', () async {
     final provider = montar();
     await provider.carregar();
 
@@ -176,9 +177,10 @@ void main() {
     provider.selecionarServicos([_corte, _barba]);
     await pumpEventQueue();
 
-    // a Bia não faz barba: sai da escolha e da lista, e a grade some
+    // a Bia não faz barba: sai da escolha e da lista, e a grade some; a
+    // hora continua escolhida, esperando a grade nova
     expect(provider.colaborador, isNull);
-    expect(provider.hora, isNull);
+    expect(provider.hora, _nove);
     expect(provider.colaboradores, [_dani]);
     expect(provider.prontoParaGrade, isFalse);
     verifyNever(() => listarSlots(any()));
@@ -191,6 +193,9 @@ void main() {
         verify(() => listarSlots(captureAny())).captured.single as SlotsParams;
     expect(deNovo.servicoIds, [3, 4]);
     expect(deNovo.colaboradorId, 5);
+    // 9:00 está livre na grade da Dani: fica
+    expect(provider.hora, _nove);
+    expect(provider.horaQueSaiu, isNull);
   });
 
   test('os escolhidos ficam na ordem do catálogo, com a soma do tempo e do '
@@ -210,6 +215,43 @@ void main() {
     await provider.carregar();
 
     expect(provider.colaboradores, [_bia, _dani]);
+  });
+
+  test(
+    'a hora que a grade nova não tem livre sai, e a tela sabe qual foi',
+    () async {
+      final provider = montar();
+      await provider.carregar();
+      provider.selecionarServicos([_corte]);
+      await pumpEventQueue();
+      provider.selecionarHora(_nove);
+
+      when(() => listarSlots(any())).thenAnswer(
+        (_) async =>
+            const Right([Slot(hora: (hora: 10, minuto: 0), disponivel: true)]),
+      );
+      provider.selecionarData(DateTime(2026, 10, 26));
+      await pumpEventQueue();
+
+      expect(provider.hora, isNull);
+      expect(provider.horaQueSaiu, _nove);
+
+      provider.selecionarHora((hora: 10, minuto: 0));
+      expect(provider.horaQueSaiu, isNull);
+    },
+  );
+
+  test('horaFim soma as durações dos serviços à hora escolhida', () async {
+    final provider = montar(colaboradorInicialId: 5);
+    await provider.carregar();
+    provider.selecionarHora(_nove);
+    expect(provider.horaFim, isNull);
+
+    // corte (30) + barba (20)
+    provider.selecionarServicos([_corte, _barba]);
+    await pumpEventQueue();
+
+    expect(provider.horaFim, (hora: 9, minuto: 50));
   });
 
   test('o profissional escolhido limita os serviços; serviço sem executor '
@@ -254,7 +296,8 @@ void main() {
     await pumpEventQueue();
 
     expect(provider.data, DateTime(2026, 10, 26));
-    expect(provider.hora, isNull);
+    // 9:00 também está livre no dia novo: continua escolhida
+    expect(provider.hora, _nove);
     final params =
         verify(() => listarSlots(captureAny())).captured.last as SlotsParams;
     expect(params.data, DateTime(2026, 10, 26));
@@ -388,8 +431,8 @@ void main() {
     },
   );
 
-  test('a hora tocada na grade entra escolhida quando a grade de slots chega '
-      'livre; ocupada, não', () async {
+  test('a hora tocada na agenda já vem escolhida, antes da grade; a grade a '
+      'confere quando chega: livre fica, ocupada sai', () async {
     AgendamentoFormProvider comHora(Hora hora) => AgendamentoFormProvider(
       listarServicos: listarServicos,
       listarColaboradores: listarColaboradores,
@@ -402,15 +445,19 @@ void main() {
     );
 
     final livre = comHora(_nove);
+    expect(livre.hora, _nove);
     await livre.carregar();
+    expect(livre.hora, _nove);
     livre.selecionarServicos([_corte]);
     await pumpEventQueue();
     expect(livre.hora, _nove);
 
     final ocupada = comHora((hora: 9, minuto: 30));
+    expect(ocupada.hora, (hora: 9, minuto: 30));
     await ocupada.carregar();
     ocupada.selecionarServicos([_corte]);
     await pumpEventQueue();
     expect(ocupada.hora, isNull);
+    expect(ocupada.horaQueSaiu, (hora: 9, minuto: 30));
   });
 }
