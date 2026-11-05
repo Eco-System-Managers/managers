@@ -92,6 +92,17 @@ class RemarcarAgendamentoUseCase
       _repository.remarcar(params);
 }
 
+class TrocarServicosAgendamentoUseCase
+    implements UseCase<Agendamento, TrocarServicosParams> {
+  const TrocarServicosAgendamentoUseCase(this._repository);
+
+  final AgendaRepository _repository;
+
+  @override
+  Future<Either<Failure, Agendamento>> call(TrocarServicosParams params) =>
+      _repository.trocarServicos(params);
+}
+
 class CobrarAgendamentoUseCase implements UseCase<Agendamento, CobrancaParams> {
   const CobrarAgendamentoUseCase(this._repository);
 

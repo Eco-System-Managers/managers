@@ -129,7 +129,7 @@ void main() {
   });
 
   test(
-    'criar manda o JSON do contrato, com servico_id e a data com fuso',
+    'criar manda o JSON do contrato, com servico_ids e a data com fuso',
     () async {
       final adapter = FakeAdapter(
         (_) async => respostaJson(201, _agendamentoJson(9)),
@@ -139,7 +139,7 @@ void main() {
       final criado = await datasource.criar(
         NovoAgendamentoParams(
           clienteId: 7,
-          servicoId: 3,
+          servicoIds: [3, 4],
           colaboradorId: 2,
           dataHora: DateTime(2026, 10, 25, 10, 30),
           observacoes: 'Sem máquina',
@@ -151,7 +151,8 @@ void main() {
       expect(requisicao.path, 'agendamentos/');
       final corpo = requisicao.data as Map<String, dynamic>;
       expect(corpo['cliente'], 7);
-      expect(corpo['servico_id'], 3);
+      expect(corpo['servico_ids'], [3, 4]);
+      expect(corpo.containsKey('servico_id'), isFalse);
       expect(corpo['colaborador'], 2);
       expect(corpo['observacoes'], 'Sem máquina');
       expect(
@@ -213,7 +214,26 @@ void main() {
     });
   });
 
-  test('slots manda dia, serviço e profissional e lê a grade', () async {
+  test('trocarServicos faz PUT da lista inteira em servicos/', () async {
+    final adapter = FakeAdapter(
+      (_) async => respostaJson(200, _agendamentoJson(3)),
+    );
+    final datasource = AgendaRemoteDataSourceImpl(dioDeTeste(adapter));
+
+    final model = await datasource.trocarServicos(
+      const TrocarServicosParams(id: 3, servicoIds: [3, 4]),
+    );
+
+    final requisicao = adapter.requisicoes.single;
+    expect(requisicao.method, 'PUT');
+    expect(requisicao.path, 'agendamentos/3/servicos/');
+    expect(requisicao.data, {
+      'servico_ids': [3, 4],
+    });
+    expect(model.toEntity().id, 3);
+  });
+
+  test('slots manda dia, serviços e profissional e lê a grade', () async {
     final adapter = FakeAdapter(
       (_) async => respostaJson(200, [
         {'horario': '09:00', 'disponivel': true},
@@ -223,15 +243,20 @@ void main() {
     final datasource = AgendaRemoteDataSourceImpl(dioDeTeste(adapter));
 
     final slots = await datasource.slots(
-      SlotsParams(data: DateTime(2026, 10, 25), servicoId: 3, colaboradorId: 2),
+      SlotsParams(
+        data: DateTime(2026, 10, 25),
+        servicoIds: [3, 4],
+        colaboradorId: 2,
+      ),
     );
 
+    // um servico por serviço: servico=3&servico=4, como a API lê
     final uri = adapter.requisicoes.single.uri;
     expect(uri.path, endsWith('agenda/slots/'));
-    expect(uri.queryParameters, {
-      'data': '2026-10-25',
-      'servico': '3',
-      'colaborador': '2',
+    expect(uri.queryParametersAll, {
+      'data': ['2026-10-25'],
+      'servico': ['3', '4'],
+      'colaborador': ['2'],
     });
     expect(slots.map((s) => s.hora), [
       (hora: 9, minuto: 0),

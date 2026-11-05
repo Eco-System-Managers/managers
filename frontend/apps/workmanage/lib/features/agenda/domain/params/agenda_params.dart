@@ -2,22 +2,31 @@ import 'package:managers/core/utils/datas.dart';
 
 import '../entities/agendamento.dart';
 
-// o que marca um agendamento: a API aceita um serviço por agendamento
-// (campo servico_id) e congela o preço dele na hora
+// o que marca um agendamento: um ou mais serviços, feitos em sequência
+// pelo mesmo profissional. a API congela o preço de cada um na hora
 class NovoAgendamentoParams {
   const NovoAgendamentoParams({
     required this.clienteId,
-    required this.servicoId,
+    required this.servicoIds,
     required this.colaboradorId,
     required this.dataHora,
     this.observacoes = '',
   });
 
   final int clienteId;
-  final int servicoId;
+  final List<int> servicoIds;
   final int? colaboradorId;
   final DateTime dataHora;
   final String observacoes;
+}
+
+// a lista nova inteira, antes do atendimento: quem fica mantém o preço
+// combinado, quem entra vem com o preço atual
+class TrocarServicosParams {
+  const TrocarServicosParams({required this.id, required this.servicoIds});
+
+  final int id;
+  final List<int> servicoIds;
 }
 
 class AlterarStatusParams {
@@ -40,15 +49,16 @@ class RemarcarParams {
   final int? colaboradorId;
 }
 
+// a grade cabe a soma das durações dos serviços
 class SlotsParams {
   const SlotsParams({
     required this.data,
-    required this.servicoId,
+    required this.servicoIds,
     required this.colaboradorId,
   });
 
   final DateTime data;
-  final int servicoId;
+  final List<int> servicoIds;
   final int colaboradorId;
 }
 

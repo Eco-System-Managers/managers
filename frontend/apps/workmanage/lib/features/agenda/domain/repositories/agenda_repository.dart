@@ -31,6 +31,12 @@ abstract class AgendaRepository {
 
   Future<Either<Failure, Agendamento>> remarcar(RemarcarParams params);
 
+  // só agendado ou confirmado (agendamento_encerrado); a duração nova passa
+  // pela regra de conflito (horario_conflito, horario_bloqueado)
+  Future<Either<Failure, Agendamento>> trocarServicos(
+    TrocarServicosParams params,
+  );
+
   Future<Either<Failure, Agendamento>> cobrar(CobrancaParams params);
 
   Future<Either<Failure, List<Slot>>> slots(SlotsParams params);

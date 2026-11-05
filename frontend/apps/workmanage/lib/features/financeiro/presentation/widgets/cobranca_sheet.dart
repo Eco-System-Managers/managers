@@ -7,6 +7,7 @@ import 'package:managers/core/widgets/dinheiro_input_formatter.dart';
 import 'package:managers/core/widgets/filtros.dart';
 import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/features/servicos/domain/entities/servico.dart';
+import 'package:managers/features/servicos/presentation/widgets/escolher_servicos_sheet.dart';
 
 import '../../domain/entities/pagamento.dart';
 import '../../domain/params/cobranca_params.dart';
@@ -18,7 +19,8 @@ import '../../domain/params/cobranca_params.dart';
 // (soma_invalida): a folha desconta o troco da linha de dinheiro ao mandar.
 // o que se acerta com o cliente na hora (trocar o serviço pelo que foi feito
 // de verdade, um acréscimo com o motivo) fica numa seção fechada: sem mexer
-// nela, cobra o combinado
+// nela, cobra o combinado. a esteira troca um serviço por outro; a agenda
+// muda a lista (tira o que não foi feito, inclui o que foi feito a mais)
 class CobrancaSheet extends StatefulWidget {
   const CobrancaSheet({
     super.key,
@@ -30,6 +32,8 @@ class CobrancaSheet extends StatefulWidget {
     this.servicos,
     this.servicoAtualId,
     this.servicoAtualNome = '',
+    this.servicosCombinados,
+    this.opcoesDeServico,
     this.avisoTempo,
   });
 
@@ -55,6 +59,12 @@ class CobrancaSheet extends StatefulWidget {
   final int? servicoAtualId;
   final String servicoAtualNome;
 
+  // só na agenda: os serviços combinados (com o preço combinado) e o que dá
+  // para escolher no lugar deles. com os dois, a seção do combinado muda a
+  // lista inteira em vez de trocar um serviço
+  final List<Servico>? servicosCombinados;
+  final List<Servico>? opcoesDeServico;
+
   // o aviso de que o atendimento passou do tempo previsto (só na esteira):
   // a pessoa decide se inclui um acréscimo. null sem aviso
   final String? avisoTempo;
@@ -70,6 +80,8 @@ class CobrancaSheet extends StatefulWidget {
     List<Servico>? servicos,
     int? servicoAtualId,
     String servicoAtualNome = '',
+    List<Servico>? servicosCombinados,
+    List<Servico>? opcoesDeServico,
     String? avisoTempo,
   }) async {
     final cobrou = await abrirFolha<bool>(
@@ -83,6 +95,8 @@ class CobrancaSheet extends StatefulWidget {
         servicos: servicos,
         servicoAtualId: servicoAtualId,
         servicoAtualNome: servicoAtualNome,
+        servicosCombinados: servicosCombinados,
+        opcoesDeServico: opcoesDeServico,
         avisoTempo: avisoTempo,
       ),
     );
@@ -132,6 +146,10 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
   // o serviço escolhido no lugar do combinado; null cobra o combinado
   Servico? _servicoTrocado;
 
+  // na agenda, a lista escolhida no lugar da combinada; null cobra a
+  // combinada
+  List<Servico>? _listaMudada;
+
   String? _erro;
   bool _enviando = false;
 
@@ -165,14 +183,22 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
   bool get _podeTrocar =>
       (widget.servicos?.isNotEmpty ?? false) && widget.servicoAtualId != null;
 
+  bool get _podeMudarLista =>
+      (widget.servicosCombinados?.isNotEmpty ?? false) &&
+      (widget.opcoesDeServico?.isNotEmpty ?? false);
+
   Decimal get _desconto => dinheiroDoTexto(_descontoController.text) ?? _zero;
   Decimal get _credito => dinheiroDoTexto(_creditoController.text) ?? _zero;
   Decimal get _acrescimo => dinheiroDoTexto(_acrescimoController.text) ?? _zero;
 
-  // o preço do que vai ser cobrado: o serviço trocado (preço atual do
-  // catálogo, como a API faz) ou o combinado
-  Decimal get _precoDosServicos =>
-      _servicoTrocado?.preco ?? widget.valorServicos;
+  // o preço do que vai ser cobrado: a lista mudada (cada um com o preço que
+  // a opção traz, o combinado em quem já estava, como a API faz), o serviço
+  // trocado (preço atual do catálogo) ou o combinado
+  Decimal get _precoDosServicos {
+    final lista = _listaMudada;
+    if (lista != null) return lista.fold(_zero, (soma, s) => soma + s.preco);
+    return _servicoTrocado?.preco ?? widget.valorServicos;
+  }
 
   Decimal get _total => _precoDosServicos + _acrescimo - _desconto;
 
@@ -274,6 +300,30 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
     });
   }
 
+  // a lista feita de verdade. voltar à combinada (os mesmos serviços)
+  // desfaz a mudança
+  Future<void> _mudarLista() async {
+    final combinados = widget.servicosCombinados!;
+    final atual = _listaMudada ?? combinados;
+    final escolha = await EscolherServicosSheet.abrir(
+      context,
+      titulo: 'Serviços feitos',
+      descricao:
+          'Tire o que não foi feito e inclua o que foi feito a mais. Quem já '
+          'estava mantém o preço combinado; quem entra vem com o preço atual.',
+      servicos: widget.opcoesDeServico!,
+      marcados: {for (final s in atual) s.id},
+    );
+    if (escolha == null || !mounted) return;
+    final mesmos =
+        escolha.length == combinados.length &&
+        escolha.every((s) => combinados.any((c) => c.id == s.id));
+    setState(() {
+      _listaMudada = mesmos ? null : escolha;
+      _acompanharTotal();
+    });
+  }
+
   // os pagamentos como a API espera: o troco sai das linhas de dinheiro
   // (o negócio fica só com o que é dele), e uma linha que zerar não vai
   List<Pagamento> _pagamentos() {
@@ -310,7 +360,11 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
         // o motivo só faz sentido com acréscimo
         acrescimoMotivo: acrescimo > _zero ? _motivoController.text.trim() : '',
         // sem troca a API cobra o combinado
-        servicoIds: _servicoTrocado == null ? null : [_servicoTrocado!.id],
+        servicoIds: _listaMudada != null
+            ? [for (final s in _listaMudada!) s.id]
+            : _servicoTrocado == null
+            ? null
+            : [_servicoTrocado!.id],
       ),
     );
     if (!mounted) return;
@@ -345,7 +399,10 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
         Text('Cobrar atendimento', style: textos.titleLarge),
         const SizedBox(height: BrandSpacing.space1),
         Text(
-          trocado == null
+          _listaMudada != null
+              ? 'Serviços: ${_listaMudada!.map((s) => s.nome).join(', ')} · '
+                    '${formatarDinheiro(_precoDosServicos)}'
+              : trocado == null
               ? 'Serviços: ${formatarDinheiro(widget.valorServicos)}'
               : 'Serviço: ${trocado.nome} · ${formatarDinheiro(trocado.preco)}',
           style: textos.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
@@ -525,8 +582,9 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
     );
   }
 
-  // a seção aberta: a troca do serviço (quando há lista) e o acréscimo com
-  // o motivo. os dois só mudam em comum acordo com o cliente
+  // a seção aberta: a troca do serviço (a lista inteira na agenda, um
+  // serviço na esteira) e o acréscimo com o motivo. os dois só mudam em
+  // comum acordo com o cliente
   Widget _combinado(BuildContext context) {
     final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
@@ -543,7 +601,28 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
           'combinado.',
           style: textos.bodySmall?.copyWith(color: cores.inkMuted),
         ),
-        if (_podeTrocar) ...[
+        if (_podeMudarLista) ...[
+          const SizedBox(height: BrandSpacing.space2),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.design_services_rounded),
+            title: Text(
+              (_listaMudada ?? widget.servicosCombinados!)
+                  .map((s) => s.nome)
+                  .join(', '),
+            ),
+            subtitle: Text(
+              _listaMudada == null
+                  ? 'Serviços combinados'
+                  : 'No lugar de '
+                        '${widget.servicosCombinados!.map((s) => s.nome).join(', ')}',
+            ),
+            trailing: TextButton(
+              onPressed: _mudarLista,
+              child: const Text('Mudar'),
+            ),
+          ),
+        ] else if (_podeTrocar) ...[
           const SizedBox(height: BrandSpacing.space2),
           ListTile(
             contentPadding: EdgeInsets.zero,

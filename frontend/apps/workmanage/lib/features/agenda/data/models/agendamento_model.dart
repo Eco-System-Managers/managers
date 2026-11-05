@@ -61,7 +61,7 @@ class AgendamentoModel {
   static Map<String, dynamic> corpoDeCriacao(NovoAgendamentoParams params) {
     return {
       'cliente': params.clienteId,
-      'servico_id': params.servicoId,
+      'servico_ids': params.servicoIds,
       'colaborador': params.colaboradorId,
       'data_hora': dataHoraParaApi(params.dataHora),
       'observacoes': params.observacoes,
