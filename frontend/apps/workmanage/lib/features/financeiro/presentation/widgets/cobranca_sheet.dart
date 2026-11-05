@@ -35,7 +35,17 @@ class CobrancaSheet extends StatefulWidget {
     this.servicosCombinados,
     this.opcoesDeServico,
     this.avisoTempo,
+    this.motivosSugeridos = motivosComuns,
   });
+
+  // os motivos de acréscimo mais comuns, em chips, para não digitar.
+  // "Sujeira pesada" só faz sentido na esteira (lava-rápido, banho & tosa)
+  static const motivosComuns = ['Tempo excedido', 'Serviço extra'];
+  static const motivosDaEsteira = [
+    'Tempo excedido',
+    'Sujeira pesada',
+    'Serviço extra',
+  ];
 
   // o id do agendamento ou do atendimento do kanban
   final int atendimentoId;
@@ -69,6 +79,8 @@ class CobrancaSheet extends StatefulWidget {
   // a pessoa decide se inclui um acréscimo. null sem aviso
   final String? avisoTempo;
 
+  final List<String> motivosSugeridos;
+
   // devolve true quando a cobrança foi feita
   static Future<bool> abrir(
     BuildContext context, {
@@ -83,6 +95,7 @@ class CobrancaSheet extends StatefulWidget {
     List<Servico>? servicosCombinados,
     List<Servico>? opcoesDeServico,
     String? avisoTempo,
+    List<String> motivosSugeridos = motivosComuns,
   }) async {
     final cobrou = await abrirFolha<bool>(
       context,
@@ -98,6 +111,7 @@ class CobrancaSheet extends StatefulWidget {
         servicosCombinados: servicosCombinados,
         opcoesDeServico: opcoesDeServico,
         avisoTempo: avisoTempo,
+        motivosSugeridos: motivosSugeridos,
       ),
     );
     return cobrou ?? false;
@@ -118,13 +132,6 @@ class _LinhaPagamento {
 }
 
 class _CobrancaSheetState extends State<CobrancaSheet> {
-  // os motivos mais comuns, para não digitar
-  static const _motivosSugeridos = [
-    'Tempo excedido',
-    'Sujeira pesada',
-    'Serviço extra',
-  ];
-
   final _descontoController = TextEditingController();
   final _creditoController = TextEditingController();
   final _acrescimoController = TextEditingController();
@@ -667,7 +674,7 @@ class _CobrancaSheetState extends State<CobrancaSheet> {
           spacing: BrandSpacing.space2,
           runSpacing: BrandSpacing.space1,
           children: [
-            for (final sugestao in _motivosSugeridos)
+            for (final sugestao in widget.motivosSugeridos)
               ChoiceChip(
                 label: Text(sugestao),
                 selected: motivo == sugestao,
