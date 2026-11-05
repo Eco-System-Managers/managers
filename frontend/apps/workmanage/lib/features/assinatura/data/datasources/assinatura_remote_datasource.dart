@@ -11,13 +11,8 @@ abstract class AssinaturaRemoteDataSource {
   // 404 quando o negócio ainda não tem assinatura
   Future<Assinatura> obter();
 
-  // o link do checkout do plano padrão, para abrir no navegador
-  Future<String> iniciar();
-
-  // vincula ao negócio a assinatura feita no checkout (id do gateway)
-  Future<Assinatura> confirmar(String idExterno);
-
-  Future<Assinatura> cancelar();
+  // a API lê na loja (RevenueCat) o que o negócio comprou
+  Future<Assinatura> sincronizar();
 
   Future<List<PagamentoAssinatura>> listarPagamentos();
 }
@@ -34,26 +29,9 @@ class AssinaturaRemoteDataSourceImpl implements AssinaturaRemoteDataSource {
   }
 
   @override
-  Future<String> iniciar() async {
+  Future<Assinatura> sincronizar() async {
     final response = await dio.post<Map<String, dynamic>>(
-      'billing/assinatura/iniciar/',
-    );
-    return response.data!['link_checkout'] as String;
-  }
-
-  @override
-  Future<Assinatura> confirmar(String idExterno) async {
-    final response = await dio.post<Map<String, dynamic>>(
-      'billing/assinatura/confirmar/',
-      data: {'id_externo': idExterno},
-    );
-    return _assinatura(response.data!);
-  }
-
-  @override
-  Future<Assinatura> cancelar() async {
-    final response = await dio.post<Map<String, dynamic>>(
-      'billing/assinatura/cancelar/',
+      'billing/assinatura/sincronizar/',
     );
     return _assinatura(response.data!);
   }
@@ -86,6 +64,10 @@ class AssinaturaRemoteDataSourceImpl implements AssinaturaRemoteDataSource {
       trialFim: trialFim == null ? null : dataDaApi(trialFim),
       bloqueada: json['bloqueada'] as bool? ?? false,
       checkoutAberto: json['checkout_aberto'] as bool? ?? false,
+      plano: TipoPlano.values.asNameMap()[json['plano'] as String?],
+      vitalicia: json['vitalicia'] as bool? ?? false,
+      limiteEquipe: json['limite_equipe'] as int? ?? 0,
+      equipeAtiva: json['equipe_ativa'] as int? ?? 0,
     );
   }
 }

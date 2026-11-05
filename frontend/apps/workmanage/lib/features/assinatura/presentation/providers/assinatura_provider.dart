@@ -7,19 +7,22 @@ import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/features/auth/domain/usecases/logout_use_case.dart';
 
 import '../../domain/entities/assinatura.dart';
+import '../../domain/entities/oferta_de_plano.dart';
+import '../../domain/repositories/loja_repository.dart';
 import '../../domain/usecases/assinatura_use_cases.dart';
 
 // estado da tela de assinatura (montado em assinatura_provider.dart, na
-// raiz da feature): a assinatura, o histórico de cobranças e as ações do
-// proprietário. quando a assinatura carregada não está bloqueada, o aviso
+// raiz da feature): a assinatura, os planos da loja, a compra e o histórico
+// de cobranças. quando a assinatura carregada não está bloqueada, o aviso
 // de 402 é limpo e o router solta a tela
 class AssinaturaProvider extends ChangeNotifier {
   AssinaturaProvider({
     required this._obter,
-    required this._iniciar,
-    required this._confirmar,
-    required this._cancelar,
     required this._listarPagamentos,
+    required this._listarOfertas,
+    required this._comprar,
+    required this._restaurar,
+    required this._linkDeGerenciar,
     required this._bloqueio,
     required this._logout,
     required this._sessao,
@@ -27,26 +30,30 @@ class AssinaturaProvider extends ChangeNotifier {
   });
 
   final ObterAssinaturaUseCase _obter;
-  final IniciarAssinaturaUseCase _iniciar;
-  final ConfirmarAssinaturaUseCase _confirmar;
-  final CancelarAssinaturaUseCase _cancelar;
   final ListarPagamentosAssinaturaUseCase _listarPagamentos;
+  final ListarOfertasUseCase _listarOfertas;
+  final ComprarPlanoUseCase _comprar;
+  final RestaurarComprasUseCase _restaurar;
+  final LinkDeGerenciarUseCase _linkDeGerenciar;
   final BloqueioAssinatura _bloqueio;
   final LogoutUseCase _logout;
   final SessaoController _sessao;
 
-  // false no iPhone: a Apple não deixa vender assinatura com pagamento de fora
-  // nem apontar para ele, então lá a tela não oferece compra nenhuma (nem o
-  // "Em breve"), só mostra a assinatura
+  // false quando a loja deste aparelho não está configurada (sem a chave do
+  // RevenueCat): aí a tela não oferece compra nenhuma
   final bool compraNoApp;
 
   Assinatura? _assinatura;
   bool _semAssinatura = false;
   List<PagamentoAssinatura> _pagamentos = const [];
+  List<OfertaDePlano> _ofertas = const [];
+  TipoPlano? _planoEscolhido;
+  PeriodoDoPlano _periodoEscolhido = PeriodoDoPlano.anual;
   bool _carregado = false;
   bool _isLoading = false;
   Failure? _erroAoCarregar;
   String? _errorMessage;
+  String? _aviso;
 
   bool _saindo = false;
 
@@ -57,7 +64,7 @@ class AssinaturaProvider extends ChangeNotifier {
   Assinatura? get assinatura => _assinatura;
 
   // a API respondeu 404: nunca houve assinatura (negócio antigo). a tela
-  // oferece o checkout do mesmo jeito
+  // oferece os planos do mesmo jeito
   bool get semAssinatura => _semAssinatura;
 
   List<PagamentoAssinatura> get pagamentos => _pagamentos;
@@ -68,15 +75,20 @@ class AssinaturaProvider extends ChangeNotifier {
   // erro de uma ação; a tela continua
   String? get errorMessage => _errorMessage;
 
+  // o que deu certo, para a tela avisar uma vez (avisoMostrado zera)
+  String? get aviso => _aviso;
+
   // o negócio está bloqueado (402): o router prende a pessoa aqui, então a
   // tela oferece sair e excluir a conta, para ninguém ficar sem saída
   bool get bloqueada => _bloqueio.bloqueada;
   bool get saindo => _saindo;
 
-  // onde não dá para assinar (o iPhone sempre, a fase de testes em qualquer
-  // celular) o app não fala de assinatura: a tela mostra só o acesso, sem
-  // plano, cobranças nem "Em breve". é igual no Android e no iPhone, para
-  // cumprir o que a Apple pede
+  // assinar pelo app ainda não está liberado: sem assinatura, também não
+  bool get checkoutAberto => _assinatura?.checkoutAberto ?? false;
+
+  // onde não dá para assinar (a fase de testes, ou a loja sem configurar)
+  // o app não fala de assinatura: a tela mostra só o acesso, sem plano,
+  // cobranças nem "Em breve"
   bool get semVenda => !compraNoApp || !checkoutAberto;
 
   // o aviso do 402 que trouxe a pessoa até aqui, se houve. o texto da API
@@ -87,28 +99,44 @@ class AssinaturaProvider extends ChangeNotifier {
     return _bloqueio.mensagem;
   }
 
-  // revoga o refresh na API e limpa a sessão local, como em Mais; se a API
-  // falhar, a sessão local é limpa do mesmo jeito e o router leva ao login
-  Future<void> sair() async {
-    final sessao = _sessao.atual;
-    if (sessao == null || _saindo) return;
+  bool get vitalicia => _assinatura?.vitalicia ?? false;
 
-    _saindo = true;
-    notifyListeners();
+  // ativa, a tela fala em trocar de plano; senão, em assinar
+  bool get assinaturaAtiva => _assinatura?.status == StatusAssinatura.ativa;
 
-    await _logout(sessao.refresh);
-    if (_disposed) return;
+  // a tela mostra os planos: há venda, há o que comprar na loja e o
+  // negócio não é vitalício
+  bool get mostraPlanos => !semVenda && !vitalicia && _ofertas.isNotEmpty;
 
-    await _sessao.sair();
+  // a venda está aberta, mas a loja não trouxe os planos (rede, loja fora)
+  bool get lojaSemPlanos => !semVenda && !vitalicia && _ofertas.isEmpty;
+
+  // os planos que cabem na equipe de hoje: quem tem equipe não vê o Pro
+  List<TipoPlano> get planosDisponiveis {
+    final equipe = _assinatura?.equipeAtiva ?? 0;
+    final comOferta = _ofertas.map((o) => o.plano).toSet();
+    return planosQueCabem(equipe).where(comOferta.contains).toList();
   }
 
-  bool get podeAssinar => _semAssinatura || (_assinatura?.podeAssinar ?? false);
+  TipoPlano? get planoEscolhido => _planoEscolhido;
+  PeriodoDoPlano get periodoEscolhido => _periodoEscolhido;
 
-  // a tela mostra os botões de assinar
-  bool get mostraCompra => !semVenda && podeAssinar;
+  // os períodos do plano escolhido, na ordem mensal, semestral, anual
+  List<OfertaDePlano> get ofertasDoPlano =>
+      _ofertas.where((o) => o.plano == _planoEscolhido).toList()
+        ..sort((a, b) => a.periodo.index.compareTo(b.periodo.index));
 
-  // assinar pelo app ainda não está liberado: sem assinatura, também não
-  bool get checkoutAberto => _assinatura?.checkoutAberto ?? false;
+  OfertaDePlano? get ofertaEscolhida => ofertasDoPlano
+      .where((o) => o.periodo == _periodoEscolhido)
+      .firstOrNull;
+
+  // quanto o período economiza sobre o mensal do mesmo plano
+  int descontoDe(OfertaDePlano oferta) => descontoSobreMensal(
+    oferta,
+    ofertasDoPlano.where((o) => o.periodo == PeriodoDoPlano.mensal).firstOrNull,
+  );
+
+  String? get _negocio => _sessao.atual?.schemaName;
 
   Future<void> carregar() async {
     _isLoading = true;
@@ -140,67 +168,124 @@ class AssinaturaProvider extends ChangeNotifier {
     // o histórico falhando não derruba a tela
     pagamentos.fold((_) {}, (lista) => _pagamentos = lista);
 
+    // a loja só é consultada quando há venda: na fase de testes o app nem
+    // fala com ela
+    final negocio = _negocio;
+    if (_carregado && !semVenda && !vitalicia && negocio != null) {
+      final ofertas = await _listarOfertas(negocio);
+      if (_disposed) return;
+      ofertas.fold((_) => _ofertas = const [], (lista) => _ofertas = lista);
+      _escolherPlanoInicial();
+    }
+
     _isLoading = false;
     notifyListeners();
   }
 
-  // devolve o link do checkout para a tela abrir no navegador; null quando
-  // a API recusou (o erro fica em errorMessage)
-  Future<String?> iniciar() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    final result = await _iniciar(NoParams());
-    if (_disposed) return null;
-
-    final link = result.fold((failure) {
-      _errorMessage = failure.message;
-      return null;
-    }, (l) => l);
-
-    _isLoading = false;
-    notifyListeners();
-    return link;
+  // começa no plano que já vale (no teste, o Business) se ele couber; senão
+  // no menor que comporta a equipe
+  void _escolherPlanoInicial() {
+    final disponiveis = planosDisponiveis;
+    if (disponiveis.isEmpty) {
+      _planoEscolhido = null;
+      return;
+    }
+    final atual = _assinatura?.plano;
+    _planoEscolhido = disponiveis.contains(atual) ? atual : disponiveis.first;
   }
 
-  // devolve true quando a assinatura foi vinculada
-  Future<bool> confirmar(String idExterno) =>
-      _executar(() => _confirmar(idExterno.trim()));
+  void escolherPlano(TipoPlano plano) {
+    if (_planoEscolhido == plano) return;
+    _planoEscolhido = plano;
+    notifyListeners();
+  }
 
-  Future<bool> cancelar() => _executar(() => _cancelar(NoParams()));
+  void escolherPeriodo(PeriodoDoPlano periodo) {
+    if (_periodoEscolhido == periodo) return;
+    _periodoEscolhido = periodo;
+    notifyListeners();
+  }
 
-  Future<bool> _executar(
-    Future<Either<Failure, Assinatura>> Function() acao,
-  ) async {
+  // compra o plano e o período escolhidos; a assinatura nova já vem da API
+  Future<void> comprar() async {
+    final oferta = ofertaEscolhida;
+    final negocio = _negocio;
+    if (oferta == null || negocio == null || _isLoading) return;
+
+    await _executar(
+      () => _comprar(ComprarPlanoParams(oferta: oferta, negocio: negocio)),
+      sucesso: 'Plano ${oferta.plano.nome} assinado.',
+    );
+  }
+
+  Future<void> restaurar() async {
+    final negocio = _negocio;
+    if (negocio == null || _isLoading) return;
+    await _executar(
+      () => _restaurar(negocio),
+      sucesso: 'Compras restauradas.',
+    );
+  }
+
+  // onde a pessoa gerencia e cancela, na loja; null quando a loja não
+  // informou (a tela usa o link geral da loja)
+  Future<String?> linkDeGerenciar() async {
+    final negocio = _negocio;
+    if (negocio == null) return null;
+    final result = await _linkDeGerenciar(negocio);
+    return result.fold((_) => null, (link) => link);
+  }
+
+  Future<void> _executar(
+    Future<Either<Failure, Assinatura>> Function() acao, {
+    required String sucesso,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     final result = await acao();
-    if (_disposed) return false;
+    if (_disposed) return;
 
-    final ok = result.fold(
+    result.fold(
       (failure) {
-        _errorMessage = failure.message;
-        return false;
+        // desistir na janela da loja não é erro
+        if (failure.code != LojaRepository.compraCancelada) {
+          _errorMessage = failure.message;
+        }
       },
       (a) {
         _semAssinatura = false;
         _guardar(a);
-        return true;
+        _aviso = sucesso;
       },
     );
 
     _isLoading = false;
     notifyListeners();
-    return ok;
   }
 
   void _guardar(Assinatura assinatura) {
     _assinatura = assinatura;
     if (!assinatura.bloqueada) _bloqueio.limpar();
   }
+
+  // revoga o refresh na API e limpa a sessão local, como em Mais; se a API
+  // falhar, a sessão local é limpa do mesmo jeito e o router leva ao login
+  Future<void> sair() async {
+    final sessao = _sessao.atual;
+    if (sessao == null || _saindo) return;
+
+    _saindo = true;
+    notifyListeners();
+
+    await _logout(sessao.refresh);
+    if (_disposed) return;
+
+    await _sessao.sair();
+  }
+
+  void avisoMostrado() => _aviso = null;
 
   void limparErro() {
     if (_errorMessage == null) return;
