@@ -133,6 +133,7 @@ App: **Work Manage** (`frontend/apps/workmanage`).
 - **Na grade, a linha da hora é `border` e a dos 15 minutos é `bg-2`.** É a hierarquia que antes vinha de borda translúcida.
 - **Horário escolhido em `brandBlue` com texto branco; ocupado em `bg-2` com `ink-muted`.**
 - **A folga do fim da grade passou de 96 para 64 (`space-7`).** O último horário continua acima do botão flutuante.
+- **A alça do calendário virou um chevron** da largura da barra que ela era (36), em `ink-muted`: para baixo com a semana, para cima com o mês aberto, girando na troca. A barra não dizia para que lado ia.
 
 ### Quadro (kanban)
 
