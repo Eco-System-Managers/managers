@@ -5,6 +5,7 @@ import 'package:managers/core/session/sessao_controller.dart';
 import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/features/empresa/domain/entities/empresa_config.dart';
 import 'package:managers/features/empresa/domain/usecases/buscar_config_use_case.dart';
+import 'package:managers/features/novidades/domain/usecases/marcar_novidades_vistas_use_case.dart';
 import 'package:managers/features/splash/presentation/providers/splash_provider.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -12,10 +13,14 @@ import '../../helpers/fake_sessao_repository.dart';
 
 class _MockBuscarConfig extends Mock implements BuscarConfigUseCase {}
 
+class _MockMarcarNovidades extends Mock
+    implements MarcarNovidadesVistasUseCase {}
+
 void main() {
   late FakeSessaoRepository repository;
   late SessaoController sessao;
   late _MockBuscarConfig buscarConfig;
+  late _MockMarcarNovidades marcarNovidades;
   late SplashProvider splash;
 
   setUpAll(() => registerFallbackValue(NoParams()));
@@ -24,7 +29,14 @@ void main() {
     repository = FakeSessaoRepository();
     sessao = SessaoController(repository);
     buscarConfig = _MockBuscarConfig();
-    splash = SplashProvider(sessao: sessao, buscarConfig: buscarConfig);
+    marcarNovidades = _MockMarcarNovidades();
+    when(() => marcarNovidades(any()))
+        .thenAnswer((_) async => const Right(null));
+    splash = SplashProvider(
+      sessao: sessao,
+      buscarConfig: buscarConfig,
+      marcarNovidadesVistas: marcarNovidades,
+    );
   });
 
   test('sem sessão guardada vai para o login, sem consultar a API', () async {
@@ -34,6 +46,8 @@ void main() {
     expect(splash.destination, '/login');
     expect(sessao.carregada, isTrue);
     verifyNever(() => buscarConfig(any()));
+    // quem entra depois não vê as novidades desta versão
+    verify(() => marcarNovidades(any())).called(1);
   });
 
   test('com sessão e onboarding por concluir vai para o wizard', () async {

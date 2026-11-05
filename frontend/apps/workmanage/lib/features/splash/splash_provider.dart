@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/core/session/sessao_provider.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
+import 'package:managers/features/novidades/novidades_provider.dart';
 
 import 'presentation/providers/splash_provider.dart';
 
@@ -11,6 +12,7 @@ final splashProvider = Provider.autoDispose<SplashProvider>((ref) {
   final provider = SplashProvider(
     sessao: ref.watch(sessaoControllerProvider),
     buscarConfig: ref.watch(buscarConfigUseCaseProvider),
+    marcarNovidadesVistas: ref.watch(marcarNovidadesVistasUseCaseProvider),
   );
   ref.onDispose(provider.dispose);
   return provider;
