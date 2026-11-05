@@ -20,7 +20,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, preco, plano, **options):
         from apps_work.billing.models import Plano
-        from apps_work.billing.services import AssinaturaInvalidaError, gateway_de_pagamento
+        # O comando é do Mercado Pago: não depende de BILLING_GATEWAY, que com
+        # a venda nas lojas é o revenuecat.
+        from apps_work.billing.services import AssinaturaInvalidaError, MercadoPagoGateway
 
         try:
             valor = Decimal(preco.replace(',', '.')).quantize(Decimal('0.01'))
@@ -44,7 +46,7 @@ class Command(BaseCommand):
         # continuam cobrando o valor dele.
         plano.preco_mensal = valor
         try:
-            gateway_de_pagamento().criar_plano_no_gateway(plano)
+            MercadoPagoGateway().criar_plano_no_gateway(plano)
         except AssinaturaInvalidaError as e:
             raise CommandError(str(e))
         plano.save(update_fields=['preco_mensal'])

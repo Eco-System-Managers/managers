@@ -123,3 +123,20 @@ class PrivacidadeView(View):
             'responsavel': settings.PRIVACIDADE_RESPONSAVEL,
             'email': settings.PRIVACIDADE_EMAIL,
         })
+
+
+class TermosView(View):
+    """Os termos de uso, que a Apple exige na tela de assinatura (com a
+    renovação automática explicada) e que o app abre ao lado da privacidade."""
+
+    def get(self, request):
+        from django.conf import settings
+
+        from apps_work.billing.models import LIMITE_DA_EQUIPE, TipoPlano
+
+        return render(request, 'paginas/termos.html', {
+            'responsavel': settings.PRIVACIDADE_RESPONSAVEL,
+            'email': settings.PRIVACIDADE_EMAIL,
+            'limite_business': LIMITE_DA_EQUIPE[TipoPlano.BUSINESS],
+            'limite_enterprise': LIMITE_DA_EQUIPE[TipoPlano.ENTERPRISE],
+        })

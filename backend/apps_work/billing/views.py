@@ -9,7 +9,8 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from core.permissions import IsProprietario
-from .models import Assinatura, PagamentoAssinatura, Plano
+from .models import Assinatura, Gateway, PagamentoAssinatura, Plano
+from .revenuecat import RevenueCat, RevenueCatIndisponivelError
 from .serializers import (
     AssinaturaSerializer, ConfirmarAssinaturaSerializer, LinkAssinaturaSerializer, PagamentoAssinaturaSerializer,
 )
@@ -25,12 +26,23 @@ from core.links import link_retorno_pagamento
 from core.tenant import tenant_atual
 
 
+def _venda_pela_loja():
+    """Com a venda nas lojas (BILLING_GATEWAY=revenuecat), o checkout e o
+    cancelamento do Mercado Pago ficam fechados: um app antigo não abre uma
+    segunda forma de pagar. Assinar e cancelar são na loja do celular."""
+    if settings.BILLING_GATEWAY == Gateway.MERCADO_PAGO:
+        return None
+    return erro(
+        'A assinatura é feita e cancelada pela loja do celular.', 'assinatura_pela_loja', status.HTTP_403_FORBIDDEN,
+    )
+
+
 def _assinatura_em_breve():
     """A trava enquanto assinar pelo app não está liberado (ASSINATURA_ABERTA).
     Fica no servidor, e não só na tela: um app antigo ou um pedido à mão não
     passa por ela."""
     if settings.ASSINATURA_ABERTA:
-        return None
+        return _venda_pela_loja()
     return erro('A assinatura pelo app chega em breve.', 'assinatura_em_breve', status.HTTP_403_FORBIDDEN)
 
 
@@ -114,11 +126,36 @@ class CancelarAssinaturaView(APIView):
 
     @extend_schema(request=None, responses=AssinaturaSerializer, summary='Cancelar a assinatura')
     def post(self, request):
+        if (bloqueio := _venda_pela_loja()) is not None:
+            return bloqueio
+
         tenant = tenant_atual()
         try:
             assinatura = gateway_de_pagamento().cancelar_assinatura(tenant)
         except AssinaturaGatewayError as e:
             return erro(str(e), 'assinatura_recusada')
+
+        return Response(AssinaturaSerializer(assinatura).data)
+
+
+class SincronizarAssinaturaView(APIView):
+    """O app chama logo depois de comprar ou restaurar na loja: o acesso
+    libera na hora, sem esperar o webhook do RevenueCat. Não passa pela trava
+    do ASSINATURA_ABERTA: só lê o que a loja já cobrou."""
+
+    permission_classes = [IsAuthenticated, IsProprietario]
+
+    @extend_schema(request=None, responses=AssinaturaSerializer, summary='Ler na loja a compra do negócio')
+    def post(self, request):
+        try:
+            assinatura = RevenueCat().sincronizar(tenant_atual())
+        except RevenueCatIndisponivelError:
+            return erro(
+                'Não foi possível confirmar a compra com a loja agora. Tente de novo em instantes.',
+                'loja_indisponivel', status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if assinatura is None:
+            return erro('Este negócio ainda não tem assinatura.', status_code=status.HTTP_404_NOT_FOUND)
 
         return Response(AssinaturaSerializer(assinatura).data)
 
@@ -155,5 +192,27 @@ class MercadoPagoWebhookView(APIView):
             )
         except WebhookInvalidoError:
             return erro('Assinatura do webhook inválida.', 'assinatura_invalida', status.HTTP_401_UNAUTHORIZED)
+
+        return Response(status=status.HTTP_200_OK)
+
+
+class RevenueCatWebhookView(APIView):
+    """Os avisos do RevenueCat: compra, renovação, cancelamento, troca de
+    plano, reembolso. Erro ao ler a API responde 503, e o RevenueCat reenvia."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'webhook'
+
+    @extend_schema(exclude=True)  # chamado pelo RevenueCat, não pelo app
+    def post(self, request):
+        corpo = request.data if isinstance(request.data, dict) else {}
+        try:
+            RevenueCat().processar_webhook(corpo, request.headers.get('Authorization', ''))
+        except WebhookInvalidoError:
+            return erro('Autorização do webhook inválida.', 'assinatura_invalida', status.HTTP_401_UNAUTHORIZED)
+        except RevenueCatIndisponivelError:
+            return erro('RevenueCat indisponível.', 'loja_indisponivel', status.HTTP_503_SERVICE_UNAVAILABLE)
 
         return Response(status=status.HTTP_200_OK)
