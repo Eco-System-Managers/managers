@@ -9,6 +9,7 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/folha.dart';
+import 'package:managers/core/widgets/grade_de_horarios.dart';
 import 'package:managers/features/clientes/domain/entities/objeto_cliente.dart';
 import 'package:managers/features/clientes/presentation/widgets/cliente_picker_sheet.dart';
 import 'package:managers/features/clientes/presentation/widgets/pet_form_sheet.dart';
@@ -461,17 +462,10 @@ class _GradeDeEntrada extends StatelessWidget {
         style: textos.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
       );
     }
-    return Wrap(
-      spacing: BrandSpacing.space2,
-      runSpacing: BrandSpacing.space2,
-      children: [
-        for (final hora in provider.slots)
-          ChoiceChip(
-            label: Text(formatarHora(hora)),
-            selected: provider.hora == hora,
-            onSelected: (_) => provider.selecionarHora(hora),
-          ),
-      ],
+    return GradeDeHorarios(
+      horas: provider.slots,
+      selecionada: provider.hora,
+      onSelecionar: provider.selecionarHora,
     );
   }
 }

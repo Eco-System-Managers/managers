@@ -23,7 +23,8 @@ import '../../domain/usecases/agenda_use_cases.dart';
 // serviços são feitos em sequência pelo mesmo profissional: a duração e o
 // valor são a soma deles. o horário vem da grade da API, que já desconta a
 // duração e a agenda do profissional; por isso a grade recarrega a cada
-// escolha
+// escolha. a hora escolhida (ou a tocada na agenda) fica enquanto couber: a
+// grade nova a confere, e só a tira se ela não estiver livre
 class AgendamentoFormProvider extends ChangeNotifier {
   AgendamentoFormProvider({
     required this._listarServicos,
@@ -34,7 +35,8 @@ class AgendamentoFormProvider extends ChangeNotifier {
     this.colaboradorInicialId,
     this.horaInicial,
     DateTime? dataInicial,
-  }) : _data = somenteData(dataInicial ?? DateTime.now());
+  }) : _data = somenteData(dataInicial ?? DateTime.now()),
+       _hora = horaInicial;
 
   final ListarServicosUseCase _listarServicos;
   final ListarColaboradoresUseCase _listarColaboradores;
@@ -45,10 +47,9 @@ class AgendamentoFormProvider extends ChangeNotifier {
   // quem está logado: começa selecionado quando faz parte da equipe
   final int? colaboradorInicialId;
 
-  // a hora tocada na grade: entra escolhida assim que a grade de slots
-  // chegar, se ainda estiver livre
+  // a hora tocada na grade da agenda: já entra escolhida, e a grade de
+  // slots confere se está livre quando chegar
   final Hora? horaInicial;
-  bool _horaInicialAplicada = false;
 
   List<Servico> _servicos = const [];
   List<Colaborador> _colaboradores = const [];
@@ -60,6 +61,7 @@ class AgendamentoFormProvider extends ChangeNotifier {
   Colaborador? _colaborador;
   DateTime _data;
   Hora? _hora;
+  Hora? _horaQueSaiu;
   List<Slot> _slots = const [];
   bool _carregandoSlots = false;
   String? _slotsErrorMessage;
@@ -111,6 +113,22 @@ class AgendamentoFormProvider extends ChangeNotifier {
   Colaborador? get colaborador => _colaborador;
   DateTime get data => _data;
   Hora? get hora => _hora;
+
+  // o fim do horário escolhido, pela soma das durações dos serviços; null
+  // sem hora ou sem serviço
+  Hora? get horaFim {
+    final hora = _hora;
+    if (hora == null || _escolhidos.isEmpty) return null;
+    final fim = juntarDataHora(
+      _data,
+      hora,
+    ).add(Duration(minutes: duracaoTotal));
+    return horaDe(fim);
+  }
+
+  // a hora escolhida que a grade nova não tem livre (outros serviços, outro
+  // profissional ou outro dia): a tela avisa por que ela saiu
+  Hora? get horaQueSaiu => _horaQueSaiu;
   List<Slot> get slots => _slots;
   bool get carregandoSlots => _carregandoSlots;
   String? get slotsErrorMessage => _slotsErrorMessage;
@@ -198,15 +216,17 @@ class AgendamentoFormProvider extends ChangeNotifier {
 
   void selecionarHora(Hora? hora) {
     _hora = hora;
+    _horaQueSaiu = null;
     _fieldErrors = {..._fieldErrors}..remove('data_hora');
     notifyListeners();
   }
 
-  // mudou o que define a grade: a hora escolhida pode não existir mais
+  // mudou o que define a grade: a hora escolhida fica até a grade nova
+  // dizer se ela continua livre
   void _recarregarGrade() {
-    _hora = null;
     _slots = const [];
     _slotsErrorMessage = null;
+    _horaQueSaiu = null;
     final colaborador = _colaborador;
     if (_escolhidos.isEmpty || colaborador == null) {
       notifyListeners();
@@ -231,10 +251,10 @@ class AgendamentoFormProvider extends ChangeNotifier {
 
     result.fold((failure) => _slotsErrorMessage = failure.message, (slots) {
       _slots = slots;
-      if (!_horaInicialAplicada && horaInicial != null) {
-        _horaInicialAplicada = true;
-        final livre = slots.any((s) => s.hora == horaInicial && s.disponivel);
-        if (livre) _hora = horaInicial;
+      final hora = _hora;
+      if (hora != null && !slots.any((s) => s.hora == hora && s.disponivel)) {
+        _hora = null;
+        _horaQueSaiu = hora;
       }
     });
 

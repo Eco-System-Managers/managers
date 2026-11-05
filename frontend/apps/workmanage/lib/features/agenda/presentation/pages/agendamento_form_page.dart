@@ -96,6 +96,16 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
     _provider.selecionarServicos(escolha);
   }
 
+  // "09:00 – 09:50" com os serviços escolhidos (a soma das durações); só o
+  // início sem eles
+  String _resumoDoHorario(AgendamentoFormProvider provider) {
+    final hora = provider.hora;
+    if (hora == null) return '';
+    final fim = provider.horaFim;
+    if (fim == null) return formatarHora(hora);
+    return '${formatarHora(hora)} – ${formatarHora(fim)}';
+  }
+
   Future<void> _salvar() async {
     final formOk = _formKey.currentState!.validate();
     final horaOk = _provider.hora != null;
@@ -251,21 +261,56 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
 
           const SizedBox(height: BrandSpacing.space4),
 
-          CampoData(
-            valor: provider.data,
-            onChanged: (d) {
-              if (d != null) provider.selecionarData(d);
-            },
-            label: 'Dia',
-            limpavel: false,
-            primeiraData: hoje,
-            ultimaData: DateTime(hoje.year + 1, hoje.month, hoje.day),
+          // o dia e, ao lado, o resumo do horário escolhido (início e fim).
+          // o horário só se escolhe na grade de baixo
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: CampoData(
+                  valor: provider.data,
+                  onChanged: (d) {
+                    if (d != null) provider.selecionarData(d);
+                  },
+                  label: 'Dia',
+                  limpavel: false,
+                  primeiraData: hoje,
+                  ultimaData: DateTime(hoje.year + 1, hoje.month, hoje.day),
+                ),
+              ),
+              const SizedBox(width: BrandSpacing.space3),
+              Expanded(
+                child: InputDecorator(
+                  isEmpty: provider.hora == null,
+                  decoration: InputDecoration(
+                    labelText: 'Horário',
+                    prefixIcon: const Icon(Icons.schedule_rounded),
+                    errorText: erroHora,
+                  ),
+                  child: Text(
+                    _resumoDoHorario(provider),
+                    style: textos.bodyLarge,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: BrandSpacing.space5),
 
-          Text('Horário', style: textos.titleSmall),
+          Text('Horários livres', style: textos.titleSmall),
           const SizedBox(height: BrandSpacing.space2),
+          if (provider.horaQueSaiu != null) ...[
+            Text(
+              'O horário das ${formatarHora(provider.horaQueSaiu!)} não está '
+              'livre com os serviços e o profissional escolhidos. Escolha '
+              'outro.',
+              style: textos.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+            const SizedBox(height: BrandSpacing.space2),
+          ],
           if (!provider.prontoParaGrade)
             Text(
               'Escolha os serviços e o profissional para ver os horários '
@@ -286,13 +331,6 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                 provider.selecionarHora(h);
               },
             ),
-          if (erroHora != null) ...[
-            const SizedBox(height: BrandSpacing.space2),
-            Text(
-              erroHora,
-              style: textos.bodySmall?.copyWith(color: colors.error),
-            ),
-          ],
 
           const SizedBox(height: BrandSpacing.space5),
 

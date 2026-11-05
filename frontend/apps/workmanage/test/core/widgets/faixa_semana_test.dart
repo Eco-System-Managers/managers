@@ -78,4 +78,45 @@ void main() {
 
     expect(escolhidos, [DateTime(2026, 11, 6)]);
   });
+
+  testWidgets('o chevron aponta para baixo com a semana e para cima com o '
+      'mês, e tocar nele abre e fecha', (tester) async {
+    var aberto = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => FaixaSemana(
+              dia: DateTime(2026, 10, 30),
+              hoje: DateTime(2026, 10, 30),
+              temRegistro: (_) => false,
+              expandido: aberto,
+              onSelecionar: (_) {},
+              onExpandir: (v) => setState(() => aberto = v),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    double giro() =>
+        tester.widget<AnimatedRotation>(find.byType(AnimatedRotation)).turns;
+
+    expect(find.bySemanticsLabel('Abrir o mês'), findsOneWidget);
+    expect(giro(), 0);
+
+    await tester.tap(find.bySemanticsLabel('Abrir o mês'));
+    await tester.pumpAndSettle();
+
+    expect(aberto, isTrue);
+    expect(find.bySemanticsLabel('Fechar o mês'), findsOneWidget);
+    expect(giro(), 0.5);
+
+    await tester.tap(find.bySemanticsLabel('Fechar o mês'));
+    await tester.pumpAndSettle();
+
+    expect(aberto, isFalse);
+    expect(giro(), 0);
+  });
 }
