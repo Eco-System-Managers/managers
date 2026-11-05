@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:managers/core/config/env.dart';
 import 'package:managers/core/session/sessao_provider.dart';
 import 'package:managers/features/assinatura/assinatura_provider.dart';
 import 'package:managers/features/auth/auth_provider.dart';
@@ -13,7 +13,7 @@ final maisProvider = Provider.autoDispose<MaisProvider>((ref) {
     logout: ref.watch(logoutUseCaseProvider),
     sessao: ref.watch(sessaoControllerProvider),
     obterAssinatura: ref.watch(obterAssinaturaUseCaseProvider),
-    compraNoApp: defaultTargetPlatform != TargetPlatform.iOS,
+    compraNoApp: Env.lojaConfigurada,
   );
   ref.onDispose(provider.dispose);
   return provider;

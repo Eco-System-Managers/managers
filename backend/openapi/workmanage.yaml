@@ -1670,6 +1670,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+  /api/v1/billing/assinatura/sincronizar/:
+    post:
+      operationId: billing_assinatura_sincronizar_create
+      description: |-
+        O app chama logo depois de comprar ou restaurar na loja: o acesso
+        libera na hora, sem esperar o webhook do RevenueCat. Não passa pela trava
+        do ASSINATURA_ABERTA: só lê o que a loja já cobrou.
+      summary: Ler na loja a compra do negócio
+      tags:
+      - billing
+      security:
+      - workmanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assinatura'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
   /api/v1/billing/pagamentos/:
     get:
       operationId: billing_pagamentos_list
@@ -8374,6 +8423,11 @@ components:
       properties:
         status:
           $ref: '#/components/schemas/StatusAssinaturaEnum'
+        plano:
+          type: string
+          readOnly: true
+          description: 'pro, business ou enterprise: o que vale agora (o teste é business,
+            o vitalício é enterprise).'
         plano_nome:
           type: string
           readOnly: true
@@ -8390,17 +8444,33 @@ components:
         bloqueada:
           type: boolean
           readOnly: true
+        vitalicia:
+          type: boolean
+          readOnly: true
+        limite_equipe:
+          type: integer
+          readOnly: true
+          description: Quantas pessoas cabem na equipe, sem contar o dono.
+        equipe_ativa:
+          type: integer
+          readOnly: true
+          description: Quantas pessoas estão ativas na equipe agora, sem contar o
+            dono.
         checkout_aberto:
           type: boolean
           readOnly: true
-          description: 'False enquanto assinar pelo app não está liberado: o app mostra
-            "Em breve".'
+          description: 'False enquanto assinar pelo app não está liberado: o app não
+            mostra a venda.'
       required:
       - bloqueada
       - checkout_aberto
+      - equipe_ativa
       - inicio
+      - limite_equipe
+      - plano
       - plano_nome
       - proximo_vencimento
+      - vitalicia
     AtendimentoKanban:
       type: object
       properties:

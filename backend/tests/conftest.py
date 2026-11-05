@@ -63,7 +63,9 @@ def patch_tenant_middleware(tenant):
 
     from apps_work.billing.models import Assinatura, Plano
 
-    plano, _ = Plano.objects.get_or_create(nome='pro', defaults={'preco_mensal': '69.90'})
+    # Enterprise: o maior limite de equipe, para os testes que cadastram
+    # pessoas não esbarrarem no plano (o limite tem os próprios testes).
+    plano, _ = Plano.objects.get_or_create(nome='enterprise', defaults={'preco_mensal': '119.90'})
     Assinatura.objects.get_or_create(
         tenant=tenant,
         defaults={

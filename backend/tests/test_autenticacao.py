@@ -113,16 +113,14 @@ class TestCadastro:
         response = api.post('/api/v1/auth/cadastro/', payload)
         assert response.status_code == 400
 
-    def test_cria_assinatura_trial_quando_plano_pro_existe(self, api, db):
+    def test_cria_assinatura_trial_no_business(self, api, db):
+        """O teste grátis é o Business: a pessoa experimenta o app com equipe."""
         from django.db import connection
         from apps_work.billing.models import Assinatura, Plano
 
-        # patch_tenant_middleware (via a fixture `api`) já cria uma Assinatura pro
-        # tenant de teste 'test_empresa' presa ao Plano 'pro' (PROTECT) — precisa
-        # ser removida antes de recriar o Plano do zero.
-        Assinatura.objects.filter(plano__nome='pro').delete()
-        Plano.objects.filter(nome='pro').delete()
-        Plano.objects.create(nome='pro', preco_mensal='69.90')
+        Assinatura.objects.filter(plano__nome='business').delete()
+        Plano.objects.filter(nome='business').delete()
+        Plano.objects.create(nome='business', preco_mensal='69.90')
 
         payload = {
             'nome_empresa': 'Salão Trial',
@@ -136,17 +134,15 @@ class TestCadastro:
         assinatura = Assinatura.objects.get(tenant__schema_name=response.data['schema_name'])
         assert assinatura.status == 'trial'
         assert assinatura.trial_fim == date.today() + timedelta(days=28)
-        assert assinatura.plano.nome == 'pro'
+        assert assinatura.plano.nome == 'business'
 
     def test_banco_sem_plano_cria_o_plano_e_o_trial_no_cadastro(self, api, db):
         """Antes, sem o plano, a empresa nascia sem assinatura e a API inteira dava 402."""
         from django.db import connection
         from apps_work.billing.models import Assinatura, Plano
 
-        # Idem: precisa desfazer a Assinatura que patch_tenant_middleware cria
-        # pro tenant de teste antes de conseguir apagar o Plano 'pro' (PROTECT).
-        Assinatura.objects.filter(plano__nome='pro').delete()
-        Plano.objects.filter(nome='pro').delete()
+        Assinatura.objects.filter(plano__nome='business').delete()
+        Plano.objects.filter(nome='business').delete()
 
         payload = {
             'nome_empresa': 'Salão Sem Plano',
@@ -159,7 +155,7 @@ class TestCadastro:
 
         assinatura = Assinatura.objects.get(tenant__schema_name=response.data['schema_name'])
         assert assinatura.status == 'trial'
-        assert assinatura.plano.nome == 'pro'
+        assert assinatura.plano.nome == 'business'
         assert str(assinatura.plano.preco_mensal) == '69.90'
 
 

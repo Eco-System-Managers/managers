@@ -584,7 +584,7 @@ class TestPagamentosListView:
         assinatura = Assinatura.objects.get(tenant=tenant)  # já criada por patch_tenant_middleware
         PagamentoAssinatura.objects.create(assinatura=assinatura, valor='69.90', status='pago', data=datetime.date.today())
 
-        plano = Plano.objects.get(nome='pro')
+        plano = assinatura.plano
         outro_tenant = Tenant.objects.create(schema_name='outro_negocio_pagamentos', nome='Outro Negócio')
         outra_assinatura = Assinatura.objects.create(
             tenant=outro_tenant, plano=plano, status='ativa',
@@ -635,6 +635,8 @@ class TestAssinaturaPeloGateway:
     @pytest.fixture(autouse=True)
     def checkout_aberto(self, settings):
         settings.ASSINATURA_ABERTA = True
+        # O checkout do Mercado Pago só abre com ele como gateway.
+        settings.BILLING_GATEWAY = 'mercadopago'
 
     def test_gateway_vem_da_configuracao(self, settings, mp_settings):
         from apps_work.billing.services import gateway_de_pagamento
@@ -704,7 +706,7 @@ def test_plano_padrao_e_criado_uma_vez_e_reaproveitado(settings):
     settings.PLANO_PADRAO = 'business'
     Plano.objects.filter(nome='business').delete()
     primeiro = plano_padrao()
-    assert (primeiro.nome, str(primeiro.preco_mensal)) == ('business', '99.90')
+    assert (primeiro.nome, str(primeiro.preco_mensal)) == ('business', '69.90')
     assert plano_padrao().pk == primeiro.pk
 
 

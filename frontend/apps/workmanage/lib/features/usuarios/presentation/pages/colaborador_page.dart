@@ -330,6 +330,11 @@ class _ColaboradorPageState extends ConsumerState<ColaboradorPage> {
                 ),
               ),
             ),
+            if (provider.bateuNoLimite)
+              TextButton(
+                onPressed: () => context.push('/mais/assinatura'),
+                child: const Text('Ver planos'),
+              ),
           ],
 
           const SizedBox(height: BrandSpacing.space5),

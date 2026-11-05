@@ -408,9 +408,16 @@ else:
 # Com Resend, o remetente precisa ser de um domínio verificado lá.
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER or 'noreply@workmanage.com.br'
 
-# Billing: gateway das assinaturas da plataforma e plano do trial/checkout
-BILLING_GATEWAY = os.getenv('BILLING_GATEWAY', 'mercadopago')
+# Billing: por onde se assina. `revenuecat` é a compra nas lojas (App Store e
+# Google Play), e fecha o checkout do Mercado Pago; `mercadopago` é o checkout
+# antigo, no navegador. PLANO_PADRAO é o plano que esse checkout vende.
+BILLING_GATEWAY = os.getenv('BILLING_GATEWAY', 'revenuecat')
 PLANO_PADRAO = os.getenv('PLANO_PADRAO', 'pro')
+
+# RevenueCat: a chave secreta da API v1 (sk_..., para ler as compras) e o
+# valor do cabeçalho Authorization que o webhook manda (cadastrado no painel).
+REVENUECAT_SECRET_KEY = os.getenv('REVENUECAT_SECRET_KEY', '')
+REVENUECAT_WEBHOOK_AUTH = os.getenv('REVENUECAT_WEBHOOK_AUTH', '')
 
 # Mercado Pago
 MERCADOPAGO_ACCESS_TOKEN = os.getenv('MERCADOPAGO_ACCESS_TOKEN', '')

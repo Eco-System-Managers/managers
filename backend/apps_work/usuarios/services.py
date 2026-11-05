@@ -45,9 +45,46 @@ class ColaboradorService:
             SessaoService().encerrar_todas(colaborador.user)
 
     def reativar(self, colaborador: Colaborador) -> None:
+        if not colaborador.ativo:
+            self.garantir_vaga()
         colaborador.ativo = True
         colaborador.save(update_fields=['ativo'])
         self.sincronizar_is_active(colaborador)
+
+    def equipe_ativa(self) -> int:
+        """Quem está ativo na equipe, colaborador ou parceiro, com ou sem
+        login — sem contar o dono, que o plano sempre comporta."""
+        donos = Membro.objects.filter(
+            tenant__schema_name=schema_atual(), papel=Papel.PROPRIETARIO,
+        ).values_list('user_id', flat=True)
+        return Colaborador.objects.filter(ativo=True).exclude(user_id__in=list(donos)).count()
+
+    def garantir_vaga(self) -> None:
+        """Recusa entrar mais alguém na equipe quando o plano já está cheio.
+
+        Vale para cadastrar, reativar, convidar sem cadastro e aceitar o
+        convite. Ninguém sai sozinho quando o plano diminui: a equipe que
+        passou do limite só não cresce até caber de novo.
+        """
+        from apps_work.billing.models import Assinatura, StatusAssinatura, TipoPlano
+        from core.tenant import tenant_atual
+
+        assinatura = Assinatura.objects.select_related('plano').filter(tenant=tenant_atual()).first()
+        if assinatura is None:
+            return
+        limite = assinatura.limite_da_equipe
+        if self.equipe_ativa() < limite:
+            return
+
+        if assinatura.status == StatusAssinatura.TRIAL:
+            mensagem = f'No teste grátis a equipe vai até {limite} pessoas, além de você.'
+        elif assinatura.plano_vigente == TipoPlano.PRO:
+            mensagem = 'O plano Pro é só para o dono. Para ter equipe, mude para o Business.'
+        elif assinatura.plano_vigente == TipoPlano.BUSINESS:
+            mensagem = f'O plano Business vai até {limite} pessoas na equipe. Para mais, mude para o Enterprise.'
+        else:
+            mensagem = f'O plano Enterprise vai até {limite} pessoas na equipe.'
+        raise ErroDeNegocio(mensagem, 'limite_da_equipe')
 
     def tem_agendamentos_pendentes(self, colaborador: Colaborador) -> dict:
         from apps_work.agenda.models import Agendamento, StatusAgendamento
@@ -128,6 +165,10 @@ class ConviteService:
             raise ErroDeNegocio('Este e-mail já está vinculado a uma conta.', 'email_ja_cadastrado')
         if ConviteColaborador.objects.filter(email=email, aceito=False, expira_em__gt=timezone.now()).exists():
             raise ErroDeNegocio('Já existe um convite pendente para este e-mail.', 'convite_pendente')
+        if colaborador is None:
+            # Convite sem cadastro vira uma pessoa nova ao ser aceito: recusar
+            # aqui evita mandar um convite que não vai poder entrar.
+            ColaboradorService().garantir_vaga()
         expira_em = timezone.now() + timedelta(days=self.EXPIRACAO_DIAS)
         convite = ConviteColaborador.objects.create(
             nome=nome, email=email, expira_em=expira_em, colaborador=colaborador,
@@ -177,6 +218,15 @@ class AceitarConviteService:
             self._validar_expiracao(convite)
             if User.objects.filter(email=convite.email).exists():
                 raise ErroDeNegocio('Este e-mail já está vinculado a uma conta.', 'email_ja_cadastrado')
+            if convite.colaborador_id is None or not convite.colaborador.ativo:
+                # Entra uma pessoa nova, ou volta quem estava desativado. O
+                # plano pode ter diminuído desde o convite.
+                try:
+                    ColaboradorService().garantir_vaga()
+                except ErroDeNegocio as e:
+                    raise ErroDeNegocio(
+                        'A equipe deste negócio está completa no plano atual. Fale com o dono.', e.code,
+                    ) from e
 
             partes = convite.nome.strip().split(' ', 1) if convite.nome else []
             user = User.objects.create_user(

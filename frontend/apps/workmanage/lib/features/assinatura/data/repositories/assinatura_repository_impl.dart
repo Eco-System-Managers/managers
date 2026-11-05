@@ -17,16 +17,8 @@ class AssinaturaRepositoryImpl implements AssinaturaRepository {
       _executar(_remoteDataSource.obter);
 
   @override
-  Future<Either<Failure, String>> iniciar() =>
-      _executar(_remoteDataSource.iniciar);
-
-  @override
-  Future<Either<Failure, Assinatura>> confirmar(String idExterno) =>
-      _executar(() => _remoteDataSource.confirmar(idExterno));
-
-  @override
-  Future<Either<Failure, Assinatura>> cancelar() =>
-      _executar(_remoteDataSource.cancelar);
+  Future<Either<Failure, Assinatura>> sincronizar() =>
+      _executar(_remoteDataSource.sincronizar);
 
   @override
   Future<Either<Failure, List<PagamentoAssinatura>>> listarPagamentos() =>

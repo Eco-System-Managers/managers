@@ -341,12 +341,13 @@ def gateway_de_pagamento() -> GatewayPagamento:
 
 
 
-# Preço com que o plano padrão nasce num banco novo. Depois de criado, o preço
-# é o que estiver no banco (o admin muda ali).
+# Preço mensal com que cada plano nasce num banco novo. Na venda pelas lojas
+# o preço de verdade é o cadastrado na App Store e no Google Play: este fica
+# só como referência no admin.
 PRECO_INICIAL_PLANO = {
-    TipoPlano.PRO: Decimal('69.90'),
-    TipoPlano.BUSINESS: Decimal('99.90'),
-    TipoPlano.ENTERPRISE: Decimal('199.90'),
+    TipoPlano.PRO: Decimal('39.90'),
+    TipoPlano.BUSINESS: Decimal('69.90'),
+    TipoPlano.ENTERPRISE: Decimal('119.90'),
 }
 
 
@@ -367,7 +368,10 @@ def conceder_acesso_vitalicio(assinatura: Assinatura) -> None:
     assinatura.id_externo = None
     assinatura.trial_fim = None
     assinatura.proximo_vencimento = VENCIMENTO_VITALICIO
-    assinatura.save(update_fields=['status', 'id_externo', 'trial_fim', 'proximo_vencimento'])
+    # O vitalício vale como Enterprise (plano_vigente); gravar o plano deixa o
+    # admin e o app mostrando o mesmo.
+    assinatura.plano = plano_do_tipo(TipoPlano.ENTERPRISE)
+    assinatura.save(update_fields=['status', 'id_externo', 'trial_fim', 'proximo_vencimento', 'plano'])
 
 
 def revogar_acesso_vitalicio(assinatura: Assinatura) -> None:
@@ -380,14 +384,25 @@ def revogar_acesso_vitalicio(assinatura: Assinatura) -> None:
     assinatura.save(update_fields=['status', 'proximo_vencimento'])
 
 
-def plano_padrao() -> Plano:
-    """O plano de PLANO_PADRAO, criado na primeira vez que alguém precisa dele.
+def plano_do_tipo(tipo: str) -> Plano:
+    """O plano do tipo, criado na primeira vez que alguém precisa dele.
 
     Sem isso, um banco recém-criado aceitava o cadastro, mas a empresa nascia
-    sem assinatura de trial e toda a API respondia 402.
+    sem assinatura de trial e toda a API respondia 402. O mesmo vale para a
+    compra na loja, que pode chegar num plano que ninguém usou ainda.
     """
     plano, _ = Plano.objects.get_or_create(
-        nome=settings.PLANO_PADRAO,
-        defaults={'preco_mensal': PRECO_INICIAL_PLANO[settings.PLANO_PADRAO], 'ativo': True},
+        nome=tipo,
+        defaults={'preco_mensal': PRECO_INICIAL_PLANO[tipo], 'ativo': True},
     )
     return plano
+
+
+def plano_padrao() -> Plano:
+    """O plano de PLANO_PADRAO: o que o checkout do Mercado Pago vende."""
+    return plano_do_tipo(settings.PLANO_PADRAO)
+
+
+def plano_do_trial() -> Plano:
+    """O teste grátis é o Business: a pessoa experimenta o app com equipe."""
+    return plano_do_tipo(TipoPlano.BUSINESS)
