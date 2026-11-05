@@ -97,6 +97,7 @@ class _AtendimentoKanbanPageState extends ConsumerState<AtendimentoKanbanPage> {
       servicoAtualId: a.servicoId,
       servicoAtualNome: a.servicoNome,
       avisoTempo: _provider.avisoDeTempo,
+      motivosSugeridos: CobrancaSheet.motivosDaEsteira,
       onCobrar: (params) async {
         final ok = await _provider.cobrar(params);
         return ok ? null : _provider.errorMessage;
