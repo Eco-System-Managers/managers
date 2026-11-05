@@ -362,18 +362,26 @@ class AgendamentoService:
         """Muda os serviços antes do atendimento (o cliente ligou e pediu a
         barba também). Só enquanto ele ainda vai acontecer: depois, o acerto é
         na cobrança. A duração nova tem de caber na agenda do profissional."""
-        from apps_work.servicos.services import servicos_ativos
-
         if agendamento.status not in STATUS_QUE_OCUPAM:
             raise ErroDeNegocio(
                 'Só dá para mudar os serviços de um agendamento que ainda vai acontecer.', 'agendamento_encerrado',
             )
-        servicos = servicos_ativos(servico_ids)
+        servicos = self._servicos_da_lista(agendamento, servico_ids)
         self._verificar_conflito(
             agendamento.colaborador, agendamento.data_hora, sum(s.duracao for s in servicos), excluir_id=agendamento.pk,
         )
         self._substituir_servicos(agendamento, servicos)
         return agendamento
+
+    def _servicos_da_lista(self, agendamento: Agendamento, servico_ids: list[int]) -> list:
+        """Os serviços da lista nova, na ordem pedida e sem repetição. Quem já
+        está no agendamento pode ficar mesmo que tenha saído do catálogo
+        depois de marcado; quem entra tem de estar ativo (`servico_invalido`)."""
+        from apps_work.servicos.services import servicos_ativos
+
+        atuais = {item.servico_id: item.servico for item in agendamento.servicos.select_related('servico')}
+        novos = {s.pk: s for s in servicos_ativos([i for i in servico_ids if i not in atuais])}
+        return [atuais.get(i) or novos[i] for i in dict.fromkeys(servico_ids)]
 
     def _substituir_servicos(self, agendamento: Agendamento, servicos: list) -> None:
         """Quem fica mantém o preço congelado no agendamento; quem entra vem
@@ -415,10 +423,9 @@ class AgendamentoService:
         from apps_work.financeiro.services import (
             SaldoService, conferir_total_da_cobranca, notificar_cobranca, snapshot_do_servico,
         )
-        from apps_work.servicos.services import servicos_ativos
 
         if servico_ids:
-            self._substituir_servicos(agendamento, servicos_ativos(servico_ids))
+            self._substituir_servicos(agendamento, self._servicos_da_lista(agendamento, servico_ids))
         itens = list(agendamento.servicos.select_related('servico').order_by('pk'))
 
         total_esperado = conferir_total_da_cobranca(

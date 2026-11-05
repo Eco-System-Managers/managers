@@ -469,6 +469,16 @@ class TestServicosDoAgendamento:
         assert response.status_code == 400
         assert response.data['code'] == 'servico_invalido'
 
+    def test_quem_ja_estava_fica_mesmo_inativo(self, client_autenticado, agendamento, servico, barba):
+        for s in (servico, barba):
+            AgendamentoServico.objects.create(agendamento=agendamento, servico=s, preco_cobrado=s.preco)
+        Servico.objects.filter(pk=barba.pk).update(ativo=False)
+
+        response = self._put(client_autenticado, agendamento, [barba.id])
+
+        assert response.status_code == 200
+        assert [(s['servico'], s['preco_cobrado']) for s in response.data['servicos']] == [(barba.id, '30.00')]
+
     def test_patch_nao_mexe_nos_servicos(self, client_autenticado, agendamento_com_servico, servico, barba):
         response = client_autenticado.patch(
             f'/api/v1/agendamentos/{agendamento_com_servico.id}/', {'servico_ids': [barba.id]}, format='json',
@@ -476,3 +486,4 @@ class TestServicosDoAgendamento:
 
         assert response.status_code == 200
         assert list(agendamento_com_servico.servicos.values_list('servico_id', flat=True)) == [servico.id]
+

@@ -132,8 +132,9 @@ Dois acertos em comum acordo com o cliente acontecem aqui:
   agendamento (tirar o que não foi feito, incluir o que foi feito a mais).
   **Quem fica mantém o `preco_cobrado` congelado; quem entra vem com o preço
   atual** (`_substituir_servicos`, o mesmo da mudança antes do atendimento).
-  Id inexistente ou serviço inativo: 400 `servico_invalido` (`servicos_ativos`,
-  em `servicos`).
+  Quem já estava pode ficar mesmo que tenha saído do catálogo depois de
+  marcado; quem entra, inexistente ou inativo, é 400 `servico_invalido`
+  (`_servicos_da_lista`, sobre o `servicos_ativos` de `servicos`).
 
 Sem nenhum dos dois, cobra o combinado. Tudo roda num `atomic`: soma errada
 desfaz a troca junto. A agenda não tem "desfazer cobrança".

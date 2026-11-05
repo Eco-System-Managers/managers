@@ -719,7 +719,8 @@ paths:
         menos o desconto, e a soma dos pagamentos com o crédito aplicado tem de bater
         com ele (400 soma_invalida). `servico_ids` troca os serviços pelos que foram
         feitos de verdade: quem fica mantém o preço congelado, quem entra vem com
-        o atual (400 servico_invalido se algum não existe ou está inativo).'
+        o atual e tem de estar ativo (400 servico_invalido); quem já estava pode ficar
+        mesmo inativo.'
       summary: Cobrar o atendimento
       parameters:
       - in: path
@@ -788,7 +789,8 @@ paths:
         (senão, 400 agendamento_encerrado: o acerto é na cobrança). Quem fica mantém
         o preço congelado; quem entra vem com o preço atual. A duração nova tem de
         caber na agenda do profissional (400 horario_conflito, horario_bloqueado).
-        Inexistente ou inativo: 400 servico_invalido.'
+        Quem já estava pode ficar mesmo inativo; quem entra inexistente ou inativo:
+        400 servico_invalido.'
       summary: Mudar os serviços antes do atendimento
       parameters:
       - in: path
@@ -9007,8 +9009,9 @@ components:
           description: 'Troca o serviço pelo que foi feito de verdade, na hora de
             cobrar. Na esteira, um id só (400 um_servico_so), conferido com o porte
             do veículo ou pet; na agenda, a lista substitui os serviços do agendamento
-            (quem fica mantém o preço congelado, quem entra vem com o atual). Inexistente
-            ou inativo: 400 servico_invalido. Sem o campo, cobra o serviço combinado.'
+            (quem fica mantém o preço congelado e pode ficar mesmo inativo; quem entra
+            vem com o atual). Inexistente, ou inativo que não estava combinado: 400
+            servico_invalido. Sem o campo, cobra o serviço combinado.'
         pagamentos:
           type: array
           items:

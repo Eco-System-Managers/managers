@@ -242,7 +242,8 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
             'Substitui a lista de serviços de um agendamento agendado ou confirmado (senão, 400 '
             'agendamento_encerrado: o acerto é na cobrança). Quem fica mantém o preço congelado; quem entra vem '
             'com o preço atual. A duração nova tem de caber na agenda do profissional (400 horario_conflito, '
-            'horario_bloqueado). Inexistente ou inativo: 400 servico_invalido.'
+            'horario_bloqueado). Quem já estava pode ficar mesmo inativo; quem entra inexistente ou inativo: 400 '
+            'servico_invalido.'
         ),
     )
     @action(detail=True, methods=['put'])
@@ -261,7 +262,7 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
             'Conclui o agendamento. O total é o dos serviços mais o acréscimo menos o desconto, e a soma dos '
             'pagamentos com o crédito aplicado tem de bater com ele (400 soma_invalida). `servico_ids` troca os '
             'serviços pelos que foram feitos de verdade: quem fica mantém o preço congelado, quem entra vem com o '
-            'atual (400 servico_invalido se algum não existe ou está inativo).'
+            'atual e tem de estar ativo (400 servico_invalido); quem já estava pode ficar mesmo inativo.'
         ),
     )
     @action(detail=True, methods=['post'])

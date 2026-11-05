@@ -356,6 +356,14 @@ class TestTrocaDeServicoNaAgenda:
             corte.pk,
         ]
 
+    def test_o_combinado_fica_mesmo_que_tenha_saido_do_catalogo(self, api, agendamento, corte, barba):
+        Servico.objects.filter(pk=corte.pk).update(ativo=False)
+
+        resposta = _cobrar(api, AGENDA, agendamento, _pix('80.00'), servico_ids=[corte.pk, barba.pk])
+
+        assert resposta.status_code == 200
+        assert sorted(s['servico_nome'] for s in resposta.data['servicos']) == ['Barba', 'Corte']
+
     def test_servico_inativo_e_servico_invalido(self, api, agendamento):
         inativo = _servico('Antigo', '10.00', nicho='barbearia', ativo=False)
 
