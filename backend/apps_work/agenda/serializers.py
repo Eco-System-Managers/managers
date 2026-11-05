@@ -26,27 +26,37 @@ class AgendamentoSerializer(serializers.ModelSerializer):
     cliente_nome = serializers.ReadOnlyField(source='cliente.nome')
     cliente_telefone = serializers.ReadOnlyField(source='cliente.telefone')
     colaborador_nome = serializers.SerializerMethodField()
-    servico_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    servico_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False,
+        help_text=(
+            'Os serviços, feitos em sequência pelo mesmo profissional: a duração e o valor são a soma deles. '
+            'Só na criação; depois, `servicos/` e a cobrança. Inexistente ou inativo: 400 servico_invalido.'
+        ),
+    )
+    servico_id = serializers.IntegerField(
+        write_only=True, required=False, allow_null=True,
+        help_text='Um serviço só, o formato das versões do app anteriores a `servico_ids`. Com os dois, vale `servico_ids`.',
+    )
 
     @extend_schema_field(serializers.CharField(allow_null=True))
     def get_colaborador_nome(self, obj):
         return obj.colaborador.nome_exibido if obj.colaborador else None
 
+    def validate(self, attrs):
+        # Os serviços só entram na criação: por PATCH seriam ignorados.
+        servico_ids = attrs.pop('servico_ids', None)
+        servico_id = attrs.pop('servico_id', None)
+        if self.instance is None:
+            from apps_work.servicos.services import servicos_ativos
+            self.servicos = servicos_ativos(servico_ids or ([servico_id] if servico_id else []))
+        return attrs
+
     def create(self, validated_data):
-        servico_id = validated_data.pop('servico_id', None)
         agendamento = super().create(validated_data)
-        if servico_id:
-            from apps_work.servicos.models import Servico
-            try:
-                servico = Servico.objects.get(id=servico_id)
-                AgendamentoServico.objects.create(
-                    agendamento=agendamento,
-                    servico=servico,
-                    preco_cobrado=servico.preco,
-                    desconto=0,
-                )
-            except Servico.DoesNotExist:
-                pass
+        AgendamentoServico.objects.bulk_create([
+            AgendamentoServico(agendamento=agendamento, servico=servico, preco_cobrado=servico.preco)
+            for servico in self.servicos
+        ])
         return agendamento
 
     class Meta:
@@ -59,6 +69,13 @@ class AgendamentoSerializer(serializers.ModelSerializer):
             'acrescimo': {'help_text': 'O que o atendimento custou a mais, acertado na cobrança. Zero sem acréscimo.'},
             'acrescimo_motivo': {'help_text': 'O motivo do acréscimo, que o cliente vê no app ("tempo excedido").'},
         }
+
+
+class ServicosDoAgendamentoSerializer(serializers.Serializer):
+    servico_ids = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False,
+        help_text='A lista nova, inteira. Quem fica mantém o preço congelado; quem entra vem com o preço atual.',
+    )
 
 
 class BloqueioSerializer(serializers.ModelSerializer):

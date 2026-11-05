@@ -14,7 +14,7 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 | `models.py` | `Agendamento`, `AgendamentoServico` (o N:N com preço congelado), `PagamentoAgendamento` e `Bloqueio` |
 | `services.py` | Cinco serviços: dias com registro, pendências de cobrança, grade de horários livres, bloqueios e o `AgendamentoService` (a regra de conflito e a cobrança, com acréscimo e troca de serviço) |
 | `views.py` | `AgendamentoViewSet`, `BloqueioViewSet` e três views de leitura (slots, dias do mês, pendências) |
-| `serializers.py` | Representação; o `create` monta agendamento e serviços juntos |
+| `serializers.py` | Representação; o `create` monta agendamento e serviços juntos (`servico_ids`, ou o `servico_id` das versões antigas do app) |
 | `signals.py` | Declara `agendamento_status_alterado`, que a vitrine escuta |
 | `urls.py` | Rotas sob `/api/v1/agendamentos/` e afins |
 
@@ -61,6 +61,25 @@ lava-rápido e banho & tosa. Cada negócio usa **um** dos dois, definido por
 | `valor` | `Decimal(8,2)` | |
 | `criado_em` | `DateTime` `auto_now_add` | |
 
+## Vários serviços no mesmo agendamento
+
+Barba + cabelo + sobrancelha é um agendamento só: **um profissional**, os
+serviços **em sequência**, a duração e o valor são a soma deles. Quem quer
+dois profissionais marca dois agendamentos.
+
+- **Na criação** vão em `servico_ids`, na ordem pedida e sem repetição
+  (`servicos_ativos`); o `servico_id` fica pelas versões do app instaladas
+  antes disso. Inexistente ou inativo é 400 `servico_invalido` — antes o
+  agendamento nascia sem serviço, em silêncio. O conflito usa a soma.
+- **Antes do atendimento** (`PUT agendamentos/{id}/servicos/`): a lista nova
+  inteira, só com o agendamento `agendado` ou `confirmado` (senão 400
+  `agendamento_encerrado`: o acerto é na cobrança). A duração nova passa pela
+  regra de conflito. Por `PATCH` os serviços são ignorados.
+- **Na cobrança**, a troca abaixo. Nos dois casos quem fica mantém o preço
+  congelado.
+- Quem executa cada serviço (`Servico.colaboradores`) é filtro da tela, não
+  trava da API — como já era com um serviço só.
+
 ## A regra de conflito
 
 Está em `AgendamentoService._verificar_conflito`. Dois agendamentos do **mesmo
@@ -104,15 +123,17 @@ dispara dois sinais: `agendamento_status_alterado` e `cobranca_registrada` (do
 `financeiro`), que leva ao app do cliente o total cobrado, o acréscimo e o
 retrato dos serviços.
 
-Dois acertos em comum acordo com o cliente só acontecem aqui:
+Dois acertos em comum acordo com o cliente acontecem aqui:
 
 - **Acréscimo** (`acrescimo`, `acrescimo_motivo`): manter o serviço e cobrar o
   que custou a mais ("tempo excedido"). Os dois campos são só leitura no
   serializer — por PATCH são ignorados.
-- **Troca de serviço** (`servico_ids`): os `AgendamentoServico` são substituídos
-  pelos serviços da lista, com `preco_cobrado` = **preço atual** de cada um — o
-  congelado era do que foi combinado, e o que foi feito é outro. Id inexistente
-  ou serviço inativo: 400 `servico_invalido` (`servicos_ativos`, em `servicos`).
+- **Troca de serviço** (`servico_ids`): a lista substitui os serviços do
+  agendamento (tirar o que não foi feito, incluir o que foi feito a mais).
+  **Quem fica mantém o `preco_cobrado` congelado; quem entra vem com o preço
+  atual** (`_substituir_servicos`, o mesmo da mudança antes do atendimento).
+  Id inexistente ou serviço inativo: 400 `servico_invalido` (`servicos_ativos`,
+  em `servicos`).
 
 Sem nenhum dos dois, cobra o combinado. Tudo roda num `atomic`: soma errada
 desfaz a troca junto. A agenda não tem "desfazer cobrança".
@@ -138,7 +159,8 @@ desfaz a troca junto. A agenda não tem "desfazer cobrança".
 ## A grade de horários (`agenda/slots/`)
 
 `SlotsAgendaService` devolve só os horários **livres** de um profissional
-para um serviço num dia. Os candidatos são a grade de 15 em 15 minutos a
+para um ou mais serviços num dia (`?servico=` repetido: a duração é a soma;
+um inativo na lista e a grade sai vazia). Os candidatos são a grade de 15 em 15 minutos a
 partir da abertura (o passo da agenda do app) mais o fim de cada
 agendamento já marcado: acabou um às 9:20, o 9:20 é oferecido. Entra quem
 cabe inteiro, antes do fechamento e sem bater em ninguém; `disponivel` vem
@@ -146,9 +168,9 @@ sempre `True` (o campo fica pelo contrato comum com os slots do kanban, que
 ainda marcam os ocupados). A ocupação é por profissional: a agenda de um não
 interfere na do outro.
 
-O cálculo mora em `livres()`, que recebe a duração e um `nao_antes_de`. É o
-mesmo que o app do cliente usa (`apps_serv/vitrine`), com a soma dos serviços
-e a antecedência de 30 min; a empresa não passa `nao_antes_de`.
+O cálculo mora em `livres()`, que recebe a duração e um `nao_antes_de`. A
+vitrine (`apps_serv/vitrine`) também o chama, com a antecedência de 30 min; a
+empresa não passa `nao_antes_de`.
 
 ## Bloqueios (`agenda/bloqueios/`)
 

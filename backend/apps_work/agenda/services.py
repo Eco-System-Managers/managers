@@ -129,17 +129,18 @@ class SlotsAgendaService:
     e a ocupação de um não interfere na do outro.
     """
 
-    def listar(self, data: date, servico_id: int, colaborador_id: int) -> list[dict]:
-        """Os horários livres do dia para este serviço com este profissional."""
+    def listar(self, data: date, servico_ids: list[int], colaborador_id: int) -> list[dict]:
+        """Os horários livres do dia para estes serviços com este profissional:
+        ele faz um depois do outro, então cabe quem tem a soma das durações."""
         from apps_work.servicos.models import Servico
 
-        servico = Servico.objects.filter(pk=servico_id, ativo=True).first()
-        if not servico:
+        servicos = Servico.objects.filter(pk__in=servico_ids, ativo=True)
+        if len(servicos) != len(set(servico_ids)):
             return []
 
         return [
             {'horario': inicio.strftime('%H:%M'), 'disponivel': True}
-            for inicio in self.livres(data, colaborador_id, servico.duracao)
+            for inicio in self.livres(data, colaborador_id, sum(s.duracao for s in servicos))
         ]
 
     def livres(
@@ -317,13 +318,8 @@ class AgendamentoService:
             status=agendamento.status,
         )
 
-    def verificar_conflito_para_criacao(self, colaborador, data_hora: datetime, servico_id: int | None) -> None:
-        duracao = None
-        if servico_id:
-            from apps_work.servicos.models import Servico
-            servico = Servico.objects.filter(pk=servico_id).first()
-            duracao = servico.duracao if servico else None
-        self._verificar_conflito(colaborador, data_hora, duracao)
+    def verificar_conflito_para_criacao(self, colaborador, data_hora: datetime, servicos: list) -> None:
+        self._verificar_conflito(colaborador, data_hora, sum(s.duracao for s in servicos) or None)
 
     def verificar_conflito_para_atualizacao(self, agendamento: Agendamento, colaborador, data_hora: datetime) -> None:
         duracao = sum(s.servico.duracao for s in agendamento.servicos.all()) or None
@@ -362,6 +358,38 @@ class AgendamentoService:
                 raise ValidationError(ERRO_HORARIO_CONFLITO)
 
     @transaction.atomic
+    def trocar_servicos(self, agendamento: Agendamento, servico_ids: list[int]) -> Agendamento:
+        """Muda os serviços antes do atendimento (o cliente ligou e pediu a
+        barba também). Só enquanto ele ainda vai acontecer: depois, o acerto é
+        na cobrança. A duração nova tem de caber na agenda do profissional."""
+        from apps_work.servicos.services import servicos_ativos
+
+        if agendamento.status not in STATUS_QUE_OCUPAM:
+            raise ErroDeNegocio(
+                'Só dá para mudar os serviços de um agendamento que ainda vai acontecer.', 'agendamento_encerrado',
+            )
+        servicos = servicos_ativos(servico_ids)
+        self._verificar_conflito(
+            agendamento.colaborador, agendamento.data_hora, sum(s.duracao for s in servicos), excluir_id=agendamento.pk,
+        )
+        self._substituir_servicos(agendamento, servicos)
+        return agendamento
+
+    def _substituir_servicos(self, agendamento: Agendamento, servicos: list) -> None:
+        """Quem fica mantém o preço congelado no agendamento; quem entra vem
+        com o preço atual."""
+        congelados = {item.servico_id: item.preco_cobrado for item in agendamento.servicos.all()}
+        # .all().delete() também limpa o prefetch da view: a resposta sai
+        # com os serviços novos, não com os que ela tinha carregado.
+        agendamento.servicos.all().delete()
+        AgendamentoServico.objects.bulk_create([
+            AgendamentoServico(
+                agendamento=agendamento, servico=servico, preco_cobrado=congelados.get(servico.pk, servico.preco),
+            )
+            for servico in servicos
+        ])
+
+    @transaction.atomic
     def cobrar(
         self,
         agendamento: Agendamento,
@@ -376,10 +404,11 @@ class AgendamentoService:
         """Fecha o atendimento. O total é o dos serviços mais o acréscimo menos
         o desconto, e tem de bater com o que o cliente entregou.
 
-        Dois acertos em comum acordo com o cliente cabem aqui, e só aqui:
+        Dois acertos em comum acordo com o cliente cabem aqui:
         `servico_ids` troca os serviços pelos que foram feitos de verdade (os
-        AgendamentoServico são substituídos, com o preço atual de cada um — é
-        o que deixa o registro e os relatórios certos), e o acréscimo mantém o
+        AgendamentoServico são substituídos: quem fica mantém o preço
+        congelado, quem entra vem com o atual — é o que deixa o registro e os
+        relatórios certos), e o acréscimo mantém o
         serviço e cobra o que custou a mais, com o motivo que o cliente vê no
         app. Sem nenhum dos dois, cobra o combinado.
         """
@@ -389,14 +418,7 @@ class AgendamentoService:
         from apps_work.servicos.services import servicos_ativos
 
         if servico_ids:
-            servicos = servicos_ativos(servico_ids)
-            # .all().delete() também limpa o prefetch da view: a resposta sai
-            # com os serviços novos, não com os que ela tinha carregado.
-            agendamento.servicos.all().delete()
-            AgendamentoServico.objects.bulk_create([
-                AgendamentoServico(agendamento=agendamento, servico=servico, preco_cobrado=servico.preco)
-                for servico in servicos
-            ])
+            self._substituir_servicos(agendamento, servicos_ativos(servico_ids))
         itens = list(agendamento.servicos.select_related('servico').order_by('pk'))
 
         total_esperado = conferir_total_da_cobranca(

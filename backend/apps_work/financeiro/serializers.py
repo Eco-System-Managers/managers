@@ -124,7 +124,8 @@ class CobrancaSerializer(serializers.Serializer):
         help_text=(
             'Troca o serviço pelo que foi feito de verdade, na hora de cobrar. Na esteira, um id só '
             '(400 um_servico_so), conferido com o porte do veículo ou pet; na agenda, a lista substitui os '
-            'serviços do agendamento, com o preço atual de cada um. Inexistente ou inativo: 400 servico_invalido. '
+            'serviços do agendamento (quem fica mantém o preço congelado, quem entra vem com o atual). '
+            'Inexistente ou inativo: 400 servico_invalido. '
             'Sem o campo, cobra o serviço combinado.'
         ),
     )

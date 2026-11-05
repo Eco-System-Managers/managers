@@ -326,16 +326,16 @@ class TestAcrescimoNaAgenda:
 
 @pytest.mark.django_db
 class TestTrocaDeServicoNaAgenda:
-    def test_substitui_os_servicos_com_o_preco_atual(self, api, agendamento, corte, barba):
+    def test_quem_fica_mantem_o_congelado_e_quem_entra_vem_com_o_atual(self, api, agendamento, corte, barba):
         # a tabela mudou depois de marcar: o congelado era 50, o atual é 60
         Servico.objects.filter(pk=corte.pk).update(preco='60.00')
 
-        resposta = _cobrar(api, AGENDA, agendamento, _pix('90.00'), servico_ids=[corte.pk, barba.pk])
+        resposta = _cobrar(api, AGENDA, agendamento, _pix('80.00'), servico_ids=[corte.pk, barba.pk])
 
         assert resposta.status_code == 200
         itens = AgendamentoServico.objects.filter(agendamento=agendamento).order_by('pk')
         assert [(i.servico_id, i.preco_cobrado) for i in itens] == [
-            (corte.pk, Decimal('60.00')), (barba.pk, Decimal('30.00')),
+            (corte.pk, Decimal('50.00')), (barba.pk, Decimal('30.00')),
         ]
         assert sorted(s['servico_nome'] for s in resposta.data['servicos']) == ['Barba', 'Corte']
 
