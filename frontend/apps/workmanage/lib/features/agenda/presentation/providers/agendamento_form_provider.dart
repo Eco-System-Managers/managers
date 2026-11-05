@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:managers/core/error/failures.dart';
@@ -18,9 +19,11 @@ import '../../domain/params/agenda_params.dart';
 import '../../domain/usecases/agenda_use_cases.dart';
 
 // estado do formulário de agendamento novo (montado em agenda_provider.dart,
-// na raiz da feature): cliente, serviço, profissional, dia e horário. o
-// horário vem da grade da API, que já desconta a duração do serviço e a
-// agenda do profissional; por isso a grade recarrega a cada escolha
+// na raiz da feature): cliente, serviços, profissional, dia e horário. os
+// serviços são feitos em sequência pelo mesmo profissional: a duração e o
+// valor são a soma deles. o horário vem da grade da API, que já desconta a
+// duração e a agenda do profissional; por isso a grade recarrega a cada
+// escolha
 class AgendamentoFormProvider extends ChangeNotifier {
   AgendamentoFormProvider({
     required this._listarServicos,
@@ -53,7 +56,7 @@ class AgendamentoFormProvider extends ChangeNotifier {
   Failure? _erroAoCarregar;
 
   Cliente? _cliente;
-  Servico? _servico;
+  List<Servico> _escolhidos = const [];
   Colaborador? _colaborador;
   DateTime _data;
   Hora? _hora;
@@ -83,18 +86,28 @@ class AgendamentoFormProvider extends ChangeNotifier {
         .toList();
   }
 
-  // a equipe ativa. com serviço escolhido que tem executores marcados, só eles
+  // a equipe ativa que faz todos os serviços escolhidos. serviço sem
+  // executor marcado não restringe ninguém
   List<Colaborador> get colaboradores {
-    final executores = _servico?.colaboradores ?? const [];
-    if (executores.isEmpty) return _colaboradores;
-    return _colaboradores.where((c) => executores.contains(c.id)).toList();
+    return _colaboradores
+        .where(
+          (c) => _escolhidos.every(
+            (s) => s.colaboradores.isEmpty || s.colaboradores.contains(c.id),
+          ),
+        )
+        .toList();
   }
 
   bool get carregado => _carregado;
   Failure? get erroAoCarregar => _erroAoCarregar;
 
   Cliente? get cliente => _cliente;
-  Servico? get servico => _servico;
+
+  // na ordem do catálogo, que é a ordem em que vão para a API
+  List<Servico> get escolhidos => _escolhidos;
+  int get duracaoTotal => _escolhidos.fold(0, (soma, s) => soma + s.duracao);
+  Decimal get valorTotal =>
+      _escolhidos.fold(Decimal.zero, (soma, s) => soma + s.preco);
   Colaborador? get colaborador => _colaborador;
   DateTime get data => _data;
   Hora? get hora => _hora;
@@ -102,8 +115,8 @@ class AgendamentoFormProvider extends ChangeNotifier {
   bool get carregandoSlots => _carregandoSlots;
   String? get slotsErrorMessage => _slotsErrorMessage;
 
-  // a grade só existe com serviço, profissional e dia escolhidos
-  bool get prontoParaGrade => _servico != null && _colaborador != null;
+  // a grade só existe com serviços, profissional e dia escolhidos
+  bool get prontoParaGrade => _escolhidos.isNotEmpty && _colaborador != null;
 
   bool get isLoading => _isLoading;
 
@@ -111,7 +124,7 @@ class AgendamentoFormProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   // erro de validação da API, campo a campo, com os nomes do contrato
-  // (cliente, servico_id, colaborador, data_hora, observacoes)
+  // (cliente, servico_ids, colaborador, data_hora, observacoes)
   String? erroDoCampo(String campo) => _fieldErrors[campo];
 
   // o agendamento criado; a tela fecha quando ele chega
@@ -154,24 +167,24 @@ class AgendamentoFormProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selecionarServico(Servico? servico) {
-    if (servico == _servico) return;
-    _servico = servico;
-    // o executor atual pode não fazer este serviço
+  void selecionarServicos(List<Servico> servicos) {
+    if (listEquals(servicos, _escolhidos)) return;
+    // na ordem do catálogo, venha de onde vier a escolha
+    _escolhidos = _servicos.where(servicos.contains).toList();
+    // o profissional atual pode não fazer algum dos serviços
     if (_colaborador != null && !colaboradores.contains(_colaborador)) {
       _colaborador = null;
     }
-    _fieldErrors = {..._fieldErrors}..remove('servico_id');
+    _fieldErrors = {..._fieldErrors}..remove('servico_ids');
     _recarregarGrade();
   }
 
   void selecionarColaborador(Colaborador? colaborador) {
     if (colaborador == _colaborador) return;
     _colaborador = colaborador;
-    // o serviço atual pode não ser deste profissional
-    if (_servico != null && !servicos.contains(_servico)) {
-      _servico = null;
-    }
+    // saem os serviços que este profissional não faz
+    final dele = servicos;
+    _escolhidos = _escolhidos.where(dele.contains).toList();
     _fieldErrors = {..._fieldErrors}..remove('colaborador');
     _recarregarGrade();
   }
@@ -194,16 +207,15 @@ class AgendamentoFormProvider extends ChangeNotifier {
     _hora = null;
     _slots = const [];
     _slotsErrorMessage = null;
-    final servico = _servico;
     final colaborador = _colaborador;
-    if (servico == null || colaborador == null) {
+    if (_escolhidos.isEmpty || colaborador == null) {
       notifyListeners();
       return;
     }
-    _carregarSlots(servico.id, colaborador.id);
+    _carregarSlots(colaborador.id);
   }
 
-  Future<void> _carregarSlots(int servicoId, int colaboradorId) async {
+  Future<void> _carregarSlots(int colaboradorId) async {
     final busca = ++_buscaDeSlots;
     _carregandoSlots = true;
     notifyListeners();
@@ -211,7 +223,7 @@ class AgendamentoFormProvider extends ChangeNotifier {
     final result = await _listarSlots(
       SlotsParams(
         data: _data,
-        servicoId: servicoId,
+        servicoIds: [for (final s in _escolhidos) s.id],
         colaboradorId: colaboradorId,
       ),
     );
@@ -231,18 +243,16 @@ class AgendamentoFormProvider extends ChangeNotifier {
   }
 
   Future<void> recarregarGrade() async {
-    final servico = _servico;
     final colaborador = _colaborador;
-    if (servico == null || colaborador == null) return;
-    await _carregarSlots(servico.id, colaborador.id);
+    if (_escolhidos.isEmpty || colaborador == null) return;
+    await _carregarSlots(colaborador.id);
   }
 
-  // a tela já conferiu que cliente, serviço, profissional e hora existem
+  // a tela já conferiu que cliente, serviços, profissional e hora existem
   Future<void> salvar({String observacoes = ''}) async {
     final cliente = _cliente;
-    final servico = _servico;
     final hora = _hora;
-    if (cliente == null || servico == null || hora == null) return;
+    if (cliente == null || _escolhidos.isEmpty || hora == null) return;
 
     _isLoading = true;
     _errorMessage = null;
@@ -252,7 +262,7 @@ class AgendamentoFormProvider extends ChangeNotifier {
     final result = await _criar(
       NovoAgendamentoParams(
         clienteId: cliente.id,
-        servicoId: servico.id,
+        servicoIds: [for (final s in _escolhidos) s.id],
         colaboradorId: _colaborador?.id,
         dataHora: juntarDataHora(_data, hora),
         observacoes: observacoes,

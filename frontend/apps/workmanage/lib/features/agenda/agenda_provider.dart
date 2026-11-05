@@ -53,6 +53,11 @@ final remarcarAgendamentoUseCaseProvider = Provider(
   (ref) => RemarcarAgendamentoUseCase(ref.watch(agendaRepositoryProvider)),
 );
 
+final trocarServicosAgendamentoUseCaseProvider = Provider(
+  (ref) =>
+      TrocarServicosAgendamentoUseCase(ref.watch(agendaRepositoryProvider)),
+);
+
 final cobrarAgendamentoUseCaseProvider = Provider(
   (ref) => CobrarAgendamentoUseCase(ref.watch(agendaRepositoryProvider)),
 );
@@ -144,6 +149,7 @@ final agendamentoProvider = Provider.autoDispose
         obter: ref.watch(obterAgendamentoUseCaseProvider),
         alterarStatus: ref.watch(alterarStatusAgendamentoUseCaseProvider),
         remarcar: ref.watch(remarcarAgendamentoUseCaseProvider),
+        trocarServicos: ref.watch(trocarServicosAgendamentoUseCaseProvider),
         cobrar: ref.watch(cobrarAgendamentoUseCaseProvider),
         listarSlots: ref.watch(listarSlotsUseCaseProvider),
         obterSaldo: ref.watch(obterSaldoClienteUseCaseProvider),

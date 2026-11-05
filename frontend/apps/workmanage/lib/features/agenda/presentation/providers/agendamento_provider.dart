@@ -22,6 +22,7 @@ class AgendamentoProvider extends ChangeNotifier {
     required this._obter,
     required this._alterarStatus,
     required this._remarcar,
+    required this._trocarServicos,
     required this._cobrar,
     required this._listarSlots,
     required this._obterSaldo,
@@ -32,12 +33,13 @@ class AgendamentoProvider extends ChangeNotifier {
   final ObterAgendamentoUseCase _obter;
   final AlterarStatusAgendamentoUseCase _alterarStatus;
   final RemarcarAgendamentoUseCase _remarcar;
+  final TrocarServicosAgendamentoUseCase _trocarServicos;
   final CobrarAgendamentoUseCase _cobrar;
   final ListarSlotsUseCase _listarSlots;
   final ObterSaldoClienteUseCase _obterSaldo;
 
-  // o catálogo, para a cobrança trocar o serviço pelo que foi feito de
-  // verdade. opcional: sem ele a cobrança não oferece a troca
+  // o catálogo, para mudar os serviços antes do atendimento e na cobrança.
+  // opcional: sem ele só dá para tirar serviços, não incluir
   final ListarServicosUseCase? _listarServicos;
 
   Agendamento? _agendamento;
@@ -66,9 +68,46 @@ class AgendamentoProvider extends ChangeNotifier {
   // true depois de cancelar: a tela fecha, o dia não lista cancelados
   bool get cancelado => _cancelado;
 
-  // os serviços ativos, pelos quais a cobrança pode trocar o combinado.
-  // vazio sem catálogo carregado
-  List<Servico> get servicosParaTrocar => _servicos;
+  // os serviços do agendamento como itens do catálogo, com o preço
+  // combinado: é o que vale para quem fica numa troca
+  List<Servico> get servicosDoAgendamento {
+    final agendamento = _agendamento;
+    if (agendamento == null) return const [];
+    return [
+      for (final item in agendamento.servicos)
+        (_servicos.where((s) => s.id == item.servicoId).firstOrNull ??
+                Servico(
+                  id: item.servicoId,
+                  nome: item.nome,
+                  duracao: item.duracao,
+                  preco: item.precoCobrado,
+                ))
+            .copyWith(preco: item.precoCobrado),
+    ];
+  }
+
+  // o que dá para escolher ao mudar os serviços (na ficha e na cobrança): os
+  // ativos que o profissional do agendamento faz, com os que já estão nele
+  // no lugar, pelo preço combinado (mesmo os que saíram do catálogo ou que
+  // ele deixou de fazer depois de marcado). sem catálogo, só os atuais
+  List<Servico> get servicosParaEscolher {
+    final agendamento = _agendamento;
+    if (agendamento == null) return const [];
+    final colaboradorId = agendamento.colaboradorId;
+    final atuais = {for (final s in servicosDoAgendamento) s.id: s};
+    final doProfissional = _servicos.where(
+      (s) =>
+          colaboradorId == null ||
+          s.colaboradores.isEmpty ||
+          s.colaboradores.contains(colaboradorId),
+    );
+    final ids = {for (final s in doProfissional) s.id};
+    return [
+      for (final s in doProfissional) atuais[s.id] ?? s,
+      for (final s in atuais.values)
+        if (!ids.contains(s.id)) s,
+    ];
+  }
 
   Future<void> carregar() async {
     _isLoading = true;
@@ -93,8 +132,8 @@ class AgendamentoProvider extends ChangeNotifier {
     result.fold((_) => _saldo = null, (s) => _saldo = s);
   }
 
-  // o catálogo ativo, para a troca na cobrança. falhou (ou não há use case),
-  // a ficha segue sem a troca
+  // o catálogo ativo, para mudar os serviços. falhou (ou não há use case),
+  // a ficha segue só com os serviços que o agendamento já tem
   Future<void> _carregarServicos() async {
     final listar = _listarServicos;
     if (listar == null) return;
@@ -126,6 +165,15 @@ class AgendamentoProvider extends ChangeNotifier {
     );
   }
 
+  // a lista nova inteira, antes do atendimento. o erro (horario_conflito
+  // com o tempo novo, agendamento_encerrado) fica em errorMessage
+  Future<void> trocarServicos(List<int> servicoIds) async {
+    await _executar(
+      () =>
+          _trocarServicos(TrocarServicosParams(id: id, servicoIds: servicoIds)),
+    );
+  }
+
   // devolve true quando cobrou: a folha de cobrança fecha. o erro (soma que
   // não fecha, sem pagamentos, crédito insuficiente) fica em errorMessage
   Future<bool> cobrar(CobrancaParams params) async {
@@ -141,17 +189,21 @@ class AgendamentoProvider extends ChangeNotifier {
     return true;
   }
 
-  // a grade para remarcar: o mesmo serviço e profissional, em outro dia.
-  // sem profissional ou sem serviço não há grade; a tela pede a hora livre
+  // a grade para remarcar: os mesmos serviços (o tempo de todos) e o mesmo
+  // profissional, em outro dia. sem profissional ou sem serviço não há
+  // grade; a tela pede a hora livre
   Future<List<Slot>> slotsParaRemarcar(DateTime data) async {
     final agendamento = _agendamento;
-    final servicoId = agendamento?.servicos.firstOrNull?.servicoId;
     final colaboradorId = agendamento?.colaboradorId;
-    if (servicoId == null || colaboradorId == null) return const [];
+    if (agendamento == null ||
+        agendamento.servicos.isEmpty ||
+        colaboradorId == null) {
+      return const [];
+    }
     final result = await _listarSlots(
       SlotsParams(
         data: data,
-        servicoId: servicoId,
+        servicoIds: [for (final s in agendamento.servicos) s.servicoId],
         colaboradorId: colaboradorId,
       ),
     );

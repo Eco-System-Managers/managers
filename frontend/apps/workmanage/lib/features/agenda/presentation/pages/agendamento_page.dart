@@ -12,6 +12,7 @@ import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/core/widgets/mascara_formatter.dart';
 import 'package:managers/features/financeiro/domain/entities/pagamento.dart';
 import 'package:managers/features/financeiro/presentation/widgets/cobranca_sheet.dart';
+import 'package:managers/features/servicos/presentation/widgets/escolher_servicos_sheet.dart';
 
 import '../../agenda_provider.dart';
 import '../../domain/entities/agendamento.dart';
@@ -19,8 +20,9 @@ import '../providers/agendamento_provider.dart';
 import '../widgets/remarcar_sheet.dart';
 import '../widgets/status_agendamento_chip.dart';
 
-// a ficha de um agendamento e as ações sobre ele: confirmar, cobrar,
-// remarcar, marcar falta e cancelar. o que cabe depende do status
+// a ficha de um agendamento e as ações sobre ele: confirmar, cobrar, mudar
+// os serviços, remarcar, marcar falta e cancelar. o que cabe depende do
+// status
 class AgendamentoPage extends ConsumerStatefulWidget {
   const AgendamentoPage({super.key, required this.id});
 
@@ -41,20 +43,15 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
     });
   }
 
-  // a folha oferece trocar o serviço pelo que foi feito só quando o
-  // agendamento tem um serviço: com vários, servico_ids trocaria todos
+  // na cobrança, a lista dos serviços feitos de verdade muda inteira
   Future<void> _cobrar(Agendamento agendamento) async {
-    final unico = agendamento.servicos.length == 1
-        ? agendamento.servicos.single
-        : null;
     final cobrou = await CobrancaSheet.abrir(
       context,
       atendimentoId: agendamento.id,
       valorServicos: agendamento.valorDosServicos,
       creditoDisponivel: _provider.saldo?.saldo ?? Decimal.fromInt(0),
-      servicos: unico == null ? null : _provider.servicosParaTrocar,
-      servicoAtualId: unico?.servicoId,
-      servicoAtualNome: unico?.nome ?? '',
+      servicosCombinados: _provider.servicosDoAgendamento,
+      opcoesDeServico: _provider.servicosParaEscolher,
       onCobrar: (params) async {
         final ok = await _provider.cobrar(params);
         return ok ? null : _provider.errorMessage;
@@ -66,6 +63,28 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Cobrança registrada.')));
     }
+  }
+
+  // antes do atendimento: o cliente ligou e pediu a barba também. a API
+  // confere o horário com o tempo novo
+  Future<void> _mudarServicos(Agendamento agendamento) async {
+    final escolha = await EscolherServicosSheet.abrir(
+      context,
+      titulo: 'Mudar os serviços',
+      descricao:
+          'Quem já estava mantém o preço combinado; quem entra vem com o '
+          'preço atual. O horário é conferido de novo com o tempo novo.',
+      servicos: _provider.servicosParaEscolher,
+      marcados: {for (final s in agendamento.servicos) s.servicoId},
+      textoConfirmar: 'Salvar',
+    );
+    if (escolha == null || !mounted) return;
+    final ids = [for (final s in escolha) s.id];
+    final mesmos =
+        ids.length == agendamento.servicos.length &&
+        agendamento.servicos.every((s) => ids.contains(s.servicoId));
+    if (mesmos) return;
+    await _provider.trocarServicos(ids);
   }
 
   Future<void> _remarcar(Agendamento agendamento) async {
@@ -227,6 +246,25 @@ class _AgendamentoPageState extends ConsumerState<AgendamentoPage> {
                   title: Text(s.nome),
                   subtitle: Text('${s.duracao} min'),
                   trailing: Text(formatarDinheiro(s.precoCobrado - s.desconto)),
+                ),
+              // só enquanto o atendimento ainda vai acontecer; depois, o
+              // acerto é na cobrança
+              if (a.status == StatusAgendamento.agendado ||
+                  a.status == StatusAgendamento.confirmado)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: BrandSpacing.space2,
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: provider.isLoading
+                          ? null
+                          : () => _mudarServicos(a),
+                      icon: const Icon(Icons.edit_rounded),
+                      label: const Text('Mudar serviços'),
+                    ),
+                  ),
                 ),
               // o que foi acertado com o cliente na cobrança
               if (a.acrescimo > Decimal.fromInt(0))

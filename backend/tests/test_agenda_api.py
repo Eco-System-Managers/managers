@@ -7,6 +7,8 @@ from apps_work.agenda.models import Agendamento, AgendamentoServico, PagamentoAg
 from apps_work.clientes.models import Cliente
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
+from core.tenant import com_tenant
+from tenants.models import Tenant
 
 
 @pytest.fixture
@@ -25,6 +27,11 @@ def cliente(patch_tenant_middleware):
 @pytest.fixture
 def servico(patch_tenant_middleware):
     return Servico.objects.create(nome='Corte', duracao=30, preco='50.00')
+
+
+@pytest.fixture
+def barba(patch_tenant_middleware):
+    return Servico.objects.create(nome='Barba', duracao=20, preco='30.00')
 
 
 @pytest.fixture
@@ -121,15 +128,27 @@ class TestAgendamentoAPI:
         assert response.status_code == 201
         assert AgendamentoServico.objects.filter(agendamento_id=response.data['id']).count() == 1
 
-    def test_criar_com_servico_inexistente_ignora_e_cria_sem_servico(self, client_autenticado, cliente):
+    def test_criar_com_servico_inexistente_recusa(self, client_autenticado, cliente):
         payload = {
             'cliente': cliente.id,
             'data_hora': '2024-06-15T10:00:00Z',
             'servico_id': 99999,
         }
         response = client_autenticado.post('/api/v1/agendamentos/', payload)
+        assert response.status_code == 400
+        assert response.data['code'] == 'servico_invalido'
+        assert not Agendamento.objects.exists()
+
+    def test_criar_com_varios_servicos_congela_o_preco_de_cada(self, client_autenticado, cliente, servico, barba):
+        payload = {
+            'cliente': cliente.id,
+            'data_hora': '2024-06-15T10:00:00Z',
+            'servico_ids': [servico.id, barba.id],
+        }
+        response = client_autenticado.post('/api/v1/agendamentos/', payload, format='json')
         assert response.status_code == 201
-        assert AgendamentoServico.objects.filter(agendamento_id=response.data['id']).count() == 0
+        itens = AgendamentoServico.objects.filter(agendamento_id=response.data['id']).order_by('pk')
+        assert [(i.servico_id, str(i.preco_cobrado)) for i in itens] == [(servico.id, '50.00'), (barba.id, '30.00')]
 
     def test_detalhar_agendamento_retorna_200(self, client_autenticado, agendamento):
         response = client_autenticado.get(f'/api/v1/agendamentos/{agendamento.id}/')
@@ -223,6 +242,22 @@ class TestAgendamentoConflitoHorario:
             'data_hora': '2024-06-15T10:15:00Z', 'servico_id': servico.id,
         }
         response = client_autenticado.post('/api/v1/agendamentos/', payload)
+        assert response.status_code == 400
+        assert response.data['code'] == 'horario_conflito'
+
+    def test_criar_com_varios_servicos_conflita_pela_soma_das_duracoes(
+        self, client_autenticado, cliente, servico, barba, colaborador,
+    ):
+        # corte (30) + barba (20) a partir das 9:20 vão até 10:10 e batem no das 10:00
+        Agendamento.objects.create(
+            cliente=cliente, colaborador=colaborador,
+            data_hora=datetime(2024, 6, 15, 10, 0, tzinfo=timezone.utc),
+        )
+        payload = {
+            'cliente': cliente.id, 'colaborador': colaborador.id,
+            'data_hora': '2024-06-15T09:20:00Z', 'servico_ids': [servico.id, barba.id],
+        }
+        response = client_autenticado.post('/api/v1/agendamentos/', payload, format='json')
         assert response.status_code == 400
         assert response.data['code'] == 'horario_conflito'
 
@@ -365,3 +400,145 @@ class TestAgendaModelStr:
         )
         assert 'dinheiro' in str(pagamento)
         assert 'R$50.00' in str(pagamento)
+
+
+# --- servicos/ (mudar os serviços antes do atendimento) ---
+
+@pytest.mark.django_db
+class TestServicosDoAgendamento:
+    def _put(self, client, agendamento, servico_ids):
+        return client.put(
+            f'/api/v1/agendamentos/{agendamento.id}/servicos/', {'servico_ids': servico_ids}, format='json',
+        )
+
+    def test_quem_fica_mantem_o_congelado_e_quem_entra_vem_com_o_atual(
+        self, client_autenticado, agendamento_com_servico, servico, barba,
+    ):
+        Servico.objects.filter(pk=servico.pk).update(preco='60.00')
+
+        response = self._put(client_autenticado, agendamento_com_servico, [servico.id, barba.id])
+
+        assert response.status_code == 200
+        assert [(s['servico'], s['preco_cobrado']) for s in response.data['servicos']] == [
+            (servico.id, '50.00'), (barba.id, '30.00'),
+        ]
+
+    def test_tirar_um_servico(self, client_autenticado, agendamento, servico, barba):
+        for s in (servico, barba):
+            AgendamentoServico.objects.create(agendamento=agendamento, servico=s, preco_cobrado=s.preco)
+
+        response = self._put(client_autenticado, agendamento, [servico.id])
+
+        assert response.status_code == 200
+        assert list(agendamento.servicos.values_list('servico_id', flat=True)) == [servico.id]
+
+    def test_a_duracao_nova_tem_de_caber_na_agenda(self, client_autenticado, cliente, servico, barba, colaborador):
+        # corte das 9:30 às 10:00; com a barba iria até 10:20 e bate no das 10:00
+        ag = Agendamento.objects.create(
+            cliente=cliente, colaborador=colaborador, data_hora=datetime(2024, 6, 15, 9, 30, tzinfo=timezone.utc),
+        )
+        AgendamentoServico.objects.create(agendamento=ag, servico=servico, preco_cobrado=servico.preco)
+        Agendamento.objects.create(
+            cliente=cliente, colaborador=colaborador, data_hora=datetime(2024, 6, 15, 10, 0, tzinfo=timezone.utc),
+        )
+
+        response = self._put(client_autenticado, ag, [servico.id, barba.id])
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'horario_conflito'
+        assert list(ag.servicos.values_list('servico_id', flat=True)) == [servico.id]
+
+    @pytest.mark.parametrize('status', ['concluido', 'cancelado', 'faltou'])
+    def test_depois_do_atendimento_recusa(self, client_autenticado, agendamento_com_servico, barba, status):
+        Agendamento.objects.filter(pk=agendamento_com_servico.pk).update(status=status)
+
+        response = self._put(client_autenticado, agendamento_com_servico, [barba.id])
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'agendamento_encerrado'
+
+    def test_lista_vazia_recusa(self, client_autenticado, agendamento_com_servico):
+        response = self._put(client_autenticado, agendamento_com_servico, [])
+
+        assert response.status_code == 400
+        assert 'servico_ids' in response.data['fields']
+
+    def test_servico_inativo_recusa(self, client_autenticado, agendamento_com_servico):
+        inativo = Servico.objects.create(nome='Antigo', duracao=10, preco='10.00', ativo=False)
+
+        response = self._put(client_autenticado, agendamento_com_servico, [inativo.id])
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'servico_invalido'
+
+    def test_quem_ja_estava_fica_mesmo_inativo(self, client_autenticado, agendamento, servico, barba):
+        for s in (servico, barba):
+            AgendamentoServico.objects.create(agendamento=agendamento, servico=s, preco_cobrado=s.preco)
+        Servico.objects.filter(pk=barba.pk).update(ativo=False)
+
+        response = self._put(client_autenticado, agendamento, [barba.id])
+
+        assert response.status_code == 200
+        assert [(s['servico'], s['preco_cobrado']) for s in response.data['servicos']] == [(barba.id, '30.00')]
+
+    def test_patch_nao_mexe_nos_servicos(self, client_autenticado, agendamento_com_servico, servico, barba):
+        response = client_autenticado.patch(
+            f'/api/v1/agendamentos/{agendamento_com_servico.id}/', {'servico_ids': [barba.id]}, format='json',
+        )
+
+        assert response.status_code == 200
+        assert list(agendamento_com_servico.servicos.values_list('servico_id', flat=True)) == [servico.id]
+
+
+# --- isolamento entre negócios (manager + RLS) ---
+
+@pytest.fixture
+def servico_de_outro_negocio(tenant):
+    outro = Tenant.objects.create(schema_name='outro_negocio', nome='Outro Negócio')
+    with com_tenant(outro):
+        return Servico.objects.create(nome='Corte do vizinho', duracao=30, preco='10.00')
+
+
+@pytest.mark.django_db
+class TestServicosDeOutroNegocio:
+    def test_os_itens_nascem_no_negocio_do_agendamento(self, client_autenticado, cliente, servico, barba, tenant):
+        response = client_autenticado.post('/api/v1/agendamentos/', {
+            'cliente': cliente.id, 'data_hora': '2024-06-15T10:00:00Z', 'servico_ids': [servico.id, barba.id],
+        }, format='json')
+
+        assert response.status_code == 201
+        itens = AgendamentoServico.todos.filter(agendamento_id=response.data['id'])
+        assert {i.tenant_id for i in itens} == {tenant.pk}
+
+    def test_criar_com_servico_de_outro_negocio_recusa(self, client_autenticado, cliente, servico, servico_de_outro_negocio):
+        response = client_autenticado.post('/api/v1/agendamentos/', {
+            'cliente': cliente.id, 'data_hora': '2024-06-15T10:00:00Z',
+            'servico_ids': [servico.id, servico_de_outro_negocio.id],
+        }, format='json')
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'servico_invalido'
+        assert not Agendamento.objects.exists()
+
+    def test_trocar_por_servico_de_outro_negocio_recusa(
+        self, client_autenticado, agendamento_com_servico, servico, servico_de_outro_negocio,
+    ):
+        response = client_autenticado.put(
+            f'/api/v1/agendamentos/{agendamento_com_servico.id}/servicos/',
+            {'servico_ids': [servico.id, servico_de_outro_negocio.id]}, format='json',
+        )
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'servico_invalido'
+        assert list(agendamento_com_servico.servicos.values_list('servico_id', flat=True)) == [servico.id]
+
+    def test_grade_com_servico_de_outro_negocio_sai_vazia(
+        self, client_autenticado, servico, colaborador, servico_de_outro_negocio,
+    ):
+        response = client_autenticado.get(
+            f'/api/v1/agenda/slots/?data=2024-06-15&servico={servico.id}'
+            f'&servico={servico_de_outro_negocio.id}&colaborador={colaborador.id}'
+        )
+
+        assert response.status_code == 200
+        assert response.data == []
