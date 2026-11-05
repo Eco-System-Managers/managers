@@ -3,16 +3,22 @@ import 'package:managers/core/error/failures.dart';
 import 'package:managers/core/session/sessao_controller.dart';
 import 'package:managers/core/usecases/use_case.dart';
 import 'package:managers/features/empresa/domain/usecases/buscar_config_use_case.dart';
+import 'package:managers/features/novidades/domain/usecases/marcar_novidades_vistas_use_case.dart';
 
 /// Decide para onde ir depois da splash: sem sessão guardada, login; com
 /// sessão e onboarding por concluir, o wizard; senão, a home.
 /// A navegação só sai no fim de um ciclo da animação: se a decisão chega no
 /// meio de um ciclo, espera ele terminar, para o símbolo não ser cortado.
 class SplashProvider extends ChangeNotifier {
-  SplashProvider({required this._sessao, required this._buscarConfig});
+  SplashProvider({
+    required this._sessao,
+    required this._buscarConfig,
+    required this._marcarNovidadesVistas,
+  });
 
   final SessaoController _sessao;
   final BuscarConfigUseCase _buscarConfig;
+  final MarcarNovidadesVistasUseCase _marcarNovidadesVistas;
 
   String? _nextRoute;
   bool _pronto = false;
@@ -32,7 +38,14 @@ class SplashProvider extends ChangeNotifier {
     try {
       // só na abertura do app: depois do login a sessão já está em memória
       if (!_sessao.carregada) await _sessao.carregar();
-      _nextRoute = _sessao.autenticado ? await _rotaComSessao() : '/login';
+      if (_sessao.autenticado) {
+        _nextRoute = await _rotaComSessao();
+      } else {
+        // abriu sem sessão (instalou agora ou saiu): as novidades desta
+        // versão não são novidade para quem vai entrar depois
+        await _marcarNovidadesVistas(NoParams());
+        _nextRoute = '/login';
+      }
     } catch (_) {
       // se a inicialização falhar, manda para o login em vez de travar na splash
       _nextRoute = '/login';
