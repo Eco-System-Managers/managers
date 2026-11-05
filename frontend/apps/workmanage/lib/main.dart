@@ -4,8 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/tema/tema_provider.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // as fontes embarcadas são OFL: a licença vai junto, na tela de licenças
   LicenseRegistry.addLicense(_licencasDasFontes);
@@ -19,8 +20,12 @@ void main() {
       systemNavigationBarContrastEnforced: false,
     ),
   );
-  // ProviderScope guarda os providers (injeção de dependências)
-  runApp(const ProviderScope(child: App()));
+  // o container guarda os providers (injeção de dependências). o tema
+  // escolhido carrega antes do primeiro quadro: sem isso o app abria no
+  // tema do aparelho e trocava logo depois
+  final container = ProviderContainer();
+  await container.read(temaControllerProvider).carregar();
+  runApp(UncontrolledProviderScope(container: container, child: const App()));
 }
 
 Stream<LicenseEntry> _licencasDasFontes() async* {
