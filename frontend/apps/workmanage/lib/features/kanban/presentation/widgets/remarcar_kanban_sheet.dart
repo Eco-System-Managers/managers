@@ -3,6 +3,7 @@ import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/widgets/campo_data.dart';
 import 'package:managers/core/widgets/folha.dart';
+import 'package:managers/core/widgets/grade_de_horarios.dart';
 
 // para onde o atendimento vai: o dia e a hora de entrada (null é sem hora
 // marcada)
@@ -128,22 +129,12 @@ class _RemarcarKanbanSheetState extends State<RemarcarKanbanSheet> {
             child: Center(child: CircularProgressIndicator()),
           )
         else ...[
-          Wrap(
-            spacing: BrandSpacing.space2,
-            runSpacing: BrandSpacing.space2,
-            children: [
-              ChoiceChip(
-                label: const Text('Sem hora marcada'),
-                selected: _hora == null,
-                onSelected: (_) => setState(() => _hora = null),
-              ),
-              for (final hora in _slots)
-                ChoiceChip(
-                  label: Text(formatarHora(hora)),
-                  selected: _hora == hora,
-                  onSelected: (_) => setState(() => _hora = hora),
-                ),
-            ],
+          GradeDeHorarios(
+            horas: _slots,
+            selecionada: _hora,
+            onSelecionar: (hora) => setState(() => _hora = hora),
+            semHora: 'Sem hora marcada',
+            onSemHora: () => setState(() => _hora = null),
           ),
           if (_slots.isEmpty) ...[
             const SizedBox(height: BrandSpacing.space2),

@@ -9,15 +9,14 @@ import 'package:managers/core/widgets/carregando.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/folha.dart';
 import 'package:managers/features/clientes/presentation/widgets/cliente_picker_sheet.dart';
-import 'package:managers/features/servicos/domain/entities/servico.dart';
-import 'package:managers/features/servicos/presentation/widgets/itens_de_servico.dart';
+import 'package:managers/features/servicos/presentation/widgets/escolher_servicos_sheet.dart';
 import 'package:managers/features/usuarios/domain/entities/colaborador.dart';
 
 import '../../agenda_provider.dart';
 import '../providers/agendamento_form_provider.dart';
 import '../widgets/slots_grade.dart';
 
-// marca um horário: cliente, serviço, profissional, dia e um slot da grade.
+// marca um horário: cliente, serviços, profissional, dia e um slot da grade.
 // fecha com true quando marcou, para a agenda recarregar
 class AgendamentoFormPage extends ConsumerStatefulWidget {
   const AgendamentoFormPage({
@@ -81,6 +80,32 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
     _provider.selecionarCliente(cliente);
   }
 
+  // os serviços são escolhidos numa folha; o campo mostra os nomes e o total.
+  // a lista é a do profissional escolhido, quando há um
+  Future<void> _escolherServicos() async {
+    final escolha = await EscolherServicosSheet.abrir(
+      context,
+      titulo: 'Serviços',
+      descricao:
+          'O profissional faz um depois do outro: o tempo e o valor '
+          'são a soma deles.',
+      servicos: _provider.servicos,
+      marcados: {for (final s in _provider.escolhidos) s.id},
+    );
+    if (escolha == null || !mounted) return;
+    _provider.selecionarServicos(escolha);
+  }
+
+  // "09:00 – 09:50" com os serviços escolhidos (a soma das durações); só o
+  // início sem eles
+  String _resumoDoHorario(AgendamentoFormProvider provider) {
+    final hora = provider.hora;
+    if (hora == null) return '';
+    final fim = provider.horaFim;
+    if (fim == null) return formatarHora(hora);
+    return '${formatarHora(hora)} – ${formatarHora(fim)}';
+  }
+
   Future<void> _salvar() async {
     final formOk = _formKey.currentState!.validate();
     final horaOk = _provider.hora != null;
@@ -125,6 +150,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
     final textos = Theme.of(context).textTheme;
     final hoje = somenteData(DateTime.now());
     final colaboradores = provider.colaboradores;
+    final idsDosServicos = provider.escolhidos.map((s) => s.id).join('-');
     final erroHora = provider.erroDoCampo('data_hora') ?? _erroHora;
 
     return Form(
@@ -175,24 +201,26 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
 
           const SizedBox(height: BrandSpacing.space4),
 
-          DropdownButtonFormField<Servico>(
-            // a key nova recria o campo quando o provider troca o valor
-            key: ValueKey('servico-${provider.servico?.id}'),
-            initialValue: provider.servico,
-            isExpanded: true,
-            // com mais de um nicho, os serviços vêm agrupados por nicho
-            items: itensDeServico(
-              context,
-              servicos: provider.servicos,
-              rotulo: (s) =>
-                  '${s.nome} · ${s.duracao} min · ${formatarDinheiro(s.preco)}',
-            ),
-            onChanged: provider.selecionarServico,
-            validator: (s) => s == null ? 'Escolha o serviço' : null,
+          TextFormField(
+            // a key nova recria o campo quando o provider troca a escolha
+            // (o profissional novo pode tirar um serviço que ele não faz)
+            key: ValueKey('servicos-$idsDosServicos'),
+            initialValue: provider.escolhidos.map((s) => s.nome).join(', '),
+            readOnly: true,
+            maxLines: null,
+            onTap: _escolherServicos,
+            validator: (_) => provider.escolhidos.isEmpty
+                ? 'Escolha ao menos um serviço'
+                : null,
+            forceErrorText: provider.erroDoCampo('servico_ids'),
             decoration: InputDecoration(
-              labelText: 'Serviço',
+              labelText: 'Serviços',
               prefixIcon: const Icon(Icons.design_services_rounded),
-              errorText: provider.erroDoCampo('servico_id'),
+              suffixIcon: const Icon(Icons.chevron_right_rounded),
+              helperText: provider.escolhidos.isEmpty
+                  ? null
+                  : '${formatarDuracao(provider.duracaoTotal)} · '
+                        '${formatarDinheiro(provider.valorTotal)}',
             ),
           ),
 
@@ -200,7 +228,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
 
           DropdownButtonFormField<Colaborador>(
             key: ValueKey(
-              'colaborador-${provider.servico?.id}-${provider.colaborador?.id}',
+              'colaborador-$idsDosServicos-${provider.colaborador?.id}',
             ),
             initialValue: provider.colaborador,
             isExpanded: true,
@@ -220,8 +248,11 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
               labelText: 'Profissional',
               prefixIcon: const Icon(Icons.badge_rounded),
               helperText: colaboradores.isEmpty
-                  ? 'Ninguém ativo executa este serviço. Escolha quem executa '
-                        'em Mais › Serviços.'
+                  ? provider.escolhidos.length > 1
+                        ? 'Ninguém ativo faz todos esses serviços. Escolha '
+                              'quem executa em Mais › Serviços.'
+                        : 'Ninguém ativo executa este serviço. Escolha quem '
+                              'executa em Mais › Serviços.'
                   : null,
               helperMaxLines: 2,
               errorText: provider.erroDoCampo('colaborador'),
@@ -243,11 +274,34 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
 
           const SizedBox(height: BrandSpacing.space5),
 
-          Text('Horário', style: textos.titleSmall),
+          // o horário só se escolhe na grade: o escolhido (início e fim)
+          // aparece no título dela, sem um campo que pareça tocável
+          Row(
+            children: [
+              Text('Horários livres', style: textos.titleSmall),
+              if (provider.hora != null) ...[
+                const Spacer(),
+                Text(
+                  _resumoDoHorario(provider),
+                  style: textos.titleSmall?.copyWith(color: colors.primary),
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: BrandSpacing.space2),
+          if (provider.horaQueSaiu != null) ...[
+            Text(
+              'O horário das ${formatarHora(provider.horaQueSaiu!)} não está '
+              'livre com os serviços e o profissional escolhidos. Escolha '
+              'outro.',
+              style: textos.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+            const SizedBox(height: BrandSpacing.space2),
+          ],
           if (!provider.prontoParaGrade)
             Text(
-              'Escolha o serviço e o profissional para ver os horários livres.',
+              'Escolha os serviços e o profissional para ver os horários '
+              'livres.',
               style: textos.bodyMedium?.copyWith(
                 color: colors.onSurfaceVariant,
               ),

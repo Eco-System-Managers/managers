@@ -23,6 +23,9 @@ class _MockAlterarStatus extends Mock
 
 class _MockRemarcar extends Mock implements RemarcarAgendamentoUseCase {}
 
+class _MockTrocarServicos extends Mock
+    implements TrocarServicosAgendamentoUseCase {}
+
 class _MockCobrar extends Mock implements CobrarAgendamentoUseCase {}
 
 class _MockListarSlots extends Mock implements ListarSlotsUseCase {}
@@ -31,9 +34,20 @@ class _MockObterSaldo extends Mock implements ObterSaldoClienteUseCase {}
 
 class _MockListarServicos extends Mock implements ListarServicosUseCase {}
 
+ServicoAgendado _item(int servicoId, String nome, String preco) =>
+    ServicoAgendado(
+      id: servicoId + 10,
+      servicoId: servicoId,
+      nome: nome,
+      duracao: 10,
+      precoCobrado: Decimal.parse(preco),
+      desconto: Decimal.fromInt(0),
+    );
+
 Agendamento _agendamento({
   StatusAgendamento status = StatusAgendamento.agendado,
   int? colaboradorId = 2,
+  List<ServicoAgendado>? servicos,
 }) => Agendamento(
   id: 3,
   clienteId: 7,
@@ -42,16 +56,18 @@ Agendamento _agendamento({
   colaboradorNome: 'Bia',
   dataHora: DateTime(2026, 10, 25, 10, 30),
   status: status,
-  servicos: [
-    ServicoAgendado(
-      id: 11,
-      servicoId: 3,
-      nome: 'Corte',
-      duracao: 30,
-      precoCobrado: Decimal.parse('45.50'),
-      desconto: Decimal.fromInt(0),
-    ),
-  ],
+  servicos:
+      servicos ??
+      [
+        ServicoAgendado(
+          id: 11,
+          servicoId: 3,
+          nome: 'Corte',
+          duracao: 30,
+          precoCobrado: Decimal.parse('45.50'),
+          desconto: Decimal.fromInt(0),
+        ),
+      ],
 );
 
 final _saldo = SaldoCliente(saldo: Decimal.fromInt(10), transacoes: const []);
@@ -60,6 +76,7 @@ void main() {
   late _MockObter obter;
   late _MockAlterarStatus alterarStatus;
   late _MockRemarcar remarcar;
+  late _MockTrocarServicos trocarServicos;
   late _MockCobrar cobrar;
   late _MockListarSlots listarSlots;
   late _MockObterSaldo obterSaldo;
@@ -73,8 +90,9 @@ void main() {
       RemarcarParams(id: 0, dataHora: DateTime(2026), colaboradorId: null),
     );
     registerFallbackValue(CobrancaParams(id: 0, pagamentos: const []));
+    registerFallbackValue(const TrocarServicosParams(id: 0, servicoIds: []));
     registerFallbackValue(
-      SlotsParams(data: DateTime(2026), servicoId: 0, colaboradorId: 0),
+      SlotsParams(data: DateTime(2026), servicoIds: const [], colaboradorId: 0),
     );
     registerFallbackValue(const ListarServicosParams());
   });
@@ -85,6 +103,7 @@ void main() {
       obter: obter,
       alterarStatus: alterarStatus,
       remarcar: remarcar,
+      trocarServicos: trocarServicos,
       cobrar: cobrar,
       listarSlots: listarSlots,
       obterSaldo: obterSaldo,
@@ -96,6 +115,7 @@ void main() {
     obter = _MockObter();
     alterarStatus = _MockAlterarStatus();
     remarcar = _MockRemarcar();
+    trocarServicos = _MockTrocarServicos();
     cobrar = _MockCobrar();
     listarSlots = _MockListarSlots();
     obterSaldo = _MockObterSaldo();
@@ -124,39 +144,119 @@ void main() {
     },
   );
 
-  test(
-    'com o catálogo injetado, carregar traz os serviços ativos para a troca '
-    'na cobrança; falhando ou sem o use case, a ficha segue sem a troca',
-    () async {
-      final corte = Servico(
-        id: 3,
-        nome: 'Corte',
-        duracao: 30,
-        preco: Decimal.parse('45.50'),
+  group('serviços para escolher', () {
+    // o corte subiu de preço depois de marcado; a barba é só da Dani (5); o
+    // pezinho saiu do catálogo
+    final corte = Servico(
+      id: 3,
+      nome: 'Corte',
+      duracao: 10,
+      preco: Decimal.fromInt(50),
+    );
+    final barba = Servico(
+      id: 4,
+      nome: 'Barba',
+      duracao: 20,
+      preco: Decimal.fromInt(30),
+      colaboradores: const [5],
+    );
+    final sobrancelha = Servico(
+      id: 6,
+      nome: 'Sobrancelha',
+      duracao: 10,
+      preco: Decimal.fromInt(15),
+    );
+    final pezinho = Servico(
+      id: 9,
+      nome: 'Pezinho',
+      duracao: 10,
+      preco: Decimal.fromInt(10),
+    );
+
+    setUp(() {
+      when(() => obter(3)).thenAnswer(
+        (_) async => Right(
+          _agendamento(
+            servicos: [
+              _item(3, 'Corte', '45.50'),
+              _item(9, 'Pezinho', '10.00'),
+            ],
+          ),
+        ),
       );
-      when(() => listarServicos(any())).thenAnswer((_) async => Right([corte]));
+    });
+
+    test('os do profissional do agendamento, com o preço combinado em quem '
+        'já está nele; quem saiu do catálogo continua', () async {
+      when(() => listarServicos(any()))
+          .thenAnswer((_) async => Right([corte, barba, sobrancelha]));
       final provider = montar(comCatalogo: true);
 
       await provider.carregar();
 
-      expect(provider.servicosParaTrocar, [corte]);
+      final corteCombinado = corte.copyWith(preco: Decimal.parse('45.50'));
+      expect(provider.servicosDoAgendamento, [corteCombinado, pezinho]);
+      expect(provider.servicosParaEscolher, [
+        corteCombinado,
+        sobrancelha,
+        pezinho,
+      ]);
       final params =
           verify(() => listarServicos(captureAny())).captured.single
               as ListarServicosParams;
       expect(params.ativo, isTrue);
+    });
 
+    test('sem catálogo (falhou ou sem o use case), só os atuais', () async {
       when(() => listarServicos(any()))
           .thenAnswer((_) async => const Left(NetworkFailure()));
       final semCatalogo = montar(comCatalogo: true);
       await semCatalogo.carregar();
       expect(semCatalogo.agendamento, isNotNull);
-      expect(semCatalogo.servicosParaTrocar, isEmpty);
+      expect(
+        semCatalogo.servicosParaEscolher,
+        semCatalogo.servicosDoAgendamento,
+      );
+      expect(semCatalogo.servicosParaEscolher, hasLength(2));
 
       final semUseCase = montar();
       await semUseCase.carregar();
-      expect(semUseCase.servicosParaTrocar, isEmpty);
-    },
-  );
+      expect(semUseCase.servicosParaEscolher, hasLength(2));
+    });
+  });
+
+  test('trocarServicos manda a lista inteira e mostra o agendamento como a '
+      'API devolveu; o erro fica na ficha', () async {
+    final mudado = _agendamento(
+      servicos: [_item(3, 'Corte', '45.50'), _item(4, 'Barba', '30.00')],
+    );
+    when(() => trocarServicos(any())).thenAnswer((_) async => Right(mudado));
+    final provider = montar();
+    await provider.carregar();
+
+    await provider.trocarServicos([3, 4]);
+
+    final params =
+        verify(() => trocarServicos(captureAny())).captured.single
+            as TrocarServicosParams;
+    expect(params.id, 3);
+    expect(params.servicoIds, [3, 4]);
+    expect(provider.agendamento, mudado);
+    expect(provider.errorMessage, isNull);
+
+    when(() => trocarServicos(any())).thenAnswer(
+      (_) async => const Left(
+        ServerFailure(
+          message: 'Esse colaborador já tem um agendamento nesse horário.',
+          code: 'horario_conflito',
+        ),
+      ),
+    );
+    await provider.trocarServicos([3, 4, 6]);
+
+    expect(provider.errorMessage, contains('já tem um agendamento'));
+    expect(provider.agendamento, mudado);
+  });
 
   test('erro ao carregar vira erroAoCarregar', () async {
     when(() => obter(3)).thenAnswer((_) async => const Left(NotFoundFailure()));
@@ -274,11 +374,18 @@ void main() {
     expect(provider.errorMessage, 'A soma não bate.');
   });
 
-  test('slotsParaRemarcar usa o serviço e o profissional do agendamento; sem '
-      'profissional não há grade', () async {
+  test('slotsParaRemarcar usa todos os serviços e o profissional do '
+      'agendamento; sem profissional não há grade', () async {
     when(() => listarSlots(any())).thenAnswer(
       (_) async =>
           const Right([Slot(hora: (hora: 9, minuto: 0), disponivel: true)]),
+    );
+    when(() => obter(3)).thenAnswer(
+      (_) async => Right(
+        _agendamento(
+          servicos: [_item(3, 'Corte', '45.50'), _item(4, 'Barba', '30.00')],
+        ),
+      ),
     );
     final provider = montar();
     await provider.carregar();
@@ -288,10 +395,8 @@ void main() {
     expect(slots, hasLength(1));
     final params =
         verify(() => listarSlots(captureAny())).captured.single as SlotsParams;
-    expect(
-      (params.servicoId, params.colaboradorId, params.data),
-      (3, 2, DateTime(2026, 10, 26)),
-    );
+    expect(params.servicoIds, [3, 4]);
+    expect((params.colaboradorId, params.data), (2, DateTime(2026, 10, 26)));
 
     when(() => obter(3))
         .thenAnswer((_) async => Right(_agendamento(colaboradorId: null)));

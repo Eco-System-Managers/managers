@@ -7,6 +7,8 @@ import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/features/agenda/agenda_provider.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:managers/features/kanban/kanban_provider.dart';
+import 'package:managers/features/novidades/novidades_provider.dart';
+import 'package:managers/features/novidades/presentation/widgets/novidades_sheet.dart';
 
 // a casca do app: a barra inferior flutuante com as abas (Início,
 // Agenda/Quadro, Clientes e Mais), cada uma com a própria pilha
@@ -28,9 +30,21 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
   void initState() {
     super.initState();
     // depois do primeiro build, com o provider já vivo pelo watch
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(negocioAtualProvider).carregar();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _carregar());
+  }
+
+  // o negócio primeiro: as novidades dependem do modo de agenda
+  Future<void> _carregar() async {
+    if (!mounted) return;
+    final negocio = ref.read(negocioAtualProvider);
+    await negocio.carregar();
+    if (!mounted || !negocio.carregado) return;
+    final itens = await ref
+        .read(novidadesProvider)
+        .paraMostrar(isKanban: negocio.isKanban);
+    if (!mounted || itens.isEmpty) return;
+    final verNaAgenda = await NovidadesSheet.abrir(context, itens);
+    if (mounted && verNaAgenda == true) _selecionarAba(1);
   }
 
   // a aba da agenda (ou do quadro) fica viva enquanto a pessoa mexe nas
@@ -53,6 +67,8 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
   @override
   Widget build(BuildContext context) {
     final negocio = ref.watch(negocioAtualProvider);
+    // watch: mantém o provider das novidades vivo com a casca
+    ref.watch(novidadesProvider);
     final shell = widget.navigationShell;
 
     return ListenableBuilder(

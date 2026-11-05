@@ -30,6 +30,9 @@ abstract class AgendaRemoteDataSource {
   // PATCH parcial: só o que mudou
   Future<AgendamentoModel> atualizar(int id, Map<String, dynamic> campos);
 
+  // PUT da lista inteira de serviços, antes do atendimento
+  Future<AgendamentoModel> trocarServicos(TrocarServicosParams params);
+
   Future<AgendamentoModel> cobrar(CobrancaParams params);
 
   Future<List<Slot>> slots(SlotsParams params);
@@ -108,6 +111,15 @@ class AgendaRemoteDataSourceImpl implements AgendaRemoteDataSource {
   }
 
   @override
+  Future<AgendamentoModel> trocarServicos(TrocarServicosParams params) async {
+    final response = await dio.put<Map<String, dynamic>>(
+      '$_agendamentos${params.id}/servicos/',
+      data: {'servico_ids': params.servicoIds},
+    );
+    return AgendamentoModel.fromJson(response.data!);
+  }
+
+  @override
   Future<AgendamentoModel> cobrar(CobrancaParams params) async {
     final response = await dio.post<Map<String, dynamic>>(
       '$_agendamentos${params.id}/cobrar/',
@@ -122,7 +134,8 @@ class AgendaRemoteDataSourceImpl implements AgendaRemoteDataSource {
       'agenda/slots/',
       queryParameters: {
         'data': dataParaApi(params.data),
-        'servico': params.servicoId,
+        // uma lista vira servico=1&servico=2
+        'servico': params.servicoIds,
         'colaborador': params.colaboradorId,
       },
     );

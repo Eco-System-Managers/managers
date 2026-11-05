@@ -6,8 +6,9 @@ import 'package:managers/core/utils/datas.dart';
 // escolhido (segunda a domingo), com uma bolinha nos dias que têm registro;
 // aberto, é o mês inteiro. deslizar para o lado troca de semana (ou de mês)
 // mantendo o dia da semana (ou do mês); puxar para baixo abre o mês, para
-// cima fecha. quem usa guarda se está aberto (a barra de título também abre)
-// e busca as bolinhas dos dias na tela (diasDaSemana ou diasDoMes do dia)
+// cima fecha, e o chevron de baixo diz para que lado vai. quem usa guarda se
+// está aberto (a barra de título também abre) e busca as bolinhas dos dias
+// na tela (diasDaSemana ou diasDoMes do dia)
 class FaixaSemana extends StatefulWidget {
   const FaixaSemana({
     super.key,
@@ -237,19 +238,26 @@ class _FaixaSemanaState extends State<FaixaSemana> {
             ),
           ),
           if (widget.onExpandir != null)
-            // a alça: toque ou puxe para abrir e fechar o mês
-            InkWell(
-              onTap: () => widget.onExpandir!(!widget.expandido),
-              child: SizedBox(
-                height: 18,
-                width: double.infinity,
-                child: Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cores.border,
-                      borderRadius: BrandRadius.smAll,
+            // a alça: um chevron largo, para baixo com a semana (abre o mês)
+            // e para cima com o mês aberto (fecha). toque ou puxe
+            Semantics(
+              container: true,
+              button: true,
+              label: widget.expandido ? 'Fechar o mês' : 'Abrir o mês',
+              child: InkWell(
+                onTap: () => widget.onExpandir!(!widget.expandido),
+                child: SizedBox(
+                  height: 20,
+                  width: double.infinity,
+                  child: Center(
+                    child: AnimatedRotation(
+                      turns: widget.expandido ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      child: CustomPaint(
+                        size: const Size(36, 10),
+                        painter: _Chevron(cor: cores.inkMuted),
+                      ),
                     ),
                   ),
                 ),
@@ -310,6 +318,37 @@ class _FaixaSemanaState extends State<FaixaSemana> {
       onTap: () => widget.onSelecionar(d),
     );
   }
+}
+
+// o chevron da alça, na largura da barra que ele substituiu: um V aberto
+// com as pontas arredondadas, apontando para baixo (a rotação vira para cima)
+class _Chevron extends CustomPainter {
+  const _Chevron({required this.cor});
+
+  final Color cor;
+
+  static const _espessura = 3.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const meia = _espessura / 2;
+    final traco = Paint()
+      ..color = cor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _espessura
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(
+      Path()
+        ..moveTo(meia, meia)
+        ..lineTo(size.width / 2, size.height - meia)
+        ..lineTo(size.width - meia, meia),
+      traco,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Chevron antigo) => antigo.cor != cor;
 }
 
 class _Dia extends StatelessWidget {

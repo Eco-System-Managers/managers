@@ -4,6 +4,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:managers/routing/app_router.dart';
 
+import 'core/tema/preferencia_de_tema.dart';
+import 'core/tema/tema_provider.dart';
 import 'core/theme/theme.dart';
 
 class App extends ConsumerWidget {
@@ -11,20 +13,35 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp.router(
-      title: 'Work Manage',
-      // o tema do Design System, claro ou escuro conforme o aparelho
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
-      routerConfig: ref.watch(routerProvider),
-      builder: (context, child) => _AcimaDaBarraDoSistema(child: child!),
-      // tudo em português: os textos dos widgets do Flutter (relógio,
-      // calendário, botões de diálogo) e os formatos de data
-      locale: const Locale('pt', 'BR'),
-      supportedLocales: const [Locale('pt', 'BR')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    final tema = ref.watch(temaControllerProvider);
+    final router = ref.watch(routerProvider);
+
+    return ListenableBuilder(
+      listenable: tema,
+      builder: (context, _) => MaterialApp.router(
+        title: 'Work Manage',
+        // o tema do Design System: o claro ou o escuro escolhido no Mais,
+        // ou o do aparelho
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: _modo(tema.preferencia),
+        routerConfig: router,
+        builder: (context, child) => _AcimaDaBarraDoSistema(child: child!),
+        // tudo em português: os textos dos widgets do Flutter (relógio,
+        // calendário, botões de diálogo) e os formatos de data
+        locale: const Locale('pt', 'BR'),
+        supportedLocales: const [Locale('pt', 'BR')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      ),
     );
+  }
+
+  static ThemeMode _modo(PreferenciaDeTema preferencia) {
+    return switch (preferencia) {
+      PreferenciaDeTema.sistema => ThemeMode.system,
+      PreferenciaDeTema.claro => ThemeMode.light,
+      PreferenciaDeTema.escuro => ThemeMode.dark,
+    };
   }
 }
 
