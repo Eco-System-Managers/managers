@@ -219,6 +219,7 @@ App: **Work Manage** (`frontend/apps/workmanage`).
 
 ### Transversais
 
+- **O tema pode ser escolhido à mão no Mais**, para todos (é do aparelho, não do negócio): igual ao aparelho (o padrão), claro ou escuro. Vale só naquele aparelho e é carregado antes do primeiro quadro, para o app não piscar no tema errado ao abrir.
 - **O menu do `DropdownButton` sai no `canvasColor`,** que passou a ser a superfície que flutua (`bg` no claro, `bg2` no escuro), como o diálogo e a folha. Nenhum `Material` do app depende do `canvasColor`.
 - **"Confirmar" da ficha de agendamento é contornado;** cobrar é o primário. O `FilledButton.tonal` saiu do app: onde era a ação principal, virou `FilledButton`.
 - **As caixas da cobrança (resumo e erro) passaram a `radius-md`.**

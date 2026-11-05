@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:managers/core/config/env.dart';
+import 'package:managers/core/tema/preferencia_de_tema.dart';
+import 'package:managers/core/tema/tema_provider.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/widgets/confirmar_dialog.dart';
+import 'package:managers/core/widgets/filtros.dart';
 import 'package:managers/core/widgets/sombra_de_borda.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,10 +14,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../home_provider.dart';
 
 // a aba "Mais": configurações, serviços, financeiro, contratos, equipe,
-// assinatura (só para o dono, e só quando dá para assinar), a política de
-// privacidade, sair e excluir a conta. cada item segue o que a pessoa pode
-// (negocioAtualProvider): o colaborador comum da esteira fica só com a
-// privacidade, sair e excluir a conta
+// assinatura (só para o dono, e só quando dá para assinar), o tema, a
+// política de privacidade, sair e excluir a conta. cada item segue o que a
+// pessoa pode (negocioAtualProvider): o colaborador comum da esteira fica só
+// com o tema, a privacidade, sair e excluir a conta
 class MaisPage extends ConsumerStatefulWidget {
   const MaisPage({super.key});
 
@@ -42,11 +45,40 @@ class _MaisPageState extends ConsumerState<MaisPage> {
     await ref.read(maisProvider).sair();
   }
 
+  // o tema é deste aparelho, não do negócio: qualquer um troca
+  Future<void> _escolherTema() async {
+    final tema = ref.read(temaControllerProvider);
+    final escolha = await escolherNaFolha<PreferenciaDeTema>(
+      context,
+      titulo: 'Tema',
+      descricao: 'Vale só neste aparelho.',
+      opcoes: [
+        for (final p in PreferenciaDeTema.values)
+          OpcaoDaFolha(
+            valor: p,
+            texto: p.nome,
+            icone: _iconeDoTema(p),
+            selecionada: p == tema.preferencia,
+          ),
+      ],
+    );
+    if (escolha != null) await tema.escolher(escolha);
+  }
+
+  static IconData _iconeDoTema(PreferenciaDeTema preferencia) {
+    return switch (preferencia) {
+      PreferenciaDeTema.sistema => Icons.brightness_auto_rounded,
+      PreferenciaDeTema.claro => Icons.light_mode_rounded,
+      PreferenciaDeTema.escuro => Icons.dark_mode_rounded,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     // watch: mantém o provider vivo enquanto a aba estiver aberta
     final mais = ref.watch(maisProvider);
     final negocio = ref.watch(negocioAtualProvider);
+    final tema = ref.watch(temaControllerProvider);
     final cores = BrandColors.of(context);
     final textos = Theme.of(context).textTheme;
 
@@ -54,7 +86,7 @@ class _MaisPageState extends ConsumerState<MaisPage> {
       appBar: AppBar(title: const Text('Mais')),
       body: comSombraEmBaixo(
         ListenableBuilder(
-          listenable: Listenable.merge([mais, negocio]),
+          listenable: Listenable.merge([mais, negocio, tema]),
           builder: (context, _) {
             return ListView(
               children: [
@@ -125,6 +157,13 @@ class _MaisPageState extends ConsumerState<MaisPage> {
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/mais/assinatura'),
                   ),
+                ListTile(
+                  leading: Icon(_iconeDoTema(tema.preferencia)),
+                  title: const Text('Tema'),
+                  subtitle: Text(tema.preferencia.nome),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: _escolherTema,
+                ),
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
                   title: const Text('Política de privacidade'),
