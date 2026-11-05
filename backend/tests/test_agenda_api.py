@@ -7,6 +7,8 @@ from apps_work.agenda.models import Agendamento, AgendamentoServico, PagamentoAg
 from apps_work.clientes.models import Cliente
 from apps_work.servicos.models import Servico
 from apps_work.usuarios.models import Colaborador
+from core.tenant import com_tenant
+from tenants.models import Tenant
 
 
 @pytest.fixture
@@ -487,3 +489,56 @@ class TestServicosDoAgendamento:
         assert response.status_code == 200
         assert list(agendamento_com_servico.servicos.values_list('servico_id', flat=True)) == [servico.id]
 
+
+# --- isolamento entre negócios (manager + RLS) ---
+
+@pytest.fixture
+def servico_de_outro_negocio(tenant):
+    outro = Tenant.objects.create(schema_name='outro_negocio', nome='Outro Negócio')
+    with com_tenant(outro):
+        return Servico.objects.create(nome='Corte do vizinho', duracao=30, preco='10.00')
+
+
+@pytest.mark.django_db
+class TestServicosDeOutroNegocio:
+    def test_os_itens_nascem_no_negocio_do_agendamento(self, client_autenticado, cliente, servico, barba, tenant):
+        response = client_autenticado.post('/api/v1/agendamentos/', {
+            'cliente': cliente.id, 'data_hora': '2024-06-15T10:00:00Z', 'servico_ids': [servico.id, barba.id],
+        }, format='json')
+
+        assert response.status_code == 201
+        itens = AgendamentoServico.todos.filter(agendamento_id=response.data['id'])
+        assert {i.tenant_id for i in itens} == {tenant.pk}
+
+    def test_criar_com_servico_de_outro_negocio_recusa(self, client_autenticado, cliente, servico, servico_de_outro_negocio):
+        response = client_autenticado.post('/api/v1/agendamentos/', {
+            'cliente': cliente.id, 'data_hora': '2024-06-15T10:00:00Z',
+            'servico_ids': [servico.id, servico_de_outro_negocio.id],
+        }, format='json')
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'servico_invalido'
+        assert not Agendamento.objects.exists()
+
+    def test_trocar_por_servico_de_outro_negocio_recusa(
+        self, client_autenticado, agendamento_com_servico, servico, servico_de_outro_negocio,
+    ):
+        response = client_autenticado.put(
+            f'/api/v1/agendamentos/{agendamento_com_servico.id}/servicos/',
+            {'servico_ids': [servico.id, servico_de_outro_negocio.id]}, format='json',
+        )
+
+        assert response.status_code == 400
+        assert response.data['code'] == 'servico_invalido'
+        assert list(agendamento_com_servico.servicos.values_list('servico_id', flat=True)) == [servico.id]
+
+    def test_grade_com_servico_de_outro_negocio_sai_vazia(
+        self, client_autenticado, servico, colaborador, servico_de_outro_negocio,
+    ):
+        response = client_autenticado.get(
+            f'/api/v1/agenda/slots/?data=2024-06-15&servico={servico.id}'
+            f'&servico={servico_de_outro_negocio.id}&colaborador={colaborador.id}'
+        )
+
+        assert response.status_code == 200
+        assert response.data == []
