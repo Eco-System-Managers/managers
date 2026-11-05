@@ -64,7 +64,7 @@ def _agendar(colaborador, servico, hora: time, nome='Ocupa') -> Agendamento:
 @pytest.mark.django_db
 class TestGradeDeSlots:
     def test_grade_cobre_o_expediente_de_15_em_15_ate_o_servico_caber(self, expediente, servico, colaborador):
-        slots = SlotsAgendaService().listar(DIA, servico.pk, colaborador.pk)
+        slots = SlotsAgendaService().listar(DIA, [servico.pk], colaborador.pk)
         # serviço de 60 min das 9 às 12: o último que cabe inteiro é 11:00
         assert [s['horario'] for s in slots] == [
             '09:00', '09:15', '09:30', '09:45', '10:00', '10:15', '10:30', '10:45', '11:00',
@@ -72,12 +72,12 @@ class TestGradeDeSlots:
         assert all(s['disponivel'] for s in slots)
 
     def test_dia_sem_expediente_nao_tem_grade(self, patch_tenant_middleware, servico, colaborador):
-        assert SlotsAgendaService().listar(DIA, servico.pk, colaborador.pk) == []
+        assert SlotsAgendaService().listar(DIA, [servico.pk], colaborador.pk) == []
 
     def test_horario_ocupado_some_da_grade(self, expediente, servico, colaborador):
         _agendar(colaborador, servico, time(10, 0))
 
-        slots = SlotsAgendaService().listar(DIA, servico.pk, colaborador.pk)
+        slots = SlotsAgendaService().listar(DIA, [servico.pk], colaborador.pk)
 
         # 10:00-11:00 ocupado: de 9:15 a 10:45 o serviço de 60 min bateria nele
         assert [s['horario'] for s in slots] == ['09:00', '11:00']
@@ -87,7 +87,7 @@ class TestGradeDeSlots:
         curto = Servico.objects.create(nome='Barba', duracao=20, preco='20.00')
         _agendar(colaborador, curto, time(9, 0))
 
-        slots = [s['horario'] for s in SlotsAgendaService().listar(DIA, curto.pk, colaborador.pk)]
+        slots = [s['horario'] for s in SlotsAgendaService().listar(DIA, [curto.pk], colaborador.pk)]
 
         assert slots[:3] == ['09:20', '09:30', '09:45']
         # 9:15 bateria no que vai até 9:20
@@ -96,7 +96,7 @@ class TestGradeDeSlots:
     def test_agenda_de_outro_colaborador_nao_afeta(self, expediente, servico, colaborador, outro_colaborador):
         _agendar(outro_colaborador, servico, time(10, 0))
 
-        slots = SlotsAgendaService().listar(DIA, servico.pk, colaborador.pk)
+        slots = SlotsAgendaService().listar(DIA, [servico.pk], colaborador.pk)
 
         assert all(s['disponivel'] for s in slots)
 
@@ -105,7 +105,7 @@ class TestGradeDeSlots:
         ag.status = 'cancelado'
         ag.save(update_fields=['status'])
 
-        slots = SlotsAgendaService().listar(DIA, servico.pk, colaborador.pk)
+        slots = SlotsAgendaService().listar(DIA, [servico.pk], colaborador.pk)
 
         assert all(s['disponivel'] for s in slots)
 
@@ -129,6 +129,29 @@ class TestSlotsAPI:
             f'/api/v1/agenda/slots/?data={DIA.isoformat()}&servico={servico.pk}&colaborador={colaborador.pk}'
         )
         assert response.status_code == 200
+
+    def test_varios_servicos_usam_a_soma_das_duracoes(self, client_autenticado, expediente, servico, colaborador):
+        barba = Servico.objects.create(nome='Barba', duracao=30, preco='30.00')
+
+        response = client_autenticado.get(
+            f'/api/v1/agenda/slots/?data={DIA.isoformat()}&servico={servico.pk}&servico={barba.pk}'
+            f'&colaborador={colaborador.pk}'
+        )
+
+        # 60 + 30 min das 9 às 12: o último que cabe inteiro é 10:30
+        assert response.status_code == 200
+        assert response.data[-1]['horario'] == '10:30'
+
+    def test_servico_inativo_na_lista_nao_tem_grade(self, client_autenticado, expediente, servico, colaborador):
+        inativo = Servico.objects.create(nome='Antigo', duracao=30, preco='30.00', ativo=False)
+
+        response = client_autenticado.get(
+            f'/api/v1/agenda/slots/?data={DIA.isoformat()}&servico={servico.pk}&servico={inativo.pk}'
+            f'&colaborador={colaborador.pk}'
+        )
+
+        assert response.status_code == 200
+        assert response.data == []
 
     def test_sem_colaborador_recusa(self, client_autenticado, expediente, servico):
         response = client_autenticado.get(

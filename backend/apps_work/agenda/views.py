@@ -9,7 +9,10 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.plumbing import build_array_type, build_basic_type
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from .models import Agendamento, Bloqueio, StatusAgendamento
-from .serializers import AgendamentoSerializer, BloqueioSerializer, PendenciaCobrancaSerializer, SlotSerializer
+from .serializers import (
+    AgendamentoSerializer, BloqueioSerializer, PendenciaCobrancaSerializer, ServicosDoAgendamentoSerializer,
+    SlotSerializer,
+)
 from .services import (
     AgendamentoService,
     BloqueioService,
@@ -120,23 +123,28 @@ class SlotsAgendaView(APIView):
     permission_classes = [IsAuthenticated, NaoEhColaboradorDaEsteira]
 
     @extend_schema(
-        responses=SlotSerializer(many=True), summary='Horários do dia de um colaborador para um serviço',
+        responses=SlotSerializer(many=True), summary='Horários do dia de um colaborador para um ou mais serviços',
         parameters=[
             OpenApiParameter('data', OpenApiTypes.DATE, required=True),
-            OpenApiParameter('servico', OpenApiTypes.INT, required=True),
+            OpenApiParameter(
+                'servico', OpenApiTypes.INT, required=True, many=True, explode=True,
+                description='Repetido para vários serviços (`servico=1&servico=2`): a grade usa a soma das durações.',
+            ),
             OpenApiParameter('colaborador', OpenApiTypes.INT, required=True),
         ],
     )
     def get(self, request):
         try:
             data = date_type.fromisoformat(request.query_params['data'])
-            servico_id = int(request.query_params['servico'])
+            servico_ids = [int(i) for i in request.query_params.getlist('servico')]
             # Obrigatório: a agenda é individual, não existe grade sem dono.
             colaborador_id = int(request.query_params['colaborador'])
+            if not servico_ids:
+                raise ValueError
         except (KeyError, ValueError):
             return erro('Parâmetros obrigatórios: data (YYYY-MM-DD), servico e colaborador.', 'parametros_invalidos', drf_status.HTTP_400_BAD_REQUEST)
 
-        return Response(SlotsAgendaService().listar(data, servico_id, colaborador_id))
+        return Response(SlotsAgendaService().listar(data, servico_ids, colaborador_id))
 
 
 class DiasComRegistroView(APIView):
@@ -204,7 +212,7 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
         AgendamentoService().verificar_conflito_para_criacao(
             colaborador=serializer.validated_data.get('colaborador'),
             data_hora=serializer.validated_data.get('data_hora'),
-            servico_id=serializer.validated_data.get('servico_id'),
+            servicos=serializer.servicos,
         )
         serializer.save()
 
@@ -228,12 +236,33 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
         AgendamentoService().notificar_mudanca_de_status(serializer.instance, status_anterior)
 
     @extend_schema(
+        request=ServicosDoAgendamentoSerializer, responses=AgendamentoSerializer,
+        summary='Mudar os serviços antes do atendimento',
+        description=(
+            'Substitui a lista de serviços de um agendamento agendado ou confirmado (senão, 400 '
+            'agendamento_encerrado: o acerto é na cobrança). Quem fica mantém o preço congelado; quem entra vem '
+            'com o preço atual. A duração nova tem de caber na agenda do profissional (400 horario_conflito, '
+            'horario_bloqueado). Quem já estava pode ficar mesmo inativo; quem entra inexistente ou inativo: 400 '
+            'servico_invalido.'
+        ),
+    )
+    @action(detail=True, methods=['put'])
+    def servicos(self, request, pk=None):
+        agendamento = self.get_object()
+        entrada = ServicosDoAgendamentoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        agendamento = AgendamentoService().trocar_servicos(agendamento, entrada.validated_data['servico_ids'])
+
+        return Response(AgendamentoSerializer(agendamento).data)
+
+    @extend_schema(
         request=CobrancaSerializer, responses=AgendamentoSerializer, summary='Cobrar o atendimento',
         description=(
             'Conclui o agendamento. O total é o dos serviços mais o acréscimo menos o desconto, e a soma dos '
             'pagamentos com o crédito aplicado tem de bater com ele (400 soma_invalida). `servico_ids` troca os '
-            'serviços pelos que foram feitos de verdade, com o preço atual de cada um (400 servico_invalido se '
-            'algum não existe ou está inativo).'
+            'serviços pelos que foram feitos de verdade: quem fica mantém o preço congelado, quem entra vem com o '
+            'atual e tem de estar ativo (400 servico_invalido); quem já estava pode ficar mesmo inativo.'
         ),
     )
     @action(detail=True, methods=['post'])

@@ -80,6 +80,15 @@ class AgendaRepositoryImpl implements AgendaRepository {
   }
 
   @override
+  Future<Either<Failure, Agendamento>> trocarServicos(
+    TrocarServicosParams params,
+  ) {
+    return _executar(
+      () async => (await _remoteDataSource.trocarServicos(params)).toEntity(),
+    );
+  }
+
+  @override
   Future<Either<Failure, Agendamento>> cobrar(CobrancaParams params) {
     return _executar(
       () async => (await _remoteDataSource.cobrar(params)).toEntity(),

@@ -300,7 +300,7 @@ paths:
   /api/v1/agenda/slots/:
     get:
       operationId: agenda_slots_list
-      summary: Horários do dia de um colaborador para um serviço
+      summary: Horários do dia de um colaborador para um ou mais serviços
       parameters:
       - in: query
         name: colaborador
@@ -316,8 +316,13 @@ paths:
       - in: query
         name: servico
         schema:
-          type: integer
+          type: array
+          items:
+            type: integer
+        description: 'Repetido para vários serviços (`servico=1&servico=2`): a grade
+          usa a soma das durações.'
         required: true
+        explode: true
       tags:
       - agenda
       security:
@@ -710,11 +715,12 @@ paths:
   /api/v1/agendamentos/{id}/cobrar/:
     post:
       operationId: agendamentos_cobrar_create
-      description: Conclui o agendamento. O total é o dos serviços mais o acréscimo
+      description: 'Conclui o agendamento. O total é o dos serviços mais o acréscimo
         menos o desconto, e a soma dos pagamentos com o crédito aplicado tem de bater
         com ele (400 soma_invalida). `servico_ids` troca os serviços pelos que foram
-        feitos de verdade, com o preço atual de cada um (400 servico_invalido se algum
-        não existe ou está inativo).
+        feitos de verdade: quem fica mantém o preço congelado, quem entra vem com
+        o atual e tem de estar ativo (400 servico_invalido); quem já estava pode ficar
+        mesmo inativo.'
       summary: Cobrar o atendimento
       parameters:
       - in: path
@@ -736,6 +742,76 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/CobrancaRequest'
+        required: true
+      security:
+      - workmanageJWT: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agendamento'
+          description: ''
+        '400':
+          description: Requisição inválida ou regra de negócio violada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Não autenticado ou sessão expirada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Sem permissão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          description: Limite de requisições atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /api/v1/agendamentos/{id}/servicos/:
+    put:
+      operationId: agendamentos_servicos_update
+      description: 'Substitui a lista de serviços de um agendamento agendado ou confirmado
+        (senão, 400 agendamento_encerrado: o acerto é na cobrança). Quem fica mantém
+        o preço congelado; quem entra vem com o preço atual. A duração nova tem de
+        caber na agenda do profissional (400 horario_conflito, horario_bloqueado).
+        Quem já estava pode ficar mesmo inativo; quem entra inexistente ou inativo:
+        400 servico_invalido.'
+      summary: Mudar os serviços antes do atendimento
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Um valor inteiro único que identifica este agendamento.
+        required: true
+      tags:
+      - agendamentos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServicosDoAgendamentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ServicosDoAgendamentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ServicosDoAgendamentoRequest'
         required: true
       security:
       - workmanageJWT: []
@@ -8179,10 +8255,20 @@ components:
     AgendamentoRequest:
       type: object
       properties:
+        servico_ids:
+          type: array
+          items:
+            type: integer
+          writeOnly: true
+          description: 'Os serviços, feitos em sequência pelo mesmo profissional:
+            a duração e o valor são a soma deles. Só na criação; depois, `servicos/`
+            e a cobrança. Inexistente ou inativo: 400 servico_invalido.'
         servico_id:
           type: integer
           writeOnly: true
           nullable: true
+          description: Um serviço só, o formato das versões do app anteriores a `servico_ids`.
+            Com os dois, vale `servico_ids`.
         data_hora:
           type: string
           format: date-time
@@ -8922,9 +9008,10 @@ components:
             type: integer
           description: 'Troca o serviço pelo que foi feito de verdade, na hora de
             cobrar. Na esteira, um id só (400 um_servico_so), conferido com o porte
-            do veículo ou pet; na agenda, a lista substitui os serviços do agendamento,
-            com o preço atual de cada um. Inexistente ou inativo: 400 servico_invalido.
-            Sem o campo, cobra o serviço combinado.'
+            do veículo ou pet; na agenda, a lista substitui os serviços do agendamento
+            (quem fica mantém o preço congelado e pode ficar mesmo inativo; quem entra
+            vem com o atual). Inexistente, ou inativo que não estava combinado: 400
+            servico_invalido. Sem o campo, cobra o serviço combinado.'
         pagamentos:
           type: array
           items:
@@ -10470,10 +10557,20 @@ components:
     PatchedAgendamentoRequest:
       type: object
       properties:
+        servico_ids:
+          type: array
+          items:
+            type: integer
+          writeOnly: true
+          description: 'Os serviços, feitos em sequência pelo mesmo profissional:
+            a duração e o valor são a soma deles. Só na criação; depois, `servicos/`
+            e a cobrança. Inexistente ou inativo: 400 servico_invalido.'
         servico_id:
           type: integer
           writeOnly: true
           nullable: true
+          description: Um serviço só, o formato das versões do app anteriores a `servico_ids`.
+            Com os dois, vale `servico_ids`.
         data_hora:
           type: string
           format: date-time
@@ -11333,6 +11430,17 @@ components:
       - duracao
       - nome
       - preco
+    ServicosDoAgendamentoRequest:
+      type: object
+      properties:
+        servico_ids:
+          type: array
+          items:
+            type: integer
+          description: A lista nova, inteira. Quem fica mantém o preço congelado;
+            quem entra vem com o preço atual.
+      required:
+      - servico_ids
     Sessao:
       type: object
       description: Resposta de login, cadastro, renovação e aceite de convite.
