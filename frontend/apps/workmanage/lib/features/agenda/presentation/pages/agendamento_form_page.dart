@@ -261,46 +261,33 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
 
           const SizedBox(height: BrandSpacing.space4),
 
-          // o dia e, ao lado, o resumo do horário escolhido (início e fim).
-          // o horário só se escolhe na grade de baixo
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: CampoData(
-                  valor: provider.data,
-                  onChanged: (d) {
-                    if (d != null) provider.selecionarData(d);
-                  },
-                  label: 'Dia',
-                  limpavel: false,
-                  primeiraData: hoje,
-                  ultimaData: DateTime(hoje.year + 1, hoje.month, hoje.day),
-                ),
-              ),
-              const SizedBox(width: BrandSpacing.space3),
-              Expanded(
-                child: InputDecorator(
-                  isEmpty: provider.hora == null,
-                  decoration: InputDecoration(
-                    labelText: 'Horário',
-                    prefixIcon: const Icon(Icons.schedule_rounded),
-                    errorText: erroHora,
-                  ),
-                  child: Text(
-                    _resumoDoHorario(provider),
-                    style: textos.bodyLarge,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
+          CampoData(
+            valor: provider.data,
+            onChanged: (d) {
+              if (d != null) provider.selecionarData(d);
+            },
+            label: 'Dia',
+            limpavel: false,
+            primeiraData: hoje,
+            ultimaData: DateTime(hoje.year + 1, hoje.month, hoje.day),
           ),
 
           const SizedBox(height: BrandSpacing.space5),
 
-          Text('Horários livres', style: textos.titleSmall),
+          // o horário só se escolhe na grade: o escolhido (início e fim)
+          // aparece no título dela, sem um campo que pareça tocável
+          Row(
+            children: [
+              Text('Horários livres', style: textos.titleSmall),
+              if (provider.hora != null) ...[
+                const Spacer(),
+                Text(
+                  _resumoDoHorario(provider),
+                  style: textos.titleSmall?.copyWith(color: colors.primary),
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: BrandSpacing.space2),
           if (provider.horaQueSaiu != null) ...[
             Text(
@@ -331,6 +318,13 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                 provider.selecionarHora(h);
               },
             ),
+          if (erroHora != null) ...[
+            const SizedBox(height: BrandSpacing.space2),
+            Text(
+              erroHora,
+              style: textos.bodySmall?.copyWith(color: colors.error),
+            ),
+          ],
 
           const SizedBox(height: BrandSpacing.space5),
 
