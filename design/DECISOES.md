@@ -135,6 +135,7 @@ App: **Work Manage** (`frontend/apps/workmanage`).
 - **A folga do fim da grade passou de 96 para 64 (`space-7`).** O último horário continua acima do botão flutuante.
 - **A alça do calendário virou um chevron** da largura da barra que ela era (36), em `ink-muted`: para baixo com a semana, para cima com o mês aberto, girando na troca. A barra não dizia para que lado ia.
 - **Os horários livres ficam em colunas iguais, na agenda e na esteira** (`GradeDeHorarios`): toda célula tem a mesma largura e os algarismos são tabulares, para "11:00" e "08:45" não desalinharem as linhas. No remarcar da esteira, "Sem hora marcada" é uma célula da linha inteira, com o mesmo visual das horas.
+- **No formulário, o campo "Horário" fica ao lado do dia** e só mostra o escolhido, com início e fim. A hora tocada na agenda já entra nele, antes de escolher serviço e profissional; se a grade não a tiver livre, ela sai com um aviso.
 
 ### Quadro (kanban)
 

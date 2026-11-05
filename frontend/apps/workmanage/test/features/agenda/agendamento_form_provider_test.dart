@@ -155,8 +155,8 @@ void main() {
     verifyNever(() => listarSlots(any()));
   });
 
-  test('com serviço e profissional a grade é buscada; trocar o serviço limpa '
-      'a hora e quem não o executa', () async {
+  test('com serviço e profissional a grade é buscada; trocar o serviço tira '
+      'quem não o executa, e a hora fica até a grade nova conferir', () async {
     final provider = montar();
     await provider.carregar();
 
@@ -175,9 +175,10 @@ void main() {
     provider.selecionarServico(_barba);
     await pumpEventQueue();
 
-    // a Bia não faz barba: sai da escolha e da lista, e a grade some
+    // a Bia não faz barba: sai da escolha e da lista, e a grade some; a
+    // hora continua escolhida, esperando a grade nova
     expect(provider.colaborador, isNull);
-    expect(provider.hora, isNull);
+    expect(provider.hora, _nove);
     expect(provider.colaboradores, [_dani]);
     expect(provider.prontoParaGrade, isFalse);
     verifyNever(() => listarSlots(any()));
@@ -188,6 +189,45 @@ void main() {
     final deNovo =
         verify(() => listarSlots(captureAny())).captured.single as SlotsParams;
     expect((deNovo.servicoId, deNovo.colaboradorId), (4, 5));
+    // 9:00 está livre na grade da Dani: fica
+    expect(provider.hora, _nove);
+    expect(provider.horaQueSaiu, isNull);
+  });
+
+  test(
+    'a hora que a grade nova não tem livre sai, e a tela sabe qual foi',
+    () async {
+      final provider = montar();
+      await provider.carregar();
+      provider.selecionarServico(_corte);
+      await pumpEventQueue();
+      provider.selecionarHora(_nove);
+
+      when(() => listarSlots(any())).thenAnswer(
+        (_) async =>
+            const Right([Slot(hora: (hora: 10, minuto: 0), disponivel: true)]),
+      );
+      provider.selecionarData(DateTime(2026, 10, 26));
+      await pumpEventQueue();
+
+      expect(provider.hora, isNull);
+      expect(provider.horaQueSaiu, _nove);
+
+      provider.selecionarHora((hora: 10, minuto: 0));
+      expect(provider.horaQueSaiu, isNull);
+    },
+  );
+
+  test('horaFim soma a duração do serviço à hora escolhida', () async {
+    final provider = montar();
+    await provider.carregar();
+    provider.selecionarHora(_nove);
+    expect(provider.horaFim, isNull);
+
+    provider.selecionarServico(_corte);
+    await pumpEventQueue();
+
+    expect(provider.horaFim, (hora: 9, minuto: 30));
   });
 
   test('o profissional escolhido limita os serviços; serviço sem executor '
@@ -227,7 +267,8 @@ void main() {
     await pumpEventQueue();
 
     expect(provider.data, DateTime(2026, 10, 26));
-    expect(provider.hora, isNull);
+    // 9:00 também está livre no dia novo: continua escolhida
+    expect(provider.hora, _nove);
     final params =
         verify(() => listarSlots(captureAny())).captured.last as SlotsParams;
     expect(params.data, DateTime(2026, 10, 26));
@@ -344,8 +385,8 @@ void main() {
     },
   );
 
-  test('a hora tocada na grade entra escolhida quando a grade de slots chega '
-      'livre; ocupada, não', () async {
+  test('a hora tocada na agenda já vem escolhida, antes da grade; a grade a '
+      'confere quando chega: livre fica, ocupada sai', () async {
     AgendamentoFormProvider comHora(Hora hora) => AgendamentoFormProvider(
       listarServicos: listarServicos,
       listarColaboradores: listarColaboradores,
@@ -358,15 +399,19 @@ void main() {
     );
 
     final livre = comHora(_nove);
+    expect(livre.hora, _nove);
     await livre.carregar();
+    expect(livre.hora, _nove);
     livre.selecionarServico(_corte);
     await pumpEventQueue();
     expect(livre.hora, _nove);
 
     final ocupada = comHora((hora: 9, minuto: 30));
+    expect(ocupada.hora, (hora: 9, minuto: 30));
     await ocupada.carregar();
     ocupada.selecionarServico(_corte);
     await pumpEventQueue();
     expect(ocupada.hora, isNull);
+    expect(ocupada.horaQueSaiu, (hora: 9, minuto: 30));
   });
 }
