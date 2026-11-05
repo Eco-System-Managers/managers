@@ -58,11 +58,11 @@ class OnboardingService:
             Membro.objects.create(user=user, tenant=tenant, papel=Papel.PROPRIETARIO)
 
             from apps_work.billing.models import Assinatura, StatusAssinatura
-            from apps_work.billing.services import plano_padrao
+            from apps_work.billing.services import plano_do_trial
 
             Assinatura.objects.create(
                 tenant=tenant,
-                plano=plano_padrao(),
+                plano=plano_do_trial(),
                 status=StatusAssinatura.TRIAL,
                 inicio=date.today(),
                 trial_fim=date.today() + timedelta(days=28),

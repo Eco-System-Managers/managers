@@ -11,16 +11,20 @@ Map<String, dynamic> _assinaturaJson({
   bool checkoutAberto = false,
 }) => {
   'status': status,
-  'plano_nome': 'Pro',
+  'plano': 'business',
+  'plano_nome': 'Business',
   'inicio': '2026-10-01',
   'proximo_vencimento': '2026-11-01',
   'trial_fim': status == 'trial' ? '2026-10-15' : null,
   'bloqueada': bloqueada,
+  'vitalicia': false,
+  'limite_equipe': 5,
+  'equipe_ativa': 2,
   'checkout_aberto': checkoutAberto,
 };
 
 void main() {
-  test('obter lê a assinatura, com o trial e o bloqueio', () async {
+  test('obter lê a assinatura, com o trial, o plano e a equipe', () async {
     final adapter = FakeAdapter(
       (_) async => respostaJson(200, _assinaturaJson(bloqueada: true)),
     );
@@ -30,12 +34,15 @@ void main() {
 
     expect(adapter.requisicoes.single.path, 'billing/assinatura/');
     expect(assinatura.status, StatusAssinatura.trial);
-    expect(assinatura.planoNome, 'Pro');
+    expect(assinatura.plano, TipoPlano.business);
+    expect(assinatura.planoNome, 'Business');
     expect(assinatura.trialFim, DateTime(2026, 10, 15));
     expect(assinatura.proximoVencimento, DateTime(2026, 11, 1));
     expect(assinatura.bloqueada, isTrue);
     expect(assinatura.podeAssinar, isTrue);
     expect(assinatura.checkoutAberto, isFalse);
+    expect((assinatura.limiteEquipe, assinatura.equipeAtiva), (5, 2));
+    expect(assinatura.vitalicia, isFalse);
   });
 
   test('checkout_aberto vem da API', () async {
@@ -47,37 +54,21 @@ void main() {
     expect((await datasource.obter()).checkoutAberto, isTrue);
   });
 
-  test('iniciar devolve o link do checkout', () async {
+  test('sincronizar faz POST e devolve a assinatura lida na loja', () async {
     final adapter = FakeAdapter(
-      (_) async =>
-          respostaJson(200, {'link_checkout': 'https://mp.test/checkout/1'}),
+      (_) async => respostaJson(200, _assinaturaJson(status: 'ativa')),
     );
     final datasource = AssinaturaRemoteDataSourceImpl(dioDeTeste(adapter));
 
-    final link = await datasource.iniciar();
+    final assinatura = await datasource.sincronizar();
 
-    expect(link, 'https://mp.test/checkout/1');
     expect(adapter.requisicoes.single.method, 'POST');
-    expect(adapter.requisicoes.single.path, 'billing/assinatura/iniciar/');
-  });
-
-  test('confirmar manda o id_externo e cancelar faz POST sem corpo', () async {
-    final adapter = FakeAdapter((options) async {
-      final status = options.path.endsWith('cancelar/') ? 'cancelada' : 'ativa';
-      return respostaJson(200, _assinaturaJson(status: status));
-    });
-    final datasource = AssinaturaRemoteDataSourceImpl(dioDeTeste(adapter));
-
-    final ativa = await datasource.confirmar('pre-123');
-    final cancelada = await datasource.cancelar();
-
-    expect(ativa.status, StatusAssinatura.ativa);
-    expect(ativa.podeAssinar, isFalse);
-    expect(cancelada.status, StatusAssinatura.cancelada);
-    expect(adapter.requisicoes[0].path, 'billing/assinatura/confirmar/');
-    expect(adapter.requisicoes[0].data, {'id_externo': 'pre-123'});
-    expect(adapter.requisicoes[1].method, 'POST');
-    expect(adapter.requisicoes[1].path, 'billing/assinatura/cancelar/');
+    expect(
+      adapter.requisicoes.single.path,
+      'billing/assinatura/sincronizar/',
+    );
+    expect(assinatura.status, StatusAssinatura.ativa);
+    expect(assinatura.podeAssinar, isFalse);
   });
 
   test(

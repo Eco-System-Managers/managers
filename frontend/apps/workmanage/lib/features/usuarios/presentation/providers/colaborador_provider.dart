@@ -61,6 +61,12 @@ class ColaboradorProvider extends ChangeNotifier {
   // erro de uma ação; a ficha continua
   String? get errorMessage => _errorMessage;
 
+  // reativar esbarrou no limite da equipe do plano: a ficha oferece ver os
+  // planos. vale enquanto o erro estiver na tela
+  bool get bateuNoLimite =>
+      _errorMessage != null && _codigoDoErro == 'limite_da_equipe';
+  String? _codigoDoErro;
+
   // erro de validação da API, campo a campo (nome, funcao,
   // comissao_percentual, email)
   String? erroDoCampo(String campo) => _fieldErrors[campo];
@@ -217,6 +223,7 @@ class ColaboradorProvider extends ChangeNotifier {
 
     await result.fold((failure) async {
       _errorMessage = failure.message;
+      _codigoDoErro = failure.code;
       _isLoading = false;
       notifyListeners();
     }, (_) => carregar());

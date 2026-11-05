@@ -1,11 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:managers/core/config/env.dart';
 import 'package:managers/core/theme/brand.dart';
 import 'package:managers/core/utils/datas.dart';
 import 'package:managers/core/utils/dinheiro.dart';
 import 'package:managers/core/widgets/carregando.dart';
-import 'package:managers/core/widgets/confirmar_dialog.dart';
 import 'package:managers/core/widgets/estado_erro.dart';
 import 'package:managers/core/widgets/selo_de_status.dart';
 import 'package:managers/features/empresa/empresa_provider.dart';
@@ -13,13 +14,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../assinatura_provider.dart';
 import '../../domain/entities/assinatura.dart';
+import '../../domain/entities/oferta_de_plano.dart';
 import '../providers/assinatura_provider.dart';
 
-// a assinatura do negócio na plataforma: status, checkout no navegador,
-// confirmação do pagamento feito lá fora, cancelamento e o histórico de
-// cobranças. é para cá que o 402 traz quem está bloqueado. onde não dá para
-// assinar (semVenda: o iPhone e a fase de testes) a tela vira "Acesso" e
-// mostra só o aviso, com sair e excluir a conta
+// a assinatura do negócio: o status, os planos da loja (Pro, Business,
+// Enterprise; mensal, semestral ou anual), a compra pela janela da loja,
+// restaurar, gerenciar na loja e o histórico de cobranças. é para cá que o
+// 402 traz quem está bloqueado. onde não dá para assinar (semVenda: a fase
+// de testes ou a loja sem configurar) a tela vira "Acesso" e mostra só o
+// aviso, com sair e excluir a conta
 class AssinaturaPage extends ConsumerStatefulWidget {
   const AssinaturaPage({super.key});
 
@@ -42,72 +45,35 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
   }
 
-  // o checkout é hospedado pelo gateway: abre no navegador do aparelho
-  Future<void> _assinar() async {
-    final link = await _provider.iniciar();
-    if (link == null || !mounted) return;
+  // o aviso de sucesso sai no fim da ação, nunca no build
+  Future<void> _depoisDe(Future<void> Function() acao) async {
+    await acao();
+    if (!mounted) return;
+    final aviso = _provider.aviso;
+    if (aviso != null) {
+      _avisar(aviso);
+      _provider.avisoMostrado();
+    }
+  }
+
+  Future<void> _abrir(String link) async {
     final abriu = await launchUrl(
       Uri.parse(link),
       mode: LaunchMode.externalApplication,
     );
-    if (!abriu && mounted) _avisar('Não foi possível abrir o navegador.');
+    if (!abriu && mounted) _avisar('Não foi possível abrir o link.');
   }
 
-  // o retorno do checkout cai na web; sem deep link, a pessoa informa o id
-  // da assinatura (preapproval_id) para vincular ao negócio
-  Future<void> _confirmar() async {
-    final controller = TextEditingController();
-    final id = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar assinatura'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Informe o id da assinatura mostrado ao final do pagamento '
-              '(preapproval_id).',
-            ),
-            const SizedBox(height: BrandSpacing.space3),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Id da assinatura'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
+  // a tela de assinaturas da loja, onde se cancela ou troca o cartão
+  Future<void> _gerenciar() async {
+    final link = await _provider.linkDeGerenciar();
+    if (!mounted) return;
+    await _abrir(
+      link ??
+          (defaultTargetPlatform == TargetPlatform.iOS
+              ? 'https://apps.apple.com/account/subscriptions'
+              : 'https://play.google.com/store/account/subscriptions'),
     );
-    controller.dispose();
-    if (id == null || id.trim().isEmpty || !mounted) return;
-    final ok = await _provider.confirmar(id);
-    if (ok && mounted) _avisar('Assinatura confirmada.');
-  }
-
-  Future<void> _cancelar() async {
-    final ok = await confirmar(
-      context,
-      titulo: 'Cancelar assinatura',
-      mensagem:
-          'O acesso continua até o fim do período já pago. Depois '
-          'disso, o app fica bloqueado até uma nova assinatura.',
-      textoConfirmar: 'Cancelar assinatura',
-      textoCancelar: 'Voltar',
-      destrutivo: true,
-    );
-    if (!ok || !mounted) return;
-    final cancelou = await _provider.cancelar();
-    if (cancelou && mounted) _avisar('Assinatura cancelada.');
   }
 
   @override
@@ -144,6 +110,11 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
     final textos = Theme.of(context).textTheme;
     final assinatura = provider.assinatura;
     final bloqueio = provider.mensagemDeBloqueio;
+    final daLoja =
+        assinatura != null &&
+        !assinatura.vitalicia &&
+        (assinatura.status == StatusAssinatura.ativa ||
+            assinatura.status == StatusAssinatura.cancelada);
 
     return RefreshIndicator(
       onRefresh: provider.carregar,
@@ -174,7 +145,7 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
 
           const SizedBox(height: BrandSpacing.space4),
           if (assinatura == null)
-            _Aviso(
+            const _Aviso(
               texto: 'Este negócio ainda não tem assinatura.',
               icone: Icons.info_outline_rounded,
               erro: false,
@@ -190,32 +161,27 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
               style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
             )
           else ...[
-            if (provider.mostraCompra) ...[
-              FilledButton.icon(
-                onPressed: provider.isLoading ? null : _assinar,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-                icon: const Icon(Icons.open_in_new_rounded),
-                label: const Text('Assinar agora'),
+            if (provider.mostraPlanos) ..._planos(provider),
+            if (provider.lojaSemPlanos) ...[
+              const _Aviso(
+                texto: 'Não foi possível carregar os planos da loja agora.',
+                icone: Icons.cloud_off_rounded,
+                erro: false,
               ),
+              TextButton(
+                onPressed: provider.isLoading ? null : provider.carregar,
+                child: const Text('Tentar de novo'),
+              ),
+            ],
+            if (daLoja) ...[
               const SizedBox(height: BrandSpacing.space3),
               OutlinedButton.icon(
-                onPressed: provider.isLoading ? null : _confirmar,
+                onPressed: _gerenciar,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
-                icon: const Icon(Icons.verified_rounded),
-                label: const Text('Já paguei: confirmar assinatura'),
-              ),
-            ],
-            if (assinatura?.status == StatusAssinatura.ativa) ...[
-              const SizedBox(height: BrandSpacing.space3),
-              // cancelar encerra o acesso: danger
-              TextButton(
-                onPressed: provider.isLoading ? null : _cancelar,
-                style: TextButton.styleFrom(foregroundColor: cores.danger),
-                child: const Text('Cancelar assinatura'),
+                icon: const Icon(Icons.open_in_new_rounded),
+                label: const Text('Gerenciar ou cancelar na loja'),
               ),
             ],
           ],
@@ -255,6 +221,109 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
         ],
       ),
     );
+  }
+
+  // a escolha do plano (só os que comportam a equipe) e do período, o
+  // botão de assinar e o que a Apple pede junto: renovação automática,
+  // termos, privacidade e restaurar
+  List<Widget> _planos(AssinaturaProvider provider) {
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
+    final escolhida = provider.ofertaEscolhida;
+    final assinatura = provider.assinatura;
+
+    return [
+      Text(
+        provider.assinaturaAtiva ? 'Trocar de plano' : 'Escolha o plano',
+        style: textos.titleLarge,
+      ),
+      if (assinatura != null && assinatura.equipeAtiva > 0) ...[
+        const SizedBox(height: BrandSpacing.space1),
+        Text(
+          'Sua equipe tem ${assinatura.equipeAtiva} '
+          '${assinatura.equipeAtiva == 1 ? 'pessoa' : 'pessoas'}: aparecem '
+          'os planos que comportam ela.',
+          style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
+        ),
+      ],
+      const SizedBox(height: BrandSpacing.space3),
+      for (final plano in provider.planosDisponiveis) ...[
+        _Escolha(
+          titulo: plano.nome,
+          subtitulo: plano.descricao,
+          selecionado: provider.planoEscolhido == plano,
+          selo: assinatura?.plano == plano && provider.assinaturaAtiva
+              ? 'Seu plano'
+              : null,
+          onTap: () => provider.escolherPlano(plano),
+        ),
+        const SizedBox(height: BrandSpacing.space2),
+      ],
+
+      const SizedBox(height: BrandSpacing.space3),
+      Text('Período', style: textos.titleMedium),
+      const SizedBox(height: BrandSpacing.space2),
+      for (final oferta in provider.ofertasDoPlano) ...[
+        _Escolha(
+          titulo: oferta.periodo.nome,
+          subtitulo: oferta.periodo == PeriodoDoPlano.mensal
+              ? '${oferta.precoTexto} por mês'
+              : '${oferta.precoTexto} · '
+                    '${formatarDinheiro(oferta.precoPorMes)} por mês',
+          selecionado: provider.periodoEscolhido == oferta.periodo,
+          selo: switch (provider.descontoDe(oferta)) {
+            0 => null,
+            final desconto when oferta.periodo == PeriodoDoPlano.anual =>
+              'Mais vantajoso · -$desconto%',
+            final desconto => '-$desconto%',
+          },
+          onTap: () => provider.escolherPeriodo(oferta.periodo),
+        ),
+        const SizedBox(height: BrandSpacing.space2),
+      ],
+
+      const SizedBox(height: BrandSpacing.space3),
+      FilledButton(
+        onPressed: provider.isLoading || escolhida == null
+            ? null
+            : () => _depoisDe(provider.comprar),
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+        child: Text(
+          escolhida == null
+              ? 'Escolha o período'
+              : 'Assinar ${escolhida.plano.nome} '
+                    '${escolhida.periodo.nome.toLowerCase()}',
+        ),
+      ),
+      const SizedBox(height: BrandSpacing.space3),
+      Text(
+        'A assinatura renova automaticamente pelo mesmo valor ao fim de cada '
+        'período, a menos que seja cancelada até 24 horas antes. A cobrança é '
+        'feita na sua conta da '
+        '${defaultTargetPlatform == TargetPlatform.iOS ? 'App Store' : 'Google Play'}, '
+        'e você cancela quando quiser nos ajustes da loja.',
+        style: textos.bodySmall?.copyWith(color: cores.inkMuted),
+      ),
+      Wrap(
+        alignment: WrapAlignment.center,
+        children: [
+          TextButton(
+            onPressed: () => _abrir(Env.linkTermos),
+            child: const Text('Termos de uso'),
+          ),
+          TextButton(
+            onPressed: () => _abrir(Env.linkPrivacidade),
+            child: const Text('Privacidade'),
+          ),
+          TextButton(
+            onPressed: provider.isLoading
+                ? null
+                : () => _depoisDe(provider.restaurar),
+            child: const Text('Restaurar compras'),
+          ),
+        ],
+      ),
+    ];
   }
 
   // sem venda não se fala de assinatura: nem plano, nem cobranças, nem
@@ -314,6 +383,72 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
   }
 }
 
+// uma opção de escolha única (plano ou período): borda clara, e a primária
+// com o fundo do selecionado quando escolhida
+class _Escolha extends StatelessWidget {
+  const _Escolha({
+    required this.titulo,
+    required this.subtitulo,
+    required this.selecionado,
+    required this.onTap,
+    this.selo,
+  });
+
+  final String titulo;
+  final String subtitulo;
+  final bool selecionado;
+  final VoidCallback onTap;
+  final String? selo;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final cores = BrandColors.of(context);
+    final textos = Theme.of(context).textTheme;
+    return Material(
+      color: selecionado ? colors.secondaryContainer : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BrandRadius.mdAll,
+        side: BorderSide(
+          color: selecionado ? colors.primary : colors.outline,
+          width: selecionado ? 1.5 : 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BrandRadius.mdAll,
+        child: Padding(
+          padding: const EdgeInsets.all(BrandSpacing.space3),
+          child: Row(
+            children: [
+              Icon(
+                selecionado
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selecionado ? colors.primary : cores.inkMuted,
+              ),
+              const SizedBox(width: BrandSpacing.space3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titulo, style: textos.titleMedium),
+                    Text(
+                      subtitulo,
+                      style: textos.bodyMedium?.copyWith(color: cores.inkMuted),
+                    ),
+                  ],
+                ),
+              ),
+              if (selo != null) SeloDeStatus(texto: selo!, cor: cores.success),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CartaoAssinatura extends StatelessWidget {
   const _CartaoAssinatura({required this.assinatura});
 
@@ -353,16 +488,26 @@ class _CartaoAssinatura extends StatelessWidget {
               ],
             ),
             const SizedBox(height: BrandSpacing.space2),
-            _Linha(rotulo: 'Início', valor: formatarData(a.inicio)),
-            if (a.status == StatusAssinatura.trial && a.trialFim != null)
-              _Linha(rotulo: 'Teste até', valor: formatarData(a.trialFim!))
-            else
-              _Linha(
-                rotulo: a.status == StatusAssinatura.cancelada
-                    ? 'Acesso até'
-                    : 'Próximo vencimento',
-                valor: formatarData(a.proximoVencimento),
-              ),
+            if (a.vitalicia)
+              const _Linha(rotulo: 'Acesso', valor: 'Vitalício')
+            else ...[
+              _Linha(rotulo: 'Início', valor: formatarData(a.inicio)),
+              if (a.status == StatusAssinatura.trial && a.trialFim != null)
+                _Linha(rotulo: 'Teste até', valor: formatarData(a.trialFim!))
+              else
+                _Linha(
+                  rotulo: a.status == StatusAssinatura.cancelada
+                      ? 'Acesso até'
+                      : 'Renova em',
+                  valor: formatarData(a.proximoVencimento),
+                ),
+            ],
+            _Linha(
+              rotulo: 'Equipe',
+              valor: a.limiteEquipe == 0
+                  ? 'Só o dono'
+                  : '${a.equipeAtiva} de ${a.limiteEquipe}',
+            ),
             if (a.bloqueada) ...[
               const SizedBox(height: BrandSpacing.space2),
               Text(

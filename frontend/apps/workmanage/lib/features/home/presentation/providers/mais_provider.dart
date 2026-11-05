@@ -18,8 +18,8 @@ class MaisProvider extends ChangeNotifier {
   final SessaoController _sessao;
   final ObterAssinaturaUseCase _obterAssinatura;
 
-  // false no iPhone: lá o app não vende assinatura (a Apple não aceita
-  // pagamento de fora), então o item nem aparece
+  // false quando a loja deste aparelho não está configurada (sem a chave do
+  // RevenueCat): sem como comprar, o item nem aparece
   final bool compraNoApp;
 
   bool _saindo = false;

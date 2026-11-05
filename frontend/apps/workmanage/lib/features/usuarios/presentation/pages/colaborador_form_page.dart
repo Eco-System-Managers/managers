@@ -105,6 +105,11 @@ class _ColaboradorFormPageState extends ConsumerState<ColaboradorFormPage> {
                       ),
                     ),
                   ),
+                  if (provider.bateuNoLimite)
+                    TextButton(
+                      onPressed: () => context.push('/mais/assinatura'),
+                      child: const Text('Ver planos'),
+                    ),
                   const SizedBox(height: BrandSpacing.space4),
                 ],
                 CamposColaborador(

@@ -140,6 +140,18 @@ o tenant fica sem ninguém capaz de reativá-lo. O service recusa com
 Remover verifica antes se há agendamentos pendentes — tirar alguém da equipe não
 pode deixar horário órfão.
 
+## Limite da equipe pelo plano
+
+O plano da assinatura limita quantas pessoas ficam **ativas** na equipe, sem
+contar o dono: Pro 0, Business 5, Enterprise 10 (o teste grátis vale Business).
+A regra está no `billing` (`Assinatura.limite_da_equipe`); quem a aplica é
+`ColaboradorService.garantir_vaga()`, que recusa com 400 `limite_da_equipe` e
+uma mensagem que diz qual plano resolve. Ela roda em quatro pontos: cadastrar
+(`perform_create`), reativar, convidar sem cadastro (o convite vira pessoa nova)
+e aceitar o convite (quando entra alguém novo ou volta quem estava desativado;
+para o convidado, a mensagem é "fale com o dono"). Sem assinatura, não há limite
+(o middleware já bloqueia). O plano diminuir não desativa ninguém.
+
 ## O que é fácil errar aqui
 
 - **`user` pode ser nulo.** Nome, papel, `is_active` e sessões só existem

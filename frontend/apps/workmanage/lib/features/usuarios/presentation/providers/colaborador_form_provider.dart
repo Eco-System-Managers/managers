@@ -29,6 +29,11 @@ class ColaboradorFormProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  // a API recusou porque a equipe já está cheia no plano (o texto diz qual
+  // plano resolve): a tela oferece ver os planos
+  bool get bateuNoLimite => _bateuNoLimite;
+  bool _bateuNoLimite = false;
+
   // erro de validação da API, campo a campo (nome, funcao,
   // comissao_percentual, email)
   String? erroDoCampo(String campo) => _fieldErrors[campo];
@@ -47,6 +52,7 @@ class ColaboradorFormProvider extends ChangeNotifier {
   Future<void> salvar(DadosColaborador dados, {String email = ''}) async {
     _isLoading = true;
     _errorMessage = null;
+    _bateuNoLimite = false;
     _fieldErrors = const {};
     notifyListeners();
 
@@ -84,6 +90,7 @@ class ColaboradorFormProvider extends ChangeNotifier {
       };
     } else {
       _errorMessage = failure.message;
+      _bateuNoLimite = failure.code == 'limite_da_equipe';
     }
   }
 

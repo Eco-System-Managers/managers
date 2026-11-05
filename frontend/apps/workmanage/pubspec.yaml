@@ -52,6 +52,7 @@ dependencies:
   url_launcher: ^6.3.3
   pdf: ^3.13.1
   printing: ^5.15.1
+  purchases_flutter: ^11.0.1
   
 
 dev_dependencies:

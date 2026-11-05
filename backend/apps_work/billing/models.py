@@ -9,12 +9,23 @@ class Gateway(models.TextChoices):
     de provedor no model, trocar ou somar um gateway não muda o schema.
     """
     MERCADO_PAGO = 'mercadopago', 'Mercado Pago'
+    # A compra nas lojas (App Store e Google Play), unificada pelo RevenueCat.
+    REVENUECAT = 'revenuecat', 'RevenueCat'
 
 
 class TipoPlano(models.TextChoices):
     PRO = 'pro', 'Pro'
     BUSINESS = 'business', 'Business'
     ENTERPRISE = 'enterprise', 'Enterprise'
+
+
+# Quantas pessoas cabem na equipe em cada plano, sem contar o dono: o Pro é só
+# o dono. Conta quem está ativo, colaborador ou parceiro, com ou sem login.
+LIMITE_DA_EQUIPE = {
+    TipoPlano.PRO: 0,
+    TipoPlano.BUSINESS: 5,
+    TipoPlano.ENTERPRISE: 10,
+}
 
 
 class StatusAssinatura(models.TextChoices):
@@ -86,6 +97,24 @@ class Assinatura(models.Model):
             and not self.id_externo
             and self.proximo_vencimento == VENCIMENTO_VITALICIO
         )
+
+    @property
+    def plano_vigente(self) -> str:
+        """O plano que vale para as regras, como o limite da equipe.
+
+        O teste grátis é sempre Business e o vitalício é sempre Enterprise,
+        seja qual for o plano gravado: assim os negócios que nasceram com
+        outro plano seguem a regra sem acerto no banco.
+        """
+        if self.vitalicia:
+            return TipoPlano.ENTERPRISE
+        if self.status == StatusAssinatura.TRIAL:
+            return TipoPlano.BUSINESS
+        return self.plano.nome
+
+    @property
+    def limite_da_equipe(self) -> int:
+        return LIMITE_DA_EQUIPE.get(self.plano_vigente, 0)
 
     def _invalidar_cache(self) -> None:
         """Derruba o estado memorizado pelo AssinaturaBloqueadaMiddleware.

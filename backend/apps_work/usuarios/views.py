@@ -70,6 +70,11 @@ class ColaboradorViewSet(viewsets.ModelViewSet):
         # o dono primeiro; quem não tem login (papel nulo) não pode vir na frente
         return qs.order_by(F('papel').desc(nulls_last=True), 'nome', 'user__first_name', 'user__last_name')
 
+    def perform_create(self, serializer):
+        # Quem entra na equipe ocupa vaga do plano; cheio, 400 limite_da_equipe.
+        ColaboradorService().garantir_vaga()
+        serializer.save()
+
     @extend_schema(
         request=ConvidarColaboradorSerializer, responses={201: ConviteColaboradorSerializer},
         summary='Convidar para o app alguém que já está na equipe sem login',

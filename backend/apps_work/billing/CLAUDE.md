@@ -1,6 +1,7 @@
 # apps_work/billing — CLAUDE.md
 
-A **assinatura do negócio** na plataforma, integrada ao Mercado Pago.
+A **assinatura do negócio** na plataforma, vendida nas lojas (App Store e
+Google Play) pelo RevenueCat. O Mercado Pago continua no código, desligado.
 
 Cuidado para não confundir com o `financeiro`: aquele é o dinheiro entre o
 negócio e os clientes dele. Este é o dinheiro entre o negócio e **nós**.
@@ -9,37 +10,107 @@ negócio e os clientes dele. Este é o dinheiro entre o negócio e **nós**.
 
 | Arquivo | O que faz |
 |---|---|
-| `models.py` | `Plano`, `Assinatura` (com a propriedade `bloqueada`) e `PagamentoAssinatura` |
-| `services.py` | `GatewayPagamento` (a interface do provedor) e `MercadoPagoGateway`, a implementação: criar plano no gateway, gerar link, confirmar, cancelar e processar webhook. `gateway_de_pagamento()` devolve o configurado em `BILLING_GATEWAY` |
-| `views.py` | Assinatura atual, iniciar, confirmar, cancelar, histórico paginado e o endpoint de webhook |
+| `models.py` | `Plano`, `Assinatura` (com `bloqueada`, `vitalicia`, `plano_vigente` e `limite_da_equipe`), `PagamentoAssinatura` e `LIMITE_DA_EQUIPE` |
+| `revenuecat.py` | A compra nas lojas: `sincronizar(tenant)` lê no RevenueCat o que o negócio comprou e acerta a `Assinatura`; `processar_webhook` valida o segredo e sincroniza os negócios do evento |
+| `services.py` | `GatewayPagamento` e `MercadoPagoGateway` (o checkout antigo), `plano_do_tipo`/`plano_do_trial`, e o acesso vitalício |
+| `views.py` | Assinatura atual, `sincronizar/`, histórico paginado, os webhooks, e o iniciar/confirmar/cancelar do Mercado Pago (fechados com a venda nas lojas) |
 | `serializers.py` | Representação |
-| `admin.py` | Plano, assinatura e pagamentos no `/admin/`, com as ações de acesso vitalício. Preço e vínculo com o gateway são só leitura ali |
+| `admin.py` | Plano, assinatura e pagamentos no `/admin/`, com as ações de acesso vitalício |
 
-## Preço do plano
+## Planos e limite da equipe
 
-O preço vive em dois lugares — `Plano.preco_mensal` e o plano no Mercado Pago —
-e quem acerta os dois é `python manage.py configurar_plano --preco 69.90`. Ele
-cria um plano novo no Mercado Pago a cada execução e aponta o checkout para
-ele: quem assina dali em diante paga o valor novo; as recorrências já feitas
-continuam no valor antigo. Num banco novo, rodar uma vez antes de lançar —
-sem ele o plano fica sem `link_checkout` e ninguém consegue assinar.
+| Plano | Equipe (sem o dono) |
+|---|---|
+| `pro` | 0: só o dono |
+| `business` | até 5 |
+| `enterprise` | até 10 |
+
+Conta quem está **ativo** na equipe, colaborador ou parceiro, com ou sem login
+(`ColaboradorService.equipe_ativa`). O limite está em `LIMITE_DA_EQUIPE`, no
+código, e não no `Plano.limite_colaboradores` do banco (que não é lido).
+
+`Assinatura.plano_vigente` é o plano que vale para as regras: **o teste grátis
+é sempre Business** (é com ele que o negócio nasce, `plano_do_trial`) e **o
+vitalício é sempre Enterprise**, seja qual for o plano gravado.
+
+A trava (`ColaboradorService.garantir_vaga`, 400 `limite_da_equipe`) vale ao
+cadastrar, reativar, convidar sem cadastro e aceitar o convite. **Ninguém é
+desativado sozinho** quando o plano diminui: a equipe que passou do limite só
+não cresce até caber de novo.
+
+A assinatura (`billing/assinatura/`) traz `plano`, `plano_nome`, `vitalicia`,
+`limite_equipe` e `equipe_ativa`: o app mostra só os planos que comportam a
+equipe.
+
+## Venda nas lojas (RevenueCat)
+
+Quem cobra é a loja; o RevenueCat confere as compras das duas e avisa. O
+negócio é o cliente: o app entra no RevenueCat com o `schema_name` do tenant
+como `appUserID`, e a compra vale em qualquer aparelho logado no negócio.
+
+- **O estado nunca vem do corpo do webhook.** Ele só diz quem mudou; a verdade
+  é lida na API do RevenueCat (`GET /v1/subscribers/{schema}`). Evento
+  repetido, fora de ordem ou perdido não deixa a assinatura errada.
+- **`sincronizar/`** (POST, do proprietário) é a mesma leitura, chamada pelo
+  app logo depois de comprar ou restaurar: o acesso libera sem esperar o
+  webhook. Loja fora do ar é 503 `loja_indisponivel`; no webhook, o 503 faz o
+  RevenueCat reenviar.
+- **O mapeamento:** o maior entitlement vigente (`pro` < `business` <
+  `enterprise`, contando a carência de cobrança) vira o plano, com
+  `proximo_vencimento` no fim dele. Cancelado na loja (`unsubscribe_detected_at`)
+  é `cancelada`, que vale até o fim do período pago. Nenhum vigente com compra
+  antiga é `cancelada` vencida (bloqueia), a não ser que o teste grátis ainda
+  não tenha acabado. Sem compra nenhuma, nada muda. O vitalício nunca é tocado.
+- **Cobranças:** `INITIAL_PURCHASE`, `RENEWAL` e `NON_RENEWING_PURCHASE` (fora
+  do período de teste da loja) entram em `PagamentoAssinatura`, únicas pelo
+  `transaction_id`.
+- **Compra de teste (sandbox) vale.** O revisor da Apple compra em sandbox
+  contra a produção; recusar faria o app ser reprovado. O efeito colateral é
+  que testador do TestFlight assina de graça.
+
+**Configuração.** No painel do RevenueCat:
+1. Os entitlements `pro`, `business` e `enterprise`.
+2. As offerings `pro`, `business` e `enterprise`, cada uma com os pacotes
+   **Monthly**, **Six Month** e **Annual** ligados aos produtos das lojas (o app
+   lê por esses nomes). Na App Store, os 9 produtos num **grupo de assinaturas
+   só**, para a troca de plano ser da loja.
+3. O webhook em `https://<api>/api/v1/billing/webhook/revenuecat/`, com um
+   valor no cabeçalho Authorization.
+
+No servidor: `BILLING_GATEWAY=revenuecat` (o padrão), `REVENUECAT_SECRET_KEY`
+(a chave secreta da API v1) e `REVENUECAT_WEBHOOK_AUTH` (o mesmo valor do
+cabeçalho, inteiro). No app, as chaves públicas por `--dart-define`
+(`REVENUECAT_IOS_KEY`, `REVENUECAT_ANDROID_KEY`).
+
+**O preço está na loja.** `Plano.preco_mensal` é só referência no admin.
 
 ## Assinar pelo app fechado (`ASSINATURA_ABERTA`)
 
-Na fase de testes, `iniciar/` e `confirmar/` respondem 403 `assinatura_em_breve`
-e a assinatura sai com `checkout_aberto: false`, que o app lê para mostrar
-"Em breve" no lugar do botão. A trava fica no servidor: esconder o botão não
-basta. Ligar é só a variável `ASSINATURA_ABERTA=True`, sem atualizar o app.
-Cancelar e o resto continuam como sempre.
+Na fase de testes a assinatura sai com `checkout_aberto: false`, e o app não
+fala de venda (nem consulta a loja). Ligar é só a variável
+`ASSINATURA_ABERTA=True`, sem atualizar o app. O `sincronizar/` não passa por
+ela: só lê o que a loja já cobrou.
+
+Com `BILLING_GATEWAY=revenuecat`, o `iniciar/`, o `confirmar/` e o `cancelar/`
+do Mercado Pago respondem 403 `assinatura_pela_loja`: um app antigo não abre
+uma segunda forma de pagar. Cancelar é na loja do celular.
 
 ## Acesso vitalício
 
 `conceder_acesso_vitalicio()` (`services.py`, ou a ação no admin) deixa a
-assinatura `ativa`, sem `id_externo` e com vencimento em
+assinatura `ativa`, no plano Enterprise, sem `id_externo` e com vencimento em
 `VENCIMENTO_VITALICIO` (31/12/2099) — é essa combinação que
-`Assinatura.vitalicia` reconhece. Não há status novo: `ativa` já não bloqueia,
-e o app não precisa mudar. Recusa quem paga recorrência (cancele antes, senão
-o Mercado Pago continua cobrando). `revogar_acesso_vitalicio()` desfaz.
+`Assinatura.vitalicia` reconhece. Não há status novo: `ativa` já não bloqueia.
+Recusa quem paga recorrência (com `id_externo`): cancele antes na loja, senão
+ela continua cobrando. `revogar_acesso_vitalicio()` desfaz. A sincronização
+com a loja não mexe no vitalício.
+
+## Mercado Pago (desligado)
+
+O checkout antigo, no navegador, segue no código para uma venda pela web no
+futuro: `BILLING_GATEWAY=mercadopago` o religa. O preço vivia em dois lugares —
+`Plano.preco_mensal` e o plano no Mercado Pago — e quem acertava os dois era
+`python manage.py configurar_plano --preco 69.90`.
 
 ## Tabelas
 
