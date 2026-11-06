@@ -234,10 +234,6 @@ void main() {
       PeriodoDoPlano.semestral: 7,
       PeriodoDoPlano.anual: 17,
     });
-    expect(
-      provider.ofertaEscolhida?.precoPorMes,
-      Decimal.parse('58.33'),
-    );
   });
 
   test('comprar leva a oferta escolhida e guarda a assinatura nova', () async {

@@ -67,6 +67,7 @@ class LojaRevenueCatDataSource implements LojaDataSource {
             // o SDK dá double; vira Decimal na hora, com duas casas
             preco: Decimal.parse(pacote.storeProduct.price.toStringAsFixed(2)),
             precoTexto: pacote.storeProduct.priceString,
+            precoPorMesTexto: pacote.storeProduct.pricePerMonthString,
           ),
         );
       }

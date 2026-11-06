@@ -21,9 +21,10 @@ extension PeriodoDoPlanoNomes on PeriodoDoPlano {
   };
 }
 
-// um plano num período, com o preço da loja. o preço em texto vem da loja,
-// já na moeda e no formato do aparelho; o Decimal serve só para as contas
-// (por mês e o desconto). o id é o da loja, e só o data sabe comprar por ele
+// um plano num período, com o preço da loja. os textos vêm da loja, já na
+// moeda e no formato dela (a loja de outro país mostra outra moeda, e o app
+// nunca põe "R$" por conta); o Decimal serve só para a conta do desconto. o id
+// é o da loja, e só o data sabe comprar por ele
 class OfertaDePlano extends Equatable {
   const OfertaDePlano({
     required this.id,
@@ -31,6 +32,7 @@ class OfertaDePlano extends Equatable {
     required this.periodo,
     required this.preco,
     required this.precoTexto,
+    this.precoPorMesTexto,
   });
 
   final String id;
@@ -39,13 +41,19 @@ class OfertaDePlano extends Equatable {
   final Decimal preco;
   final String precoTexto;
 
-  // o preço dividido pelos meses do período, com duas casas
-  Decimal get precoPorMes => (preco / Decimal.fromInt(periodo.meses))
-      .toDecimal(scaleOnInfinitePrecision: 2)
-      .round(scale: 2);
+  // o preço dividido pelos meses do período, calculado pela loja; null quando
+  // ela não informa
+  final String? precoPorMesTexto;
 
   @override
-  List<Object?> get props => [id, plano, periodo, preco, precoTexto];
+  List<Object?> get props => [
+    id,
+    plano,
+    periodo,
+    preco,
+    precoTexto,
+    precoPorMesTexto,
+  ];
 }
 
 // quanto o período economiza sobre pagar mês a mês, em pontos inteiros
