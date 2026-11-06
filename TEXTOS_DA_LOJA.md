@@ -46,6 +46,14 @@ capturas de iPad, e o iPad instala no modo de compatibilidade.
 > business already filled with services, clients and appointments, so every
 > screen has content.
 >
+> Subscriptions: every new business starts with a 28-day free trial, with no
+> purchase needed. The auto-renewable subscriptions (Pro, Business and
+> Enterprise; monthly, six-month and annual) are in "Mais › Assinatura". The
+> review account is in its free trial, so the plans are shown there and can
+> be purchased in the sandbox. The same screen has "Restaurar compras"
+> (restore purchases) and the links to the Terms of Use and the Privacy
+> Policy.
+>
 > Account deletion is available in the app under "Mais › Excluir conta". To
 > test it, please create a new account through "Criar conta" on the login
 > screen (a confirmation code is sent by email), so the review account stays
@@ -53,8 +61,10 @@ capturas de iPad, e o iPad instala no modo de compatibilidade.
 >
 > The camera and photo library are only used when the owner chooses the
 > business logo ("Mais › Configurações › Dados do negócio").
->
-> The app has no in-app purchases and no links to external purchases.
+
+Copiar daqui pelo terminal enche as linhas de espaços e estoura o limite do
+campo: copie do arquivo, ou peça ao Claude para pôr na área de transferência
+(`pbcopy`).
 
 ---
 
@@ -79,8 +89,15 @@ A cada build novo, este texto vai no build (até 4.000 caracteres).
 
 ## 3. App Store › versão 1.0.0 (o lançamento)
 
-Pode ir preenchendo durante os testes; só se envia quando os testes acabarem,
-com **"Liberar esta versão manualmente"** marcado.
+Enviada para a revisão em 2026-11-05 (build `1.0.0+4`), junto com o grupo de
+assinaturas e os 9 planos, com **"Liberar esta versão manualmente"** marcado.
+
+A primeira assinatura só vai com uma versão nova, e o App Store Connect não
+tem mais a seção de compras na página da versão: o **Add for Review** da
+versão cria o rascunho, e o de cada plano e o do grupo os põem nele. Os dois
+reclamam ("must be submitted with its subscription group" / "with an
+auto-renewable subscription from within that group"), mas entram no rascunho
+mesmo assim: é só adicionar todos e conferir em **App Review**.
 
 ### Informações do app
 
@@ -89,7 +106,9 @@ com **"Liberar esta versão manualmente"** marcado.
 - **Categoria principal:** Negócios. **Secundária:** Produtividade.
 - **Copyright:** `2026 Wilson Geraldo Donizeti Pereira Júnior`
 - **Classificação etária:** "Nenhum" em todas as perguntas (sem conteúdo
-  sensível, sem chat entre usuários, sem navegador aberto).
+  sensível, sem chat entre usuários, sem navegador aberto): 4+.
+- **Direitos de conteúdo:** mostra conteúdo de terceiros (o mapa do
+  OpenStreetMap), com os direitos necessários.
 
 ### Texto promocional (até 170; muda sem nova revisão)
 
@@ -98,7 +117,8 @@ com **"Liberar esta versão manualmente"** marcado.
 
 ### Descrição (até 4.000)
 
-Sem citar preço, assinatura nem pagamento fora do app: o iPhone não pode.
+A Apple exige, em app com assinatura, os links dos termos de uso e da
+privacidade na descrição (o fim do texto). Pagamento fora do app não se cita.
 
 > O Work Manage organiza o dia a dia do seu negócio de atendimento, do
 > horário marcado ao dinheiro no caixa.
@@ -131,6 +151,13 @@ Sem citar preço, assinatura nem pagamento fora do app: o iPhone não pode.
 >
 > AVISOS PELO WHATSAPP
 > Avise o cliente do próximo horário ou de uma remarcação com um toque.
+>
+> ASSINATURA
+> Comece com 28 dias grátis. Depois, escolha o plano Pro, Business ou
+> Enterprise, com renovação automática pela App Store.
+>
+> Termos de uso: https://api.workmanage.com.br/termos
+> Política de privacidade: https://api.workmanage.com.br/privacidade
 
 ### Palavras-chave (até 100, separadas por vírgula, sem espaço)
 
@@ -140,28 +167,32 @@ agenda,agendamento,barbearia,salão,estética,lava-jato,petshop,clientes,caixa,c
 
 ### URLs
 
-- **Suporte (obrigatória):** ainda não existe. Uma página simples no
-  backend (`/suporte`, com o e-mail de contato) resolve.
+- **Suporte (obrigatória):** `https://api.workmanage.com.br/suporte`
 - **Marketing:** opcional.
 - **Política de privacidade:** `https://api.workmanage.com.br/privacidade`
 
 ### Informações da revisão do app
 
 As mesmas do beta: contato, login obrigatório com a conta do revisor e as
-notas da seção 1. A conta precisa continuar valendo (vitalícia no admin, a
-senha sem trocar).
+notas da seção 1. A conta precisa continuar valendo, com a senha sem trocar,
+e o negócio dela fica em **Trial até 31/12/2027** no admin, **não
+vitalício**: o vitalício esconde os planos, e o revisor precisa comprar um.
 
 ### Capturas de tela
 
-iPhone 6,9" (1320 × 2868), de 3 a 10, tiradas no simulador do maior iPhone
-com a conta preenchida. Sugestão de ordem: a agenda do dia, o quadro, a
-ficha do cliente, a cobrança, o caixa e o Início.
+De 3 a 10, sem cliente de verdade (a página é pública). O espaço obrigatório
+é o **"iPhone with Dynamic Island"**, de tamanho médio: **1206 × 2622** (ou
+1179 × 2556); o grande (1320 × 2868, 1290 × 2796) é opcional. Os da 1.0 são
+prints do iPhone, mandados por AirDrop (o WhatsApp reduz a imagem) e
+convertidos com o `sips` (aumentar pela altura e cortar a sobra da largura),
+nesta ordem: o Início, a agenda do dia com um atendimento, a ficha do
+cliente, a cobrança e o financeiro.
 
 ### Preço e disponibilidade
 
-Preço de download **Grátis**, só no Brasil, sem compras no app. O campo é
-só o valor para baixar na loja: a assinatura do negócio é cobrada por fora
-da Apple (pelo Mercado Pago), e o app no iPhone não fala dela.
+Preço de download **Grátis**, só no Brasil. Os planos são assinaturas
+dentro do app, compradas pela App Store (o grupo "Work Manage", com os 9
+planos).
 
 ### Privacidade do app
 
@@ -175,6 +206,7 @@ publicidade). Todos os dados abaixo são **vinculados ao usuário**.
 | Informações de contato › Número de telefone | Funcionalidade do app |
 | Informações de contato › Endereço físico | Funcionalidade do app |
 | Informações financeiras › Outras informações financeiras (pagamentos e caixa) | Funcionalidade do app |
+| Compras › Histórico de compras (a assinatura) | Funcionalidade do app |
 | Fotos ou vídeos (a logo) | Funcionalidade do app |
 | Identificadores › ID do usuário | Funcionalidade do app |
 | Uso › Interação com o produto (os eventos de uso) | Análise; Funcionalidade do app |
@@ -183,3 +215,6 @@ publicidade). Todos os dados abaixo são **vinculados ao usuário**.
 Não coletados: localização do aparelho, contatos da agenda do celular,
 histórico de navegação, dados de saúde, dados de falhas (não há
 Crashlytics nem similar).
+
+A URL da política fica nessa mesma seção (App Privacy), e as respostas só
+valem depois do **Publish**, no alto da página.
