@@ -266,10 +266,13 @@ class _AssinaturaPageState extends ConsumerState<AssinaturaPage> {
       for (final oferta in provider.ofertasDoPlano) ...[
         _Escolha(
           titulo: oferta.periodo.nome,
-          subtitulo: oferta.periodo == PeriodoDoPlano.mensal
-              ? '${oferta.precoTexto} por mês'
-              : '${oferta.precoTexto} · '
-                    '${formatarDinheiro(oferta.precoPorMes)} por mês',
+          subtitulo: switch (oferta) {
+            OfertaDePlano(periodo: PeriodoDoPlano.mensal) =>
+              '${oferta.precoTexto} por mês',
+            OfertaDePlano(:final String precoPorMesTexto) =>
+              '${oferta.precoTexto} · $precoPorMesTexto por mês',
+            _ => oferta.precoTexto,
+          },
           selecionado: provider.periodoEscolhido == oferta.periodo,
           selo: switch (provider.descontoDe(oferta)) {
             0 => null,
