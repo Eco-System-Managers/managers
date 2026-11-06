@@ -1,0 +1,38 @@
+{% extends "paginas/base.html" %}
+{% block titulo %}Suporte — Work Manage{% endblock %}
+{% block robots %}{% endblock %}
+{% block conteudo %}
+  <h1>Suporte</h1>
+
+  <p>
+    Precisa de ajuda com o <strong>Work Manage</strong>?
+    {% if email %}Escreva para <a href="mailto:{{ email }}">{{ email }}</a> contando o que aconteceu
+    e, se puder, mande um print da tela. Respondemos em até 2 dias úteis.{% endif %}
+  </p>
+
+  <h2>Não consigo entrar</h2>
+  <p>
+    Na tela de entrada do app, toque em <strong>Esqueci minha senha</strong>: um código chega no
+    seu e-mail para criar uma senha nova.
+  </p>
+
+  <h2>Assinatura</h2>
+  <p>
+    A assinatura é cobrada pela loja do celular. Para ver, trocar ou cancelar, abra no app
+    <strong>Mais › Assinatura › Gerenciar ou cancelar na loja</strong>, ou direto na loja: no
+    iPhone, em Ajustes › seu nome › Assinaturas; no Android, no Google Play › Pagamentos e
+    assinaturas › Assinaturas.
+  </p>
+  <p>
+    Trocou de celular? Entre com a mesma conta e toque em <strong>Restaurar compras</strong>, na
+    tela de assinatura.
+  </p>
+
+  <h2>Excluir a conta</h2>
+  <p>No app, em <strong>Mais › Excluir conta</strong>.</p>
+
+  <p class="suave">
+    Veja também os <a href="/termos">termos de uso</a> e a
+    <a href="/privacidade">política de privacidade</a>.
+  </p>
+{% endblock %}

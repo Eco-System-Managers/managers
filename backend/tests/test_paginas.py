@@ -182,3 +182,16 @@ class TestPrivacidade:
         assert 'Excluir conta' in resposta.text
         # a política é para ser achada: sem o noindex das outras páginas
         assert 'noindex' not in resposta.text
+
+
+@pytest.mark.django_db
+class TestSuporte:
+    def test_pagina_publica_com_o_email(self, navegador, settings):
+        settings.PRIVACIDADE_EMAIL = 'contato@exemplo.com'
+
+        resposta = navegador.get('/suporte')
+
+        assert resposta.status_code == 200
+        assert 'mailto:contato@exemplo.com' in resposta.text
+        assert 'Restaurar compras' in resposta.text
+        assert 'noindex' not in resposta.text

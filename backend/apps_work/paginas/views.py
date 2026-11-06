@@ -2,7 +2,8 @@
 
 Três links saem por e-mail ou redirect e, sem deep link no app, não teriam
 onde abrir: o convite da equipe, o contrato do cliente e a volta do checkout.
-A quarta é a política de privacidade, que as lojas exigem num link público.
+As outras são as que as lojas exigem num link público: a política de
+privacidade, os termos de uso e o suporte.
 As regras são as mesmas da API — estas views só recebem, delegam aos services
 e mostram o resultado.
 """
@@ -140,3 +141,13 @@ class TermosView(View):
             'limite_business': LIMITE_DA_EQUIPE[TipoPlano.BUSINESS],
             'limite_enterprise': LIMITE_DA_EQUIPE[TipoPlano.ENTERPRISE],
         })
+
+
+class SuporteView(View):
+    """A página de suporte, que a App Store exige num link público: o e-mail de
+    contato e as dúvidas comuns (senha, assinatura na loja, excluir a conta)."""
+
+    def get(self, request):
+        from django.conf import settings
+
+        return render(request, 'paginas/suporte.html', {'email': settings.PRIVACIDADE_EMAIL})
