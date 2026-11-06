@@ -5,7 +5,7 @@ cada um com o próprio `CLAUDE.md`.
 
 ## Lançamento nas lojas com assinatura — decisões e onde paramos
 
-Branch `feat/assinatura-lojas`. Estado em 2026-11-05.
+Já na `main` e na `dev`, e no ar. Estado em 2026-11-05, à noite.
 
 O `LANCAMENTO.md` (seção 4) ainda fala em Mercado Pago e em iPhone sem compra
 no app: vale o que está aqui.
@@ -61,41 +61,72 @@ pensar em desistir do projeto.
 
 ### O que está feito
 
-- **Código:** 3 commits nesta branch, sem push, com os testes passando. A
-  compra de verdade não foi testada, porque depende das contas. Como funciona:
-  `backend/apps_work/billing/CLAUDE.md` ("Venda nas lojas") e a feature
-  `assinatura` no `CLAUDE.md` do app.
-- **Apple:** contrato Paid Apps aceito, conta bancária e W-8BEN preenchidos
-  (sem tratado: o Brasil não tem com os EUA). Aguardando o status **Ativo**.
+- **Código e servidor:** a venda pelas lojas, a migration do billing (`0002`),
+  a chave pública do iPhone no app (`Env.revenueCatIos`), o preço por mês na
+  moeda da loja e a página `/suporte`, tudo na `main` e na `dev` e no ar. No
+  Railway: `REVENUECAT_SECRET_KEY` (a secreta da API **v1**),
+  `REVENUECAT_WEBHOOK_AUTH` e **`ASSINATURA_ABERTA=True`** (a venda está
+  aberta). Como funciona: `backend/apps_work/billing/CLAUDE.md` ("Venda nas
+  lojas") e a feature `assinatura` no `CLAUDE.md` do app.
+- **Testadores:** todos com **acesso vitalício** no admin. O APK antigo do
+  Android (`1.0.0+2`), com a venda aberta, mostra o item Assinatura do Mercado
+  Pago (o botão dá erro, nada cobra); o APK novo esconde, porque ainda não tem
+  a chave do Android.
+- **Apple:** contrato Paid Apps **ativo**. Pedido de inscrição no **Small
+  Business Program** enviado (comissão de 15%), esperando o e-mail.
+  - **Produtos:** um grupo de assinaturas, "Work Manage", com os 9 planos.
+    IDs `pro_mensal`, `pro_semestral`, `pro_anual`, `business_*` e
+    `enterprise_*` (os mesmos períodos); preço-base no Brasil, os da tabela
+    acima. Níveis do grupo: Enterprise 1, Business 2, Pro 3, cada um com os
+    três períodos no mesmo nível. Compra por empresa (Apple Business,
+    multiseat) não combina com a assinatura do negócio.
+  - **Avisos da Apple** (App Store Server Notifications, versão 2) para o
+    RevenueCat, em produção e sandbox. A chave de compra (`.p8`, In-App
+    Purchase) fica com o Wilson, fora do repositório.
+- **RevenueCat** (conta do Wilson): projeto Work Manage com o app **Work
+  Manage iOS** (`br.com.workmanage.app`); entitlements `pro`, `business` e
+  `enterprise`, cada um com os três produtos dele; offerings com os mesmos
+  nomes e os pacotes Monthly, Six Month e Annual; webhook em
+  `https://api.workmanage.com.br/api/v1/billing/webhook/revenuecat/`, em
+  produção e sandbox.
+- **Compra testada** no TestFlight: a loja cobra, o app libera na hora
+  (`sincronizar/`) e o webhook grava a cobrança. No TestFlight o mês dura um
+  dia, e as renovações de teste param sozinhas depois de alguns dias.
+- **Revisão da Apple enviada** em 2026-11-05: a versão 1.0 (build
+  `1.0.0+4`), os 9 planos e o grupo, com **liberação manual**. O negócio da
+  conta do revisor está em **Trial até 31/12/2027**, e não vitalício, porque
+  o vitalício não mostra os planos e o revisor precisa comprar um. Textos,
+  prints e respostas da página: `TEXTOS_DA_LOJA.md`.
+- **Google:** a conta do Renan está criada e o status de comerciante foi
+  declarado (União Europeia), com o `contato@workmanage.com.br`.
 
 ### Onde paramos
 
-O sócio estava criando a conta do **Google Play** (pessoal, nome do
-desenvolvedor "Work Manage") e tinha chegado ao questionário de experiência.
+A Apple está revisando. A conta do Google espera a verificação da identidade
+do Renan, para depois verificar o telefone.
 
-### Próximos passos, nesta ordem
+### Próximos passos
 
-1. **Google:** o sócio termina a conta (taxa de US$ 25, verificação do
-   documento, confirmação pelo app Play Console num celular Android) e, com ela
-   aprovada, convida o e-mail do Wilson como administrador.
-2. **Apple:** com o contrato Ativo, inscrever no **App Store Small Business
-   Program**, que baixa a comissão de 30% para 15%.
-3. **RevenueCat:** criar a conta (grátis).
-4. **Produtos:** cadastrar os 9 produtos nas lojas e configurar o RevenueCat
-   (entitlements, offerings e webhook), pelo roteiro de
-   `backend/apps_work/billing/CLAUDE.md`.
-5. **Google:** perfil de comerciante do sócio (conta bancária e dados fiscais).
-   O endereço dele pode passar a aparecer na página do app.
-6. **Migration do billing:** o `gateway` ganhou a opção `revenuecat`, e o
-   `makemigrations billing` gera um `AlterField` só das opções, sem mudar o
-   banco. Na sessão de 2026-11-05 ficou dito que não precisava: precisa. Quem
-   roda é o Wilson.
-7. **Servidor:** `REVENUECAT_SECRET_KEY` e `REVENUECAT_WEBHOOK_AUTH` no
-   Railway, e o deploy desta branch (o push é do Wilson).
-8. **App:** as chaves públicas `REVENUECAT_IOS_KEY` e `REVENUECAT_ANDROID_KEY`.
-   Sem elas o app não mostra a venda.
-9. **Termos de uso:** revisar o rascunho de `/termos`.
-10. **Testes:** o teste fechado do Google (12 testadores, 14 dias) e uma compra
-    de teste em cada loja.
-11. **Abrir a venda:** `ASSINATURA_ABERTA=True` no Railway, sem atualizar o
-    app.
+1. **Apple respondeu:** se aprovou, vocês escolhem o dia e publicam (a
+   liberação é manual). Se reprovou, a mensagem diz o motivo. Enquanto a
+   revisão corre, a conta do revisor e o `ASSINATURA_ABERTA` não mudam.
+2. **Small Business Program aprovado:** no RevenueCat, no app Work Manage
+   iOS, ligar a opção do programa com a data da aprovação (só muda os
+   relatórios).
+3. **Google**, quando a verificação sair, em ordem:
+   1. o Renan verifica o telefone e convida o e-mail do Wilson como
+      administrador;
+   2. o app no Play Console e o primeiro build (AAB) num teste fechado, porque
+      o Google só deixa criar assinatura depois de um build;
+   3. as assinaturas `pro`, `business` e `enterprise`, cada uma com os planos
+      básicos mensal, semestral e anual, e o perfil de comerciante do Renan
+      (conta bancária e dados fiscais);
+   4. no RevenueCat, o app Android (com a conta de serviço do Google) e os
+      produtos do Google nos pacotes que já existem; os entitlements, as
+      offerings e o webhook servem às duas lojas;
+   5. a chave pública do Android (`goog_...`) no `defaultValue` de
+      `REVENUECAT_ANDROID_KEY`, num build novo;
+   6. o teste fechado com 12 testadores por 14 dias seguidos, e uma compra de
+      teste.
+4. **Testadores do Android:** um APK novo (o atual é o `1.0.0+2`).
+5. **Termos de uso:** revisar o rascunho de `/termos`.
