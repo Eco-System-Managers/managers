@@ -195,3 +195,17 @@ class TestSuporte:
         assert 'mailto:contato@exemplo.com' in resposta.text
         assert 'Restaurar compras' in resposta.text
         assert 'noindex' not in resposta.text
+
+
+@pytest.mark.django_db
+class TestExcluirConta:
+    def test_pagina_publica_com_o_app_e_o_email(self, navegador, settings):
+        settings.PRIVACIDADE_EMAIL = 'contato@exemplo.com'
+
+        resposta = navegador.get('/excluir-conta')
+
+        assert resposta.status_code == 200
+        assert 'Mais › Excluir conta' in resposta.text
+        assert 'mailto:contato@exemplo.com' in resposta.text
+        assert '30 dias' in resposta.text
+        assert 'noindex' not in resposta.text

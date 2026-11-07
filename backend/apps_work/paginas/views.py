@@ -3,7 +3,7 @@
 Três links saem por e-mail ou redirect e, sem deep link no app, não teriam
 onde abrir: o convite da equipe, o contrato do cliente e a volta do checkout.
 As outras são as que as lojas exigem num link público: a política de
-privacidade, os termos de uso e o suporte.
+privacidade, os termos de uso, o suporte e a exclusão da conta.
 As regras são as mesmas da API — estas views só recebem, delegam aos services
 e mostram o resultado.
 """
@@ -151,3 +151,13 @@ class SuporteView(View):
         from django.conf import settings
 
         return render(request, 'paginas/suporte.html', {'email': settings.PRIVACIDADE_EMAIL})
+
+
+class ExcluirContaView(View):
+    """Como excluir a conta, que o Google Play exige num link público: pelo app
+    ou, sem ele, por e-mail; o que é apagado e em quanto tempo."""
+
+    def get(self, request):
+        from django.conf import settings
+
+        return render(request, 'paginas/excluir_conta.html', {'email': settings.PRIVACIDADE_EMAIL})

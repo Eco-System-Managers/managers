@@ -1,0 +1,53 @@
+{% extends "paginas/base.html" %}
+{% block titulo %}Excluir a conta — Work Manage{% endblock %}
+{% block robots %}{% endblock %}
+{% block conteudo %}
+  <h1>Excluir a conta</h1>
+
+  <p>
+    Você pode excluir a sua conta do <strong>Work Manage</strong> pelo app ou, sem o app, pedindo
+    por e-mail.
+  </p>
+
+  <h2>Pelo app</h2>
+  <p>Entre no app, abra <strong>Mais › Excluir conta</strong> e confirme com a sua senha.</p>
+
+  {% if email %}
+  <h2>Por e-mail</h2>
+  <p>
+    Escreva para <a href="mailto:{{ email }}?subject=Excluir%20conta">{{ email }}</a> a partir do
+    e-mail da conta, com o assunto <strong>Excluir conta</strong>. Respondemos em até 2 dias úteis
+    confirmando o pedido.
+  </p>
+  {% endif %}
+
+  <h2>O que é apagado</h2>
+  <ul>
+    <li>
+      Da conta do proprietário: o negócio inteiro, com os clientes, a agenda, os serviços, as
+      cobranças, o caixa e os acessos da equipe.
+    </li>
+    <li>
+      De alguém da equipe: só o acesso dessa pessoa. O nome continua no histórico de atendimentos
+      do negócio, que é do proprietário.
+    </li>
+  </ul>
+
+  <h2>Prazo</h2>
+  <p>
+    A conta é travada na hora do pedido e os dados são apagados em até 30 dias. Entrar de novo
+    antes disso cancela o pedido. Cópias de segurança podem guardar dados por mais algum tempo,
+    até serem substituídas.
+  </p>
+
+  <h2>Assinatura</h2>
+  <p>
+    Excluir a conta <strong>não cancela</strong> uma assinatura feita na loja: cancele antes, no
+    Google Play ou nos ajustes da App Store.
+  </p>
+
+  <p class="suave">
+    Veja também a <a href="/privacidade">política de privacidade</a> e o
+    <a href="/suporte">suporte</a>.
+  </p>
+{% endblock %}

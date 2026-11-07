@@ -1,6 +1,14 @@
 from django.urls import path
 
-from .views import ContratoView, ConviteView, PrivacidadeView, RetornoPagamentoView, SuporteView, TermosView
+from .views import (
+    ContratoView,
+    ConviteView,
+    ExcluirContaView,
+    PrivacidadeView,
+    RetornoPagamentoView,
+    SuporteView,
+    TermosView,
+)
 
 # Os caminhos são os de core/links.py, sem barra no fim: é como saem nos
 # e-mails e no redirect do checkout.
@@ -11,4 +19,5 @@ urlpatterns = [
     path('privacidade', PrivacidadeView.as_view(), name='pagina-privacidade'),
     path('termos', TermosView.as_view(), name='pagina-termos'),
     path('suporte', SuporteView.as_view(), name='pagina-suporte'),
+    path('excluir-conta', ExcluirContaView.as_view(), name='pagina-excluir-conta'),
 ]
