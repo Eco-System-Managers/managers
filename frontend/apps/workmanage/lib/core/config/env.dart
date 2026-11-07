@@ -14,15 +14,15 @@ class Env {
   );
 
   // as chaves públicas do RevenueCat (a compra nas lojas), uma por loja. são
-  // feitas para ir no app e ficam no defaultValue, como a URL da API (a do
-  // Android entra quando a conta do Google existir). sem a chave da
-  // plataforma, o app não vende (lojaConfigurada)
+  // feitas para ir no app e ficam no defaultValue, como a URL da API. sem a
+  // chave da plataforma, o app não vende (lojaConfigurada)
   static const revenueCatIos = String.fromEnvironment(
     'REVENUECAT_IOS_KEY',
     defaultValue: 'appl_dFPlUKfXpaYSVpJNdVnONdJzLxM',
   );
   static const revenueCatAndroid = String.fromEnvironment(
     'REVENUECAT_ANDROID_KEY',
+    defaultValue: 'goog_RqBRHPteyCiDYGGWjOdmDWiAsUn',
   );
 
   static String get revenueCatKey => switch (defaultTargetPlatform) {
